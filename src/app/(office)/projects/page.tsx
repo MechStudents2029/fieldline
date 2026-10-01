@@ -1,0 +1,39 @@
+import Link from "next/link";
+import { getSession } from "@/lib/auth/session";
+import { formatBps, formatMoney } from "@/lib/money";
+import { canSeeMoney } from "@/lib/permissions";
+import { listProjects } from "@/lib/services/read";
+
+export default async function ProjectsPage() {
+  const session = (await getSession())!;
+  const rows = listProjects(session.orgId);
+  const money = canSeeMoney(session.role);
+  return (
+    <div className="flex flex-col gap-4">
+      <h1 className="font-heading text-3xl">Jobs</h1>
+      {rows.length === 0 ? <p className="text-sm text-muted-foreground">Signed proposals show up here with a budget snapshot.</p> : null}
+      <ul className="flex flex-col gap-3">
+        {rows.map((row) => (
+          <li key={row.project.id}>
+            <Link href={`/projects/${row.project.id}`} className="block rounded-xl bg-card p-4 ring-1 ring-foreground/10">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="font-medium">{row.project.name}</p>
+                  <p className="text-xs text-muted-foreground">{row.project.address} · {row.project.status}</p>
+                </div>
+                {money ? (
+                  <p className={row.alert ? "text-copper" : ""}>
+                    {formatBps(row.marginBps)}
+                    <span className="block text-right text-xs text-muted-foreground">{formatMoney(row.project.contractValueCents)}</span>
+                  </p>
+                ) : (
+                  <p className="text-xs text-muted-foreground">Money hidden</p>
+                )}
+              </div>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}

@@ -1,0 +1,41 @@
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { getSession } from "@/lib/auth/session";
+import { listContacts } from "@/lib/services/read";
+
+export default async function ContactsPage({ searchParams }: { searchParams: Promise<{ q?: string; type?: string }> }) {
+  const session = (await getSession())!;
+  const query = await searchParams;
+  const rows = listContacts(session.orgId, query.q, query.type);
+  return (
+    <div className="flex flex-col gap-4">
+      <h1 className="font-heading text-3xl">Contacts</h1>
+      <form className="grid gap-2 sm:grid-cols-[1fr_160px_auto]">
+        <input name="q" defaultValue={query.q} placeholder="Name, company, or email" className="field" />
+        <select name="type" defaultValue={query.type || ""} className="field">
+          <option value="">All types</option>
+          <option value="client">Clients</option>
+          <option value="sub">Subs</option>
+          <option value="vendor">Vendors</option>
+        </select>
+        <Button type="submit" variant="outline" className="h-11">
+          Search
+        </Button>
+      </form>
+      {rows.length === 0 ? <p className="text-sm text-muted-foreground">No contacts match.</p> : null}
+      <ul className="divide-y divide-border rounded-xl bg-card ring-1 ring-foreground/10">
+        {rows.map((contact) => (
+          <li key={contact.id}>
+            <Link href={`/contacts/${contact.id}`} className="flex items-center justify-between px-4 py-3">
+              <span>
+                <span className="font-medium">{contact.name}</span>
+                <span className="block text-xs text-muted-foreground">{contact.company || contact.email || contact.city}</span>
+              </span>
+              <span className="text-xs uppercase text-muted-foreground">{contact.type}</span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
