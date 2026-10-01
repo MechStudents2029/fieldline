@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { getSession } from "@/lib/auth/session";
+import { requireSession } from "@/lib/auth/session";
 import { listContacts } from "@/lib/services/read";
 
 export default async function ContactsPage({ searchParams }: { searchParams: Promise<{ q?: string; type?: string }> }) {
-  const session = (await getSession())!;
+  const session = await requireSession();
   const query = await searchParams;
   const rows = listContacts(session.orgId, query.q, query.type);
   return (

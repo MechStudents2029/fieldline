@@ -1,5 +1,6 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import { actorFromIds, type Actor } from "@/lib/services/read";
 
 const COOKIE = "fieldline_session";
@@ -34,6 +35,12 @@ export async function setSession(actor: Actor) {
 export async function clearSession() {
   const jar = await cookies();
   jar.delete(COOKIE);
+}
+
+export async function requireSession(): Promise<Actor> {
+  const session = await getSession();
+  if (!session) redirect("/login");
+  return session;
 }
 
 export async function getSession(): Promise<Actor | null> {

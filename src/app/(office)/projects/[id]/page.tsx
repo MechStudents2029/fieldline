@@ -1,18 +1,18 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
 import { addCostAction, createCoAction, issueInvoiceAction, photoAction, receiptAction } from "@/app/actions";
 import { ActionForm } from "@/components/action-form";
+import { MissingRecord } from "@/components/missing-record";
 import { Button } from "@/components/ui/button";
-import { getSession } from "@/lib/auth/session";
+import { requireSession } from "@/lib/auth/session";
 import { formatDateTime } from "@/lib/format";
 import { formatBps, formatMoney } from "@/lib/money";
 import { projectDetail } from "@/lib/services/read";
 
 export default async function ProjectPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const session = (await getSession())!;
+  const session = await requireSession();
   const detail = projectDetail(session.orgId, id, session.role);
-  if (!detail?.contact) notFound();
+  if (!detail?.contact) return <MissingRecord orgName={session.orgName} kind="job" />;
   const money = detail.financials;
   return (
     <div className="flex flex-col gap-5">

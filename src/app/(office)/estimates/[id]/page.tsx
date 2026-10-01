@@ -1,21 +1,21 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
 import { addLineAction, removeLineAction, reviseAction, sendProposalAction, updateLineAction } from "@/app/actions";
 import { ActionForm } from "@/components/action-form";
+import { MissingRecord } from "@/components/missing-record";
 import { Button } from "@/components/ui/button";
-import { getSession } from "@/lib/auth/session";
+import { requireSession } from "@/lib/auth/session";
 import { formatBps, formatMoney, formatQty, milliToQty } from "@/lib/money";
 import { canSeeMoney } from "@/lib/permissions";
 import { estimateDetail } from "@/lib/services/read";
 
 export default async function EstimatePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const session = (await getSession())!;
+  const session = await requireSession();
   if (!canSeeMoney(session.role)) {
     return <p>Pricing is hidden for field roles.</p>;
   }
   const detail = estimateDetail(session.orgId, id);
-  if (!detail) notFound();
+  if (!detail) return <MissingRecord orgName={session.orgName} kind="estimate" />;
   const under = detail.marginBps != null && detail.marginBps < detail.estimate.marginTargetBps;
   return (
     <div className="flex flex-col gap-5">

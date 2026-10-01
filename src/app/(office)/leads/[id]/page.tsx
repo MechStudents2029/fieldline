@@ -1,9 +1,9 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
 import { generateEstimateAction, moveLeadFormAction, noteAction, taskAction } from "@/app/actions";
+import { MissingRecord } from "@/components/missing-record";
 import { ActionForm } from "@/components/action-form";
 import { Button } from "@/components/ui/button";
-import { getSession } from "@/lib/auth/session";
+import { requireSession } from "@/lib/auth/session";
 import { formatDateTime } from "@/lib/format";
 import { formatMoney } from "@/lib/money";
 import { canSeeMoney } from "@/lib/permissions";
@@ -11,9 +11,9 @@ import { leadDetail, pipelineBoard } from "@/lib/services/read";
 
 export default async function LeadPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const session = (await getSession())!;
+  const session = await requireSession();
   const detail = leadDetail(session.orgId, id);
-  if (!detail?.contact) notFound();
+  if (!detail?.contact) return <MissingRecord orgName={session.orgName} kind="lead" />;
   const board = pipelineBoard(session.orgId);
   const money = canSeeMoney(session.role);
   const latest = detail.estimates.find((estimate) => estimate.status !== "void");

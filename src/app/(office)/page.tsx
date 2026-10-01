@@ -1,14 +1,14 @@
 import Link from "next/link";
 import { completeTaskAction } from "@/app/actions";
 import { Button } from "@/components/ui/button";
-import { getSession } from "@/lib/auth/session";
+import { requireSession } from "@/lib/auth/session";
 import { formatDate } from "@/lib/format";
 import { formatBps, formatMoney } from "@/lib/money";
 import { canSeeMoney } from "@/lib/permissions";
 import { dashboard, leadDetail } from "@/lib/services/read";
 
 export default async function TodayPage() {
-  const session = (await getSession())!;
+  const session = await requireSession();
   const data = dashboard(session.orgId);
   const money = canSeeMoney(session.role);
   const vasquez = leadDetail(session.orgId, "lead_vasquez");

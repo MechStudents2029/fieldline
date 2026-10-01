@@ -1,11 +1,11 @@
 import Link from "next/link";
-import { getSession } from "@/lib/auth/session";
+import { requireSession } from "@/lib/auth/session";
 import { formatBps, formatMoney } from "@/lib/money";
 import { canSeeMoney } from "@/lib/permissions";
 import { listProjects } from "@/lib/services/read";
 
 export default async function ProjectsPage() {
-  const session = (await getSession())!;
+  const session = await requireSession();
   const rows = listProjects(session.orgId);
   const money = canSeeMoney(session.role);
   return (

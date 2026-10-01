@@ -1,10 +1,10 @@
-import { getSession } from "@/lib/auth/session";
+import { requireSession } from "@/lib/auth/session";
 import { formatMoney } from "@/lib/money";
 import { canSeeMoney } from "@/lib/permissions";
 import { listPriceBook } from "@/lib/services/read";
 
 export default async function PriceBookPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
-  const session = (await getSession())!;
+  const session = await requireSession();
   const query = await searchParams;
   const rows = listPriceBook(session.orgId, query.q);
   const money = canSeeMoney(session.role);

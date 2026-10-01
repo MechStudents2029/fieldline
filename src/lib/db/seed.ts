@@ -44,7 +44,7 @@ import { achFeeCents, qtyToMilli } from "@/lib/money";
 import { DEMO_PASSWORD } from "@/lib/product";
 import { proposalNudgeCopy } from "@/lib/ai/nurture";
 
-export const SEED_VERSION = "1";
+export const SEED_VERSION = "2";
 
 const ORG = "org_rivera";
 const NORTH = "org_northline";

@@ -1,12 +1,12 @@
 import { settingsAction } from "@/app/actions";
 import { ActionForm } from "@/components/action-form";
 import { Button } from "@/components/ui/button";
-import { getSession } from "@/lib/auth/session";
+import { requireSession } from "@/lib/auth/session";
 import { canManageSettings } from "@/lib/permissions";
 import { getOrg, integrations, staff } from "@/lib/services/read";
 
 export default async function SettingsPage() {
-  const session = (await getSession())!;
+  const session = await requireSession();
   const org = getOrg(session.orgId);
   const connections = integrations(session.orgId);
   const people = staff(session.orgId);

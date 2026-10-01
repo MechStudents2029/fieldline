@@ -1,11 +1,11 @@
 import Link from "next/link";
-import { getSession } from "@/lib/auth/session";
+import { requireSession } from "@/lib/auth/session";
 import { formatMoney } from "@/lib/money";
 import { canSeeMoney } from "@/lib/permissions";
 import { listInvoices } from "@/lib/services/read";
 
 export default async function InvoicesPage() {
-  const session = (await getSession())!;
+  const session = await requireSession();
   if (!canSeeMoney(session.role)) return <p>Invoices are hidden for the field role.</p>;
   const rows = listInvoices(session.orgId);
   return (

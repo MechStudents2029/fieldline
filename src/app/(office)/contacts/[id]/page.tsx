@@ -1,14 +1,14 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
-import { getSession } from "@/lib/auth/session";
+import { MissingRecord } from "@/components/missing-record";
+import { requireSession } from "@/lib/auth/session";
 import { formatDateTime } from "@/lib/format";
 import { contactDetail } from "@/lib/services/read";
 
 export default async function ContactPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const session = (await getSession())!;
+  const session = await requireSession();
   const detail = contactDetail(session.orgId, id);
-  if (!detail) notFound();
+  if (!detail) return <MissingRecord orgName={session.orgName} kind="contact" />;
   return (
     <div className="flex flex-col gap-4">
       <div>

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { PipelineBoard } from "@/components/pipeline-board";
 import { Button } from "@/components/ui/button";
-import { getSession } from "@/lib/auth/session";
+import { requireSession } from "@/lib/auth/session";
 import { canSeeMoney } from "@/lib/permissions";
 import { pipelineBoard } from "@/lib/services/read";
 
@@ -10,7 +10,7 @@ export default async function PipelinePage({
 }: {
   searchParams: Promise<{ q?: string; source?: string }>;
 }) {
-  const session = (await getSession())!;
+  const session = await requireSession();
   const query = await searchParams;
   const board = pipelineBoard(session.orgId, { q: query.q, source: query.source });
   return (

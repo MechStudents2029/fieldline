@@ -1,12 +1,12 @@
 import { approveDraftAction, dismissDraftAction } from "@/app/actions";
 import { ActionForm } from "@/components/action-form";
 import { Button } from "@/components/ui/button";
-import { getSession } from "@/lib/auth/session";
+import { requireSession } from "@/lib/auth/session";
 import { listDrafts } from "@/lib/services/read";
 import { scanFollowUps } from "@/lib/services/write";
 
 export default async function FollowUpsPage() {
-  const session = (await getSession())!;
+  const session = await requireSession();
   scanFollowUps(session.orgId);
   const drafts = listDrafts(session.orgId);
   const pending = drafts.filter((draft) => draft.status === "pending");
