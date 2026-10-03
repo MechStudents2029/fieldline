@@ -833,7 +833,7 @@ export function payInvoice(input: {
         stripePaymentIntent: `pi_mock_${paymentId}`,
         idempotencyKey: input.idempotencyKey,
         failureReason: decision.ok ? null : decision.reason,
-        stub: process.env.STRIPE_SECRET_KEY ? 0 : 1,
+        stub: 1,
         createdAt: now,
         updatedAt: now,
       })

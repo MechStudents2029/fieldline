@@ -23,3 +23,9 @@
 ### CI
 
 - `npm run check` runs lint, `tsc --noEmit`, tests, and `next build`.
+
+### Stripe test mode
+
+- With `sk_test_` and `pk_test_`, the pay page creates one PaymentIntent per invoice and amount (ACH first, card optional) and stores the id on the payment row.
+- A verified `payment_intent.succeeded` webhook marks the invoice paid once. Processing and failed events do not.
+- Empty Stripe keys keep the local test-number mirror. Live keys are refused. Connect and platform fees are not wired.

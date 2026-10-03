@@ -49,7 +49,7 @@ Set these in the Vercel project (Production and Preview). Empty means the stub s
 | `AI_ESTIMATE_MODEL` | Optional | Default `anthropic/claude-sonnet-4.5`. |
 | `RESEND_API_KEY`, `RESEND_FROM` | Leave empty | Empty appends mail to the outbox file on `/tmp`. |
 | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER` | Leave empty | SMS stays off until all three are set. 10DLC is not registered. |
-| `STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET` | Leave empty | Test-mode keys only. Charges stay on the local test-number mirror until a Connect charge is wired. |
+| `STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET` | Leave empty | Test keys only (`sk_test_` / `pk_test_` / `whsec_`). Empty keeps the local test-number mirror. Set all three to create a PaymentIntent. Live keys are refused. |
 | `CRON_SECRET` | Set this | `GET /api/cron/follow-ups` with `Authorization: Bearer ...`. Required on Vercel. Empty is local dev only. |
 
 `GET /api/health` reports `database: "sqlite-tmp"` on Vercel, `database: "sqlite-file"` locally, and `database: "postgres"` when `DATABASE_URL` is set.
@@ -123,6 +123,21 @@ Payment test numbers (local mirror of Stripe test values; nothing is charged):
 
 ACH fee in the ledger is 0.8% capped at $5. Card is 2.9% + $0.30. A second submit with the same details is ignored. Change the account and it tries again.
 
+### Stripe test mode
+
+Leave the three Stripe variables empty and the pay page stays the local mirror above. `GET /api/health` reports `mode: "demo"`.
+
+To charge a Stripe test PaymentIntent (no live key, no platform fee, no Connect):
+
+1. In the Stripe dashboard, copy a test secret (`sk_test_…`) and a test publishable key (`pk_test_…`).
+2. Forward events: `stripe listen --forward-to http://127.0.0.1:3847/api/stripe/webhook`. Put the CLI `whsec_…` in `STRIPE_WEBHOOK_SECRET`.
+3. Restart `npm run dev`. Health reports `mode: "stripe"`.
+4. Open [/pay/demo_pay_chen_deposit](http://127.0.0.1:3847/pay/demo_pay_chen_deposit). The page creates one PaymentIntent for that invoice and amount. A second load reuses it.
+5. Pay with bank account (ACH) first. In test mode Stripe's Financial Connections flow offers **Test Institution**. A card (`4242 4242 4242 4242`) is offered when the company allows cards.
+6. ACH can stay processing. The invoice is marked paid only when a verified `payment_intent.succeeded` webhook arrives. Refresh after the CLI prints that event.
+
+`sk_live_` and `pk_live_` are refused. If `STRIPE_SECRET_KEY` is set and Stripe or the publishable key fails, the page shows that error and does not fall back to the local test numbers. Funds land on the Stripe account that owns the key. There is no connected contractor account and no application fee. If that account cannot create `us_bank_account` PaymentIntents, the page shows Stripe's error.
+
 ## Keys and accounts
 
 Copy `.env.example` to `.env.local`. Empty values are the supported demo. Put real values only in `.env.local`, Vercel project env, or Cursor secrets. Never commit them.
@@ -134,7 +149,7 @@ Copy `.env.example` to `.env.local`. Empty values are the supported demo. Put re
 | `AI_ESTIMATE_MODEL` | Gateway model id | same | Optional. Default `anthropic/claude-sonnet-4.5`. |
 | `RESEND_API_KEY`, `RESEND_FROM` | Resend + a verified domain (SPF/DKIM/DMARC) | same | Optional. Empty writes `data/outbox/email.jsonl`. |
 | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER` | Twilio. 10DLC brand and campaign need an EIN, website, and sample messages | same | Optional. SMS is off until all three are set. Do not send at scale. |
-| `STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET` | Stripe Connect platform, **test mode only** | same | Optional. Charges stay on the local test-number mirror. The webhook verifies signatures only when the secret is set. |
+| `STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET` | Stripe **test mode** (`sk_test_`, `pk_test_`, `whsec_`) | same | Optional. Empty keeps the local test-number mirror. All three turn on a PaymentIntent plus a verified webhook. Live keys are refused. |
 | `CRON_SECRET` | You generate it | Vercel cron + `.env.local` | Optional. `GET /api/cron/follow-ups` with `Authorization: Bearer ...`. |
 | `DATABASE_URL` | Supabase Postgres connection string (direct or session pooler) | Vercel + Cursor secrets, not git | Leave empty for SQLite. A postgres URL migrates and seeds on boot. See Durable database. |
 | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` | Supabase org, separate dev and prod projects | Vercel + Cursor secrets, not git | Not read by this build. Apply `supabase/rls.sql` when you move the schema to Postgres. |
@@ -193,7 +208,7 @@ Feedback: file a GitHub issue with steps, expected, actual, screenshot, and devi
 
 - AI Gateway: local keyword matcher. A key may choose codes and quantities; prices still come from the book.
 - Email and SMS: JSONL outbox. Resend and Twilio send only when their variables are set.
-- Stripe: local decisions that copy Stripe's published test numbers. No Connect onboarding, no real PaymentIntent, no platform fee. Webhook signature checks turn on with `STRIPE_WEBHOOK_SECRET`.
+- Stripe without keys: local decisions that copy Stripe's published test numbers. With `sk_test_` / `pk_test_` / `whsec_`, the pay page creates a test PaymentIntent and the webhook marks the invoice paid. No Connect onboarding and no platform fee. Unsigned webhooks are rejected on a public deploy unless `FIELDLINE_ALLOW_DEMO_WEBHOOK=1`.
 - E-sign: in-house record, not Dropbox Sign or DocuSign. Consent copy is not attorney-reviewed.
 - Auth: cookie session. Supabase Auth is not wired. The database is SQLite unless `DATABASE_URL` is set, in which case Postgres is migrated and seeded on boot. Locally the file is `data/fieldline.db`. On Vercel, with no `DATABASE_URL`, it is `/tmp/fieldline/fieldline.db`, seeded per cold start. Apply `supabase/rls.sql` yourself on the hosted database.
 - File storage: `public/demo` and the writable data directory (`data/` locally, `/tmp/fieldline` on Vercel), not Supabase Storage.
@@ -203,7 +218,7 @@ Feedback: file a GitHub issue with steps, expected, actual, screenshot, and devi
 - QuickBooks sync (CSV is the stand-in), lien waivers, plan takeoff, bill pay, and cards as a product
 - Twilio 10DLC registration and quiet-hours enforcement beyond storing STOP
 - Production Supabase Auth and Supabase Storage. Hosted Postgres works when you set `DATABASE_URL`.
-- A live Stripe Connect direct charge
+- A live Stripe Connect direct charge (test PaymentIntents bill the account that owns the key)
 - Attorney-reviewed home-improvement contracts and state deposit rules
 - Sentry, PostHog, and a Figma file for this UI
 

@@ -20,7 +20,7 @@ import {
   updateLine,
 } from "@/lib/services/write";
 import { getDb } from "@/lib/db/client";
-import { documents, proposals } from "@/lib/db/schema";
+import { documents, payments, proposals } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { lineAmounts } from "@/lib/money";
 import { canSeeMoney } from "@/lib/permissions";
@@ -97,6 +97,9 @@ describe("kitchen remodel through margin", () => {
       idempotencyKey: "kitchen-deposit-1",
     });
     expect(paid.ok).toBe(true);
+    const paymentRow = getDb().select().from(payments).where(eq(payments.id, paid.paymentId!)).get();
+    expect(paymentRow?.stub).toBe(1);
+    expect(paymentRow?.stripePaymentIntent?.startsWith("pi_mock_")).toBe(true);
     const again = payInvoice({
       token: signed.payToken,
       method: "ach",

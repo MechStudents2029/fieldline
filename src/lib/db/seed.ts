@@ -1151,7 +1151,7 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
 
   db.insert(integrationConnections)
     .values([
-      { id: "int_stripe", orgId: ORG, provider: "stripe", status: "stub", label: "Stripe Connect test mode is stubbed until STRIPE_SECRET_KEY is set", createdAt: created, updatedAt: now },
+      { id: "int_stripe", orgId: ORG, provider: "stripe", status: "stub", label: "Local test-number mirror until STRIPE_SECRET_KEY is set. Connect is not wired.", createdAt: created, updatedAt: now },
       { id: "int_resend", orgId: ORG, provider: "resend", status: "stub", label: "Email is written to the local outbox until RESEND_API_KEY is set", createdAt: created, updatedAt: now },
       { id: "int_twilio", orgId: ORG, provider: "twilio", status: "not_configured", label: "SMS stays in approval drafts until Twilio and 10DLC are ready", createdAt: created, updatedAt: now },
       { id: "int_qbo", orgId: ORG, provider: "qbo", status: "not_connected", label: "CSV export stands in for QuickBooks until v1.1", createdAt: created, updatedAt: now },

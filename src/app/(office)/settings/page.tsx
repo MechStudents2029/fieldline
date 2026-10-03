@@ -5,6 +5,20 @@ import { requireSession } from "@/lib/auth/session";
 import { canManageSettings } from "@/lib/permissions";
 import { getOrg, integrations, staff } from "@/lib/services/read";
 
+function stripeConnection<T extends { provider: string; status: string; label: string | null }>(connection: T): T {
+  if (connection.provider !== "stripe") return connection;
+  const secret = process.env.STRIPE_SECRET_KEY || "";
+  if (!secret) return connection;
+  if (secret.startsWith("sk_live") || secret.startsWith("rk_live")) {
+    return { ...connection, status: "refused", label: "Live Stripe keys are refused. Use an sk_test_ key. Connect is not wired." };
+  }
+  return {
+    ...connection,
+    status: "test",
+    label: "Test-mode PaymentIntents. Connect is not wired, so funds land on the Stripe account that owns the key.",
+  };
+}
+
 export default async function SettingsPage() {
   const session = await requireSession();
   const org = getOrg(session.orgId);
@@ -54,14 +68,17 @@ export default async function SettingsPage() {
       <section>
         <h2 className="font-medium">Connections</h2>
         <ul className="mt-2 space-y-2 text-sm">
-          {connections.map((connection) => (
-            <li key={connection.id} className="rounded-lg bg-card p-3 ring-1 ring-foreground/10">
-              <p className="font-medium">
-                {connection.provider} · {connection.status}
-              </p>
-              <p className="text-xs text-muted-foreground">{connection.label}</p>
-            </li>
-          ))}
+          {connections.map((connection) => {
+            const shown = stripeConnection(connection);
+            return (
+              <li key={connection.id} className="rounded-lg bg-card p-3 ring-1 ring-foreground/10">
+                <p className="font-medium">
+                  {shown.provider} · {shown.status}
+                </p>
+                <p className="text-xs text-muted-foreground">{shown.label}</p>
+              </li>
+            );
+          })}
         </ul>
         <p className="mt-3 text-sm">
           <a className="underline" href="/api/export/invoices">

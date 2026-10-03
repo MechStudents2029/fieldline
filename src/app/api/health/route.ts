@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { databaseKind } from "@/lib/db/paths";
+import { paymentMode } from "@/lib/payments/intent";
 import { PRODUCT_NAME } from "@/lib/product";
 
 export function GET() {
@@ -13,7 +14,7 @@ export function GET() {
   return NextResponse.json({
     ok: true,
     product: PRODUCT_NAME,
-    mode: process.env.STRIPE_SECRET_KEY ? "stripe" : "demo",
+    mode: paymentMode(process.env),
     database,
   });
 }

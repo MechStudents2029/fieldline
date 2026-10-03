@@ -1,16 +1,27 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PayForm } from "@/components/pay-form";
+import { StripePayForm } from "@/components/stripe-pay-form";
 import { formatMoney } from "@/lib/money";
+import { ensureStripePaymentIntent } from "@/lib/payments/intent";
+import { ServiceError } from "@/lib/services/errors";
 import { invoiceByPayToken } from "@/lib/services/read";
 
 export const dynamic = "force-dynamic";
 
-export default async function PayPage({ params }: { params: Promise<{ token: string }> }) {
+export default async function PayPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ token: string }>;
+  searchParams: Promise<{ redirect_status?: string }>;
+}) {
   const { token } = await params;
+  const { redirect_status: redirectStatus } = await searchParams;
   const data = invoiceByPayToken(token);
   if (!data?.invoice || !data.org || !data.project) notFound();
   const paid = data.invoice.status === "paid";
+  const stripeOn = Boolean(process.env.STRIPE_SECRET_KEY);
   return (
     <main className="mx-auto min-h-screen max-w-lg px-4 py-8">
       <p className="text-xs uppercase tracking-wide text-muted-foreground">{data.org.name}</p>
@@ -35,15 +46,9 @@ export default async function PayPage({ params }: { params: Promise<{ token: str
         </p>
       ) : null}
       {paid ? (
-        <section className="mt-6 rounded-xl bg-primary p-4 text-primary-foreground">
-          <h2 className="font-heading text-2xl">Paid</h2>
-          <p className="text-sm">Thank you. The contractor has the receipt in Fieldline.</p>
-          {data.payments[0] ? (
-            <p className="mt-2 text-xs opacity-80">
-              {data.payments[0].method.toUpperCase()} · {formatMoney(data.payments[0].amountCents)} · fee {formatMoney(data.payments[0].feeCents)} kept by the processor, not added to your total.
-            </p>
-          ) : null}
-        </section>
+        <PaidNote payments={data.payments} />
+      ) : stripeOn ? (
+        <StripeCheckout token={token} redirectStatus={redirectStatus} />
       ) : (
         <section className="mt-6">
           <PayForm token={token} cardEnabled={data.org.cardEnabled === 1} />
@@ -55,5 +60,72 @@ export default async function PayPage({ params }: { params: Promise<{ token: str
         </p>
       ) : null}
     </main>
+  );
+}
+
+function PaidNote({
+  payments,
+}: {
+  payments: Array<{ method: string; amountCents: number; feeCents: number }>;
+}) {
+  return (
+    <section className="mt-6 rounded-xl bg-primary p-4 text-primary-foreground">
+      <h2 className="font-heading text-2xl">Paid</h2>
+      <p className="text-sm">Thank you. The contractor has the receipt in Fieldline.</p>
+      {payments[0] ? (
+        <p className="mt-2 text-xs opacity-80">
+          {payments[0].method.toUpperCase()} · {formatMoney(payments[0].amountCents)} · fee {formatMoney(payments[0].feeCents)} kept by the processor, not added to your total.
+        </p>
+      ) : null}
+    </section>
+  );
+}
+
+async function StripeCheckout({ token, redirectStatus }: { token: string; redirectStatus?: string }) {
+  const publishable = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
+  let error: string | null = null;
+  let intent: { clientSecret: string | null; status: string } | null = null;
+  if (!publishable) {
+    error = "Set NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY to a pk_test_ key. The local test-number form stays off while STRIPE_SECRET_KEY is set.";
+  } else {
+    try {
+      intent = await ensureStripePaymentIntent(token);
+    } catch (caught) {
+      error = caught instanceof ServiceError ? caught.message : "Stripe could not open this payment.";
+    }
+  }
+  const fresh = invoiceByPayToken(token);
+  if (fresh?.invoice.status === "paid" && fresh.payments) {
+    return <PaidNote payments={fresh.payments} />;
+  }
+  const waiting = intent?.status === "processing" || intent?.status === "succeeded";
+  return (
+    <section className="mt-6">
+      {redirectStatus === "failed" ? (
+        <p role="alert" className="mb-3 text-sm text-destructive">
+          The bank or card was not accepted. The invoice is still open.
+        </p>
+      ) : null}
+      {error ? (
+        <p role="alert" className="text-sm text-destructive">
+          {error}
+        </p>
+      ) : waiting ? (
+        <div className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
+          <h2 className="font-heading text-2xl">{intent?.status === "processing" ? "Processing" : "Waiting on Stripe"}</h2>
+          <p className="text-sm text-muted-foreground">
+            {intent?.status === "processing"
+              ? "The bank payment is processing. This invoice stays open until Stripe reports success."
+              : "Stripe accepted the payment. This invoice is marked paid when the webhook arrives."}
+          </p>
+        </div>
+      ) : intent?.clientSecret && publishable ? (
+        <StripePayForm publishableKey={publishable} clientSecret={intent.clientSecret} />
+      ) : (
+        <p role="alert" className="text-sm text-destructive">
+          Stripe did not return a client secret for this invoice.
+        </p>
+      )}
+    </section>
   );
 }

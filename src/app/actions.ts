@@ -240,6 +240,9 @@ export async function declineAction(token: string, _prev: ActionState, formData:
 
 export async function payAction(token: string, idempotencyKey: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
   try {
+    if (process.env.STRIPE_SECRET_KEY) {
+      return { error: "This invoice is collected by Stripe. Refresh the pay page and finish there." };
+    }
     const method = String(formData.get("method") || "ach") === "card" ? "card" : "ach";
     const routing = String(formData.get("routing") || "");
     const account = String(formData.get("account") || "");
