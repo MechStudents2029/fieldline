@@ -3,6 +3,7 @@ import path from "node:path";
 import Database from "better-sqlite3";
 import { drizzle, type BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import * as schema from "@/lib/db/schema";
+import { resolveDatabasePath, resolveDataDir } from "@/lib/db/paths";
 import { SEED_VERSION, seedDatabase } from "@/lib/db/seed";
 
 export type AppDatabase = BetterSQLite3Database<typeof schema>;
@@ -24,7 +25,10 @@ function open(file: string): Holder {
     fs.mkdirSync(path.dirname(file), { recursive: true });
   }
   const sqlite = new Database(file);
-  if (file !== ":memory:") sqlite.pragma("journal_mode = WAL");
+  if (file !== ":memory:") {
+    // WAL needs extra files beside the database. /tmp on Vercel is happier with a single file.
+    sqlite.pragma(file.startsWith("/tmp/") ? "journal_mode = DELETE" : "journal_mode = WAL");
+  }
   sqlite.pragma("foreign_keys = ON");
   return { db: drizzle(sqlite, { schema }), sqlite };
 }
@@ -48,8 +52,12 @@ export function ensureReady(holder: Holder) {
   }
 }
 
+export function dataDir(): string {
+  return resolveDataDir();
+}
+
 export function databasePath(): string {
-  return process.env.FIELDLINE_DB || path.join(process.cwd(), "data", "fieldline.db");
+  return resolveDatabasePath();
 }
 
 export function getHolder(): Holder {

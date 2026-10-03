@@ -8,6 +8,9 @@ const COOKIE = "fieldline_session";
 function secret() {
   const value = process.env.SESSION_SECRET;
   if (value) return value;
+  // Vercel always sets NODE_ENV=production. The demo still has to sign in with no keys.
+  // This value is in the source, so set SESSION_SECRET before treating the URL as private.
+  if (process.env.VERCEL) return "fieldline-public-demo-session";
   if (process.env.NODE_ENV === "production") {
     throw new Error("SESSION_SECRET is required in production.");
   }

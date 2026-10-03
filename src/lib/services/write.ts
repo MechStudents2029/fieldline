@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { and, desc, eq, inArray } from "drizzle-orm";
-import { getDb } from "@/lib/db/client";
+import { dataDir, getDb } from "@/lib/db/client";
 import {
   activities,
   aiRuns,
@@ -1145,7 +1145,7 @@ export function saveUploadedText(actor: Actor, projectId: string, filename: stri
   if (!project) throw new ServiceError("Job not found.");
   const documentId = id("doc");
   const relative = path.join("uploads", actor.orgId, `${documentId}-${filename.replace(/[^\w.\-]+/g, "_")}`);
-  const absolute = path.join(process.cwd(), "data", relative);
+  const absolute = path.join(dataDir(), relative);
   fs.mkdirSync(path.dirname(absolute), { recursive: true });
   fs.writeFileSync(absolute, text);
   db.insert(documents)
@@ -1167,9 +1167,19 @@ export function saveUploadedText(actor: Actor, projectId: string, filename: stri
   return { documentId, extraction: extractReceiptText(text) };
 }
 
+const DEMO_RECEIPT_TEXT: Record<string, string> = {
+  "casa-tile.svg": "Vendor: Casa Tile\nBacksplash tile, Okonkwo bath\nTotal $864.50",
+  "harbor-plumbing.svg": "Vendor: Harbor Plumbing\nSupply lines, Chen powder\nTotal $426.00",
+  "summit-lumber.svg": "Vendor: Summit Lumber\nFraming package, Brooks addition\nTotal $18,425.00",
+};
+
 export function readDemoReceipt(fileName: string): string {
-  const file = path.join(process.cwd(), "public", "demo", "receipts", fileName);
-  return fs.readFileSync(file, "utf8");
+  const safe = path.basename(fileName);
+  const file = path.join(process.cwd(), "public", "demo", "receipts", safe);
+  if (fs.existsSync(file)) return fs.readFileSync(file, "utf8");
+  const fallback = DEMO_RECEIPT_TEXT[safe];
+  if (fallback) return fallback;
+  throw new ServiceError("That sample receipt is not in the demo set.");
 }
 
 export function scanFollowUps(orgId: string) {
@@ -1394,7 +1404,7 @@ export function attachPhotoNote(actor: Actor, projectId: string, caption: string
   const documentId = id("doc");
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="640" height="400"><rect width="100%" height="100%" fill="#efe6d6"/><text x="32" y="80" font-family="Georgia" font-size="28" fill="#1c3a2e">${escapeXml(caption || "Job photo")}</text><text x="32" y="120" font-family="sans-serif" font-size="16" fill="#5c564c">${escapeXml(project.name)}</text></svg>`;
   const relative = path.join("uploads", actor.orgId, `${documentId}.svg`);
-  const absolute = path.join(process.cwd(), "data", relative);
+  const absolute = path.join(dataDir(), relative);
   fs.mkdirSync(path.dirname(absolute), { recursive: true });
   fs.writeFileSync(absolute, svg);
   db.insert(documents)

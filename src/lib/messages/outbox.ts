@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { dataDir } from "@/lib/db/client";
 
 export type OutboundMessage = {
   channel: "email" | "sms";
@@ -43,7 +44,7 @@ export async function deliverMessage(message: OutboundMessage): Promise<Outbound
     return { ...message, stub: false, providerId: json.sid };
   }
 
-  const dir = path.join(process.cwd(), "data", "outbox");
+  const dir = path.join(dataDir(), "outbox");
   fs.mkdirSync(dir, { recursive: true });
   fs.appendFileSync(path.join(dir, `${message.channel}.jsonl`), `${JSON.stringify({ ...message, at: new Date().toISOString(), stub: true })}\n`);
   return { ...message, stub: true, providerId: `stub_${message.channel}` };

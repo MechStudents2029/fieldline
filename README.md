@@ -4,7 +4,63 @@ The job file for remodelers. From the first call to the last draw.
 
 Fieldline is a CRM-first workspace for U.S. small and mid-size contractors: remodelers, specialty trades, and light general contractors. The demo company is **Rivera Remodeling & Trade** in Oakland. A second company, **Northline Electric**, exists so you can check that one org cannot see the other.
 
-The local app runs with no API keys. Postgres row-level security, Stripe Connect, Resend, Twilio, and the Vercel AI Gateway turn on when you add the variables in `.env.example`. Until then, adapters record the same outcomes against seeded data.
+The app runs with no API keys. Stripe, Resend, Twilio, and the Vercel AI Gateway turn on when you add the variables in `.env.example`. Until then, adapters record the same outcomes against seeded data.
+
+## Run locally in 3 minutes
+
+```bash
+git clone https://origin.cursor.com/git/adam-rouzaqui/fieldline.git
+cd fieldline
+npm install
+cp .env.example .env.local
+npm run dev
+```
+
+Open [http://localhost:3847](http://localhost:3847). The dev server is pinned to port **3847**, not 3000. Sign in as `maya@rivera.demo` / `demo`. The first request creates `data/fieldline.db` and loads Rivera Remodeling. Leave `.env.local` empty. That is a working demo.
+
+## Deploy to Vercel
+
+The demo path deploys with no database service. On Vercel the filesystem is read-only except `/tmp`, so the app writes a seeded SQLite file to `/tmp/fieldline/fieldline.db` the first time a function instance handles a request. Each instance has its own copy. A cold start seeds again. Sign-ins and payments on one instance are not visible on another. That is enough to click through the demo. It is not a shared production database.
+
+### Connect Vercel to Origin
+
+Vercel can deploy this repo from Cursor Origin. Do not mirror it to GitHub for that.
+
+1. Sign in to [vercel.com](https://vercel.com) with the Cursor account that can see `adam-rouzaqui/fieldline`.
+2. Add New → Project → Import Git Repository.
+3. Choose the **Origin** (Cursor) provider, not GitHub, and select `adam-rouzaqui/fieldline`.
+4. Framework preset: **Next.js**. Root directory: the repository root. Build command: `next build` (the default).
+5. Environment variables: see the table below. You can deploy with none of them set.
+6. Deploy. When the deployment is Ready, open the URL and sign in as `maya@rivera.demo` / `demo`.
+
+The Git source type is `cursor-origin`. If the dashboard does not list Origin, the Vercel account is not linked to that Cursor team. Connect it from the Vercel import screen, or from the Cursor dashboard’s Vercel connection, then retry the import. A CLI deploy from a local clone (`npx vercel`) also works and does not require GitHub.
+
+### Environment variables
+
+Set these in the Vercel project (Production and Preview). Empty means the stub stays on.
+
+| Name | Demo deploy | What to put |
+|---|---|---|
+| `SESSION_SECRET` | Optional | A long random string. If you leave it empty, Vercel uses a signing key that is in the source, so anyone can forge a session cookie. Set this before you share the URL beyond a demo. |
+| `FIELDLINE_DB` | Leave empty | A SQLite file path. On Vercel the app ignores a path under the project and uses `/tmp` unless you set this to another writable path. Do not point it at `./data`. |
+| `FIELDLINE_DATA_DIR` | Leave empty | Uploads and the email/SMS outbox. Defaults to `/tmp/fieldline` on Vercel. |
+| `DATABASE_URL` | Leave empty | A `postgres://` URL makes the app refuse to boot. The Postgres driver is not connected. See Durable database. |
+| `AI_GATEWAY_API_KEY` | Leave empty | Vercel AI Gateway. Empty uses the local price-book matcher. |
+| `AI_ESTIMATE_MODEL` | Optional | Default `anthropic/claude-sonnet-4.5`. |
+| `RESEND_API_KEY`, `RESEND_FROM` | Leave empty | Empty appends mail to the outbox file on `/tmp`. |
+| `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER` | Leave empty | SMS stays off until all three are set. 10DLC is not registered. |
+| `STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET` | Leave empty | Test-mode keys only. Charges stay on the local test-number mirror until a Connect charge is wired. |
+| `CRON_SECRET` | Optional | `GET /api/cron/follow-ups` with `Authorization: Bearer ...`. Empty skips the check. |
+
+`GET /api/health` reports `database: "sqlite-tmp"` on Vercel and `database: "sqlite-file"` locally.
+
+### Durable database
+
+When the demo has to keep one shared database:
+
+1. Create a Supabase project yourself. Do not commit its keys.
+2. Apply `supabase/rls.sql` in the SQL editor. The app still filters `org_id` in queries.
+3. This build does not open `DATABASE_URL`. Switching drivers means a Drizzle Postgres schema (the current schema is SQLite), a hosted migration, and Supabase Auth in place of the demo cookie. Unset `DATABASE_URL` until that work exists, or the server returns an error instead of silently using SQLite.
 
 ## Run it
 
@@ -76,7 +132,8 @@ Copy `.env.example` to `.env.local`. Empty values are the supported demo. Put re
 | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER` | Twilio. 10DLC brand and campaign need an EIN, website, and sample messages | same | Optional. SMS is off until all three are set. Do not send at scale. |
 | `STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET` | Stripe Connect platform, **test mode only** | same | Optional. Charges stay on the local test-number mirror. The webhook verifies signatures only when the secret is set. |
 | `CRON_SECRET` | You generate it | Vercel cron + `.env.local` | Optional. `GET /api/cron/follow-ups` with `Authorization: Bearer ...`. |
-| `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `DATABASE_URL` | Supabase org, separate dev and prod projects | Vercel + Cursor secrets, not git | Not read by this build. Apply `supabase/rls.sql` when you move the schema to Postgres. |
+| `DATABASE_URL` | Supabase Postgres connection string | Vercel + Cursor secrets, not git | Leave empty. A postgres URL stops boot. The driver is not connected. See Durable database. |
+| `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` | Supabase org, separate dev and prod projects | Vercel + Cursor secrets, not git | Not read by this build. Apply `supabase/rls.sql` when you move the schema to Postgres. |
 | Product name, domain, legal entity, EIN, business bank | Registrar, state filing, bank | Outside this repo | Before live Stripe, Twilio 10DLC, or a public contract. |
 | Attorney review | Construction / SaaS counsel | Contract template, e-sign consent | Before public launch. The in-app consent is a draft, not legal advice. |
 | Intuit developer + sandbox company | developer.intuit.com | Later | QuickBooks sync is out of this MVP. Invoices and contacts export as CSV. |
@@ -134,8 +191,8 @@ Feedback: file a GitHub issue with steps, expected, actual, screenshot, and devi
 - Email and SMS: JSONL outbox. Resend and Twilio send only when their variables are set.
 - Stripe: local decisions that copy Stripe's published test numbers. No Connect onboarding, no real PaymentIntent, no platform fee. Webhook signature checks turn on with `STRIPE_WEBHOOK_SECRET`.
 - E-sign: in-house record, not Dropbox Sign or DocuSign. Consent copy is not attorney-reviewed.
-- Auth and database: SQLite plus a cookie session. `supabase/rls.sql` is ready to apply; this process does not connect to Supabase.
-- File storage: `public/demo` and `data/uploads`, not Supabase Storage.
+- Auth and database: SQLite plus a cookie session. Locally that file is `data/fieldline.db`. On Vercel it is `/tmp/fieldline/fieldline.db`, seeded per cold start. `supabase/rls.sql` is ready to apply; this process does not connect to Supabase.
+- File storage: `public/demo` and the writable data directory (`data/` locally, `/tmp/fieldline` on Vercel), not Supabase Storage.
 
 **Left out of this MVP**
 
@@ -146,4 +203,4 @@ Feedback: file a GitHub issue with steps, expected, actual, screenshot, and devi
 - Attorney-reviewed home-improvement contracts and state deposit rules
 - Sentry, PostHog, and a Figma file for this UI
 
-Figma, Vercel, and Supabase connectors were not used to create projects, deployments, or design files. Doing that would create accounts or spend money. When you want them: a Supabase dev project for `supabase/rls.sql`, a Vercel project for hosting and the AI Gateway key, and a Figma file if you want the screens redrawn there.
+Supabase and Figma were not used to create a project or a design file. A Vercel project, if one is listed in the latest deploy note, is a preview of this demo only. Durable hosting still needs the env vars above and, later, Postgres.
