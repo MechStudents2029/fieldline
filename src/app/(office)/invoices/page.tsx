@@ -6,7 +6,14 @@ import { listInvoices } from "@/lib/services/read";
 
 export default async function InvoicesPage() {
   const session = await requireSession();
-  if (!canSeeMoney(session.role)) return <p>Invoices are hidden for the field role.</p>;
+  if (!canSeeMoney(session.role)) {
+    return (
+      <div>
+        <h1 className="font-heading text-3xl">Invoices</h1>
+        <p className="mt-2 text-sm text-muted-foreground">Invoices are hidden for the field role.</p>
+      </div>
+    );
+  }
   const rows = listInvoices(session.orgId);
   return (
     <div className="flex flex-col gap-4">

@@ -12,7 +12,12 @@ export default async function EstimatePage({ params }: { params: Promise<{ id: s
   const { id } = await params;
   const session = await requireSession();
   if (!canSeeMoney(session.role)) {
-    return <p>Pricing is hidden for field roles.</p>;
+    return (
+      <div>
+        <h1 className="font-heading text-3xl">Estimate</h1>
+        <p className="mt-2 text-sm text-muted-foreground">Pricing is hidden for the field role.</p>
+      </div>
+    );
   }
   const detail = estimateDetail(session.orgId, id);
   if (!detail) return <MissingRecord orgName={session.orgName} kind="estimate" />;
@@ -41,6 +46,7 @@ export default async function EstimatePage({ params }: { params: Promise<{ id: s
           </div>
         </div>
         {under ? <p className="mt-2 text-sm">This draft is under the margin target. Edit lines or override when you send.</p> : null}
+        {detail.lines.length === 0 ? <p className="mt-2 text-sm text-muted-foreground">No lines yet. Add one below, then send the proposal.</p> : null}
       </section>
       {detail.sections.map((section) => (
         <section key={section.id}>

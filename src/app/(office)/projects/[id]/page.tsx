@@ -47,6 +47,11 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
                 <div className="mt-1 h-1.5 rounded-full bg-muted">
                   <div
                     className="h-1.5 rounded-full bg-pine"
+                    role="progressbar"
+                    aria-valuemin={0}
+                    aria-valuemax={Math.max(row.budgetCents, row.actualCents, 1)}
+                    aria-valuenow={row.actualCents}
+                    aria-label={`${row.code} spent against budget`}
                     style={{ width: `${Math.min(100, row.budgetCents === 0 ? 100 : (row.actualCents / row.budgetCents) * 100)}%` }}
                   />
                 </div>
@@ -72,13 +77,13 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
         </ul>
         {money ? (
           <ActionForm action={createCoAction.bind(null, detail.project.id)} className="mt-3 grid gap-2 sm:grid-cols-2">
-            <input name="title" placeholder="Title, e.g. Relocate plumbing wall" className="field sm:col-span-2" />
-            <textarea name="description" placeholder="What changed" rows={2} className="w-full rounded-lg border border-input bg-background p-3 sm:col-span-2" />
-            <input name="name" placeholder="Line name" className="field" />
-            <input name="costCode" placeholder="Cost code" defaultValue="PLB-SINK" className="field" />
+            <input name="title" aria-label="Change order title" placeholder="Title, e.g. Relocate plumbing wall" className="field sm:col-span-2" required />
+            <textarea name="description" aria-label="What changed" placeholder="What changed" rows={2} className="w-full rounded-lg border border-input bg-background p-3 sm:col-span-2" />
+            <input name="name" aria-label="Line name" placeholder="Line name" className="field" required />
+            <input name="costCode" aria-label="Cost code" placeholder="Cost code" defaultValue="PLB-SINK" className="field" />
             <input name="qty" defaultValue="1" className="field" aria-label="Quantity" />
             <input name="unit" defaultValue="ea" className="field" aria-label="Unit" />
-            <input name="unitCost" placeholder="Unit cost" className="field" />
+            <input name="unitCost" aria-label="Unit cost in dollars" placeholder="Unit cost" inputMode="decimal" className="field" required />
             <input name="markup" defaultValue="35" className="field" aria-label="Markup percent" />
             <Button type="submit" className="h-11 sm:col-span-2">
               Price and send change order

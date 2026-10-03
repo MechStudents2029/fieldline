@@ -10,15 +10,21 @@ export default async function ContactsPage({ searchParams }: { searchParams: Pro
   return (
     <div className="flex flex-col gap-4">
       <h1 className="font-heading text-3xl">Contacts</h1>
-      <form className="grid gap-2 sm:grid-cols-[1fr_160px_auto]">
-        <input name="q" defaultValue={query.q} placeholder="Name, company, or email" className="field" />
-        <select name="type" defaultValue={query.type || ""} className="field">
+      <form className="grid gap-2 sm:grid-cols-[1fr_160px_auto]" aria-label="Search contacts">
+        <label className="text-sm">
+          Search
+          <input name="q" defaultValue={query.q} placeholder="Name, company, or email" className="field mt-1" />
+        </label>
+        <label className="text-sm">
+          Type
+          <select name="type" defaultValue={query.type || ""} className="field mt-1">
           <option value="">All types</option>
           <option value="client">Clients</option>
           <option value="sub">Subs</option>
           <option value="vendor">Vendors</option>
-        </select>
-        <Button type="submit" variant="outline" className="h-11">
+          </select>
+        </label>
+        <Button type="submit" variant="outline" className="h-11 self-end">
           Search
         </Button>
       </form>

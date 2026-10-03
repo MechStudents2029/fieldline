@@ -14,15 +14,23 @@ export function ActionForm({
 }) {
   const [state, formAction, pending] = useActionState(action, null);
   return (
-    <form action={formAction} className={className}>
+    <form action={formAction} className={className} aria-busy={pending}>
       {children}
       {state?.error ? (
         <p role="alert" className="text-sm text-destructive">
           {state.error}
         </p>
       ) : null}
-      {state?.ok ? <p className="text-sm text-pine">{state.ok}</p> : null}
-      {pending ? <p className="text-xs text-muted-foreground">Working…</p> : null}
+      {state?.ok ? (
+        <p role="status" className="text-sm text-pine">
+          {state.ok}
+        </p>
+      ) : null}
+      {pending ? (
+        <p role="status" className="text-xs text-muted-foreground">
+          Working…
+        </p>
+      ) : null}
     </form>
   );
 }

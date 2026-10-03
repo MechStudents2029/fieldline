@@ -37,21 +37,29 @@ export function Shell({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const current = (href: string) => (href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`));
   return (
     <div className="min-h-screen">
+      <a
+        href="#main"
+        className="absolute left-4 top-4 z-50 -translate-y-24 rounded-lg bg-card px-3 py-2 text-sm shadow ring-1 ring-border focus:translate-y-0"
+      >
+        Skip to the job file
+      </a>
       <aside className="fixed inset-y-0 left-0 z-20 hidden w-60 flex-col border-r border-border bg-card px-4 py-5 md:flex">
         <Link href="/" className="px-2">
           <p className="font-heading text-2xl tracking-tight text-pine">Fieldline</p>
           <p className="text-xs text-muted-foreground">Job file for remodelers</p>
         </Link>
-        <nav className="mt-8 flex flex-1 flex-col gap-1">
+        <nav aria-label="Office" className="mt-8 flex flex-1 flex-col gap-1">
           {links.map((link) => (
             <Link
               key={link.href}
               href={link.href}
+              aria-current={current(link.href) ? "page" : undefined}
               className={cn(
                 "rounded-lg px-3 py-2 text-sm",
-                pathname === link.href ? "bg-primary text-primary-foreground" : "hover:bg-muted",
+                current(link.href) ? "bg-primary text-primary-foreground" : "hover:bg-muted",
               )}
             >
               {link.label}
@@ -79,16 +87,17 @@ export function Shell({
             </p>
           </div>
         </header>
-        <main className="px-4 pt-4 pb-24 md:px-8 md:pb-10">{children}</main>
+        <main id="main" className="px-4 pt-4 pb-24 md:px-8 md:pb-10">{children}</main>
       </div>
-      <nav className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-5 border-t border-border bg-card md:hidden">
+      <nav aria-label="Primary" className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-5 border-t border-border bg-card md:hidden">
         {mobile.map((link) => (
           <Link
             key={link.href}
             href={link.href}
+            aria-current={current(link.href) ? "page" : undefined}
             className={cn(
               "px-1 py-3 text-center text-[11px]",
-              pathname === link.href ? "font-semibold text-pine" : "text-muted-foreground",
+              current(link.href) ? "font-semibold text-pine" : "text-muted-foreground",
             )}
           >
             {link.label}

@@ -11,10 +11,10 @@ export function PayForm({ token, cardEnabled }: { token: string; cardEnabled: bo
   return (
     <ActionForm action={payAction.bind(null, token, key)} className="flex flex-col gap-3">
       <div className="grid grid-cols-2 gap-2">
-        <button type="button" onClick={() => setMethod("ach")} className={`rounded-lg border px-3 py-3 text-sm ${method === "ach" ? "border-pine bg-primary text-primary-foreground" : "bg-card"}`}>
+        <button type="button" aria-pressed={method === "ach"} onClick={() => setMethod("ach")} className={`rounded-lg border px-3 py-3 text-sm ${method === "ach" ? "border-pine bg-primary text-primary-foreground" : "bg-card"}`}>
           Bank account (ACH)
         </button>
-        <button type="button" disabled={!cardEnabled} onClick={() => setMethod("card")} className={`rounded-lg border px-3 py-3 text-sm ${method === "card" ? "border-pine bg-primary text-primary-foreground" : "bg-card"}`}>
+        <button type="button" aria-pressed={method === "card"} disabled={!cardEnabled} onClick={() => setMethod("card")} className={`rounded-lg border px-3 py-3 text-sm ${method === "card" ? "border-pine bg-primary text-primary-foreground" : "bg-card"}`}>
           Card
         </button>
       </div>

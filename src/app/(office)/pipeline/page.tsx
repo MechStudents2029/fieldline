@@ -24,17 +24,23 @@ export default async function PipelinePage({
           <Link href="/leads/new">New lead</Link>
         </Button>
       </div>
-      <form className="grid gap-2 sm:grid-cols-[1fr_180px_auto]">
-        <input name="q" defaultValue={query.q} placeholder="Search name, title, or source" className="field" />
-        <select name="source" defaultValue={query.source || ""} className="field">
+      <form className="grid gap-2 sm:grid-cols-[1fr_180px_auto]" aria-label="Filter the pipeline">
+        <label className="text-sm">
+          Search
+          <input name="q" defaultValue={query.q} placeholder="Name, title, or source" className="field mt-1" />
+        </label>
+        <label className="text-sm">
+          Source
+          <select name="source" defaultValue={query.source || ""} className="field mt-1">
           <option value="">All sources</option>
           {board.sources.map((source) => (
             <option key={source} value={source}>
               {source}
             </option>
           ))}
-        </select>
-        <Button type="submit" variant="outline" className="h-11">
+          </select>
+        </label>
+        <Button type="submit" variant="outline" className="h-11 self-end">
           Filter
         </Button>
       </form>
