@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { databaseKind } from "@/lib/db/paths";
 import { paymentMode } from "@/lib/payments/intent";
 import { PRODUCT_NAME } from "@/lib/product";
+import { supabaseAuthConfigured } from "@/lib/supabase/env";
 
 export function GET() {
   let database: string = "sqlite-file";
@@ -15,6 +16,7 @@ export function GET() {
     ok: true,
     product: PRODUCT_NAME,
     mode: paymentMode(process.env),
+    auth: supabaseAuthConfigured(process.env) ? "supabase" : "demo",
     database,
   });
 }

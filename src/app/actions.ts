@@ -3,9 +3,11 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { resolveLogin } from "@/lib/auth/login";
 import { clearSession, getSession, setSession } from "@/lib/auth/session";
 import { parseMoneyToCents } from "@/lib/money";
-import { authenticate } from "@/lib/services/read";
+import { supabaseAuthConfigured } from "@/lib/supabase/env";
+import { supabasePasswordAuth } from "@/lib/supabase/password";
 import { ServiceError } from "@/lib/services/errors";
 import {
   addCost,
@@ -56,13 +58,20 @@ async function requestIp() {
 }
 
 export async function loginAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  const user = authenticate(String(formData.get("email") || ""), String(formData.get("password") || ""));
-  if (!user) return { error: "That email and password do not match a demo user. Password is demo." };
-  await setSession(user);
+  const result = await resolveLogin(String(formData.get("email") || ""), String(formData.get("password") || ""), {
+    env: process.env,
+    auth: supabaseAuthConfigured() ? await supabasePasswordAuth() : undefined,
+  });
+  if (!result.ok) return { error: result.error };
+  await setSession(result.actor);
   redirect("/");
 }
 
 export async function logoutAction() {
+  if (supabaseAuthConfigured()) {
+    const auth = await supabasePasswordAuth();
+    await auth.signOut();
+  }
   await clearSession();
   redirect("/login");
 }

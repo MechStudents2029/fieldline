@@ -22,12 +22,30 @@ function sign(body: string) {
   return createHmac("sha256", secret()).update(body).digest("base64url");
 }
 
+export function issueSessionValue(userId: string, orgId: string, now = Date.now()) {
+  const body = Buffer.from(JSON.stringify({ userId, orgId, exp: now + 14 * 86_400_000 })).toString("base64url");
+  return `${body}.${sign(body)}`;
+}
+
+export function readSessionIds(raw: string, now = Date.now()): { userId: string; orgId: string } | null {
+  const [body, sig] = raw.split(".");
+  if (!body || !sig) return null;
+  const expected = sign(body);
+  const left = Buffer.from(sig);
+  const right = Buffer.from(expected);
+  if (left.length !== right.length || !timingSafeEqual(left, right)) return null;
+  try {
+    const payload = readSessionPayload(JSON.parse(Buffer.from(body, "base64url").toString()));
+    if (!payload || payload.exp < now) return null;
+    return { userId: payload.userId, orgId: payload.orgId };
+  } catch {
+    return null;
+  }
+}
+
 export async function setSession(actor: Actor) {
-  const body = Buffer.from(
-    JSON.stringify({ userId: actor.userId, orgId: actor.orgId, exp: Date.now() + 14 * 86_400_000 }),
-  ).toString("base64url");
   const jar = await cookies();
-  jar.set(COOKIE, `${body}.${sign(body)}`, {
+  jar.set(COOKIE, issueSessionValue(actor.userId, actor.orgId), {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
@@ -51,17 +69,7 @@ export async function getSession(): Promise<Actor | null> {
   const jar = await cookies();
   const raw = jar.get(COOKIE)?.value;
   if (!raw) return null;
-  const [body, sig] = raw.split(".");
-  if (!body || !sig) return null;
-  const expected = sign(body);
-  const left = Buffer.from(sig);
-  const right = Buffer.from(expected);
-  if (left.length !== right.length || !timingSafeEqual(left, right)) return null;
-  try {
-    const payload = readSessionPayload(JSON.parse(Buffer.from(body, "base64url").toString()));
-    if (!payload || payload.exp < Date.now()) return null;
-    return actorFromIds(payload.userId, payload.orgId);
-  } catch {
-    return null;
-  }
+  const ids = readSessionIds(raw);
+  if (!ids) return null;
+  return actorFromIds(ids.userId, ids.orgId);
 }

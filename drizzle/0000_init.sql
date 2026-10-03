@@ -479,8 +479,11 @@ CREATE TABLE `users` (
 	`password_hash` text NOT NULL,
 	`password_salt` text NOT NULL,
 	`title` text,
+	`auth_user_id` text,
 	`created_at` text NOT NULL,
 	`updated_at` text NOT NULL
 );
 --> statement-breakpoint
 CREATE UNIQUE INDEX `users_email_unique` ON `users` (`email`);
+--> statement-breakpoint
+CREATE UNIQUE INDEX `users_auth_user_id` ON `users` (`auth_user_id`);

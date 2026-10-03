@@ -3,6 +3,7 @@ import { loginAction } from "@/app/actions";
 import { ActionForm } from "@/components/action-form";
 import { Button } from "@/components/ui/button";
 import { getSession } from "@/lib/auth/session";
+import { supabaseAuthConfigured } from "@/lib/supabase/env";
 import { listLoginChoices } from "@/lib/services/read";
 import { DEMO_PASSWORD, PRODUCT_TAGLINE } from "@/lib/product";
 
@@ -12,6 +13,7 @@ export default async function LoginPage() {
   const session = await getSession();
   if (session) redirect("/");
   const people = listLoginChoices();
+  const supabase = supabaseAuthConfigured();
   return (
     <main className="mx-auto flex min-h-screen max-w-5xl flex-col gap-8 px-4 py-10 md:flex-row md:items-center md:px-8">
       <section className="flex-1">
@@ -21,7 +23,11 @@ export default async function LoginPage() {
       </section>
       <section className="w-full max-w-md rounded-2xl bg-card p-5 ring-1 ring-foreground/10">
         <h2 className="font-heading text-2xl">Sign in</h2>
-        <p className="mt-1 text-sm text-muted-foreground">Password for every demo user is {DEMO_PASSWORD}.</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {supabase
+            ? "Sign in with the email and password on your Supabase project. Fieldline then opens the matching company membership."
+            : `Password for every demo user is ${DEMO_PASSWORD}.`}
+        </p>
         <ActionForm action={loginAction} className="mt-4 flex flex-col gap-3">
           <label className="text-sm">
             Email

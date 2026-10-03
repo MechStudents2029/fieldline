@@ -2,12 +2,14 @@
 -- The running app uses SQLite and does not execute this file.
 -- Apply it yourself on a project you create. Do not store the service role key in the repo.
 --
--- Server routes that serve public proposal, portal, and pay tokens must use the
--- service role (they are not logged-in members). The browser should use the anon
--- key only after Supabase Auth is wired and auth_user_id is populated.
+-- Server routes, including portal, pay, cron, and webhooks, use DATABASE_URL as
+-- the database owner or service role so these policies do not block them.
+-- The browser and the session refresh use the anon or publishable key only.
+-- users.auth_user_id stores auth.uid() as text so SQLite and Postgres share one column.
 -- App-level org_id checks stay in the query layer even after these policies exist.
 
-alter table public.users add column if not exists auth_user_id uuid unique references auth.users (id);
+alter table public.users add column if not exists auth_user_id text;
+create unique index if not exists users_auth_user_id on public.users (auth_user_id);
 
 create or replace function public.current_org_ids()
 returns setof text
@@ -19,7 +21,7 @@ as $$
   select m.org_id
   from public.memberships m
   join public.users u on u.id = m.user_id
-  where u.auth_user_id = auth.uid()
+  where u.auth_user_id = auth.uid()::text
 $$;
 
 revoke all on function public.current_org_ids() from public;
@@ -39,7 +41,7 @@ create policy users_self_or_org on public.users
   for select
   to authenticated
   using (
-    auth_user_id = auth.uid()
+    auth_user_id = auth.uid()::text
     or id in (
       select m.user_id
       from public.memberships m

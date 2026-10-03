@@ -60,10 +60,25 @@ function tableExists(sqlite: Database.Database, name: string, dialect: Dialect):
   return Boolean(row);
 }
 
+function ensureAuthUserId(holder: Holder) {
+  if (!tableExists(holder.sqlite, "users", holder.dialect)) return;
+  const exists =
+    holder.dialect === "postgres"
+      ? holder.sqlite
+          .prepare(
+            "select column_name as name from information_schema.columns where table_schema = 'public' and table_name = 'users' and column_name = 'auth_user_id'",
+          )
+          .get()
+      : (holder.sqlite.prepare("pragma table_info(users)").all() as { name: string }[]).find((column) => column.name === "auth_user_id");
+  if (!exists) holder.sqlite.exec("alter table users add column auth_user_id text");
+  holder.sqlite.exec("create unique index if not exists users_auth_user_id on users (auth_user_id)");
+}
+
 export function ensureReady(holder: Holder) {
   if (!tableExists(holder.sqlite, "organizations", holder.dialect)) {
     holder.sqlite.exec(migrationSql(holder.dialect));
   }
+  ensureAuthUserId(holder);
   const version = holder.sqlite.prepare("select value from app_meta where key = ?").get("seed_version") as
     | { value: string }
     | undefined;

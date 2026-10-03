@@ -2,6 +2,7 @@ import { settingsAction } from "@/app/actions";
 import { ActionForm } from "@/components/action-form";
 import { Button } from "@/components/ui/button";
 import { requireSession } from "@/lib/auth/session";
+import { supabaseAuthConfigured } from "@/lib/supabase/env";
 import { canManageSettings } from "@/lib/permissions";
 import { getOrg, integrations, staff } from "@/lib/services/read";
 
@@ -80,6 +81,11 @@ export default async function SettingsPage() {
             );
           })}
         </ul>
+        {supabaseAuthConfigured() ? (
+          <p className="mt-3 text-sm text-muted-foreground">
+            Supabase Auth is on. The office session still follows this company membership.
+          </p>
+        ) : null}
         <p className="mt-3 text-sm">
           <a className="underline" href="/api/export/invoices">
             Invoice CSV
