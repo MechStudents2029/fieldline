@@ -298,6 +298,29 @@ export async function createCoAction(projectId: string, _prev: ActionState, form
   }
 }
 
+export async function draftCoAction(projectId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const unitCost = parseMoneyToCents(String(formData.get("unitCost") || ""));
+    if (unitCost == null) return { error: "Enter a unit cost." };
+    createChangeOrder(user, projectId, {
+      title: String(formData.get("title") || ""),
+      description: String(formData.get("description") || ""),
+      name: String(formData.get("name") || ""),
+      qty: Number(formData.get("qty") || 1),
+      unit: String(formData.get("unit") || "ea"),
+      unitCostCents: unitCost,
+      markupBps: Math.round(Number(formData.get("markup") || 35) * 100),
+      costCode: String(formData.get("costCode") || "") || undefined,
+    });
+    revalidatePath(`/projects/${projectId}`);
+    revalidatePath("/");
+    return { ok: "Draft change order saved. It has not been sent to the client." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
 export async function approveCoAction(token: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
   try {
     approveChangeOrder({

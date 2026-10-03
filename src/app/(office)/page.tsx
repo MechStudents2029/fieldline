@@ -29,22 +29,44 @@ export default async function TodayPage() {
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Stat label="Open pipeline" value={money ? formatMoney(data.pipelineCents) : "Hidden"} detail={`${data.openLeadCount} deals`} />
         <Stat label="Receivables" value={money ? formatMoney(data.receivableCents) : "Hidden"} detail={`${data.openInvoiceCount} open invoices`} />
-        <Stat label="Margin watch" value={money ? String(data.marginAlerts.length) : "Hidden"} detail="Jobs under the alert line" />
+        <Stat
+          label="Margin watch"
+          value={money ? String(data.marginAlerts.length) : "Hidden"}
+          detail={money ? `${data.categoryAlerts.length} cost codes at 80%` : "Jobs under the alert line"}
+        />
         <Stat label="Unsigned 3+ days" value={String(data.unsigned.length)} detail={`${data.drafts.length} drafts waiting`} />
       </div>
-      {money && data.marginAlerts.length > 0 ? (
+      {money && (data.marginAlerts.length > 0 || data.categoryAlerts.length > 0) ? (
         <section className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
           <h2 className="font-heading text-xl">Margin watch</h2>
-          <ul className="mt-3 divide-y divide-border">
-            {data.marginAlerts.map((row) => (
-              <li key={row.project.id} className="flex items-center justify-between py-2 text-sm">
-                <Link href={`/projects/${row.project.id}`} className="font-medium">
-                  {row.project.name}
-                </Link>
-                <span className="text-copper">{formatBps(row.marginBps)}</span>
-              </li>
-            ))}
-          </ul>
+          <p className="mt-1 text-xs text-muted-foreground">Whole-job margin, plus any cost code at 80% of its budget.</p>
+          {data.marginAlerts.length > 0 ? (
+            <ul className="mt-3 divide-y divide-border">
+              {data.marginAlerts.map((row) => (
+                <li key={row.project.id} className="flex items-center justify-between gap-3 py-2 text-sm">
+                  <Link href={`/projects/${row.project.id}`} className="font-medium">
+                    {row.project.name}
+                  </Link>
+                  <span className="text-copper">{formatBps(row.marginBps)}</span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          {data.categoryAlerts.length > 0 ? (
+            <ul className="mt-3 divide-y divide-border">
+              {data.categoryAlerts.map((row) => (
+                <li key={`${row.projectId}-${row.code}`} className="flex flex-col gap-1 py-2 text-sm sm:flex-row sm:items-center sm:justify-between">
+                  <Link href={`/projects/${row.projectId}`} className="font-medium">
+                    {row.projectName}
+                  </Link>
+                  <span className="text-copper">
+                    {row.code} · {row.percentOfBudget}% of budget
+                    {row.overageCents > 0 ? ` · ${formatMoney(row.overageCents)} over` : ""}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
         </section>
       ) : null}
       <section className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">

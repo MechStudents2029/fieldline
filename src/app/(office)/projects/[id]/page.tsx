@@ -1,10 +1,11 @@
 import Link from "next/link";
-import { addCostAction, createCoAction, issueInvoiceAction, photoAction, receiptAction } from "@/app/actions";
+import { addCostAction, createCoAction, draftCoAction, issueInvoiceAction, photoAction, receiptAction } from "@/app/actions";
 import { ActionForm } from "@/components/action-form";
 import { MissingRecord } from "@/components/missing-record";
 import { Button } from "@/components/ui/button";
 import { requireSession } from "@/lib/auth/session";
 import { formatDateTime } from "@/lib/format";
+import { overBudgetPercent } from "@/lib/margin/category";
 import { formatBps, formatMoney } from "@/lib/money";
 import { projectDetail } from "@/lib/services/read";
 
@@ -35,28 +36,50 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
             Contract {formatMoney(money.contractCents)} · cost {formatMoney(money.actualCents)} · profit {formatMoney(money.profitCents)}
           </p>
           {money.alert ? <p className="mt-2 text-sm">Under the {formatBps(money.thresholdBps)} watch line.</p> : null}
-          <ul className="mt-4 space-y-2">
-            {money.byCode.map((row) => (
-              <li key={row.code} className="text-sm">
-                <div className="flex justify-between">
-                  <span>{row.code}</span>
-                  <span>
-                    {formatMoney(row.actualCents)} / {formatMoney(row.budgetCents)}
-                  </span>
-                </div>
-                <div className="mt-1 h-1.5 rounded-full bg-muted">
-                  <div
-                    className="h-1.5 rounded-full bg-pine"
-                    role="progressbar"
-                    aria-valuemin={0}
-                    aria-valuemax={Math.max(row.budgetCents, row.actualCents, 1)}
-                    aria-valuenow={row.actualCents}
-                    aria-label={`${row.code} spent against budget`}
-                    style={{ width: `${Math.min(100, row.budgetCents === 0 ? 100 : (row.actualCents / row.budgetCents) * 100)}%` }}
-                  />
-                </div>
-              </li>
-            ))}
+          <ul className="mt-4 space-y-3">
+            {money.byCode.map((row) => {
+              const hot = row.level !== "ok";
+              const overPercent = overBudgetPercent(row);
+              return (
+                <li key={row.code} className={`text-sm ${hot ? "rounded-lg bg-background/70 p-2" : ""}`}>
+                  <div className="flex justify-between gap-2">
+                    <span className={hot ? "font-medium text-copper" : undefined}>{row.code}</span>
+                    <span>
+                      {formatMoney(row.actualCents)} / {formatMoney(row.budgetCents)}
+                      {row.percentOfBudget != null ? ` · ${row.percentOfBudget}%` : ""}
+                    </span>
+                  </div>
+                  <div className="mt-1 h-1.5 rounded-full bg-muted">
+                    <div
+                      className={`h-1.5 rounded-full ${hot ? "bg-copper" : "bg-pine"}`}
+                      role="progressbar"
+                      aria-valuemin={0}
+                      aria-valuemax={Math.max(row.budgetCents, row.actualCents, 1)}
+                      aria-valuenow={row.actualCents}
+                      aria-label={`${row.code} spent against budget`}
+                      style={{ width: `${Math.min(100, row.budgetCents === 0 ? 100 : (row.actualCents / row.budgetCents) * 100)}%` }}
+                    />
+                  </div>
+                  {row.level === "watch" ? <p className="mt-1 text-xs text-copper">{row.percentOfBudget}% of this cost code’s budget. Not over yet.</p> : null}
+                  {row.level === "over" && row.covered ? <p className="mt-1 text-xs">A change order already covers this overrun.</p> : null}
+                  {row.suggestDraft && overPercent != null ? (
+                    <ActionForm action={draftCoAction.bind(null, detail.project.id)} className="mt-2">
+                      <input type="hidden" name="title" value={`${row.code} ${overPercent}% over budget`} />
+                      <input type="hidden" name="description" value={`${row.code} is ${formatMoney(row.overageCents)} over its ${formatMoney(row.budgetCents)} budget. Draft only — not sent to the client.`} />
+                      <input type="hidden" name="name" value={row.code} />
+                      <input type="hidden" name="costCode" value={row.code === "Uncoded" ? "" : row.code} />
+                      <input type="hidden" name="qty" value="1" />
+                      <input type="hidden" name="unit" value="ea" />
+                      <input type="hidden" name="unitCost" value={(row.draftCostCents / 100).toFixed(2)} />
+                      <input type="hidden" name="markup" value={(detail.org.defaultMarkupBps / 100).toFixed(0)} />
+                      <Button type="submit" variant="outline" size="sm" className="h-9">
+                        {row.code} {overPercent}% over budget — draft CO
+                      </Button>
+                    </ActionForm>
+                  ) : null}
+                </li>
+              );
+            })}
           </ul>
         </section>
       ) : (

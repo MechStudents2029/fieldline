@@ -1,4 +1,4 @@
-import { and, asc, desc, eq, inArray, isNull, like, or } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, like, notInArray, or } from "drizzle-orm";
 import { getDb } from "@/lib/db/client";
 import {
   activities,
@@ -30,6 +30,7 @@ import {
   users,
 } from "@/lib/db/schema";
 import { marginBps, lineAmounts } from "@/lib/money";
+import { assessCategories, costCodeKey, rollupCostCodes, type CategoryAssessment, type CoveringLine } from "@/lib/margin/category";
 import { canSeeMoney, type Role } from "@/lib/permissions";
 import { verifyPassword } from "@/lib/auth/password";
 import { daysSince } from "@/lib/format";
@@ -332,14 +333,7 @@ export function projectDetail(orgId: string, projectId: string, role: Role) {
     .all();
   const actual = costs.reduce((sum, cost) => sum + cost.amountCents, 0);
   const bps = marginBps(project.contractValueCents, actual);
-  const codes = new Set<string>();
-  for (const line of budget) if (line.costCode) codes.add(line.costCode);
-  for (const cost of costs) if (cost.costCode) codes.add(cost.costCode);
-  const byCode = [...codes].map((code) => ({
-    code,
-    budgetCents: budget.filter((line) => line.costCode === code).reduce((sum, line) => sum + line.budgetCostCents, 0),
-    actualCents: costs.filter((cost) => cost.costCode === code).reduce((sum, cost) => sum + cost.amountCents, 0),
-  }));
+  const byCode = assessCategories(rollupCostCodes(budget, costs), coverLines(orders, orderLines, budget));
   const money = canSeeMoney(role);
   return {
     project: money ? project : { ...project, contractValueCents: 0, originalContractCents: 0 },
@@ -453,10 +447,65 @@ export function dashboard(orgId: string) {
     receivableCents,
     openInvoiceCount: openInvoices.length,
     marginAlerts: margins,
+    categoryAlerts: listCategoryAlerts(orgId),
     unsigned,
     drafts,
     tasks: taskRows,
   };
+}
+
+export type CategoryAlert = CategoryAssessment & { projectId: string; projectName: string };
+
+export function listCategoryAlerts(orgId: string): CategoryAlert[] {
+  const db = getDb();
+  const open = db
+    .select()
+    .from(projects)
+    .where(and(eq(projects.orgId, orgId), notInArray(projects.status, ["complete", "cancelled"])))
+    .all();
+  if (open.length === 0) return [];
+  const ids = open.map((project) => project.id);
+  const budget = db.select().from(budgetLines).where(and(eq(budgetLines.orgId, orgId), inArray(budgetLines.projectId, ids))).all();
+  const costs = db.select().from(costItems).where(and(eq(costItems.orgId, orgId), inArray(costItems.projectId, ids))).all();
+  const orders = db.select().from(changeOrders).where(and(eq(changeOrders.orgId, orgId), inArray(changeOrders.projectId, ids))).all();
+  const lines = orders.length
+    ? db.select().from(changeOrderLines).where(and(eq(changeOrderLines.orgId, orgId), inArray(changeOrderLines.changeOrderId, orders.map((order) => order.id)))).all()
+    : [];
+  const alerts: CategoryAlert[] = [];
+  for (const project of open) {
+    const projectBudget = budget.filter((line) => line.projectId === project.id);
+    const projectCosts = costs.filter((cost) => cost.projectId === project.id);
+    const projectOrders = orders.filter((order) => order.projectId === project.id);
+    const assessed = assessCategories(rollupCostCodes(projectBudget, projectCosts), coverLines(projectOrders, lines, projectBudget));
+    for (const row of assessed) {
+      if (row.level === "ok") continue;
+      alerts.push({ ...row, projectId: project.id, projectName: project.name });
+    }
+  }
+  return alerts.sort((a, b) => b.overageCents - a.overageCents || (b.percentOfBudget ?? 0) - (a.percentOfBudget ?? 0));
+}
+
+function coverLines(
+  orders: { id: string; status: string }[],
+  lines: { changeOrderId: string; costCode: string | null; qtyMilli: number; unitCostCents: number; markupBps: number }[],
+  budget: { changeOrderId: string | null; costCode: string | null }[],
+): CoveringLine[] {
+  const covers: CoveringLine[] = [];
+  for (const order of orders) {
+    if (order.status !== "draft" && order.status !== "sent" && order.status !== "approved") continue;
+    for (const line of lines.filter((item) => item.changeOrderId === order.id)) {
+      const alreadyBudgeted =
+        order.status === "approved" &&
+        budget.some((item) => item.changeOrderId === order.id && costCodeKey(item.costCode) === costCodeKey(line.costCode));
+      if (alreadyBudgeted) continue;
+      covers.push({
+        status: order.status,
+        costCode: line.costCode,
+        costCents: lineAmounts(line.qtyMilli, line.unitCostCents, line.markupBps).cost,
+      });
+    }
+  }
+  return covers;
 }
 
 export function receivables(orgId: string) {
@@ -539,17 +588,37 @@ export function askCopilot(orgId: string, question: string) {
   const org = getOrg(orgId);
   const threshold = marginThresholdFromQuestion(question, org?.marginAlertBps ?? 2000);
   const rows = listProjects(orgId).filter((row) => row.marginBps != null && row.marginBps < threshold);
+  const categories = listCategoryAlerts(orgId);
+  const uncovered = categories.filter((row) => row.suggestDraft);
+  const jobSentence =
+    rows.length === 0
+      ? `No active jobs are under ${(threshold / 100).toFixed(1)}% margin.`
+      : `${rows.length} job${rows.length === 1 ? "" : "s"} under ${(threshold / 100).toFixed(1)}% margin.`;
+  const categorySentence =
+    categories.length === 0
+      ? ""
+      : ` ${categories.length} cost code${categories.length === 1 ? "" : "s"} at or above 80% of budget.${
+          uncovered.length
+            ? ` ${uncovered.length} ${uncovered.length === 1 ? "is" : "are"} over budget without a change order: ${uncovered
+                .map((row) => `${row.projectName} ${row.code}`)
+                .join(", ")}.`
+            : ""
+        }`;
   return {
     tool,
-    answer:
-      rows.length === 0
-        ? `No active jobs are under ${(threshold / 100).toFixed(1)}% margin.`
-        : `${rows.length} job${rows.length === 1 ? "" : "s"} under ${(threshold / 100).toFixed(1)}% margin.`,
-    rows: rows.map((row) => ({
-      label: row.project.name,
-      amountCents: row.project.contractValueCents - row.actualCents,
-      detail: `${((row.marginBps ?? 0) / 100).toFixed(1)}% margin · cost ${formatAnswer(row.actualCents)}`,
-    })),
+    answer: `${jobSentence}${categorySentence}`,
+    rows: [
+      ...rows.map((row) => ({
+        label: row.project.name,
+        amountCents: row.project.contractValueCents - row.actualCents,
+        detail: `${((row.marginBps ?? 0) / 100).toFixed(1)}% margin · cost ${formatAnswer(row.actualCents)}`,
+      })),
+      ...categories.map((row) => ({
+        label: `${row.projectName} · ${row.code}`,
+        amountCents: row.overageCents,
+        detail: `${row.percentOfBudget}% of budget${row.suggestDraft ? " · draft a change order" : row.covered ? " · change order covers it" : ""}`,
+      })),
+    ],
   };
 }
 

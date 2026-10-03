@@ -34,3 +34,9 @@
 
 - `NEXT_PUBLIC_SUPABASE_URL` plus an anon or publishable key signs in through Supabase and stores `users.auth_user_id` on the matching membership. `src/proxy.ts` refreshes that session with `getClaims()`.
 - Empty Supabase env keeps the demo password and the HMAC cookie. `SUPABASE_SERVICE_ROLE_KEY` is server-only.
+
+### Margin watch
+
+- Open jobs warn when a cost code reaches 80% of its budget, and again when spend passes that budget.
+- An overrun with no draft, sent, or approved change order offers a one-click draft. The draft is not sent to the client.
+- Today and the job page list the code, percent, and overage. Copilot mentions the same codes on margin questions.
