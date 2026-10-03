@@ -49,7 +49,18 @@ export const SEED_VERSION = "2";
 const ORG = "org_rivera";
 const NORTH = "org_northline";
 
-function wipe(sqlite: Database.Database) {
+function wipe(sqlite: Database.Database, dialect: "sqlite" | "postgres") {
+  if (dialect === "postgres") {
+    const tables = sqlite
+      .prepare(
+        "select table_name as name from information_schema.tables where table_schema = 'public' and table_type = 'BASE TABLE'",
+      )
+      .all() as { name: string }[];
+    if (tables.length === 0) return;
+    const list = tables.map((table) => `"${table.name.replace(/"/g, "")}"`).join(", ");
+    sqlite.exec(`truncate table ${list} restart identity cascade`);
+    return;
+  }
   sqlite.pragma("foreign_keys = OFF");
   const tables = sqlite
     .prepare("select name from sqlite_master where type = 'table' and name not like 'sqlite_%'")
@@ -72,8 +83,8 @@ function userRow(id: string, name: string, email: string, title: string, created
   };
 }
 
-export function seedDatabase(db: AppDatabase, sqlite: Database.Database) {
-  wipe(sqlite);
+export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect: "sqlite" | "postgres" = "sqlite") {
+  wipe(sqlite, dialect);
   const now = nowIso();
   const created = daysAgo(140);
 

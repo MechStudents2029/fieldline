@@ -44,23 +44,25 @@ Set these in the Vercel project (Production and Preview). Empty means the stub s
 | `SESSION_SECRET` | Optional | A long random string. If you leave it empty, Vercel uses a signing key that is in the source, so anyone can forge a session cookie. Set this before you share the URL beyond a demo. |
 | `FIELDLINE_DB` | Leave empty | A SQLite file path. On Vercel the app ignores a path under the project and uses `/tmp` unless you set this to another writable path. Do not point it at `./data`. |
 | `FIELDLINE_DATA_DIR` | Leave empty | Uploads and the email/SMS outbox. Defaults to `/tmp/fieldline` on Vercel. |
-| `DATABASE_URL` | Leave empty | A `postgres://` URL makes the app refuse to boot. The Postgres driver is not connected. See Durable database. |
+| `DATABASE_URL` | Leave empty | A `postgres://` URL migrates and seeds that database on boot. Empty keeps the SQLite demo. See Durable database. |
 | `AI_GATEWAY_API_KEY` | Leave empty | Vercel AI Gateway. Empty uses the local price-book matcher. |
 | `AI_ESTIMATE_MODEL` | Optional | Default `anthropic/claude-sonnet-4.5`. |
 | `RESEND_API_KEY`, `RESEND_FROM` | Leave empty | Empty appends mail to the outbox file on `/tmp`. |
 | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER` | Leave empty | SMS stays off until all three are set. 10DLC is not registered. |
 | `STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET` | Leave empty | Test-mode keys only. Charges stay on the local test-number mirror until a Connect charge is wired. |
-| `CRON_SECRET` | Optional | `GET /api/cron/follow-ups` with `Authorization: Bearer ...`. Empty skips the check. |
+| `CRON_SECRET` | Set this | `GET /api/cron/follow-ups` with `Authorization: Bearer ...`. Required on Vercel. Empty is local dev only. |
 
-`GET /api/health` reports `database: "sqlite-tmp"` on Vercel and `database: "sqlite-file"` locally.
+`GET /api/health` reports `database: "sqlite-tmp"` on Vercel, `database: "sqlite-file"` locally, and `database: "postgres"` when `DATABASE_URL` is set.
 
 ### Durable database
 
-When the demo has to keep one shared database:
+Leave `DATABASE_URL` empty to keep the zero-key SQLite demo. Set it when one shared database has to survive a cold start:
 
-1. Create a Supabase project yourself. Do not commit its keys.
-2. Apply `supabase/rls.sql` in the SQL editor. The app still filters `org_id` in queries.
-3. This build does not open `DATABASE_URL`. Switching drivers means a Drizzle Postgres schema (the current schema is SQLite), a hosted migration, and Supabase Auth in place of the demo cookie. Unset `DATABASE_URL` until that work exists, or the server returns an error instead of silently using SQLite.
+1. Create a Supabase (or any Postgres) project yourself. Do not commit its keys.
+2. Copy the direct connection string, or the session pooler on port 5432. The transaction pooler (port 6543) is a poor fit for this server's single connection.
+3. Set `DATABASE_URL` on Vercel. On boot the app creates the tables from `drizzle/0000_init.sql` (translated to Postgres) and seeds the demo company if `app_meta.seed_version` is missing.
+4. Apply `supabase/rls.sql` in the SQL editor when you want the anon key locked down. Point `DATABASE_URL` at the database owner or service role so those policies do not block the server. The app still filters `org_id` in every query.
+5. Sessions stay on the demo cookie until Supabase Auth is wired. `supabase/rls.sql` expects `users.auth_user_id` for that later step.
 
 ## Run it
 
@@ -132,7 +134,7 @@ Copy `.env.example` to `.env.local`. Empty values are the supported demo. Put re
 | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER` | Twilio. 10DLC brand and campaign need an EIN, website, and sample messages | same | Optional. SMS is off until all three are set. Do not send at scale. |
 | `STRIPE_SECRET_KEY`, `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`, `STRIPE_WEBHOOK_SECRET` | Stripe Connect platform, **test mode only** | same | Optional. Charges stay on the local test-number mirror. The webhook verifies signatures only when the secret is set. |
 | `CRON_SECRET` | You generate it | Vercel cron + `.env.local` | Optional. `GET /api/cron/follow-ups` with `Authorization: Bearer ...`. |
-| `DATABASE_URL` | Supabase Postgres connection string | Vercel + Cursor secrets, not git | Leave empty. A postgres URL stops boot. The driver is not connected. See Durable database. |
+| `DATABASE_URL` | Supabase Postgres connection string (direct or session pooler) | Vercel + Cursor secrets, not git | Leave empty for SQLite. A postgres URL migrates and seeds on boot. See Durable database. |
 | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` | Supabase org, separate dev and prod projects | Vercel + Cursor secrets, not git | Not read by this build. Apply `supabase/rls.sql` when you move the schema to Postgres. |
 | Product name, domain, legal entity, EIN, business bank | Registrar, state filing, bank | Outside this repo | Before live Stripe, Twilio 10DLC, or a public contract. |
 | Attorney review | Construction / SaaS counsel | Contract template, e-sign consent | Before public launch. The in-app consent is a draft, not legal advice. |
@@ -144,7 +146,7 @@ This repository does not create those accounts and does not spend money.
 
 ## Stack
 
-Next.js (App Router) and TypeScript, Tailwind, shadcn/ui. Drizzle talks to SQLite locally so the demo needs no database server. The schema matches the Postgres shape in `supabase/rls.sql`. Auth is an httpOnly HMAC cookie for the demo; production is intended to be Supabase Auth with the same roles. The AI path uses the Vercel AI SDK `gateway()` helper when a key exists. Email uses Resend when a key exists, otherwise the outbox file. SMS uses the Twilio REST API when credentials exist.
+Next.js (App Router) and TypeScript, Tailwind, shadcn/ui. Drizzle talks to SQLite when `DATABASE_URL` is empty, so the demo needs no database server. The same queries run on Postgres when `DATABASE_URL` is a `postgres://` URL: boot applies the migration and seed. Auth is an httpOnly HMAC cookie for the demo; production is intended to be Supabase Auth with the same roles. The AI path uses the Vercel AI SDK `gateway()` helper when a key exists. Email uses Resend when a key exists, otherwise the outbox file. SMS uses the Twilio REST API when credentials exist.
 
 ## Tester script
 
@@ -191,16 +193,16 @@ Feedback: file a GitHub issue with steps, expected, actual, screenshot, and devi
 - Email and SMS: JSONL outbox. Resend and Twilio send only when their variables are set.
 - Stripe: local decisions that copy Stripe's published test numbers. No Connect onboarding, no real PaymentIntent, no platform fee. Webhook signature checks turn on with `STRIPE_WEBHOOK_SECRET`.
 - E-sign: in-house record, not Dropbox Sign or DocuSign. Consent copy is not attorney-reviewed.
-- Auth and database: SQLite plus a cookie session. Locally that file is `data/fieldline.db`. On Vercel it is `/tmp/fieldline/fieldline.db`, seeded per cold start. `supabase/rls.sql` is ready to apply; this process does not connect to Supabase.
+- Auth: cookie session. Supabase Auth is not wired. The database is SQLite unless `DATABASE_URL` is set, in which case Postgres is migrated and seeded on boot. Locally the file is `data/fieldline.db`. On Vercel, with no `DATABASE_URL`, it is `/tmp/fieldline/fieldline.db`, seeded per cold start. Apply `supabase/rls.sql` yourself on the hosted database.
 - File storage: `public/demo` and the writable data directory (`data/` locally, `/tmp/fieldline` on Vercel), not Supabase Storage.
 
 **Left out of this MVP**
 
 - QuickBooks sync (CSV is the stand-in), lien waivers, plan takeoff, bill pay, and cards as a product
 - Twilio 10DLC registration and quiet-hours enforcement beyond storing STOP
-- Production Supabase Auth, hosted Postgres, and storage
+- Production Supabase Auth and Supabase Storage. Hosted Postgres works when you set `DATABASE_URL`.
 - A live Stripe Connect direct charge
 - Attorney-reviewed home-improvement contracts and state deposit rules
 - Sentry, PostHog, and a Figma file for this UI
 
-Supabase and Figma were not used to create a project or a design file. A Vercel project, if one is listed in the latest deploy note, is a preview of this demo only. Durable hosting still needs the env vars above and, later, Postgres.
+Supabase and Figma were not used to create a project or a design file. A Vercel project, if one is listed in the latest deploy note, is a preview of this demo only. A shared database needs `DATABASE_URL`. Supabase Auth is still a later step.

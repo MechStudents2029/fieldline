@@ -14,18 +14,27 @@ export function resolveDataDir(env: Env = process.env): string {
   return path.join(process.cwd(), "data");
 }
 
-export function resolveDatabasePath(env: Env = process.env): string {
+export type DatabaseTarget =
+  | { kind: "sqlite"; file: string }
+  | { kind: "postgres"; url: string };
+
+export function databaseTarget(env: Env = process.env): DatabaseTarget {
   const url = env.DATABASE_URL?.trim();
-  if (url && POSTGRES_URL.test(url)) {
-    throw new Error(
-      "DATABASE_URL is a Postgres connection string. This build still runs the seeded SQLite demo and does not open Postgres. Unset DATABASE_URL to deploy the demo, or follow the README section Durable database before pointing the app at Supabase.",
-    );
-  }
-  if (env.FIELDLINE_DB) return env.FIELDLINE_DB;
-  return path.join(resolveDataDir(env), "fieldline.db");
+  if (url && (POSTGRES_URL.test(url) || /^pglite:/i.test(url))) return { kind: "postgres", url };
+  if (env.FIELDLINE_DB) return { kind: "sqlite", file: env.FIELDLINE_DB };
+  return { kind: "sqlite", file: path.join(resolveDataDir(env), "fieldline.db") };
 }
 
-export function databaseKind(env: Env = process.env): "sqlite-tmp" | "sqlite-file" {
-  const file = resolveDatabasePath(env);
-  return file === ":memory:" || file.startsWith("/tmp/") ? "sqlite-tmp" : "sqlite-file";
+export function resolveDatabasePath(env: Env = process.env): string {
+  const target = databaseTarget(env);
+  if (target.kind === "postgres") {
+    throw new Error("DATABASE_URL is a Postgres connection string, so there is no SQLite file.");
+  }
+  return target.file;
+}
+
+export function databaseKind(env: Env = process.env): "sqlite-tmp" | "sqlite-file" | "postgres" {
+  const target = databaseTarget(env);
+  if (target.kind === "postgres") return "postgres";
+  return target.file === ":memory:" || target.file.startsWith("/tmp/") ? "sqlite-tmp" : "sqlite-file";
 }

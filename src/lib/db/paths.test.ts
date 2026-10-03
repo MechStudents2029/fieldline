@@ -15,8 +15,9 @@ describe("demo database paths", () => {
     expect(databaseKind(env)).toBe("sqlite-tmp");
   });
 
-  it("honors an explicit file and refuses a Postgres URL", () => {
+  it("honors an explicit sqlite file and treats a Postgres URL as the durable database", () => {
     expect(resolveDatabasePath({ FIELDLINE_DB: ":memory:" })).toBe(":memory:");
-    expect(() => resolveDatabasePath({ DATABASE_URL: "postgres://user:pass@host/db" })).toThrow(/Postgres/);
+    expect(databaseKind({ DATABASE_URL: "postgres://user:pass@host/db" })).toBe("postgres");
+    expect(() => resolveDatabasePath({ DATABASE_URL: "postgres://user:pass@host/db" })).toThrow(/no SQLite file/);
   });
 });
