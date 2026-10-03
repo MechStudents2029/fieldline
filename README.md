@@ -73,6 +73,8 @@ npm run dev
 
 Open [http://127.0.0.1:3847](http://127.0.0.1:3847). The first request creates `data/fieldline.db` and loads the seed. Password for every demo user is `demo`.
 
+`npm run check` runs lint, the TypeScript check, tests, and `next build`.
+
 | Person | Email | Company | Role |
 |---|---|---|---|
 | Maya Rivera | maya@rivera.demo | Rivera Remodeling & Trade | Owner |
