@@ -1,17 +1,17 @@
 import { NextResponse } from "next/server";
+import { demoWebhookAllowed } from "@/lib/security";
 
 export async function POST(request: Request) {
   const secret = process.env.STRIPE_WEBHOOK_SECRET;
   if (!secret) {
-    const demo = request.headers.get("x-fieldline-demo");
-    if (demo !== "1") {
+    if (!demoWebhookAllowed(process.env) || request.headers.get("x-fieldline-demo") !== "1") {
       return NextResponse.json(
-        { ok: false, error: "Set STRIPE_WEBHOOK_SECRET, or send x-fieldline-demo: 1 while keys are empty." },
-        { status: 400 },
+        { ok: false, error: "Set STRIPE_WEBHOOK_SECRET before accepting webhooks." },
+        { status: 401 },
       );
     }
-    const body = await request.json().catch(() => ({}));
-    return NextResponse.json({ ok: true, stub: true, received: body });
+    await request.json().catch(() => ({}));
+    return NextResponse.json({ ok: true, stub: true });
   }
   const signature = request.headers.get("stripe-signature");
   if (!signature) return NextResponse.json({ ok: false }, { status: 400 });

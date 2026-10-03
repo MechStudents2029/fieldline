@@ -613,6 +613,15 @@ export function portalByToken(token: string) {
   };
 }
 
+export function leadPhotoNames(orgId: string, leadId: string): string[] {
+  return getDb()
+    .select({ filename: documents.filename })
+    .from(documents)
+    .where(and(eq(documents.orgId, orgId), eq(documents.leadId, leadId), eq(documents.type, "photo"), isNull(documents.deletedAt)))
+    .all()
+    .map((row) => row.filename);
+}
+
 export function invoicesCsv(orgId: string): string {
   const rows = listInvoices(orgId);
   const header = ["Date", "Number", "Type", "Name", "Project", "Amount", "Paid", "Status"];

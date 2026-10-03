@@ -1,8 +1,9 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { useDatabaseFile } from "@/lib/db/client";
-import { authenticate, askCopilot, estimateDetail, leadDetail, listProjects, projectDetail, receivables } from "@/lib/services/read";
+import { authenticate, askCopilot, estimateDetail, invoicesCsv, leadDetail, leadPhotoNames, listProjects, projectDetail, receivables } from "@/lib/services/read";
 import {
   addCost,
+  addManualLine,
   approveChangeOrder,
   approveDraft,
   createChangeOrder,
@@ -12,15 +13,17 @@ import {
   payInvoice,
   previewReceipt,
   reviseEstimate,
+  saveUploadedText,
   sendChangeOrder,
   sendProposal,
   signProposal,
   updateLine,
 } from "@/lib/services/write";
 import { getDb } from "@/lib/db/client";
-import { proposals } from "@/lib/db/schema";
+import { documents, proposals } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { lineAmounts } from "@/lib/money";
+import { canSeeMoney } from "@/lib/permissions";
 
 function linePrice(unitCostCents: number, markupBps: number) {
   return lineAmounts(1000, unitCostCents, markupBps).price;
@@ -176,5 +179,52 @@ describe("kitchen remodel through margin", () => {
     expect(() =>
       signProposal({ token: sent.publicToken, signerName: "Ruth Feldman", typedName: "Ruth Feldman", consent: true }),
     ).toThrow(/declined/);
+  });
+
+  it("rejects bad money, hides invoice exports, and keeps other companies' photos off the estimate", async () => {
+    const maya = authenticate("maya@rivera.demo", "demo")!;
+    const dana = authenticate("dana@rivera.demo", "demo")!;
+    expect(() => invoicesCsv(maya.orgId)).not.toThrow();
+    expect(invoicesCsv(maya.orgId)).toContain("Number");
+    expect(dana.role).toBe("field");
+    expect(canSeeMoney(dana.role)).toBe(false);
+
+    const created = createLeadFromText(maya, "Sam Ortiz, 80 sq ft hall bath, new tile and a vanity.");
+    const generated = await generateEstimate(maya, created.leadId);
+    const detail = estimateDetail(maya.orgId, generated.estimateId)!;
+    expect(() => updateLine(maya, detail.lines[0].id, { qty: -3 })).toThrow(/Quantity/);
+    expect(() => updateLine(maya, detail.lines[0].id, { unitCostCents: -1 })).toThrow(/Unit cost/);
+    expect(() =>
+      addManualLine(maya, generated.estimateId, {
+        name: "Credit",
+        qty: 1,
+        unit: "ea",
+        unitCostCents: -500,
+        markupBps: 3500,
+      }),
+    ).toThrow(/Unit cost/);
+    expect(() => addCost(maya, "proj_chen", { amountCents: -100, vendorName: "X", source: "expense" })).toThrow(/greater than zero/);
+    expect(() => addCost(maya, "proj_chen", { amountCents: 2_000_000_000, vendorName: "X", source: "expense" })).toThrow(/\$10,000,000/);
+    expect(() => saveUploadedText(maya, "proj_chen", "evil.svg", "<svg onload='alert(1)'></svg>")).toThrow(/txt or .csv/);
+
+    getDb()
+      .insert(documents)
+      .values({
+        id: "doc_foreign_photo",
+        orgId: "org_northline",
+        projectId: null,
+        leadId: created.leadId,
+        contactId: null,
+        type: "photo",
+        filename: "northline-secret-panel.svg",
+        storagePath: "/demo/photos/diaz-deck.svg",
+        metadataJson: null,
+        deletedAt: null,
+        createdAt: new Date().toISOString(),
+        createdBy: null,
+      })
+      .run();
+    expect(leadPhotoNames(maya.orgId, created.leadId)).not.toContain("northline-secret-panel.svg");
+    expect(leadPhotoNames("org_northline", created.leadId)).toContain("northline-secret-panel.svg");
   });
 });

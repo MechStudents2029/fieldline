@@ -1,6 +1,7 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { readSessionPayload } from "@/lib/security";
 import { actorFromIds, type Actor } from "@/lib/services/read";
 
 const COOKIE = "fieldline_session";
@@ -57,12 +58,8 @@ export async function getSession(): Promise<Actor | null> {
   const right = Buffer.from(expected);
   if (left.length !== right.length || !timingSafeEqual(left, right)) return null;
   try {
-    const payload = JSON.parse(Buffer.from(body, "base64url").toString()) as {
-      userId: string;
-      orgId: string;
-      exp: number;
-    };
-    if (!payload.exp || payload.exp < Date.now()) return null;
+    const payload = readSessionPayload(JSON.parse(Buffer.from(body, "base64url").toString()));
+    if (!payload || payload.exp < Date.now()) return null;
     return actorFromIds(payload.userId, payload.orgId);
   } catch {
     return null;

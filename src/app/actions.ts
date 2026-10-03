@@ -332,6 +332,7 @@ export async function receiptAction(projectId: string, _prev: ActionState, formD
       text = readDemoReceipt(sample);
       filename = sample;
     } else if (file instanceof File && file.size > 0) {
+      if (file.size > 1_000_000) return { error: "Receipt files must be 1 MB or smaller." };
       text = await file.text();
       filename = file.name;
     } else {

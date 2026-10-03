@@ -1,5 +1,11 @@
 /** All money is integer cents. Basis points are integer (3500 = 35.00%). */
 
+/** $10,000,000. A remodel job file should never store more than this on one line. */
+export const MAX_MONEY_CENTS = 1_000_000_000;
+export const MAX_QTY = 1_000_000;
+/** 500% markup. */
+export const MAX_MARKUP_BPS = 50_000;
+
 export function formatMoney(cents: number | null | undefined): string {
   if (cents == null || Number.isNaN(cents)) return "—";
   return new Intl.NumberFormat("en-US", {
@@ -19,10 +25,39 @@ export function dollarsToCents(value: number): number {
 
 export function parseMoneyToCents(input: string): number | null {
   const cleaned = input.replace(/[$,\s]/g, "");
-  if (!cleaned) return null;
+  if (!/^(?:\d+|\d*\.\d{1,2})$/.test(cleaned)) return null;
   const n = Number(cleaned);
-  if (!Number.isFinite(n)) return null;
-  return Math.round(n * 100);
+  if (!Number.isFinite(n) || n < 0) return null;
+  const cents = Math.round(n * 100);
+  if (!Number.isSafeInteger(cents) || cents > MAX_MONEY_CENTS) return null;
+  return cents;
+}
+
+/** Returns a message when a line edit would store a negative, non-integer, or absurd amount. */
+export function lineInputError(input: { qty?: number; unitCostCents?: number; markupBps?: number }): string | null {
+  if (input.qty != null && (!Number.isFinite(input.qty) || input.qty <= 0 || input.qty > MAX_QTY)) {
+    return "Quantity must be greater than zero.";
+  }
+  if (
+    input.unitCostCents != null &&
+    (!Number.isSafeInteger(input.unitCostCents) || input.unitCostCents < 0 || input.unitCostCents > MAX_MONEY_CENTS)
+  ) {
+    return "Unit cost must be zero or a positive amount under $10,000,000.";
+  }
+  if (
+    input.markupBps != null &&
+    (!Number.isSafeInteger(input.markupBps) || input.markupBps < 0 || input.markupBps > MAX_MARKUP_BPS)
+  ) {
+    return "Markup must be between 0% and 500%.";
+  }
+  return null;
+}
+
+export function positiveMoneyError(cents: number): string | null {
+  if (!Number.isSafeInteger(cents) || cents <= 0 || cents > MAX_MONEY_CENTS) {
+    return "Enter an amount greater than zero and under $10,000,000.";
+  }
+  return null;
 }
 
 export function qtyToMilli(qty: number): number {
@@ -40,8 +75,17 @@ export function formatQty(milli: number): string {
 
 /** Cost is rounded to the cent, then markup is applied and rounded again. */
 export function lineAmounts(qtyMilli: number, unitCostCents: number, markupBps: number) {
-  const cost = Math.round((qtyMilli * unitCostCents) / 1000);
+  if (!Number.isSafeInteger(qtyMilli) || !Number.isSafeInteger(unitCostCents) || !Number.isSafeInteger(markupBps)) {
+    throw new Error("Line amounts must be integers.");
+  }
+  if (qtyMilli < 0 || unitCostCents < 0) throw new Error("Line amounts cannot be negative.");
+  const product = qtyMilli * unitCostCents;
+  if (!Number.isSafeInteger(product)) throw new Error("Line cost is too large.");
+  const cost = Math.round(product / 1000);
   const price = Math.round((cost * (10000 + markupBps)) / 10000);
+  if (!Number.isSafeInteger(cost) || !Number.isSafeInteger(price) || price > MAX_MONEY_CENTS * 6) {
+    throw new Error("Line cost is too large.");
+  }
   return { cost, price };
 }
 

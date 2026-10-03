@@ -39,12 +39,13 @@ import { assembleSnapshot, defaultSchedule, type StoredSnapshot } from "@/lib/do
 import { canonicalJson, sha256 } from "@/lib/esign/hash";
 import { daysFromNow, id, nowIso, token } from "@/lib/ids";
 import { deliverMessage } from "@/lib/messages/outbox";
-import { achFeeCents, cardFeeCents, lineAmounts, marginBps, qtyToMilli } from "@/lib/money";
+import { achFeeCents, cardFeeCents, lineAmounts, lineInputError, marginBps, positiveMoneyError, qtyToMilli } from "@/lib/money";
 import { decideAch, decideCard } from "@/lib/payments/decide";
 import { canEditCrm, canManageMoney, type Role } from "@/lib/permissions";
 import { CONSENT_VERSION } from "@/lib/product";
+import { receiptUploadError } from "@/lib/security";
 import { ServiceError } from "@/lib/services/errors";
-import type { Actor } from "@/lib/services/read";
+import { leadPhotoNames, type Actor } from "@/lib/services/read";
 
 type Tx = Parameters<Parameters<ReturnType<typeof getDb>["transaction"]>[0]>[0];
 type Writer = Tx | ReturnType<typeof getDb>;
@@ -280,11 +281,10 @@ export async function generateEstimate(actor: Actor, leadId: string) {
   const org = db.select().from(organizations).where(eq(organizations.id, actor.orgId)).get();
   if (!org) throw new ServiceError("Company not found.");
   const book = db.select().from(priceBookItems).where(eq(priceBookItems.orgId, actor.orgId)).all();
-  const photos = db.select().from(documents).where(and(eq(documents.leadId, leadId), eq(documents.type, "photo"))).all();
   const started = Date.now();
   const draft = await estimateFromScope({
     scope: lead.scopeText || lead.title,
-    photoNames: photos.map((photo) => photo.filename),
+    photoNames: leadPhotoNames(actor.orgId, leadId),
     book: book.map((item) => ({
       id: item.id,
       code: item.code,
@@ -394,6 +394,8 @@ export function updateLine(
   const line = db.select().from(lineItems).where(and(eq(lineItems.id, lineId), eq(lineItems.orgId, actor.orgId))).get();
   if (!line) throw new ServiceError("Line not found.");
   loadEditableEstimate(actor, line.estimateId);
+  const invalid = lineInputError(patch);
+  if (invalid) throw new ServiceError(invalid);
   db.update(lineItems)
     .set({
       qtyMilli: patch.qty != null ? qtyToMilli(patch.qty) : line.qtyMilli,
@@ -421,7 +423,9 @@ export function addManualLine(
     sectionId = id("sec");
     db.insert(estimateSections).values({ id: sectionId, orgId: actor.orgId, estimateId, name: "Added", sortOrder: 0 }).run();
   }
-  if (!input.name.trim() || input.qty <= 0) throw new ServiceError("A line needs a name and a quantity.");
+  if (!input.name.trim()) throw new ServiceError("A line needs a name and a quantity.");
+  const invalid = lineInputError({ qty: input.qty, unitCostCents: input.unitCostCents, markupBps: input.markupBps });
+  if (invalid) throw new ServiceError(invalid);
   db.insert(lineItems)
     .values({
       id: id("li"),
@@ -1073,7 +1077,8 @@ export function addCost(
   input: { amountCents: number; vendorName: string; costCode?: string; memo?: string; source: string; aiExtracted?: boolean; documentId?: string },
 ) {
   assertMoney(actor);
-  if (input.amountCents <= 0) throw new ServiceError("Enter an amount greater than zero.");
+  const invalidAmount = positiveMoneyError(input.amountCents);
+  if (invalidAmount) throw new ServiceError(invalidAmount);
   const db = getDb();
   const project = db.select().from(projects).where(and(eq(projects.id, projectId), eq(projects.orgId, actor.orgId))).get();
   if (!project) throw new ServiceError("Job not found.");
@@ -1140,6 +1145,8 @@ export function previewReceipt(text: string) {
 
 export function saveUploadedText(actor: Actor, projectId: string, filename: string, text: string) {
   if (actor.role === "viewer") throw new ServiceError("Viewers cannot upload files.");
+  const uploadError = receiptUploadError(filename, text);
+  if (uploadError) throw new ServiceError(uploadError);
   const db = getDb();
   const project = db.select().from(projects).where(and(eq(projects.id, projectId), eq(projects.orgId, actor.orgId))).get();
   if (!project) throw new ServiceError("Job not found.");
