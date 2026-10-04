@@ -45,7 +45,7 @@ import { canEditCrm, canManageMoney, type Role } from "@/lib/permissions";
 import { CONSENT_VERSION } from "@/lib/product";
 import { receiptUploadError } from "@/lib/security";
 import { ServiceError } from "@/lib/services/errors";
-import { leadPhotoNames, type Actor } from "@/lib/services/read";
+import { leadPhotoCues, type Actor } from "@/lib/services/read";
 
 type Tx = Parameters<Parameters<ReturnType<typeof getDb>["transaction"]>[0]>[0];
 type Writer = Tx | ReturnType<typeof getDb>;
@@ -284,7 +284,7 @@ export async function generateEstimate(actor: Actor, leadId: string) {
   const started = Date.now();
   const draft = await estimateFromScope({
     scope: lead.scopeText || lead.title,
-    photoNames: leadPhotoNames(actor.orgId, leadId),
+    photos: leadPhotoCues(actor.orgId, leadId),
     book: book.map((item) => ({
       id: item.id,
       code: item.code,

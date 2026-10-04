@@ -682,13 +682,27 @@ export function portalByToken(token: string) {
   };
 }
 
-export function leadPhotoNames(orgId: string, leadId: string): string[] {
+export function captionFromMetadata(metadataJson: string | null): string {
+  if (!metadataJson) return "";
+  try {
+    const parsed = JSON.parse(metadataJson) as { caption?: unknown };
+    return typeof parsed.caption === "string" ? parsed.caption.trim() : "";
+  } catch {
+    return "";
+  }
+}
+
+export function leadPhotoCues(orgId: string, leadId: string): { filename: string; caption: string }[] {
   return getDb()
-    .select({ filename: documents.filename })
+    .select({ filename: documents.filename, metadataJson: documents.metadataJson })
     .from(documents)
     .where(and(eq(documents.orgId, orgId), eq(documents.leadId, leadId), eq(documents.type, "photo"), isNull(documents.deletedAt)))
     .all()
-    .map((row) => row.filename);
+    .map((row) => ({ filename: row.filename, caption: captionFromMetadata(row.metadataJson) }));
+}
+
+export function leadPhotoNames(orgId: string, leadId: string): string[] {
+  return leadPhotoCues(orgId, leadId).map((photo) => photo.filename);
 }
 
 export function invoicesCsv(orgId: string): string {

@@ -30,12 +30,23 @@ export type DraftEstimate = {
   model: string;
 };
 
+/** A photo-only cue never outranks a written dimension. Estimators still have to check the site. */
+export const PHOTO_ONLY_CONFIDENCE_CAP = 0.56;
+
+export type EstimatePhoto = {
+  filename: string;
+  caption?: string | null;
+};
+
 type Ctx = {
   scope: string;
   photos: string;
   sqft: number | null;
   baseLf: number | null;
   explicitLf: boolean;
+  explicitCounter: boolean;
+  explicitCans: boolean;
+  explicitFence: boolean;
 };
 
 function num(text: string, pattern: RegExp): number | null {
@@ -43,8 +54,30 @@ function num(text: string, pattern: RegExp): number | null {
   return match ? Number(match[1]) : null;
 }
 
-function buildCtx(scope: string, photoNames: string[]): Ctx {
-  const photos = photoNames.join(" ");
+/** Drop the path and extension so `photos/vasquez-cabinets.svg` matches cabinet rules. */
+export function cleanFilenameTokens(filename: string): string {
+  const base = filename.split(/[/\\]/).pop() ?? filename;
+  return base.replace(/\.[a-z0-9]{1,8}$/i, "").replace(/[^a-z0-9]+/gi, " ").trim();
+}
+
+/** `photos` wins when both are passed. Filenames alone stay valid for older callers. */
+export function normalizePhotos(input: { photoNames?: string[]; photos?: EstimatePhoto[] }): EstimatePhoto[] {
+  if (input.photos) {
+    return input.photos.map((photo) => ({
+      filename: photo.filename,
+      caption: photo.caption?.trim() ? photo.caption.trim() : null,
+    }));
+  }
+  return (input.photoNames ?? []).map((filename) => ({ filename, caption: null }));
+}
+
+function photoBlob(photos: EstimatePhoto[]): string {
+  return photos
+    .map((photo) => [cleanFilenameTokens(photo.filename), photo.caption?.trim() ?? ""].filter(Boolean).join(" "))
+    .join(" ");
+}
+
+function buildCtx(scope: string, photos: string): Ctx {
   const sqft = num(scope, /(\d{2,5})\s*(?:sq\.?\s*ft|square feet|sqft|sf)\b/i);
   const lf = num(scope, /(\d+(?:\.\d+)?)\s*(?:linear\s*ft|lin\.?\s*ft|lf)\b/i);
   return {
@@ -53,6 +86,9 @@ function buildCtx(scope: string, photoNames: string[]): Ctx {
     sqft,
     baseLf: lf,
     explicitLf: lf != null,
+    explicitCounter: num(scope, /(\d+)\s*(?:sq\.?\s*ft|sf)\s*(?:of\s+)?(?:quartz|counter)/i) != null,
+    explicitCans: num(scope, /(\d+)\s*(?:recessed|cans|can lights)/i) != null,
+    explicitFence: num(scope, /(\d+)\s*(?:lf|linear|ft|feet)/i) != null,
   };
 }
 
@@ -70,6 +106,8 @@ type Rule = {
   qty: (ctx: Ctx) => number;
   confidence: (ctx: Ctx) => number;
   reason: (ctx: Ctx) => string;
+  /** True when the quantity is a default, not a dimension written in the scope. */
+  needsMeasure?: (ctx: Ctx) => boolean;
 };
 
 const RULES: Rule[] = [
@@ -82,6 +120,7 @@ const RULES: Rule[] = [
       c.sqft
         ? `Gut demolition priced per sq ft from the ${c.sqft} sq ft in the scope.`
         : "Demolition mentioned, but no area was given.",
+    needsMeasure: (c) => c.sqft == null,
   },
   {
     code: "DEMO-HAUL",
@@ -99,6 +138,7 @@ const RULES: Rule[] = [
       c.explicitLf
         ? `Base cabinets use the ${c.baseLf} linear ft written in the scope.`
         : "Base cabinet length was inferred from the room size. Confirm on site.",
+    needsMeasure: (c) => !c.explicitLf,
   },
   {
     code: "CAB-UPPER",
@@ -109,6 +149,7 @@ const RULES: Rule[] = [
     },
     confidence: (c) => (c.explicitLf ? 0.72 : 0.5),
     reason: () => "Uppers are estimated at 85% of the base-cabinet run.",
+    needsMeasure: (c) => !c.explicitLf,
   },
   {
     code: "TOP-QUARTZ",
@@ -116,6 +157,7 @@ const RULES: Rule[] = [
     qty: (c) => num(c.scope, /(\d+)\s*(?:sq\.?\s*ft|sf)\s*(?:of\s+)?(?:quartz|counter)/i) ?? (c.sqft ? 48 : 40),
     confidence: (c) => (inScope(c, /quartz|counter/i) ? 0.74 : 0.55),
     reason: () => "Counter area uses a typical kitchen layout until a template is measured.",
+    needsMeasure: (c) => !c.explicitCounter,
   },
   {
     code: "TILE-BACK",
@@ -123,6 +165,7 @@ const RULES: Rule[] = [
     qty: () => 32,
     confidence: (c) => (inScope(c, /backsplash|tile/i) ? 0.8 : 0.6),
     reason: () => "Backsplash area is a standard 32 sq ft until field measured.",
+    needsMeasure: () => true,
   },
   {
     code: "FLR-LVP",
@@ -133,6 +176,7 @@ const RULES: Rule[] = [
       inScope(c, /floor|lvp|vinyl/i)
         ? "Flooring area follows the room size in the scope."
         : "Gut kitchen assumes new LVP. Remove this line if the floor stays.",
+    needsMeasure: (c) => c.sqft == null,
   },
   {
     code: "FLR-HW",
@@ -140,6 +184,7 @@ const RULES: Rule[] = [
     qty: (c) => c.sqft ?? 1,
     confidence: () => 0.8,
     reason: () => "Hardwood was named in the scope.",
+    needsMeasure: (c) => c.sqft == null,
   },
   {
     code: "ELE-RECESS",
@@ -147,6 +192,7 @@ const RULES: Rule[] = [
     qty: (c) => num(c.scope, /(\d+)\s*(?:recessed|cans|can lights)/i) ?? 8,
     confidence: (c) => (inScope(c, /recessed|can light/i) ? 0.7 : 0.55),
     reason: () => "Recessed count defaults to 8 when the scope does not give a number.",
+    needsMeasure: (c) => !c.explicitCans,
   },
   {
     code: "ELE-KIT",
@@ -178,6 +224,7 @@ const RULES: Rule[] = [
     qty: (c) => (c.sqft ? c.sqft * 2 : 200),
     confidence: (c) => (c.sqft ? 0.68 : 0.5),
     reason: () => "Wall and ceiling area is estimated at twice the floor area after a gut.",
+    needsMeasure: (c) => c.sqft == null,
   },
   {
     code: "PNT-INT",
@@ -188,6 +235,7 @@ const RULES: Rule[] = [
       inScope(c, /paint/i)
         ? "Paint area follows the room size."
         : "Paint is included as a finish allowance.",
+    needsMeasure: (c) => c.sqft == null,
   },
   {
     code: "APP-ALLOW",
@@ -223,6 +271,7 @@ const RULES: Rule[] = [
     qty: () => 80,
     confidence: () => 0.64,
     reason: () => "Shower wall tile defaults to 80 sq ft.",
+    needsMeasure: () => true,
   },
   {
     code: "DECK-BOARD",
@@ -230,6 +279,7 @@ const RULES: Rule[] = [
     qty: (c) => c.sqft ?? 200,
     confidence: (c) => (c.sqft ? 0.82 : 0.55),
     reason: () => "Deck boards priced on the stated area.",
+    needsMeasure: (c) => c.sqft == null,
   },
   {
     code: "DECK-RAIL",
@@ -237,6 +287,7 @@ const RULES: Rule[] = [
     qty: (c) => Math.max(20, Math.round(Math.sqrt(c.sqft ?? 200) * 4)),
     confidence: () => 0.5,
     reason: () => "Railing length is a rough perimeter. Measure it.",
+    needsMeasure: () => true,
   },
   {
     code: "ROOF-ARCH",
@@ -244,6 +295,7 @@ const RULES: Rule[] = [
     qty: (c) => c.sqft ?? 20,
     confidence: (c) => (c.sqft ? 0.75 : 0.5),
     reason: () => "Roofing squares were taken from the scope. 1 square = 100 sq ft if you typed squares.",
+    needsMeasure: (c) => c.sqft == null,
   },
   {
     code: "PNT-EXT",
@@ -258,6 +310,7 @@ const RULES: Rule[] = [
     qty: (c) => num(c.scope, /(\d+)\s*(?:lf|linear|ft|feet)/i) ?? 80,
     confidence: () => 0.66,
     reason: () => "Fence length from the scope, or 80 ft if none was given.",
+    needsMeasure: (c) => !c.explicitFence,
   },
   {
     code: "ELE-PANEL",
@@ -268,16 +321,57 @@ const RULES: Rule[] = [
   },
 ];
 
+const PHOTO_SITE_CHECK = "From a site photo, not the written scope. Needs a site check.";
+const SITE_MEASURE = "Needs a site measure.";
+
+function finishReason(rule: Rule, ctx: Ctx, photoOnly: boolean): string {
+  let reason = rule.reason(ctx);
+  if (photoOnly && !/site photo/i.test(reason)) reason = `${reason} ${PHOTO_SITE_CHECK}`;
+  if (rule.needsMeasure?.(ctx) && !/site measure/i.test(reason)) reason = `${reason} ${SITE_MEASURE}`;
+  return reason;
+}
+
+/**
+ * Cap a model line the same way the local matcher does when only a photo triggered the code.
+ * Quantity notes stay with the local matcher, which knows whether the scope stated a dimension.
+ */
+export function reviewModelLine(input: {
+  code: string;
+  confidence: number;
+  reason: string;
+  scope: string;
+  photos: EstimatePhoto[];
+}): { confidence: number; reason: string } {
+  const rule = RULES.find((item) => item.code === input.code);
+  if (!rule || input.photos.length === 0) {
+    return { confidence: input.confidence, reason: input.reason };
+  }
+  const scopeHit = rule.when(buildCtx(input.scope, ""));
+  const photoHit = rule.when(buildCtx("", photoBlob(input.photos)));
+  if (!photoHit || scopeHit) return { confidence: input.confidence, reason: input.reason };
+  let reason = input.reason;
+  if (!/site photo/i.test(reason)) reason = `${reason} ${PHOTO_SITE_CHECK}`;
+  return {
+    confidence: Math.round(Math.min(input.confidence, PHOTO_ONLY_CONFIDENCE_CAP) * 100) / 100,
+    reason,
+  };
+}
+
 export function draftEstimate(input: {
   scope: string;
   photoNames?: string[];
+  photos?: EstimatePhoto[];
   book: PriceRef[];
   markupBps: number;
   model?: string;
 }): DraftEstimate {
-  const ctx = buildCtx(input.scope, input.photoNames ?? []);
+  const photos = normalizePhotos(input);
+  const ctx = buildCtx(input.scope, photoBlob(photos));
+  const scopeCtx = buildCtx(input.scope, "");
+  const photoCtx = buildCtx("", photoBlob(photos));
   if (ctx.baseLf == null && /cabinet/i.test(input.scope)) {
     ctx.baseLf = Math.max(10, Math.round((ctx.sqft ?? 160) * 0.08));
+    scopeCtx.baseLf = ctx.baseLf;
   }
   const byCode = new Map(input.book.map((item) => [item.code, item]));
   const lines: DraftLine[] = [];
@@ -290,12 +384,13 @@ export function draftEstimate(input: {
     const qty = rule.qty(ctx);
     if (!Number.isFinite(qty) || qty <= 0) continue;
     seen.add(rule.code);
-    const photoOnly = !ruleMatchesScope(rule, input.scope) && (input.photoNames?.length ?? 0) > 0;
+    const scopeHit = rule.when(scopeCtx);
+    const photoHit = photos.length > 0 && rule.when(photoCtx);
+    const photoOnly = photoHit && !scopeHit;
     let confidence = rule.confidence(ctx);
-    if (photoOnly) confidence = Math.min(confidence, 0.56);
-    if ((input.photoNames?.length ?? 0) > 0 && !photoOnly) {
-      confidence = Math.min(0.95, confidence + 0.03);
-    }
+    if (photoOnly) confidence = Math.min(confidence, PHOTO_ONLY_CONFIDENCE_CAP);
+    else if (photoHit && scopeHit) confidence = Math.min(0.95, confidence + 0.06);
+    else if (photos.length > 0) confidence = Math.min(0.95, confidence + 0.03);
     lines.push({
       code: item.code,
       name: item.name,
@@ -305,7 +400,7 @@ export function draftEstimate(input: {
       unitCostCents: item.unitCostCents,
       markupBps: input.markupBps,
       confidence: Math.round(confidence * 100) / 100,
-      reason: rule.reason(ctx),
+      reason: finishReason(rule, ctx, photoOnly),
       priceBookItemId: item.id,
     });
   }
@@ -336,23 +431,22 @@ export function draftEstimate(input: {
   }
 
   const low = lines.filter((line) => line.confidence < 0.7).length;
+  const measured = lines.filter((line) => /site measure/i.test(line.reason)).length;
+  const captions = photos.filter((photo) => photo.caption).length;
   const photoNote =
-    (input.photoNames?.length ?? 0) > 0
-      ? ` ${input.photoNames!.length} photo${input.photoNames!.length === 1 ? "" : "s"} were used as context, not as a plan takeoff.`
+    photos.length > 0
+      ? ` ${photos.length} photo${photos.length === 1 ? "" : "s"} were used as context${
+          captions > 0 ? `, including ${captions} caption${captions === 1 ? "" : "s"}` : ""
+        }, not as a plan takeoff.`
       : "";
+  const measureNote = measured > 0 ? ` ${measured} line${measured === 1 ? "" : "s"} need a site measure.` : "";
 
   return {
     title: titleFromScope(input.scope),
     sections: [...groups.entries()].map(([name, sectionLines]) => ({ name, lines: sectionLines })),
-    notes: `${low} line${low === 1 ? "" : "s"} under 70% confidence. Prices come from your price book, not from a generic model.${photoNote} Review every line before you send.`,
+    notes: `${low} line${low === 1 ? "" : "s"} under 70% confidence.${measureNote} Prices come from your price book, not from a generic model.${photoNote} Review every line before you send.`,
     model: input.model ?? "fieldline-pricebook-v1",
   };
-}
-
-function ruleMatchesScope(rule: Rule, scope: string): boolean {
-  const onlyPhotos: Ctx = { scope: "", photos: "", sqft: null, baseLf: null, explicitLf: false };
-  const withScope: Ctx = { scope, photos: "", sqft: null, baseLf: null, explicitLf: false };
-  return rule.when(withScope) || !rule.when(onlyPhotos);
 }
 
 function titleFromScope(scope: string): string {

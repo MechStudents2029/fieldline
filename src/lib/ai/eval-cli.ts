@@ -50,6 +50,21 @@ for (const item of cases) {
   }
 }
 
+const captionOnly = draftEstimate({
+  scope: "Repaint the hall closet.",
+  photos: [{ filename: "site.jpg", caption: "tile shower" }],
+  book,
+  markupBps: 3500,
+});
+const shower = captionOnly.sections.flatMap((section) => section.lines).find((line) => line.code === "TILE-SHOWER");
+const captionOk =
+  shower != null &&
+  shower.confidence <= 0.56 &&
+  /site photo/i.test(shower.reason) &&
+  /site check/i.test(shower.reason);
+console.log(`${captionOk ? "ok" : "OUT"}  caption-only shower  conf ${shower?.confidence ?? "missing"}`);
+if (!captionOk) failed += 1;
+
 if (failed > 0) {
   console.error(`${failed} case(s) outside the expected band.`);
   process.exit(1);

@@ -62,6 +62,7 @@ describe("kitchen remodel through margin", () => {
     const estimate = estimateDetail(maya!.orgId, generated.estimateId);
     expect(estimate!.priceCents).toBeGreaterThanOrEqual(6_000_000);
     expect(estimate!.priceCents).toBeLessThanOrEqual(8_500_000);
+    expect(estimate!.estimate.notes).toMatch(/3 captions/);
     expect(estimate!.marginBps!).toBeGreaterThanOrEqual(estimate!.estimate.marginTargetBps);
 
     expect(() => updateLine(dana!, estimate!.lines[0].id, { qty: 1 })).toThrow(/cannot change prices/);

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { draftEstimate, draftToTotals } from "@/lib/ai/estimate";
+import { draftEstimate, draftToTotals, PHOTO_ONLY_CONFIDENCE_CAP } from "@/lib/ai/estimate";
+import { estimateFromScope, gatewayEstimatePrompt } from "@/lib/ai/gateway";
 import { extractIntake } from "@/lib/ai/intake";
 import { extractReceiptText } from "@/lib/ai/receipt";
 import { routeCopilotQuestion, marginThresholdFromQuestion } from "@/lib/ai/copilot";
@@ -35,6 +36,112 @@ describe("intake and estimate", () => {
     const cabinets = draft.sections.flatMap((section) => section.lines).find((line) => line.code === "CAB-BASE");
     expect(cabinets?.qty).toBe(14);
     expect(cabinets?.unitCostCents).toBe(62_000);
+    expect(cabinets?.reason).not.toMatch(/site measure/i);
+  });
+
+  it("caps a caption-only photo cue and asks for a site check", () => {
+    const book = riveraCatalog().map((item) => ({ ...item, defaultMarkupBps: 3500 }));
+    const draft = draftEstimate({
+      scope: "Repaint the hall closet.",
+      photos: [{ filename: "site.jpg", caption: "tile shower" }],
+      book,
+      markupBps: 3500,
+    });
+    const shower = draft.sections.flatMap((section) => section.lines).find((line) => line.code === "TILE-SHOWER");
+    expect(shower).toBeTruthy();
+    expect(shower!.confidence).toBeLessThanOrEqual(PHOTO_ONLY_CONFIDENCE_CAP);
+    expect(shower!.reason).toMatch(/site photo/i);
+    expect(shower!.reason).toMatch(/site check/i);
+    expect(shower!.reason).toMatch(/site measure/i);
+    expect(shower!.qty).toBe(80);
+  });
+
+  it("treats cleaned filename tokens as photo context", () => {
+    const draft = draftEstimate({
+      scope: "Paint the bedroom.",
+      photoNames: ["photos/backsplash-tile.jpg"],
+      book: riveraCatalog().map((item) => ({ ...item, defaultMarkupBps: 3500 })),
+      markupBps: 3500,
+    });
+    const tile = draft.sections.flatMap((section) => section.lines).find((line) => line.code === "TILE-BACK");
+    expect(tile?.confidence).toBeLessThanOrEqual(PHOTO_ONLY_CONFIDENCE_CAP);
+    expect(tile?.reason).toMatch(/site photo/i);
+  });
+
+  it("raises confidence when the caption and the scope agree", () => {
+    const book = riveraCatalog().map((item) => ({ ...item, defaultMarkupBps: 3500 }));
+    const photoOnly = draftEstimate({
+      scope: "Repaint the hall closet.",
+      photos: [{ filename: "site.jpg", caption: "tile shower" }],
+      book,
+      markupBps: 3500,
+    });
+    const agreed = draftEstimate({
+      scope: "New tile shower, 60 sq ft bath.",
+      photos: [{ filename: "shower-tile.svg", caption: "tile shower walls" }],
+      book,
+      markupBps: 3500,
+    });
+    const only = photoOnly.sections.flatMap((section) => section.lines).find((line) => line.code === "TILE-SHOWER");
+    const both = agreed.sections.flatMap((section) => section.lines).find((line) => line.code === "TILE-SHOWER");
+    expect(both!.confidence).toBeGreaterThan(only!.confidence);
+    expect(both!.reason).not.toMatch(/site photo/i);
+  });
+
+  it("ignores dimensions that appear only in a caption", () => {
+    const draft = draftEstimate({
+      scope: "Paint the closet.",
+      photos: [{ filename: "wide.jpg", caption: "gut the 900 sq ft kitchen" }],
+      book: riveraCatalog().map((item) => ({ ...item, defaultMarkupBps: 3500 })),
+      markupBps: 3500,
+    });
+    const demo = draft.sections.flatMap((section) => section.lines).find((line) => line.code === "DEMO-GUT");
+    expect(demo?.qty).toBe(1);
+    expect(demo?.confidence).toBeLessThanOrEqual(PHOTO_ONLY_CONFIDENCE_CAP);
+  });
+
+  it("asks for a site measure when cabinet length was inferred", () => {
+    const book = riveraCatalog().map((item) => ({ ...item, defaultMarkupBps: 3500 }));
+    const draft = draftEstimate({
+      scope: "New cabinets in the kitchen.",
+      book,
+      markupBps: 3500,
+    });
+    const base = draft.sections.flatMap((section) => section.lines).find((line) => line.code === "CAB-BASE");
+    expect(base?.reason).toMatch(/site measure/i);
+    expect(draft.notes).toMatch(/site measure/i);
+  });
+
+  it("leaves an empty photo list the same as no photos", () => {
+    const book = riveraCatalog().map((item) => ({ ...item, defaultMarkupBps: 3500 }));
+    const omitted = draftEstimate({ scope: SCOPE, book, markupBps: 3500 });
+    const names = draftEstimate({ scope: SCOPE, photoNames: [], book, markupBps: 3500 });
+    const photos = draftEstimate({ scope: SCOPE, photos: [], book, markupBps: 3500 });
+    expect(names).toEqual(omitted);
+    expect(photos).toEqual(omitted);
+  });
+
+  it("keeps the gateway on the local matcher and names captions in the prompt", async () => {
+    const previous = process.env.AI_GATEWAY_API_KEY;
+    delete process.env.AI_GATEWAY_API_KEY;
+    const book = riveraCatalog().map((item) => ({ ...item, defaultMarkupBps: 3500 }));
+    const draft = await estimateFromScope({
+      scope: "Repaint the hall closet.",
+      photos: [{ filename: "site.jpg", caption: "tile shower" }],
+      book,
+      markupBps: 3500,
+    });
+    expect(draft.model).toBe("fieldline-pricebook-v1");
+    const prompt = gatewayEstimatePrompt({
+      scope: "Repaint the hall closet.",
+      book,
+      photos: [{ filename: "site.jpg", caption: "tile shower" }],
+    });
+    expect(prompt).toContain("site.jpg — tile shower");
+    expect(prompt).toContain("Do not invent codes or prices.");
+    expect(prompt).not.toContain("image bytes");
+    if (previous === undefined) delete process.env.AI_GATEWAY_API_KEY;
+    else process.env.AI_GATEWAY_API_KEY = previous;
   });
 
   it("reads a receipt total", () => {

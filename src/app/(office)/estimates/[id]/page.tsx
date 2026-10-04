@@ -22,6 +22,7 @@ export default async function EstimatePage({ params }: { params: Promise<{ id: s
   const detail = estimateDetail(session.orgId, id);
   if (!detail) return <MissingRecord orgName={session.orgName} kind="estimate" />;
   const under = detail.marginBps != null && detail.marginBps < detail.estimate.marginTargetBps;
+  const review = detail.lines.filter((line) => lineNeedsReview(line));
   return (
     <div className="flex flex-col gap-5">
       <div>
@@ -48,6 +49,28 @@ export default async function EstimatePage({ params }: { params: Promise<{ id: s
         {under ? <p className="mt-2 text-sm">This draft is under the margin target. Edit lines or override when you send.</p> : null}
         {detail.lines.length === 0 ? <p className="mt-2 text-sm text-muted-foreground">No lines yet. Add one below, then send the proposal.</p> : null}
       </section>
+      {review.length > 0 ? (
+        <section className="rounded-xl bg-accent p-4 ring-1 ring-copper/40">
+          <h2 className="font-medium">Review these</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Photo-driven and low-confidence lines stay in the draft until you edit them. Nothing sends on its own.
+          </p>
+          <ul className="mt-2 flex flex-col gap-1 text-sm">
+            {review.map((line) => {
+              const flags = lineFlags(line);
+              return (
+                <li key={line.id}>
+                  <a href={`#line-${line.id}`} className="underline">
+                    {line.costCode} · {line.name}
+                  </a>
+                  {flags.photo ? " · photo" : ""}
+                  {flags.low ? " · low confidence" : ""}
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      ) : null}
       {detail.sections.map((section) => (
         <section key={section.id}>
           <h2 className="font-medium">{section.name}</h2>
@@ -55,11 +78,18 @@ export default async function EstimatePage({ params }: { params: Promise<{ id: s
             {detail.lines
               .filter((line) => line.sectionId === section.id)
               .map((line) => (
-                <article key={line.id} className="rounded-xl bg-card p-3 ring-1 ring-foreground/10">
-                  <div className="mb-2 flex items-center justify-between gap-2 text-xs text-muted-foreground">
-                    <span>
-                      {line.costCode} · {line.source}
-                      {line.aiConfidenceMilli != null ? ` · ${Math.round(line.aiConfidenceMilli / 10)}% confidence` : ""}
+                <article
+                  key={line.id}
+                  id={`line-${line.id}`}
+                  className={`rounded-xl p-3 ring-1 ${lineNeedsReview(line) ? "bg-accent ring-copper/40" : "bg-card ring-foreground/10"}`}
+                >
+                  <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+                    <span className="flex flex-wrap items-center gap-1">
+                      <span>
+                        {line.costCode} · {line.source}
+                        {line.aiConfidenceMilli != null ? ` · ${Math.round(line.aiConfidenceMilli / 10)}% confidence` : ""}
+                      </span>
+                      <LineBadges line={line} />
                     </span>
                     <span>{formatMoney(line.priceCents)}</span>
                   </div>
@@ -132,4 +162,34 @@ export default async function EstimatePage({ params }: { params: Promise<{ id: s
       </div>
     </div>
   );
+}
+
+function lineFlags(line: { aiConfidenceMilli: number | null; sourceNote: string | null }) {
+  const note = line.sourceNote ?? "";
+  return {
+    low: line.aiConfidenceMilli != null && line.aiConfidenceMilli < 700,
+    photo: /site photo/i.test(note),
+    measure: /site measure/i.test(note),
+  };
+}
+
+function lineNeedsReview(line: { aiConfidenceMilli: number | null; sourceNote: string | null }) {
+  const flags = lineFlags(line);
+  return flags.low || flags.photo;
+}
+
+function LineBadges({ line }: { line: { aiConfidenceMilli: number | null; sourceNote: string | null } }) {
+  const flags = lineFlags(line);
+  if (!flags.low && !flags.photo && !flags.measure) return null;
+  return (
+    <>
+      {flags.photo ? <Badge>Photo</Badge> : null}
+      {flags.low ? <Badge>Low confidence</Badge> : null}
+      {flags.measure ? <Badge>Needs site measure</Badge> : null}
+    </>
+  );
+}
+
+function Badge({ children }: { children: string }) {
+  return <span className="rounded-full bg-card px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-copper">{children}</span>;
 }

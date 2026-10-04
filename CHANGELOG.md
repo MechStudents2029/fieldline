@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-10-04
+
+### Photo context
+
+- Drafting reads each photo caption and the words in the file name, not the raw filename alone.
+- A line that only a photo triggered stays at 56% confidence and says it needs a site check. A caption that agrees with the written scope scores higher.
+- Quantities still come from dimensions in the scope. A guessed quantity says it needs a site measure.
+- The estimate review page lists photo-driven and low-confidence lines. Sending the proposal stays a button.
+- When `AI_GATEWAY_API_KEY` is set, the prompt includes those captions. Unknown codes are dropped, and a failed call uses the local matcher. No image bytes are sent.
+
 ## 2026-10-03
 
 ### Security and money

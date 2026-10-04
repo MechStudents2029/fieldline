@@ -198,7 +198,7 @@ Feedback: file a GitHub issue with steps, expected, actual, screenshot, and devi
 **Built and usable on seed data**
 
 - Pipeline, contacts, tasks, notes, and a Today view
-- Estimate drafts from scope text and photo filenames, priced only from the price book, with confidence flags
+- Estimate drafts from scope text, photo captions, and filename words, priced only from the price book, with confidence flags. A photo-only line stays capped and is listed for review. Sending stays a human button.
 - Proposals, in-house e-sign (typed or drawn, consent version, IP, user agent, SHA-256 of the public snapshot, PDF certificate)
 - Deposit, progress, and final invoices, ACH-first pay page, change orders that update contract and budget
 - Live margin and a 20% watch list
