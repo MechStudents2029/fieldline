@@ -1,8 +1,12 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { enterOfficeClaim } from "@/lib/db/rls-context";
 import { readSessionPayload } from "@/lib/security";
 import { actorFromIds, type Actor } from "@/lib/services/read";
+import { authUserIdFromClaims } from "@/lib/supabase/claims";
+import { supabaseAuthConfigured } from "@/lib/supabase/env";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 const COOKIE = "fieldline_session";
 
@@ -71,5 +75,22 @@ export async function getSession(): Promise<Actor | null> {
   if (!raw) return null;
   const ids = readSessionIds(raw);
   if (!ids) return null;
+  if (supabaseAuthConfigured()) {
+    const authUserId = await verifiedOfficeUser();
+    if (!authUserId) return null;
+    // Visible to office reads later in this request. getClaims() verified the JWT.
+    enterOfficeClaim(authUserId);
+  }
   return actorFromIds(ids.userId, ids.orgId);
+}
+
+async function verifiedOfficeUser(): Promise<string | null> {
+  try {
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase.auth.getClaims();
+    if (error) return null;
+    return authUserIdFromClaims(data?.claims as Record<string, unknown> | undefined);
+  } catch {
+    return null;
+  }
 }

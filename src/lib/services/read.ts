@@ -1,5 +1,8 @@
 import { and, asc, desc, eq, inArray, isNull, like, notInArray, or } from "drizzle-orm";
 import { getDb } from "@/lib/db/client";
+import { officeDb } from "@/lib/db/office";
+import { officeClaim } from "@/lib/db/rls-context";
+import { supabaseAuthConfigured } from "@/lib/supabase/env";
 import {
   activities,
   budgetLines,
@@ -46,6 +49,7 @@ export type Actor = {
   name: string;
   email: string;
   orgName: string;
+  authUserId: string | null;
 };
 
 export function listLoginChoices() {
@@ -82,11 +86,14 @@ export function authenticate(email: string, password: string): Actor | null {
     name: user.name,
     email: user.email,
     orgName: org.name,
+    authUserId: user.authUserId,
   };
 }
 
 export function actorFromIds(userId: string, orgId: string): Actor | null {
-  const db = getDb();
+  const claim = officeClaim();
+  const db = claim && supabaseAuthConfigured() ? officeDb(orgId) : getDb();
+  if (!db) return null;
   const user = db.select().from(users).where(eq(users.id, userId)).get();
   const membership = db
     .select()
@@ -95,6 +102,7 @@ export function actorFromIds(userId: string, orgId: string): Actor | null {
     .get();
   const org = db.select().from(organizations).where(eq(organizations.id, orgId)).get();
   if (!user || !membership || !org) return null;
+  if (claim && supabaseAuthConfigured() && user.authUserId !== claim.authUserId) return null;
   return {
     userId: user.id,
     orgId: org.id,
@@ -102,15 +110,19 @@ export function actorFromIds(userId: string, orgId: string): Actor | null {
     name: user.name,
     email: user.email,
     orgName: org.name,
+    authUserId: user.authUserId,
   };
 }
 
 export function getOrg(orgId: string) {
-  return getDb().select().from(organizations).where(eq(organizations.id, orgId)).get() ?? null;
+  const db = officeDb(orgId);
+  if (!db) return null;
+  return db.select().from(organizations).where(eq(organizations.id, orgId)).get() ?? null;
 }
 
 export function pipelineBoard(orgId: string, filters?: { q?: string; source?: string }) {
-  const db = getDb();
+  const db = officeDb(orgId);
+  if (!db) return { stages: [], cards: [], sources: [] as string[] };
   const stages = db
     .select()
     .from(pipelineStages)
@@ -250,7 +262,8 @@ export function estimateDetail(orgId: string, estimateId: string) {
 }
 
 export function listContacts(orgId: string, q?: string, type?: string) {
-  const db = getDb();
+  const db = officeDb(orgId);
+  if (!db) return [];
   const query = q?.trim();
   return db
     .select()
@@ -291,7 +304,8 @@ export function contactDetail(orgId: string, contactId: string) {
 }
 
 export function listProjects(orgId: string) {
-  const db = getDb();
+  const db = officeDb(orgId);
+  if (!db) return [];
   const rows = db.select().from(projects).where(eq(projects.orgId, orgId)).orderBy(desc(projects.updatedAt)).all();
   const costs = db.select().from(costItems).where(eq(costItems.orgId, orgId)).all();
   const org = db.select().from(organizations).where(eq(organizations.id, orgId)).get();
@@ -368,7 +382,8 @@ export function projectDetail(orgId: string, projectId: string, role: Role) {
 }
 
 export function listInvoices(orgId: string) {
-  const db = getDb();
+  const db = officeDb(orgId);
+  if (!db) return [];
   return db
     .select({ invoice: invoices, project: projects, contact: contacts })
     .from(invoices)
@@ -627,6 +642,7 @@ function formatAnswer(cents: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(cents / 100);
 }
 
+/** Public token routes. These stay on the owner connection; there is no member JWT. */
 export function proposalByToken(token: string) {
   const db = getDb();
   const proposal = db.select().from(proposals).where(eq(proposals.publicToken, token)).get();
@@ -756,7 +772,8 @@ export function contactsCsv(orgId: string): string {
 export { qboImportLimitWarning };
 
 export function staff(orgId: string) {
-  const db = getDb();
+  const db = officeDb(orgId);
+  if (!db) return [];
   return db
     .select({ id: users.id, name: users.name, role: memberships.role })
     .from(memberships)

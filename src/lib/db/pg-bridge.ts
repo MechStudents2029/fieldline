@@ -20,9 +20,12 @@ export type SqliteCompat = {
     immediate: (...args: unknown[]) => unknown;
     exclusive: (...args: unknown[]) => unknown;
   };
+  /** Present on Postgres. Each query runs as role `authenticated` with JWT claims. */
+  asAuthenticated?: (readUser: () => string) => SqliteCompat;
 };
 
 type Packet = { ok: true; rows: Record<string, unknown>[]; arrays: unknown[][]; rowCount: number } | { ok: false; error: string };
+type OkPacket = Extract<Packet, { ok: true }>;
 
 const workerSource = `
 const { parentPort, workerData } = require("node:worker_threads");
@@ -45,6 +48,23 @@ parentPort.on("message", async (msg) => {
     if (msg.type === "close") {
       await shutdown();
       msg.port.postMessage({ ok: true, rows: [], arrays: [], rowCount: 0 });
+    } else if (msg.type === "rls") {
+      await runQuery("begin");
+      try {
+        await runQuery("select set_config('request.jwt.claims', $1, true)", [msg.claims]);
+        await runQuery("set local role authenticated");
+        await runQuery("set local search_path = public");
+        const result = await runQuery(msg.sql, msg.params || []);
+        await runQuery("commit");
+        msg.port.postMessage({ ok: true, ...pack(result) });
+      } catch (error) {
+        try {
+          await runQuery("rollback");
+        } catch {
+          // The transaction is already closed.
+        }
+        throw error;
+      }
     } else {
       const result = await runQuery(msg.sql, msg.params || []);
       msg.port.postMessage({ ok: true, ...pack(result) });
@@ -84,7 +104,7 @@ parentPort.on("message", async (msg) => {
 })();
 `;
 
-function call(worker: Worker, payload: { type: string; sql?: string; params?: unknown[] }): Packet {
+function call(worker: Worker, payload: { type: string; sql?: string; params?: unknown[]; claims?: string }): Packet {
   const { port1, port2 } = new MessageChannel();
   const flag = new Int32Array(new SharedArrayBuffer(4));
   worker.postMessage({ ...payload, port: port2, flagBuffer: flag.buffer }, [port2]);
@@ -162,6 +182,43 @@ export function createSqliteCompat(options: Mode): SqliteCompat {
     };
   }
 
+  function queryAs(authUserId: string, sql: string, params: unknown[]) {
+    const translated = translateSqliteQuery(sql);
+    const packet = call(worker, {
+      type: "rls",
+      sql: translated,
+      params: params.map((value) => (value === undefined ? null : value)),
+      claims: JSON.stringify({ sub: authUserId, role: "authenticated" }),
+    });
+    if (!packet.ok) throw new Error(`${packet.error}\n${translated.slice(0, 240)}`);
+    return packet;
+  }
+
+  function statementFrom(run: (sql: string, params: unknown[]) => OkPacket, sql: string): Stmt {
+    return {
+      run(...params) {
+        const result = run(sql, params);
+        return { changes: result.rowCount, lastInsertRowid: 0 };
+      },
+      all(...params) {
+        return run(sql, params).rows;
+      },
+      get(...params) {
+        return run(sql, params).rows[0];
+      },
+      raw() {
+        return {
+          all(...params) {
+            return run(sql, params).arrays as unknown[][];
+          },
+          get(...params) {
+            return run(sql, params).arrays[0] as unknown[] | undefined;
+          },
+        };
+      },
+    };
+  }
+
   let closed = false;
   function exec(sql: string) {
     for (const statementSql of splitSql(sql)) {
@@ -170,6 +227,27 @@ export function createSqliteCompat(options: Mode): SqliteCompat {
   }
   return {
     prepare: statement,
+    asAuthenticated(readUser: () => string): SqliteCompat {
+      function run(sql: string, params: unknown[]) {
+        const authUserId = readUser();
+        if (!authUserId) throw new Error("RLS query without a verified Supabase user.");
+        return queryAs(authUserId, sql, params);
+      }
+      return {
+        prepare: (sql) => statementFrom(run, sql),
+        exec(sql: string) {
+          for (const statementSql of splitSql(sql)) run(statementSql, []);
+        },
+        pragma() {
+          return undefined;
+        },
+        close() {},
+        transaction(fn) {
+          const wrapped = (...args: unknown[]) => fn(...args);
+          return { deferred: wrapped, immediate: wrapped, exclusive: wrapped };
+        },
+      };
+    },
     exec,
     pragma() {
       return undefined;

@@ -212,14 +212,14 @@ Feedback: file a GitHub issue with steps, expected, actual, screenshot, and devi
 - Email and SMS: JSONL outbox. Resend and Twilio send only when their variables are set.
 - Stripe without keys: local decisions that copy Stripe's published test numbers. With `sk_test_` / `pk_test_` / `whsec_`, the pay page creates a test PaymentIntent and the webhook marks the invoice paid. No Connect onboarding and no platform fee. Unsigned webhooks are rejected on a public deploy unless `FIELDLINE_ALLOW_DEMO_WEBHOOK=1`.
 - E-sign: in-house record, not Dropbox Sign or DocuSign. Consent copy is not attorney-reviewed.
-- Auth without Supabase keys: the demo password and the HMAC cookie. With `NEXT_PUBLIC_SUPABASE_URL` and an anon or publishable key, email/password sign-in links `users.auth_user_id` and the same cookie is issued from that membership. `src/proxy.ts` calls `getClaims()` to refresh the Supabase session. The database is SQLite unless `DATABASE_URL` is set, in which case Postgres is migrated and seeded on boot. Locally the file is `data/fieldline.db`. On Vercel, with no `DATABASE_URL`, it is `/tmp/fieldline/fieldline.db`, seeded per cold start. Apply `supabase/rls.sql` yourself on the hosted database.
+- Auth without Supabase keys: the demo password and the HMAC cookie. With `NEXT_PUBLIC_SUPABASE_URL` and an anon or publishable key, email/password sign-in links `users.auth_user_id` and the same cookie is issued from that membership. `src/proxy.ts` calls `getClaims()` to refresh the Supabase session. Office lists (contacts, pipeline, jobs, invoices, and the signed-in membership) then read as Postgres role `authenticated` with that JWT, so `supabase/rls.sql` applies. Portal, pay, webhooks, cron, and seed stay on the owner connection. The database is SQLite unless `DATABASE_URL` is set, in which case Postgres is migrated and seeded on boot. Locally the file is `data/fieldline.db`. On Vercel, with no `DATABASE_URL`, it is `/tmp/fieldline/fieldline.db`, seeded per cold start. Apply `supabase/rls.sql` yourself on the hosted database. A service-role key must be `SUPABASE_SERVICE_ROLE_KEY`, never `NEXT_PUBLIC_`.
 - File storage: `public/demo` and the writable data directory (`data/` locally, `/tmp/fieldline` on Vercel), not Supabase Storage.
 
 **Left out of this MVP**
 
 - QuickBooks Online OAuth sync (Import Data CSV is the stand-in), lien waivers, plan takeoff, bill pay, and cards as a product
 - Twilio 10DLC registration and quiet-hours enforcement beyond storing STOP
-- Supabase Storage. Hosted Postgres works when you set `DATABASE_URL`. Supabase Auth turns on with the public URL and anon or publishable key. Office queries still use `DATABASE_URL` and filter `org_id`.
+- Supabase Storage. Hosted Postgres works when you set `DATABASE_URL`. Supabase Auth turns on with the public URL and anon or publishable key. Office lists then use a non-owner RLS session. Other office screens still read through `DATABASE_URL` and filter `org_id`.
 - A live Stripe Connect direct charge (test PaymentIntents bill the account that owns the key)
 - Attorney-reviewed home-improvement contracts and state deposit rules
 - Sentry, PostHog, and a Figma file for this UI

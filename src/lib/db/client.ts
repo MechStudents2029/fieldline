@@ -4,6 +4,7 @@ import Database from "better-sqlite3";
 import { drizzle, type BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import * as schema from "@/lib/db/schema";
 import { createSqliteCompat } from "@/lib/db/pg-bridge";
+import { officeClaim } from "@/lib/db/rls-context";
 import { databaseTarget, resolveDataDir } from "@/lib/db/paths";
 import { SEED_VERSION, seedDatabase } from "@/lib/db/seed";
 import { toPostgresDdl } from "@/lib/db/sql";
@@ -14,6 +15,7 @@ type Dialect = "sqlite" | "postgres";
 
 type Holder = {
   db: AppDatabase;
+  rls: AppDatabase | null;
   sqlite: Database.Database;
   dialect: Dialect;
   close: () => void;
@@ -37,14 +39,17 @@ function openSqlite(file: string): Holder {
     sqlite.pragma(file.startsWith("/tmp/") ? "journal_mode = DELETE" : "journal_mode = WAL");
   }
   sqlite.pragma("foreign_keys = ON");
-  return { db: drizzle(sqlite, { schema }), sqlite, dialect: "sqlite", close: () => sqlite.close() };
+  return { db: drizzle(sqlite, { schema }), rls: null, sqlite, dialect: "sqlite", close: () => sqlite.close() };
 }
 
 function openPostgres(url: string): Holder {
   const sqlite = createSqliteCompat(url === "pglite://memory" || url.startsWith("pglite:") ? { mode: "pglite" } : { mode: "pg", url });
   const db = drizzle(sqlite as unknown as Database.Database, { schema });
+  const rlsCompat = sqlite.asAuthenticated?.(() => officeClaim()?.authUserId ?? "");
+  const rls = rlsCompat ? drizzle(rlsCompat as unknown as Database.Database, { schema }) : null;
   return {
     db,
+    rls,
     sqlite: sqlite as unknown as Database.Database,
     dialect: "postgres",
     close: () => sqlite.close(),
@@ -117,8 +122,21 @@ export function getHolder(): Holder {
   return globalForDb.fieldline;
 }
 
+/**
+ * Owner connection (DATABASE_URL or the local SQLite file). Bypasses RLS.
+ * Portal magic links, the pay page, Stripe webhooks, follow-up cron, seed, and
+ * migrations stay on this connection. Office reads with a verified Supabase
+ * session use officeDb() instead.
+ */
 export function getDb(): AppDatabase {
   return getHolder().db;
+}
+
+/** Postgres session as role `authenticated` with the verified user's JWT claims. */
+export function getRlsDb(): AppDatabase {
+  const holder = getHolder();
+  if (!holder.rls) throw new Error("RLS reads need Postgres. The demo database has no role authenticated.");
+  return holder.rls;
 }
 
 export function getSqlite(): Database.Database {
