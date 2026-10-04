@@ -21,6 +21,7 @@ import {
   invoices,
   leads,
   lineItems,
+  memberships,
   messageThreads,
   messages,
   organizations,
@@ -34,7 +35,14 @@ import {
 } from "@/lib/db/schema";
 import { estimateFromScope } from "@/lib/ai/gateway";
 import { extractIntake } from "@/lib/ai/intake";
-import { proposalNudgeCopy, staleLeadCopy, needsProposalNudge, needsStaleLead } from "@/lib/ai/nurture";
+import {
+  needsOfficeFollowUpCall,
+  needsProposalNudge,
+  needsStaleLead,
+  proposalNudgeCopy,
+  staleLeadCopy,
+  unsignedProposalTaskTitle,
+} from "@/lib/ai/nurture";
 import { suggestCostCode } from "@/lib/ai/cost-code";
 import { extractReceiptText, readReceiptMeta, type StoredReceipt } from "@/lib/ai/receipt";
 import { assembleSnapshot, defaultSchedule, type StoredSnapshot } from "@/lib/domain/snapshot";
@@ -65,6 +73,23 @@ function staffDb(actor: Actor) {
   const db = officeDb(actor.orgId);
   if (!db) throw new ServiceError("This company is not on the signed-in account.");
   return db;
+}
+
+function dismissOpenFollowUps(db: Writer, orgId: string, scope: { proposalId?: string; leadId?: string; allForLead?: boolean }) {
+  const pending = db
+    .select()
+    .from(followUpDrafts)
+    .where(and(eq(followUpDrafts.orgId, orgId), eq(followUpDrafts.status, "pending")))
+    .all();
+  const now = nowIso();
+  for (const draft of pending) {
+    if (draft.kind !== "proposal_unsigned" && draft.kind !== "stale_lead") continue;
+    const proposalHit = Boolean(scope.proposalId && draft.proposalId === scope.proposalId && draft.kind === "proposal_unsigned");
+    const staleHit = Boolean(scope.leadId && draft.leadId === scope.leadId && draft.kind === "stale_lead");
+    const leadClosed = Boolean(scope.allForLead && scope.leadId && draft.leadId === scope.leadId);
+    if (!proposalHit && !staleHit && !leadClosed) continue;
+    db.update(followUpDrafts).set({ status: "dismissed", updatedAt: now }).where(eq(followUpDrafts.id, draft.id)).run();
+  }
 }
 
 function log(
@@ -120,6 +145,7 @@ export function moveLead(actor: Actor, leadId: string, stageId: string) {
     .set({ stageId, status, updatedAt: nowIso() })
     .where(eq(leads.id, leadId))
     .run();
+  if (status === "won" || status === "lost") dismissOpenFollowUps(db, actor.orgId, { leadId, allForLead: true });
   log(db, actor.orgId, "lead", leadId, "stage", `Moved to ${stage.name}.`, "user", actor.userId);
 }
 
@@ -779,6 +805,7 @@ export function signProposal(input: {
     log(tx, proposal.orgId, "lead", proposal.leadId, "signature", `${input.typedName.trim()} signed the proposal.`, "contact", contact?.id ?? null);
     log(tx, proposal.orgId, "project", projectId, "project", "Project opened from the signed proposal. Deposit invoice is ready.", "system", null);
     audit(tx, proposal.orgId, null, "proposal.sign", "proposal", proposal.id, input.ip);
+    dismissOpenFollowUps(tx, proposal.orgId, { proposalId: proposal.id, leadId: proposal.leadId });
     return { projectId, portalToken, payToken, invoiceId, totalCents: stored.public.totalCents };
   });
 }
@@ -791,6 +818,7 @@ export function declineProposal(tokenValue: string, reason: string) {
   if (proposal.status === "declined") throw new ServiceError("This proposal was already declined.");
   const now = nowIso();
   db.update(proposals).set({ status: "declined", declinedAt: now, updatedAt: now }).where(eq(proposals.id, proposal.id)).run();
+  dismissOpenFollowUps(db, proposal.orgId, { proposalId: proposal.id, leadId: proposal.leadId });
   log(db, proposal.orgId, "lead", proposal.leadId, "proposal", `Client declined. ${reason.trim() || "No reason given."}`, "contact", null);
 }
 
@@ -1267,13 +1295,44 @@ export function readDemoReceipt(fileName: string): string {
   throw new ServiceError("That sample receipt is not in the demo set.");
 }
 
+function closeFinishedFollowUps(db: Writer, orgId: string) {
+  const pending = db
+    .select()
+    .from(followUpDrafts)
+    .where(and(eq(followUpDrafts.orgId, orgId), eq(followUpDrafts.status, "pending")))
+    .all();
+  if (pending.length === 0) return;
+  const proposalRows = db.select().from(proposals).where(eq(proposals.orgId, orgId)).all();
+  const leadRows = db.select().from(leads).where(eq(leads.orgId, orgId)).all();
+  const stages = db.select().from(pipelineStages).where(eq(pipelineStages.orgId, orgId)).all();
+  const proposalById = new Map(proposalRows.map((row) => [row.id, row]));
+  const leadById = new Map(leadRows.map((row) => [row.id, row]));
+  const stageById = new Map(stages.map((row) => [row.id, row]));
+  const now = nowIso();
+  for (const draft of pending) {
+    if (draft.kind !== "proposal_unsigned" && draft.kind !== "stale_lead") continue;
+    const lead = draft.leadId ? leadById.get(draft.leadId) : undefined;
+    const stage = lead ? stageById.get(lead.stageId) : undefined;
+    const dealClosed = !lead || lead.status === "won" || lead.status === "lost" || stage?.kind === "won" || stage?.kind === "lost";
+    const proposal = draft.proposalId ? proposalById.get(draft.proposalId) : undefined;
+    const proposalOpen = proposal?.status === "sent" || proposal?.status === "viewed";
+    const drop = draft.kind === "stale_lead" ? dealClosed || lead?.status !== "open" : dealClosed || !proposalOpen;
+    if (!drop) continue;
+    db.update(followUpDrafts).set({ status: "dismissed", updatedAt: now }).where(eq(followUpDrafts.id, draft.id)).run();
+  }
+}
+
 export function scanFollowUps(orgId: string) {
   const db = getDb();
   const org = db.select().from(organizations).where(eq(organizations.id, orgId)).get();
   if (!org) return { created: 0 };
+  closeFinishedFollowUps(db, orgId);
   const existing = db.select().from(followUpDrafts).where(eq(followUpDrafts.orgId, orgId)).all();
   const pendingKeys = new Set(
     existing.filter((row) => row.status === "pending").map((row) => `${row.kind}:${row.proposalId ?? row.leadId}`),
+  );
+  const nudgeSent = new Set(
+    existing.filter((row) => row.kind === "proposal_unsigned" && row.status === "sent" && row.proposalId).map((row) => row.proposalId as string),
   );
   let created = 0;
   const proposalRows = db
@@ -1284,15 +1343,20 @@ export function scanFollowUps(orgId: string) {
     .where(eq(proposals.orgId, orgId))
     .all();
   for (const row of proposalRows) {
-    if (!needsProposalNudge(row.proposal.status, row.proposal.sentAt)) continue;
+    if (row.lead.status === "won" || row.lead.status === "lost") continue;
+    if (!needsProposalNudge(row.proposal.status, row.proposal.sentAt, Date.now(), row.proposal.viewedAt)) continue;
     const key = `proposal_unsigned:${row.proposal.id}`;
     if (pendingKeys.has(key)) continue;
-    const sentDays = row.proposal.sentAt ? Math.floor((Date.now() - new Date(row.proposal.sentAt).getTime()) / 86_400_000) : 3;
+    if (existing.some((draft) => draft.kind === "proposal_unsigned" && draft.proposalId === row.proposal.id && draft.status === "sent")) continue;
+    const opened = row.proposal.status === "viewed";
+    const anchor = opened ? row.proposal.viewedAt || row.proposal.sentAt : row.proposal.sentAt;
+    const days = anchor ? Math.max(1, Math.floor((Date.now() - new Date(anchor).getTime()) / 86_400_000)) : 1;
     const copy = proposalNudgeCopy({
       firstName: row.contact.name.split(" ")[0],
       jobTitle: row.lead.title,
       company: org.name,
-      days: sentDays,
+      days,
+      opened,
     });
     db.insert(followUpDrafts)
       .values({
@@ -1311,6 +1375,41 @@ export function scanFollowUps(orgId: string) {
       .run();
     pendingKeys.add(key);
     created += 1;
+  }
+  const owner = db
+    .select({ userId: memberships.userId })
+    .from(memberships)
+    .where(and(eq(memberships.orgId, orgId), eq(memberships.role, "owner")))
+    .get();
+  if (owner) {
+    const openTasks = db
+      .select()
+      .from(tasks)
+      .where(and(eq(tasks.orgId, orgId), eq(tasks.relatedType, "proposal")))
+      .all();
+    const tasked = new Set(openTasks.map((task) => task.relatedId));
+    for (const row of proposalRows) {
+      if (row.lead.status === "won" || row.lead.status === "lost") continue;
+      if (!needsOfficeFollowUpCall(row.proposal.status, row.proposal.sentAt, row.proposal.viewedAt, nudgeSent.has(row.proposal.id))) continue;
+      if (tasked.has(row.proposal.id)) continue;
+      const now = nowIso();
+      db.insert(tasks)
+        .values({
+          id: id("task"),
+          orgId,
+          title: unsignedProposalTaskTitle(row.lead.title),
+          assigneeUserId: owner.userId,
+          dueAt: now,
+          relatedType: "proposal",
+          relatedId: row.proposal.id,
+          status: "open",
+          createdAt: now,
+          updatedAt: now,
+          createdBy: owner.userId,
+        })
+        .run();
+      tasked.add(row.proposal.id);
+    }
   }
   const leadRows = db
     .select({ lead: leads, contact: contacts, stage: pipelineStages })

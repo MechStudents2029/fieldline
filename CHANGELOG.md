@@ -22,6 +22,13 @@
 - Portal, pay, Stripe webhooks, follow-up cron, and seed still use the owner connection. Empty Supabase env keeps the demo cookie and `getDb()`.
 - A service-role JWT placed in `NEXT_PUBLIC_SUPABASE_ANON_KEY` is ignored.
 
+### Follow-up timing
+
+- A proposal the client opened is drafted after 1 day. One that was never opened waits 3 days. The two drafts read differently. Both stay pending until someone approves them.
+- Signing, declining, or moving the deal to won or lost dismisses the pending proposal and quiet-lead drafts. The follow-up scan does the same if a draft is still open.
+- Today lists drafts waiting for approval and links to Follow-ups. It does not send them.
+- After an approved nudge, a still-open proposal gets an office call task (4 days if viewed, 7 if never opened). That task is not a second client email.
+
 ### Receipt review
 
 - A receipt read now picks up a purchase date and priced lines when the text has them, plus the vendor and total. Demo samples still resolve Casa Tile, Harbor Plumbing, and Summit Lumber.

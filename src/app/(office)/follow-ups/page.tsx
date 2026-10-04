@@ -18,7 +18,11 @@ export default async function FollowUpsPage() {
           Drafts wait here until someone approves them. Nothing sends on its own. SMS stays off until Twilio 10DLC is approved.
         </p>
       </div>
-      {pending.length === 0 ? <p className="text-sm text-muted-foreground">No drafts waiting. Unsigned proposals older than 3 days, and quiet leads, land here.</p> : null}
+      {pending.length === 0 ? (
+        <p className="text-sm text-muted-foreground">
+          No drafts waiting. A viewed proposal is drafted after 1 day. One that was never opened waits 3 days. Quiet leads wait 5 days. Nothing sends until you approve it.
+        </p>
+      ) : null}
       {pending.map((draft) => (
         <article key={draft.id} className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
           <p className="text-xs uppercase text-muted-foreground">{draft.kind.replaceAll("_", " ")}</p>

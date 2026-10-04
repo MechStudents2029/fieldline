@@ -169,9 +169,13 @@ describe("copilot routing and payments", () => {
     expect(decideCard("4000000000000002", "12/30", "123").ok).toBe(false);
   });
 
-  it("nudges unsigned proposals after three days", () => {
-    const sent = new Date(Date.now() - 4 * 86_400_000).toISOString();
-    expect(needsProposalNudge("viewed", sent)).toBe(true);
-    expect(needsProposalNudge("signed", sent)).toBe(false);
+  it("nudges a viewed proposal sooner than one that was never opened", () => {
+    const twoDays = new Date(Date.now() - 2 * 86_400_000).toISOString();
+    const fourDays = new Date(Date.now() - 4 * 86_400_000).toISOString();
+    expect(needsProposalNudge("viewed", twoDays, Date.now(), twoDays)).toBe(true);
+    expect(needsProposalNudge("sent", twoDays)).toBe(false);
+    expect(needsProposalNudge("sent", fourDays)).toBe(true);
+    expect(needsProposalNudge("signed", fourDays)).toBe(false);
+    expect(needsProposalNudge("declined", fourDays)).toBe(false);
   });
 });

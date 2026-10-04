@@ -1082,6 +1082,7 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
     jobTitle: "Briggs deck stain",
     company: "Maya Rivera, Rivera Remodeling & Trade",
     days: 3,
+    opened: true,
   });
   db.insert(followUpDrafts)
     .values({

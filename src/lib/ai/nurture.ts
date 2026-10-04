@@ -1,11 +1,42 @@
+/** A viewed proposal gets a draft the next day. One that was never opened waits three days. */
+export const VIEWED_NUDGE_MS = 86_400_000;
+export const UNOPENED_NUDGE_MS = 3 * 86_400_000;
+/** After the first nudge was approved and sent, the office gets a call task. No second client email. */
+export const VIEWED_CALL_MS = 4 * 86_400_000;
+export const UNOPENED_CALL_MS = 7 * 86_400_000;
+
 export function needsProposalNudge(
   status: string,
   sentAt: string | null,
   now = Date.now(),
+  viewedAt: string | null = null,
 ): boolean {
-  if (!sentAt) return false;
   if (status !== "sent" && status !== "viewed") return false;
-  return now - new Date(sentAt).getTime() >= 3 * 86_400_000;
+  if (status === "viewed") {
+    const anchor = viewedAt || sentAt;
+    if (!anchor) return false;
+    return now - new Date(anchor).getTime() >= VIEWED_NUDGE_MS;
+  }
+  if (!sentAt) return false;
+  return now - new Date(sentAt).getTime() >= UNOPENED_NUDGE_MS;
+}
+
+export function needsOfficeFollowUpCall(
+  status: string,
+  sentAt: string | null,
+  viewedAt: string | null,
+  nudgeSent: boolean,
+  now = Date.now(),
+): boolean {
+  if (!nudgeSent) return false;
+  if (status !== "sent" && status !== "viewed") return false;
+  if (status === "viewed") {
+    const anchor = viewedAt || sentAt;
+    if (!anchor) return false;
+    return now - new Date(anchor).getTime() >= VIEWED_CALL_MS;
+  }
+  if (!sentAt) return false;
+  return now - new Date(sentAt).getTime() >= UNOPENED_CALL_MS;
 }
 
 export function needsStaleLead(
@@ -24,14 +55,23 @@ export function proposalNudgeCopy(input: {
   jobTitle: string;
   company: string;
   days: number;
+  opened: boolean;
 }): { subject: string; body: string } {
+  if (input.opened) {
+    return {
+      subject: `${input.jobTitle} — you opened the proposal`,
+      body: `Hi ${input.firstName},
+
+You opened the ${input.jobTitle} proposal${input.days > 0 ? ` ${input.days} days ago` : ""} and it is still unsigned. The price and schedule stay the ones in that link. Reply with a line to change and I will send a revised proposal.
+
+${input.company}`,
+    };
+  }
   return {
-    subject: `${input.jobTitle} — still holding your start window`,
+    subject: `${input.jobTitle} — proposal not opened yet`,
     body: `Hi ${input.firstName},
 
-You opened the ${input.jobTitle} proposal${input.days > 0 ? ` ${input.days} days ago` : ""}. The numbers are still the ones in that link. If the scope still matches the house, the deposit is what gets you on the calendar.
-
-Reply with any line you want changed and I will send a revised proposal rather than a verbal allowance.
+I sent the ${input.jobTitle} proposal${input.days > 0 ? ` ${input.days} days ago` : ""} and it has not been opened. The price and schedule stay the ones in that link. If you want a change, reply and I will send a revision.
 
 ${input.company}`,
   };
@@ -50,4 +90,8 @@ I have not heard back on ${input.jobTitle}. If the project is still on, I can ho
 
 ${input.company}`,
   };
+}
+
+export function unsignedProposalTaskTitle(jobTitle: string): string {
+  return `Call about unsigned proposal: ${jobTitle}`;
 }

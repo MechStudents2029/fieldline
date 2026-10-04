@@ -35,7 +35,7 @@ export default async function TodayPage() {
           value={money ? String(data.marginAlerts.length) : "Hidden"}
           detail={money ? `${data.categoryAlerts.length} cost codes at 80%` : "Jobs under the alert line"}
         />
-        <Stat label="Unsigned 3+ days" value={String(data.unsigned.length)} detail={`${data.drafts.length} drafts waiting`} />
+        <Stat label="Follow-ups due" value={String(data.unsigned.length)} detail={`${data.drafts.length} to approve`} />
       </div>
       {money && (data.marginAlerts.length > 0 || data.categoryAlerts.length > 0) ? (
         <section className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
@@ -84,6 +84,25 @@ export default async function TodayPage() {
                   {receipt.amountCents == null ? "Amount missing" : formatMoney(receipt.amountCents)}
                   {receipt.confidence != null ? ` · ${Math.round(receipt.confidence * 100)}%` : ""}
                 </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+      {data.drafts.length > 0 ? (
+        <section className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
+          <h2 className="font-heading text-xl">Follow-ups to approve</h2>
+          <p className="mt-1 text-xs text-muted-foreground">These stay drafts until someone approves them. Today does not send email.</p>
+          <ul className="mt-3 divide-y divide-border">
+            {data.drafts.slice(0, 6).map((draft) => (
+              <li key={draft.id} className="flex flex-col gap-1 py-2 text-sm sm:flex-row sm:items-center sm:justify-between">
+                <span>
+                  <span className="font-medium">{draft.subject}</span>
+                  <span className="block text-xs text-muted-foreground">{draft.kind === "proposal_unsigned" ? "Proposal" : "Quiet lead"}</span>
+                </span>
+                <Link href="/follow-ups" className="text-pine underline">
+                  Review
+                </Link>
               </li>
             ))}
           </ul>

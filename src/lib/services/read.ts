@@ -476,7 +476,7 @@ export function dashboard(orgId: string) {
     .from(proposals)
     .where(and(eq(proposals.orgId, orgId), inArray(proposals.status, ["sent", "viewed"])))
     .all()
-    .filter((proposal) => needsProposalNudge(proposal.status, proposal.sentAt));
+    .filter((proposal) => needsProposalNudge(proposal.status, proposal.sentAt, Date.now(), proposal.viewedAt));
   const drafts = db
     .select()
     .from(followUpDrafts)
@@ -574,7 +574,7 @@ export function overdueProposals(orgId: string) {
     .innerJoin(contacts, eq(contacts.id, leads.contactId))
     .where(and(eq(proposals.orgId, orgId), inArray(proposals.status, ["sent", "viewed"])))
     .all()
-    .filter((row) => needsProposalNudge(row.proposal.status, row.proposal.sentAt));
+    .filter((row) => needsProposalNudge(row.proposal.status, row.proposal.sentAt, Date.now(), row.proposal.viewedAt));
 }
 
 export function askCopilot(orgId: string, question: string) {
@@ -623,8 +623,8 @@ export function askCopilot(orgId: string, question: string) {
       tool,
       answer:
         rows.length === 0
-          ? "No proposals have been sitting unsigned for 3 days."
-          : `${rows.length} proposal${rows.length === 1 ? "" : "s"} unsigned for at least 3 days.`,
+          ? "No proposals are past the follow-up window."
+          : `${rows.length} proposal${rows.length === 1 ? "" : "s"} past the follow-up window. A viewed proposal is due after 1 day. One that was never opened is due after 3.`,
       rows: rows.map((row) => ({
         label: row.lead.title,
         amountCents: row.proposal.totalCents,
