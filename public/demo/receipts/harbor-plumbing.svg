@@ -1,10 +1,12 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="480" height="680" viewBox="0 0 480 680" role="img" aria-label="Harbor Plumbing receipt">
   <rect width="480" height="680" fill="#fffef8"/>
   <rect x="24" y="24" width="432" height="632" fill="none" stroke="#1f4d3a" stroke-width="2"/>
-  <text x="48" y="88" font-family="Georgia, serif" font-size="32" fill="#1c1917">Harbor Plumbing</text>
-  <text x="48" y="128" font-family="ui-monospace, monospace" font-size="16" fill="#44403c">Vendor: Harbor Plumbing</text>
-  <text x="48" y="180" font-family="ui-monospace, monospace" font-size="16" fill="#44403c">Supply lines, Chen powder</text>
-  <text x="48" y="212" font-family="ui-monospace, monospace" font-size="16" fill="#44403c">Ticket 1174</text>
-  <text x="48" y="300" font-family="ui-monospace, monospace" font-size="28" fill="#1c1917">Total $426.00</text>
-  <text x="48" y="360" font-family="ui-monospace, monospace" font-size="14" fill="#78716c">Demo receipt. Confirm before posting to the job.</text>
+  <text x="48" y="80" font-family="Georgia, serif" font-size="32" fill="#1c1917">Harbor Plumbing</text>
+  <text x="48" y="120" font-family="ui-monospace, monospace" font-size="16" fill="#44403c">Vendor: Harbor Plumbing</text>
+  <text x="48" y="152" font-family="ui-monospace, monospace" font-size="16" fill="#44403c">Date: 02/02/2026</text>
+  <text x="48" y="200" font-family="ui-monospace, monospace" font-size="16" fill="#44403c">Supply lines $400.00</text>
+  <text x="48" y="232" font-family="ui-monospace, monospace" font-size="16" fill="#44403c">Fittings $26.00</text>
+  <text x="48" y="264" font-family="ui-monospace, monospace" font-size="16" fill="#44403c">Ticket 1174</text>
+  <text x="48" y="340" font-family="ui-monospace, monospace" font-size="28" fill="#1c1917">Total $426.00</text>
+  <text x="48" y="400" font-family="ui-monospace, monospace" font-size="14" fill="#78716c">Demo receipt. Confirm before posting to the job.</text>
 </svg>

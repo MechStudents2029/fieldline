@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { resolveLogin } from "@/lib/auth/login";
 import { clearSession, getSession, setSession } from "@/lib/auth/session";
+import { receiptAutoPostAllowed } from "@/lib/ai/receipt";
 import { parseMoneyToCents } from "@/lib/money";
 import { supabaseAuthConfigured } from "@/lib/supabase/env";
 import { supabasePasswordAuth } from "@/lib/supabase/password";
@@ -26,11 +27,12 @@ import {
   logNote,
   moveLead,
   payInvoice,
+  captureReceipt,
+  confirmReceiptCost,
   previewReceipt,
   readDemoReceipt,
   removeLine,
   reviseEstimate,
-  saveUploadedText,
   sendChangeOrder,
   sendProposal,
   signProposal,
@@ -39,7 +41,19 @@ import {
   addManualLine,
 } from "@/lib/services/write";
 
-export type ActionState = { error?: string; ok?: string } | null;
+export type ReceiptDraftState = {
+  documentId: string;
+  vendor: string;
+  amount: string;
+  purchasedOn: string;
+  costCode: string;
+  suggestionNote: string;
+  confidence: number;
+  note: string;
+  lines: { description: string; amountCents: number | null }[];
+};
+
+export type ActionState = { error?: string; ok?: string; receipt?: ReceiptDraftState; postedDocumentId?: string } | null;
 
 async function actor() {
   const session = await getSession();
@@ -373,28 +387,56 @@ export async function receiptAction(projectId: string, _prev: ActionState, formD
     } else {
       return { error: "Choose a receipt file or a sample." };
     }
-    const saved = saveUploadedText(user, projectId, filename, text);
-    const extracted = saved.extraction;
-    if (formData.get("post") === "on" && extracted.amountCents && extracted.vendor) {
-      const posted = addCost(user, projectId, {
-        amountCents: extracted.amountCents,
-        vendorName: extracted.vendor,
-        costCode: String(formData.get("costCode") || "") || undefined,
-        memo: extracted.note,
-        source: "receipt",
-        aiExtracted: true,
-        documentId: saved.documentId,
-      });
-      revalidatePath(`/projects/${projectId}`);
-      return {
-        ok: `${extracted.vendor} ${((extracted.amountCents ?? 0) / 100).toFixed(2)} posted.${posted.alert ? " Margin watch fired." : ""}`,
-      };
+    const captured = captureReceipt(user, projectId, filename, text);
+    if (receiptAutoPostAllowed(captured.extraction.confidence, formData.get("post") === "on")) {
+      return { error: "Confirm the receipt before posting it." };
     }
+    const extracted = captured.extraction;
     revalidatePath(`/projects/${projectId}`);
+    revalidatePath("/");
+    const amount = extracted.amountCents == null ? "" : (extracted.amountCents / 100).toFixed(2);
     return {
       ok: extracted.amountCents
-        ? `Read ${extracted.vendor ?? "a vendor"} for $${(extracted.amountCents / 100).toFixed(2)}. Check the box to post it.`
+        ? `Read ${extracted.vendor ?? "a vendor"} for $${amount}. Confirm the fields, then post.`
         : extracted.note,
+      receipt: {
+        documentId: captured.documentId,
+        vendor: extracted.vendor ?? "",
+        amount,
+        purchasedOn: extracted.purchasedOn ?? "",
+        costCode: captured.suggestion?.code ?? "",
+        suggestionNote: captured.suggestion?.reason ?? "No cost code matched the price book or past costs. Type one if you have it.",
+        confidence: extracted.confidence,
+        note: extracted.note,
+        lines: extracted.lines,
+      },
+    };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function confirmReceiptAction(projectId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const amount = parseMoneyToCents(String(formData.get("amount") || ""));
+    const vendor = String(formData.get("vendor") || "").trim();
+    if (amount == null || !vendor) return { error: "Enter the vendor and amount before posting." };
+    const purchasedOn = String(formData.get("purchasedOn") || "").trim();
+    const lines = String(formData.get("lines") || "").trim();
+    const memo = [purchasedOn ? `Purchased ${purchasedOn}` : "", lines].filter(Boolean).join(" · ") || undefined;
+    const posted = confirmReceiptCost(user, projectId, {
+      documentId: String(formData.get("documentId") || ""),
+      amountCents: amount,
+      vendorName: vendor,
+      costCode: String(formData.get("costCode") || "") || undefined,
+      memo,
+    });
+    revalidatePath(`/projects/${projectId}`);
+    revalidatePath("/");
+    return {
+      ok: `${vendor} $${(amount / 100).toFixed(2)} posted.${posted.alert ? " Margin watch fired." : ""}`,
+      postedDocumentId: String(formData.get("documentId") || ""),
     };
   } catch (error) {
     return failure(error);

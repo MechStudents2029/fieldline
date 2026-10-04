@@ -1,19 +1,21 @@
 import Link from "next/link";
-import { addCostAction, createCoAction, draftCoAction, issueInvoiceAction, photoAction, receiptAction } from "@/app/actions";
+import { addCostAction, createCoAction, draftCoAction, issueInvoiceAction, photoAction } from "@/app/actions";
 import { ActionForm } from "@/components/action-form";
 import { MissingRecord } from "@/components/missing-record";
+import { ReceiptCapture } from "@/components/receipt-capture";
 import { Button } from "@/components/ui/button";
 import { requireSession } from "@/lib/auth/session";
 import { formatDateTime } from "@/lib/format";
 import { overBudgetPercent } from "@/lib/margin/category";
 import { formatBps, formatMoney } from "@/lib/money";
-import { projectDetail } from "@/lib/services/read";
+import { listPriceBook, projectDetail } from "@/lib/services/read";
 
 export default async function ProjectPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const session = await requireSession();
   const detail = projectDetail(session.orgId, id, session.role);
   if (!detail?.contact) return <MissingRecord orgName={session.orgName} kind="job" />;
+  const costCodes = detail.money ? listPriceBook(session.orgId).map((item) => item.code) : [];
   const money = detail.financials;
   return (
     <div className="flex flex-col gap-5">
@@ -164,27 +166,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
               Post cost
             </Button>
           </ActionForm>
-          <ActionForm action={receiptAction.bind(null, detail.project.id)} className="mt-4 flex flex-col gap-2 border-t border-border pt-3">
-            <p className="text-sm font-medium">Receipt photo</p>
-            <input name="file" type="file" accept="image/*,.svg,.txt" className="text-sm" />
-            <label className="text-sm">
-              Or use a sample
-              <select name="sample" className="field mt-1" defaultValue="">
-                <option value="">Upload instead</option>
-                <option value="casa-tile.svg">Casa Tile · $864.50</option>
-                <option value="harbor-plumbing.svg">Harbor Plumbing · $426.00</option>
-                <option value="summit-lumber.svg">Summit Lumber · $18,425.00</option>
-              </select>
-            </label>
-            <input name="costCode" placeholder="Cost code to post" defaultValue="TILE-BACK" className="field" />
-            <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" name="post" defaultChecked />
-              Post to the job if the read is confident
-            </label>
-            <Button type="submit" variant="outline" className="h-11">
-              Read receipt
-            </Button>
-          </ActionForm>
+          <ReceiptCapture projectId={detail.project.id} codes={costCodes} />
         </section>
       ) : null}
       <section className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">

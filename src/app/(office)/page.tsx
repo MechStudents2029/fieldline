@@ -5,7 +5,7 @@ import { requireSession } from "@/lib/auth/session";
 import { formatDate } from "@/lib/format";
 import { formatBps, formatMoney } from "@/lib/money";
 import { canSeeMoney } from "@/lib/permissions";
-import { dashboard, leadDetail } from "@/lib/services/read";
+import { dashboard, leadDetail, pendingReceipts } from "@/lib/services/read";
 
 export default async function TodayPage() {
   const session = await requireSession();
@@ -13,6 +13,7 @@ export default async function TodayPage() {
   const money = canSeeMoney(session.role);
   const vasquez = leadDetail(session.orgId, "lead_vasquez");
   const vasquezOpen = vasquez && !vasquez.proposals.some((proposal) => proposal.status === "signed");
+  const receipts = money ? pendingReceipts(session.orgId) : [];
   return (
     <div className="flex flex-col gap-6">
       <div>
@@ -67,6 +68,25 @@ export default async function TodayPage() {
               ))}
             </ul>
           ) : null}
+        </section>
+      ) : null}
+      {receipts.length > 0 ? (
+        <section className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
+          <h2 className="font-heading text-xl">Receipts to review</h2>
+          <p className="mt-1 text-xs text-muted-foreground">These are not on the job until someone confirms them.</p>
+          <ul className="mt-3 divide-y divide-border">
+            {receipts.map((receipt) => (
+              <li key={receipt.documentId} className="flex flex-col gap-1 py-2 text-sm sm:flex-row sm:items-center sm:justify-between">
+                <Link href={`/projects/${receipt.projectId}`} className="font-medium">
+                  {receipt.vendor ?? "Receipt"} · {receipt.projectName}
+                </Link>
+                <span className="text-muted-foreground">
+                  {receipt.amountCents == null ? "Amount missing" : formatMoney(receipt.amountCents)}
+                  {receipt.confidence != null ? ` · ${Math.round(receipt.confidence * 100)}%` : ""}
+                </span>
+              </li>
+            ))}
+          </ul>
         </section>
       ) : null}
       <section className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">

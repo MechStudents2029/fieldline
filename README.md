@@ -100,7 +100,7 @@ npm run seed -- --reset   # wipe data/fieldline.db and reseed
 2. Open the lead, generate an estimate from the scope and the three photos, edit a line, and send the proposal.
 3. Open the client link (`/p/...`), sign, and pay the deposit with ACH routing `110000000` and account `000123456789`.
 4. On Okonkwo, send a change order and approve it. Contract value, budget, and a change-order invoice update.
-5. On Brooks, the job is already under the 20% margin line. Post the Casa Tile sample receipt (`public/demo/receipts/casa-tile.svg`) onto Okonkwo or another cost to watch margin move.
+5. On Brooks, the job is already under the 20% margin line. On Okonkwo, read the Casa Tile sample, confirm the suggested cost code, and post it. Today lists receipts that are still waiting. Margin moves only after that confirm.
 6. Follow-ups has a Briggs nudge waiting. Approving it writes a message. With no Resend key, the body also lands in `data/outbox/email.jsonl`.
 7. Copilot answers receivables, jobs under a margin, pipeline value, and unsigned proposals. The numbers come from the same queries as the screens.
 
@@ -182,7 +182,7 @@ Score each scenario pass or fail, with a note and a screenshot.
 
 1. **Kitchen remodel end to end.** Create a lead from pasted text ("Smith, 240 sq ft kitchen, gut, new cabinets, quartz, $60–80k") or open Vasquez. AI extracts contact and scope. Run the estimate with the three photos. Edit lines. Margin stays at or above the target markup. Send the proposal. Open the client link on a phone. Sign. A project appears with a budget. Pay the deposit by ACH (`110000000` / `000123456789`). Payment and the paid invoice show on the job.
 2. **Change order.** On a mid-job project, add "relocate plumbing wall", price it, send it, and approve it. Contract value, budget, and the next invoice update.
-3. **Job cost.** Upload `public/demo/receipts/casa-tile.svg` (or the Harbor or Summit samples). The reader pulls vendor and amount. Assign a cost code and post. Margin moves. Brooks is already under the 20% line on Today.
+3. **Job cost.** On a job, choose the Casa Tile, Harbor, or Summit sample (or paste receipt text). The reader shows vendor, amount, date, lines, and a suggested cost code. Edit if needed, then post. A low-confidence read does not post itself. Margin moves after you confirm. Brooks is already under the 20% line on Today, and Today lists receipts still waiting.
 4. **CRM.** Move a deal across stages, log a call, read the timeline, assign a task, and search contacts.
 5. **Follow-up.** Briggs was viewed several days ago. A nudge draft is waiting. Edit it, approve it, and confirm it shows on the contact. A client reply that contains STOP opts that contact out of SMS.
 6. **Copilot.** Ask "who owes me money?", "which jobs are under 20% margin?", and "what's my pipeline value?". Compare the answer to Today, Invoices, and the pipeline. They use the same queries.

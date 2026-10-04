@@ -37,6 +37,7 @@ import { assessCategories, costCodeKey, rollupCostCodes, type CategoryAssessment
 import { canSeeMoney, type Role } from "@/lib/permissions";
 import { verifyPassword } from "@/lib/auth/password";
 import { daysSince } from "@/lib/format";
+import { readReceiptMeta } from "@/lib/ai/receipt";
 import { needsProposalNudge } from "@/lib/ai/nurture";
 import { marginThresholdFromQuestion, routeCopilotQuestion, type CopilotTool } from "@/lib/ai/copilot";
 import { qboCustomersCsv as renderQboCustomers, qboImportLimitWarning, qboInvoicesCsv as renderQboInvoices } from "@/lib/export/qbo";
@@ -727,6 +728,43 @@ export function portalByToken(token: string) {
     photos,
     messages: threadMessages,
   };
+}
+
+export function pendingReceipts(orgId: string) {
+  const db = officeDb(orgId);
+  if (!db) return [];
+  const docs = db
+    .select()
+    .from(documents)
+    .where(and(eq(documents.orgId, orgId), eq(documents.type, "receipt"), isNull(documents.deletedAt)))
+    .orderBy(desc(documents.createdAt))
+    .all();
+  const posted = new Set(
+    db
+      .select({ documentId: costItems.documentId })
+      .from(costItems)
+      .where(eq(costItems.orgId, orgId))
+      .all()
+      .map((row) => row.documentId)
+      .filter((value): value is string => Boolean(value)),
+  );
+  const projectRows = db.select({ id: projects.id, name: projects.name }).from(projects).where(eq(projects.orgId, orgId)).all();
+  const names = new Map(projectRows.map((row) => [row.id, row.name]));
+  return docs
+    .filter((doc) => doc.projectId && !posted.has(doc.id) && readReceiptMeta(doc.metadataJson).posted !== true)
+    .slice(0, 8)
+    .map((doc) => {
+      const meta = readReceiptMeta(doc.metadataJson);
+      return {
+        documentId: doc.id,
+        projectId: doc.projectId as string,
+        projectName: names.get(doc.projectId as string) ?? "Job",
+        vendor: meta.vendor ?? null,
+        amountCents: meta.amountCents ?? null,
+        confidence: meta.confidence ?? null,
+        createdAt: doc.createdAt,
+      };
+    });
 }
 
 export function captionFromMetadata(metadataJson: string | null): string {

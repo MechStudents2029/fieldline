@@ -35,7 +35,8 @@ import {
 import { estimateFromScope } from "@/lib/ai/gateway";
 import { extractIntake } from "@/lib/ai/intake";
 import { proposalNudgeCopy, staleLeadCopy, needsProposalNudge, needsStaleLead } from "@/lib/ai/nurture";
-import { extractReceiptText } from "@/lib/ai/receipt";
+import { suggestCostCode } from "@/lib/ai/cost-code";
+import { extractReceiptText, readReceiptMeta, type StoredReceipt } from "@/lib/ai/receipt";
 import { assembleSnapshot, defaultSchedule, type StoredSnapshot } from "@/lib/domain/snapshot";
 import { canonicalJson, sha256 } from "@/lib/esign/hash";
 import { daysFromNow, id, nowIso, token } from "@/lib/ids";
@@ -1151,15 +1152,24 @@ export function previewReceipt(text: string) {
   return extractReceiptText(text);
 }
 
-export function saveUploadedText(actor: Actor, projectId: string, filename: string, text: string) {
+const DEMO_RECEIPT_NAMES = new Set(["casa-tile.svg", "harbor-plumbing.svg", "summit-lumber.svg"]);
+
+function receiptStorageName(filename: string): string {
+  const base = path.basename(filename);
+  if (DEMO_RECEIPT_NAMES.has(base.toLowerCase())) return base.replace(/\.svg$/i, ".txt");
+  return base;
+}
+
+export function saveUploadedText(actor: Actor, projectId: string, filename: string, text: string, metadataJson: string | null = null) {
   if (actor.role === "viewer") throw new ServiceError("Viewers cannot upload files.");
-  const uploadError = receiptUploadError(filename, text);
+  const storedName = receiptStorageName(filename);
+  const uploadError = receiptUploadError(storedName, text);
   if (uploadError) throw new ServiceError(uploadError);
   const db = staffDb(actor);
   const project = db.select().from(projects).where(and(eq(projects.id, projectId), eq(projects.orgId, actor.orgId))).get();
   if (!project) throw new ServiceError("Job not found.");
   const documentId = id("doc");
-  const relative = path.join("uploads", actor.orgId, `${documentId}-${filename.replace(/[^\w.\-]+/g, "_")}`);
+  const relative = path.join("uploads", actor.orgId, `${documentId}-${storedName.replace(/[^\w.\-]+/g, "_")}`);
   const absolute = path.join(dataDir(), relative);
   fs.mkdirSync(path.dirname(absolute), { recursive: true });
   fs.writeFileSync(absolute, text);
@@ -1171,9 +1181,9 @@ export function saveUploadedText(actor: Actor, projectId: string, filename: stri
       leadId: null,
       contactId: null,
       type: "receipt",
-      filename,
+      filename: storedName,
       storagePath: relative,
-      metadataJson: null,
+      metadataJson,
       deletedAt: null,
       createdAt: nowIso(),
       createdBy: actor.userId,
@@ -1182,10 +1192,70 @@ export function saveUploadedText(actor: Actor, projectId: string, filename: stri
   return { documentId, extraction: extractReceiptText(text) };
 }
 
+export function captureReceipt(actor: Actor, projectId: string, filename: string, text: string) {
+  const extraction = extractReceiptText(text);
+  const db = staffDb(actor);
+  const book = db.select().from(priceBookItems).where(eq(priceBookItems.orgId, actor.orgId)).all();
+  const history = db
+    .select({ costCode: costItems.costCode, vendorName: costItems.vendorName, projectId: costItems.projectId })
+    .from(costItems)
+    .where(eq(costItems.orgId, actor.orgId))
+    .all();
+  const suggestion = suggestCostCode({
+    vendor: extraction.vendor,
+    lineText: extraction.lines.map((line) => line.description).join(" "),
+    book: book.map((item) => ({ code: item.code, name: item.name, vendor: item.vendor, keywords: item.keywords })),
+    history,
+    projectId,
+  });
+  const meta: StoredReceipt = {
+    vendor: extraction.vendor,
+    amountCents: extraction.amountCents,
+    purchasedOn: extraction.purchasedOn,
+    confidence: extraction.confidence,
+    note: extraction.note,
+    lines: extraction.lines,
+    suggestedCode: suggestion?.code ?? null,
+    suggestedReason: suggestion?.reason ?? null,
+    posted: false,
+  };
+  const saved = saveUploadedText(actor, projectId, filename, text, JSON.stringify(meta));
+  return { documentId: saved.documentId, extraction, suggestion };
+}
+
+export function confirmReceiptCost(
+  actor: Actor,
+  projectId: string,
+  input: { documentId: string; amountCents: number; vendorName: string; costCode?: string; memo?: string },
+) {
+  const db = staffDb(actor);
+  const document = db
+    .select()
+    .from(documents)
+    .where(and(eq(documents.id, input.documentId), eq(documents.orgId, actor.orgId), eq(documents.projectId, projectId)))
+    .get();
+  if (!document || document.deletedAt) throw new ServiceError("That receipt is not on this job.");
+  const posted = addCost(actor, projectId, {
+    amountCents: input.amountCents,
+    vendorName: input.vendorName,
+    costCode: input.costCode,
+    memo: input.memo,
+    source: "receipt",
+    aiExtracted: true,
+    documentId: document.id,
+  });
+  const meta = readReceiptMeta(document.metadataJson);
+  db.update(documents)
+    .set({ metadataJson: JSON.stringify({ ...meta, posted: true, vendor: input.vendorName, amountCents: input.amountCents }) })
+    .where(and(eq(documents.id, document.id), eq(documents.orgId, actor.orgId)))
+    .run();
+  return posted;
+}
+
 const DEMO_RECEIPT_TEXT: Record<string, string> = {
-  "casa-tile.svg": "Vendor: Casa Tile\nBacksplash tile, Okonkwo bath\nTotal $864.50",
-  "harbor-plumbing.svg": "Vendor: Harbor Plumbing\nSupply lines, Chen powder\nTotal $426.00",
-  "summit-lumber.svg": "Vendor: Summit Lumber\nFraming package, Brooks addition\nTotal $18,425.00",
+  "casa-tile.svg": "Vendor: Casa Tile\nDate: 03/12/2026\nBacksplash tile $820.00\nThinset $44.50\nTotal $864.50",
+  "harbor-plumbing.svg": "Vendor: Harbor Plumbing\nDate: 02/02/2026\nSupply lines $400.00\nFittings $26.00\nTotal $426.00",
+  "summit-lumber.svg": "Vendor: Summit Lumber\nDate: 01/18/2026\nFraming package $18,425.00\nTotal $18,425.00",
 };
 
 export function readDemoReceipt(fileName: string): string {
