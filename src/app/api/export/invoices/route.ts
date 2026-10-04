@@ -12,7 +12,7 @@ export async function GET() {
   return new NextResponse(invoicesCsv(session.orgId), {
     headers: {
       "Content-Type": "text/csv; charset=utf-8",
-      "Content-Disposition": "attachment; filename=fieldline-invoices.csv",
+      "Content-Disposition": "attachment; filename=fieldline-qbo-invoices.csv",
     },
   });
 }

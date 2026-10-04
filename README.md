@@ -157,7 +157,7 @@ Copy `.env.example` to `.env.local`. Empty values are the supported demo. Put re
 | `SUPABASE_SERVICE_ROLE_KEY` | Same project, service role | Server env only. Never `NEXT_PUBLIC_` | Portal, pay, cron, and webhooks stay on `DATABASE_URL` as owner or service role. Do not expose this key to the browser. |
 | Product name, domain, legal entity, EIN, business bank | Registrar, state filing, bank | Outside this repo | Before live Stripe, Twilio 10DLC, or a public contract. |
 | Attorney review | Construction / SaaS counsel | Contract template, e-sign consent | Before public launch. The in-app consent is a draft, not legal advice. |
-| Intuit developer + sandbox company | developer.intuit.com | Later | QuickBooks sync is out of this MVP. Invoices and contacts export as CSV. |
+| Intuit developer + sandbox company | developer.intuit.com | Later | No OAuth in this MVP. Download `fieldline-qbo-customers.csv`, then `fieldline-qbo-invoices.csv`, and use Settings → Import Data. About 100 invoices and 1,000 rows per file. |
 | Figma file | Your team | Design only | Not required to run the demo. |
 | Sentry, PostHog | Optional | Vercel | Not wired. |
 
@@ -203,7 +203,7 @@ Feedback: file a GitHub issue with steps, expected, actual, screenshot, and devi
 - Deposit, progress, and final invoices, ACH-first pay page, change orders that update contract and budget
 - Live margin and a 20% watch list
 - Client portal, follow-up drafts that require approval, copilot v0 with four read-only answers
-- CSV export for invoices and contacts
+- QuickBooks Online Import Data CSVs for customers and invoices (one row per invoice line). Not a live Intuit connection.
 - Role checks and a second org
 
 **Stubbed until keys exist**
@@ -217,7 +217,7 @@ Feedback: file a GitHub issue with steps, expected, actual, screenshot, and devi
 
 **Left out of this MVP**
 
-- QuickBooks sync (CSV is the stand-in), lien waivers, plan takeoff, bill pay, and cards as a product
+- QuickBooks Online OAuth sync (Import Data CSV is the stand-in), lien waivers, plan takeoff, bill pay, and cards as a product
 - Twilio 10DLC registration and quiet-hours enforcement beyond storing STOP
 - Supabase Storage. Hosted Postgres works when you set `DATABASE_URL`. Supabase Auth turns on with the public URL and anon or publishable key. Office queries still use `DATABASE_URL` and filter `org_id`.
 - A live Stripe Connect direct charge (test PaymentIntents bill the account that owns the key)

@@ -3,7 +3,7 @@ import { ActionForm } from "@/components/action-form";
 import { Button } from "@/components/ui/button";
 import { requireSession } from "@/lib/auth/session";
 import { supabaseAuthConfigured } from "@/lib/supabase/env";
-import { canManageSettings } from "@/lib/permissions";
+import { canManageSettings, canSeeMoney } from "@/lib/permissions";
 import { getOrg, integrations, staff } from "@/lib/services/read";
 
 function stripeConnection<T extends { provider: string; status: string; label: string | null }>(connection: T): T {
@@ -86,15 +86,25 @@ export default async function SettingsPage() {
             Supabase Auth is on. The office session still follows this company membership.
           </p>
         ) : null}
-        <p className="mt-3 text-sm">
-          <a className="underline" href="/api/export/invoices">
-            Invoice CSV
-          </a>
-          {" · "}
-          <a className="underline" href="/api/export/contacts">
-            Contact CSV
-          </a>
-        </p>
+        <div className="mt-3 text-sm">
+          <p>QuickBooks Online Import Data. Import customers first, then invoices, so Customer matches DisplayName. This is a file, not a live connection.</p>
+          <p className="mt-2">
+            <a className="underline" href="/api/export/contacts">
+              Customers CSV
+            </a>
+            {canSeeMoney(session.role) ? (
+              <>
+                {" · "}
+                <a className="underline" href="/api/export/invoices">
+                  Invoices CSV
+                </a>
+              </>
+            ) : null}
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Customers are clients only. About 100 invoices and 1,000 rows per file. Negative amounts are left out.
+          </p>
+        </div>
       </section>
     </div>
   );

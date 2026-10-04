@@ -2,7 +2,7 @@ import Link from "next/link";
 import { requireSession } from "@/lib/auth/session";
 import { formatMoney } from "@/lib/money";
 import { canSeeMoney } from "@/lib/permissions";
-import { listInvoices } from "@/lib/services/read";
+import { listInvoices, qboImportLimitWarning, qboInvoicesExport } from "@/lib/services/read";
 
 export default async function InvoicesPage() {
   const session = await requireSession();
@@ -15,13 +15,21 @@ export default async function InvoicesPage() {
     );
   }
   const rows = listInvoices(session.orgId);
+  const exported = qboInvoicesExport(session.orgId);
+  const limitWarning = qboImportLimitWarning(exported.invoiceCount, exported.rowCount);
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-end justify-between">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <h1 className="font-heading text-3xl">Invoices</h1>
-        <a href="/api/export/invoices" className="text-sm underline">
-          CSV for QuickBooks
-        </a>
+        <div className="max-w-md text-sm sm:text-right">
+          <a href="/api/export/invoices" className="underline">
+            QuickBooks Online invoices
+          </a>
+          <p className="mt-1 text-xs text-muted-foreground">
+            For Settings → Import Data. Import customers first, then invoices. The Customer column must match DisplayName. About 100 invoices and 1,000 rows per file. Negative amounts are left out.
+          </p>
+          {limitWarning ? <p className="mt-1 text-xs text-copper">{limitWarning}</p> : null}
+        </div>
       </div>
       {rows.length === 0 ? <p className="text-sm text-muted-foreground">A signed proposal creates the deposit invoice.</p> : null}
       <ul className="divide-y divide-border rounded-xl bg-card ring-1 ring-foreground/10">

@@ -10,7 +10,7 @@ export async function GET() {
   return new NextResponse(contactsCsv(session.orgId), {
     headers: {
       "Content-Type": "text/csv; charset=utf-8",
-      "Content-Disposition": "attachment; filename=fieldline-contacts.csv",
+      "Content-Disposition": "attachment; filename=fieldline-qbo-customers.csv",
     },
   });
 }

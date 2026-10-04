@@ -36,6 +36,7 @@ import { verifyPassword } from "@/lib/auth/password";
 import { daysSince } from "@/lib/format";
 import { needsProposalNudge } from "@/lib/ai/nurture";
 import { marginThresholdFromQuestion, routeCopilotQuestion, type CopilotTool } from "@/lib/ai/copilot";
+import { qboCustomersCsv as renderQboCustomers, qboImportLimitWarning, qboInvoicesCsv as renderQboInvoices } from "@/lib/export/qbo";
 import type { StoredSnapshot } from "@/lib/domain/snapshot";
 
 export type Actor = {
@@ -705,37 +706,54 @@ export function leadPhotoNames(orgId: string, leadId: string): string[] {
   return leadPhotoCues(orgId, leadId).map((photo) => photo.filename);
 }
 
-export function invoicesCsv(orgId: string): string {
-  const rows = listInvoices(orgId);
-  const header = ["Date", "Number", "Type", "Name", "Project", "Amount", "Paid", "Status"];
-  const lines = rows.map(({ invoice, project, contact }) =>
-    [
-      invoice.issueDate,
-      invoice.number,
-      invoice.type,
-      csv(contact.name),
-      csv(project.name),
-      (invoice.totalCents / 100).toFixed(2),
-      (invoice.amountPaidCents / 100).toFixed(2),
-      invoice.status,
-    ].join(","),
+export function qboInvoicesExport(orgId: string) {
+  const db = getDb();
+  const invoiceRows = listInvoices(orgId);
+  const ids = invoiceRows.map((row) => row.invoice.id);
+  const lineRows =
+    ids.length === 0
+      ? []
+      : db
+          .select()
+          .from(invoiceLines)
+          .where(and(eq(invoiceLines.orgId, orgId), inArray(invoiceLines.invoiceId, ids)))
+          .all();
+  const linesByInvoice = new Map<string, { description: string; amountCents: number; sortOrder: number }[]>();
+  for (const line of lineRows) {
+    const list = linesByInvoice.get(line.invoiceId) ?? [];
+    list.push({ description: line.description, amountCents: line.amountCents, sortOrder: line.sortOrder });
+    linesByInvoice.set(line.invoiceId, list);
+  }
+  return renderQboInvoices(
+    invoiceRows.map(({ invoice, contact }) => ({
+      number: invoice.number,
+      customer: contact.name,
+      issueDate: invoice.issueDate,
+      dueDate: invoice.dueDate,
+      totalCents: invoice.totalCents,
+      type: invoice.type,
+      lines: linesByInvoice.get(invoice.id) ?? [],
+    })),
   );
-  return [header.join(","), ...lines].join("\n");
+}
+
+export function qboInvoicesCsv(orgId: string): string {
+  return qboInvoicesExport(orgId).csv;
+}
+
+export function invoicesCsv(orgId: string): string {
+  return qboInvoicesCsv(orgId);
+}
+
+export function qboCustomersCsv(orgId: string): string {
+  return renderQboCustomers(listContacts(orgId, undefined, "client"));
 }
 
 export function contactsCsv(orgId: string): string {
-  const rows = listContacts(orgId);
-  const header = ["Name", "Company", "Type", "Email", "Phone", "City", "State"];
-  const lines = rows.map((contact) =>
-    [csv(contact.name), csv(contact.company ?? ""), contact.type, csv(contact.email ?? ""), csv(contact.phone ?? ""), csv(contact.city ?? ""), csv(contact.state ?? "")].join(","),
-  );
-  return [header.join(","), ...lines].join("\n");
+  return qboCustomersCsv(orgId);
 }
 
-function csv(value: string) {
-  if (/[",\n]/.test(value)) return `"${value.replace(/"/g, '""')}"`;
-  return value;
-}
+export { qboImportLimitWarning };
 
 export function staff(orgId: string) {
   const db = getDb();

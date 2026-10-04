@@ -189,7 +189,7 @@ describe("kitchen remodel through margin", () => {
     const maya = authenticate("maya@rivera.demo", "demo")!;
     const dana = authenticate("dana@rivera.demo", "demo")!;
     expect(() => invoicesCsv(maya.orgId)).not.toThrow();
-    expect(invoicesCsv(maya.orgId)).toContain("Number");
+    expect(invoicesCsv(maya.orgId)).toContain("InvoiceNo");
     expect(dana.role).toBe("field");
     expect(canSeeMoney(dana.role)).toBe(false);
 
