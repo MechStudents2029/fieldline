@@ -2,6 +2,13 @@
 
 ## 2026-10-04
 
+### Mobile / PWA
+
+- Install icons are 192 and 512 PNG, plus the SVG mark and an Apple touch icon. The manifest stays standalone and starts at `/`.
+- The service worker caches that shell and content-hashed `/_next/static` files. Pages, server payloads, and API routes stay on the network. There is no offline outbox.
+- Job and estimate photos open the rear camera. A large shot is reduced in the browser before upload. Receipts stay text files. No image is sent to a vision service.
+- The office shows a small banner while the browser is offline and clears it when the connection returns.
+
 ### Photo context
 
 - Drafting reads each photo caption and the words in the file name, not the raw filename alone.

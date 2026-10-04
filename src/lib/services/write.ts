@@ -51,9 +51,9 @@ import { daysFromNow, id, nowIso, token } from "@/lib/ids";
 import { deliverMessage } from "@/lib/messages/outbox";
 import { achFeeCents, cardFeeCents, lineAmounts, lineInputError, marginBps, positiveMoneyError, qtyToMilli } from "@/lib/money";
 import { decideAch, decideCard } from "@/lib/payments/decide";
-import { canEditCrm, canManageMoney, type Role } from "@/lib/permissions";
+import { canAddFieldNotes, canEditCrm, canManageMoney, type Role } from "@/lib/permissions";
 import { CONSENT_VERSION } from "@/lib/product";
-import { receiptUploadError } from "@/lib/security";
+import { photoExtension, photoUploadError, rasterImageType, receiptUploadError } from "@/lib/security";
 import { ServiceError } from "@/lib/services/errors";
 import { leadPhotoCues, type Actor } from "@/lib/services/read";
 
@@ -1580,17 +1580,47 @@ export function updateOrgSettings(actor: Actor, input: { marginAlertBps: number;
     .run();
 }
 
-export function attachPhotoNote(actor: Actor, projectId: string, caption: string) {
-  if (actor.role === "viewer") throw new ServiceError("Viewers cannot add photos.");
+function writeUpload(orgId: string, documentId: string, ext: string, body: Buffer | string) {
+  const relative = path.join("uploads", orgId, `${documentId}.${ext}`);
+  const absolute = path.join(dataDir(), relative);
+  fs.mkdirSync(path.dirname(absolute), { recursive: true });
+  fs.writeFileSync(absolute, body);
+  return relative;
+}
+
+function photoFileName(original: string, ext: string) {
+  const stem = path.basename(original).replace(/\.[^.]+$/, "").replace(/[^\w.-]+/g, "-").replace(/^[.-]+/, "").slice(0, 80);
+  return `${stem || "photo"}.${ext}`;
+}
+
+function storedPhoto(orgId: string, documentId: string, caption: string, fallbackLabel: string, upload?: { filename: string; bytes: Buffer } | null) {
+  if (upload && upload.bytes.length > 0) {
+    const error = photoUploadError(upload.filename, upload.bytes);
+    if (error) throw new ServiceError(error);
+    const type = rasterImageType(upload.bytes);
+    if (!type) throw new ServiceError("Use a JPEG, PNG, or WebP photo.");
+    const ext = photoExtension(type);
+    return {
+      storagePath: writeUpload(orgId, documentId, ext, upload.bytes),
+      filename: photoFileName(upload.filename, ext),
+      metadataJson: JSON.stringify({ caption }),
+    };
+  }
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="640" height="400"><rect width="100%" height="100%" fill="#efe6d6"/><text x="32" y="80" font-family="Georgia" font-size="28" fill="#1c3a2e">${escapeXml(caption || fallbackLabel)}</text></svg>`;
+  return {
+    storagePath: writeUpload(orgId, documentId, "svg", svg),
+    filename: `${documentId}.svg`,
+    metadataJson: JSON.stringify({ caption }),
+  };
+}
+
+export function attachPhotoNote(actor: Actor, projectId: string, caption: string, upload?: { filename: string; bytes: Buffer } | null) {
+  if (!canAddFieldNotes(actor.role as Role)) throw new ServiceError("Viewers cannot add photos.");
   const db = staffDb(actor);
   const project = db.select().from(projects).where(and(eq(projects.id, projectId), eq(projects.orgId, actor.orgId))).get();
   if (!project) throw new ServiceError("Job not found.");
   const documentId = id("doc");
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="640" height="400"><rect width="100%" height="100%" fill="#efe6d6"/><text x="32" y="80" font-family="Georgia" font-size="28" fill="#1c3a2e">${escapeXml(caption || "Job photo")}</text><text x="32" y="120" font-family="sans-serif" font-size="16" fill="#5c564c">${escapeXml(project.name)}</text></svg>`;
-  const relative = path.join("uploads", actor.orgId, `${documentId}.svg`);
-  const absolute = path.join(dataDir(), relative);
-  fs.mkdirSync(path.dirname(absolute), { recursive: true });
-  fs.writeFileSync(absolute, svg);
+  const stored = storedPhoto(actor.orgId, documentId, caption, project.name, upload);
   db.insert(documents)
     .values({
       id: documentId,
@@ -1599,15 +1629,42 @@ export function attachPhotoNote(actor: Actor, projectId: string, caption: string
       leadId: project.leadId,
       contactId: null,
       type: "photo",
-      filename: `${documentId}.svg`,
-      storagePath: relative,
-      metadataJson: JSON.stringify({ caption }),
+      filename: stored.filename,
+      storagePath: stored.storagePath,
+      metadataJson: stored.metadataJson,
       deletedAt: null,
       createdAt: nowIso(),
       createdBy: actor.userId,
     })
     .run();
   log(db, actor.orgId, "project", projectId, "photo", caption.trim() || "Photo added from the field.", "user", actor.userId);
+  return { documentId };
+}
+
+export function attachLeadPhoto(actor: Actor, leadId: string, caption: string, upload?: { filename: string; bytes: Buffer } | null) {
+  if (!canAddFieldNotes(actor.role as Role)) throw new ServiceError("Viewers cannot add photos.");
+  const db = staffDb(actor);
+  const lead = db.select().from(leads).where(and(eq(leads.id, leadId), eq(leads.orgId, actor.orgId))).get();
+  if (!lead) throw new ServiceError("Lead not found.");
+  const documentId = id("doc");
+  const stored = storedPhoto(actor.orgId, documentId, caption, lead.title, upload);
+  db.insert(documents)
+    .values({
+      id: documentId,
+      orgId: actor.orgId,
+      projectId: null,
+      leadId,
+      contactId: lead.contactId,
+      type: "photo",
+      filename: stored.filename,
+      storagePath: stored.storagePath,
+      metadataJson: stored.metadataJson,
+      deletedAt: null,
+      createdAt: nowIso(),
+      createdBy: actor.userId,
+    })
+    .run();
+  log(db, actor.orgId, "lead", leadId, "photo", caption.trim() || "Site photo added.", "user", actor.userId);
   return { documentId };
 }
 

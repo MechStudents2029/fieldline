@@ -1,7 +1,8 @@
 import Link from "next/link";
-import { addLineAction, removeLineAction, reviseAction, sendProposalAction, updateLineAction } from "@/app/actions";
+import { addLineAction, leadPhotoAction, removeLineAction, reviseAction, sendProposalAction, updateLineAction } from "@/app/actions";
 import { ActionForm } from "@/components/action-form";
 import { MissingRecord } from "@/components/missing-record";
+import { PhotoCapture } from "@/components/photo-capture";
 import { Button } from "@/components/ui/button";
 import { requireSession } from "@/lib/auth/session";
 import { formatBps, formatMoney, formatQty, milliToQty } from "@/lib/money";
@@ -35,6 +36,11 @@ export default async function EstimatePage({ params }: { params: Promise<{ id: s
         <h1 className="font-heading text-3xl">{detail.estimate.title}</h1>
         <p className="mt-1 text-sm text-muted-foreground">{detail.estimate.notes}</p>
       </div>
+      <section className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
+        <h2 className="font-medium">Site photo</h2>
+        <p className="mt-1 text-sm text-muted-foreground">A caption helps the next draft. Prices still come from the price book.</p>
+        <PhotoCapture action={leadPhotoAction.bind(null, detail.estimate.leadId)} label="Take an estimate photo" submitLabel="Save site photo" />
+      </section>
       <section className={`rounded-xl p-4 ring-1 ${under ? "bg-accent ring-copper/40" : "bg-card ring-foreground/10"}`}>
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>

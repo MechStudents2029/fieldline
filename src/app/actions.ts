@@ -15,6 +15,7 @@ import {
   addPortalMessage,
   approveChangeOrder,
   approveDraft,
+  attachLeadPhoto,
   attachPhotoNote,
   completeTask,
   createChangeOrder,
@@ -507,12 +508,29 @@ export async function settingsAction(_prev: ActionState, formData: FormData): Pr
   }
 }
 
+async function photoUpload(formData: FormData) {
+  const file = formData.get("photo");
+  if (!(file instanceof File) || file.size === 0) return null;
+  return { filename: file.name || "photo.jpg", bytes: Buffer.from(await file.arrayBuffer()) };
+}
+
 export async function photoAction(projectId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
   try {
     const user = await actor();
-    attachPhotoNote(user, projectId, String(formData.get("caption") || ""));
+    attachPhotoNote(user, projectId, String(formData.get("caption") || ""), await photoUpload(formData));
     revalidatePath(`/projects/${projectId}`);
-    return { ok: "Photo note saved on the job." };
+    return { ok: "Photo saved on the job." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function leadPhotoAction(leadId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    attachLeadPhoto(user, leadId, String(formData.get("caption") || ""), await photoUpload(formData));
+    revalidatePath(`/leads/${leadId}`);
+    return { ok: "Photo saved. Draft the estimate when you want it priced from the book." };
   } catch (error) {
     return failure(error);
   }

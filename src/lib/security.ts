@@ -87,15 +87,49 @@ export function downloadName(filename: string): string {
   return base || "file";
 }
 
+export const MAX_PHOTO_BYTES = 2_500_000;
+
+export type RasterType = "image/jpeg" | "image/png" | "image/webp";
+
+/** Camera bytes are identified by magic, not the file name. */
+export function rasterImageType(body: Buffer): RasterType | null {
+  if (body.length >= 3 && body[0] === 0xff && body[1] === 0xd8 && body[2] === 0xff) return "image/jpeg";
+  if (body.length >= 8 && body.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))) return "image/png";
+  if (body.length >= 12 && body.toString("ascii", 0, 4) === "RIFF" && body.toString("ascii", 8, 12) === "WEBP") return "image/webp";
+  return null;
+}
+
+export function photoExtension(type: RasterType): "jpg" | "png" | "webp" {
+  if (type === "image/jpeg") return "jpg";
+  if (type === "image/png") return "png";
+  return "webp";
+}
+
+export function photoUploadError(filename: string, body: Buffer): string | null {
+  if (body.length === 0) return "Choose a photo.";
+  if (body.length > MAX_PHOTO_BYTES) return "Photos must be 2.5 MB or smaller.";
+  const base = path.basename(filename).toLowerCase();
+  if (/\.(svg|html?|xhtml|js|mjs|pdf)$/.test(base)) return "Use a JPEG, PNG, or WebP photo.";
+  if (!rasterImageType(body)) return "Use a JPEG, PNG, or WebP photo.";
+  return null;
+}
+
 export function fileResponseHeaders(filename: string, body: Buffer): Headers {
   const name = downloadName(filename);
-  const text = body.toString("utf8");
+  const raster = rasterImageType(body);
   const headers = new Headers();
   headers.set("X-Content-Type-Options", "nosniff");
   headers.set("Content-Security-Policy", "default-src 'none'; script-src 'none'; sandbox");
-  headers.set("Content-Disposition", `${svgDocumentIsSafe(text) ? "inline" : "attachment"}; filename="${name}"`);
-  headers.set("Content-Type", svgDocumentIsSafe(text) ? "image/svg+xml" : "application/octet-stream");
   headers.set("Cache-Control", "private, no-store");
+  if (raster) {
+    headers.set("Content-Disposition", `inline; filename="${name}"`);
+    headers.set("Content-Type", raster);
+    return headers;
+  }
+  const text = body.toString("utf8");
+  const safeSvg = svgDocumentIsSafe(text);
+  headers.set("Content-Disposition", `${safeSvg ? "inline" : "attachment"}; filename="${name}"`);
+  headers.set("Content-Type", safeSvg ? "image/svg+xml" : "application/octet-stream");
   return headers;
 }
 

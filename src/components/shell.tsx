@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { logoutAction } from "@/app/actions";
+import { OfflineBanner } from "@/components/offline-banner";
 import { cn } from "cn";
 
 const links = [
@@ -87,6 +88,7 @@ export function Shell({
             </p>
           </div>
         </header>
+        <OfflineBanner />
         <main id="main" className="px-4 pt-4 pb-24 md:px-8 md:pb-10">{children}</main>
       </div>
       <nav aria-label="Primary" className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-5 border-t border-border bg-card md:hidden">

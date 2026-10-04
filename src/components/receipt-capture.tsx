@@ -18,7 +18,13 @@ export function ReceiptCapture({ projectId, codes }: { projectId: string; codes:
         <p className="text-sm font-medium">Receipt</p>
         <p className="text-xs text-muted-foreground">Paste the receipt text, upload a .txt file, or pick a sample. Nothing posts until you confirm.</p>
         <textarea name="text" rows={3} placeholder="Paste receipt text" className="field" />
-        <input name="file" type="file" accept=".txt,.csv,.json,text/plain" className="text-sm" />
+        <input
+          name="file"
+          type="file"
+          accept=".txt,.csv,.json,text/plain"
+          aria-label="Upload a text receipt"
+          className="block min-h-11 w-full text-base"
+        />
         <label className="text-sm">
           Or use a sample
           <select name="sample" className="field mt-1" defaultValue="">

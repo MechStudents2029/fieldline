@@ -2,13 +2,14 @@ import Link from "next/link";
 import { addCostAction, createCoAction, draftCoAction, issueInvoiceAction, photoAction } from "@/app/actions";
 import { ActionForm } from "@/components/action-form";
 import { MissingRecord } from "@/components/missing-record";
+import { PhotoCapture } from "@/components/photo-capture";
 import { ReceiptCapture } from "@/components/receipt-capture";
 import { Button } from "@/components/ui/button";
 import { requireSession } from "@/lib/auth/session";
 import { formatDateTime } from "@/lib/format";
 import { overBudgetPercent } from "@/lib/margin/category";
 import { formatBps, formatMoney } from "@/lib/money";
-import { listPriceBook, projectDetail } from "@/lib/services/read";
+import { captionFromMetadata, listPriceBook, projectDetail } from "@/lib/services/read";
 
 export default async function ProjectPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -173,15 +174,12 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
         <h2 className="font-medium">Photos</h2>
         <div className="mt-2 grid grid-cols-3 gap-2">
           {detail.photos.filter((photo) => photo.type === "photo").map((photo) => (
-            <img key={photo.id} src={photo.storagePath.startsWith("/") ? photo.storagePath : `/api/files/${photo.id}`} alt={photo.filename} className="aspect-square w-full rounded-lg object-cover" />
+            <img key={photo.id} src={photo.storagePath.startsWith("/") ? photo.storagePath : `/api/files/${photo.id}`} alt={captionFromMetadata(photo.metadataJson) || "Job photo"} className="aspect-square w-full rounded-lg object-cover" />
           ))}
         </div>
-        <ActionForm action={photoAction.bind(null, detail.project.id)} className="mt-3 flex flex-col gap-2">
-          <input name="caption" className="field" placeholder="Caption, e.g. Opened the sink wall" />
-          <Button type="submit" variant="outline">
-            Save a photo note
-          </Button>
-        </ActionForm>
+        {session.role !== "viewer" ? (
+          <PhotoCapture action={photoAction.bind(null, detail.project.id)} label="Take a job photo" submitLabel="Save photo" />
+        ) : null}
       </section>
       <section>
         <h2 className="font-medium">Activity</h2>

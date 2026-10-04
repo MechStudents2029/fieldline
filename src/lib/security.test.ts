@@ -6,6 +6,7 @@ import {
   demoWebhookAllowed,
   fileResponseHeaders,
   fileVisible,
+  photoUploadError,
   readSessionPayload,
   receiptUploadError,
   resolveInside,
@@ -74,5 +75,16 @@ describe("sessions, files, and uploads", () => {
     expect(receiptUploadError("evil.svg", "<svg></svg>")).toMatch(/txt or .csv/);
     expect(receiptUploadError("note.txt", "x".repeat(1_000_001))).toMatch(/1 MB/);
     expect(receiptUploadError("note.txt", "Vendor: Casa Tile\nTotal $10.00")).toBeNull();
+  });
+
+  it("serves a real photo inline and rejects a renamed markup file", () => {
+    const jpeg = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10]);
+    expect(photoUploadError("sink.jpg", jpeg)).toBeNull();
+    const headers = fileResponseHeaders("sink.jpg", jpeg);
+    expect(headers.get("Content-Type")).toBe("image/jpeg");
+    expect(headers.get("Content-Disposition")).toMatch(/^inline/);
+    expect(photoUploadError("note.svg", jpeg)).toMatch(/JPEG/);
+    expect(photoUploadError("photo.jpg", Buffer.from("<svg></svg>"))).toMatch(/JPEG/);
+    expect(fileResponseHeaders("photo.jpg", Buffer.from("not-an-image")).get("Content-Type")).toBe("application/octet-stream");
   });
 });

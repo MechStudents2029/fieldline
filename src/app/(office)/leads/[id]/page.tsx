@@ -1,13 +1,14 @@
 import Link from "next/link";
-import { generateEstimateAction, moveLeadFormAction, noteAction, taskAction } from "@/app/actions";
+import { generateEstimateAction, leadPhotoAction, moveLeadFormAction, noteAction, taskAction } from "@/app/actions";
 import { MissingRecord } from "@/components/missing-record";
 import { ActionForm } from "@/components/action-form";
+import { PhotoCapture } from "@/components/photo-capture";
 import { Button } from "@/components/ui/button";
 import { requireSession } from "@/lib/auth/session";
 import { formatDateTime } from "@/lib/format";
 import { formatMoney } from "@/lib/money";
 import { canSeeMoney } from "@/lib/permissions";
-import { leadDetail, pipelineBoard } from "@/lib/services/read";
+import { captionFromMetadata, leadDetail, pipelineBoard } from "@/lib/services/read";
 
 export default async function LeadPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -49,12 +50,15 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
       <section className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
         <h2 className="font-medium">Scope</h2>
         <p className="mt-2 whitespace-pre-wrap text-sm">{detail.lead.scopeText || "No scope yet."}</p>
-        {detail.photos.length > 0 ? (
+        {detail.photos.some((photo) => photo.type === "photo") ? (
           <div className="mt-3 grid grid-cols-3 gap-2">
-            {detail.photos.map((photo) => (
-              <img key={photo.id} src={photo.storagePath.startsWith("/") ? photo.storagePath : `/api/files/${photo.id}`} alt={photo.filename} className="aspect-[4/3] w-full rounded-lg object-cover" />
+            {detail.photos.filter((photo) => photo.type === "photo").map((photo) => (
+              <img key={photo.id} src={photo.storagePath.startsWith("/") ? photo.storagePath : `/api/files/${photo.id}`} alt={captionFromMetadata(photo.metadataJson) || "Site photo"} className="aspect-[4/3] w-full rounded-lg object-cover" />
             ))}
           </div>
+        ) : null}
+        {session.role !== "viewer" ? (
+          <PhotoCapture action={leadPhotoAction.bind(null, detail.lead.id)} label="Take an estimate photo" submitLabel="Save site photo" />
         ) : null}
         <div className="mt-4 flex flex-wrap gap-2">
           {session.role !== "field" && session.role !== "viewer" ? (
