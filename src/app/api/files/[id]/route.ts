@@ -2,6 +2,7 @@ import fs from "node:fs";
 import { and, eq } from "drizzle-orm";
 import { getSession } from "@/lib/auth/session";
 import { dataDir, getDb } from "@/lib/db/client";
+import { officeDb } from "@/lib/db/office";
 import { documents, projects } from "@/lib/db/schema";
 import { demoAssetPath, fileResponseHeaders, fileVisible, resolveInside } from "@/lib/security";
 
@@ -11,8 +12,13 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
   const session = await getSession();
   const { id } = await context.params;
   const portal = new URL(request.url).searchParams.get("portal");
-  const db = getDb();
-  const document = db.select().from(documents).where(eq(documents.id, id)).get();
+  const db = portal ? getDb() : session ? officeDb(session.orgId) : null;
+  if (!db) return new Response("Not found", { status: 404 });
+  const document = db
+    .select()
+    .from(documents)
+    .where(portal ? eq(documents.id, id) : and(eq(documents.id, id), eq(documents.orgId, session!.orgId)))
+    .get();
   if (!document || document.deletedAt) return new Response("Not found", { status: 404 });
   const portalMatch = Boolean(
     portal &&

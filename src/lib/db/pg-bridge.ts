@@ -48,6 +48,31 @@ parentPort.on("message", async (msg) => {
     if (msg.type === "close") {
       await shutdown();
       msg.port.postMessage({ ok: true, rows: [], arrays: [], rowCount: 0 });
+    } else if (msg.type === "rls-begin") {
+      await runQuery("begin");
+      try {
+        await runQuery("select set_config('request.jwt.claims', $1, true)", [msg.claims]);
+        await runQuery("set local role authenticated");
+        await runQuery("set local search_path = public");
+        msg.port.postMessage({ ok: true, rows: [], arrays: [], rowCount: 0 });
+      } catch (error) {
+        try {
+          await runQuery("rollback");
+        } catch {
+          // The transaction is already closed.
+        }
+        throw error;
+      }
+    } else if (msg.type === "rls-commit") {
+      await runQuery("commit");
+      msg.port.postMessage({ ok: true, rows: [], arrays: [], rowCount: 0 });
+    } else if (msg.type === "rls-rollback") {
+      try {
+        await runQuery("rollback");
+      } catch {
+        // Nothing to roll back.
+      }
+      msg.port.postMessage({ ok: true, rows: [], arrays: [], rowCount: 0 });
     } else if (msg.type === "rls") {
       await runQuery("begin");
       try {
@@ -228,9 +253,27 @@ export function createSqliteCompat(options: Mode): SqliteCompat {
   return {
     prepare: statement,
     asAuthenticated(readUser: () => string): SqliteCompat {
-      function run(sql: string, params: unknown[]) {
+      let depth = 0;
+      function mustUser() {
         const authUserId = readUser();
         if (!authUserId) throw new Error("RLS query without a verified Supabase user.");
+        return authUserId;
+      }
+      function callOk(payload: { type: string; sql?: string; params?: unknown[]; claims?: string }) {
+        const packet = call(worker, payload);
+        if (!packet.ok) throw new Error(packet.error);
+        return packet;
+      }
+      function run(sql: string, params: unknown[]) {
+        const authUserId = mustUser();
+        if (depth > 0) {
+          const translated = translateSqliteQuery(sql);
+          return callOk({
+            type: "query",
+            sql: translated,
+            params: params.map((value) => (value === undefined ? null : value)),
+          });
+        }
         return queryAs(authUserId, sql, params);
       }
       return {
@@ -243,7 +286,26 @@ export function createSqliteCompat(options: Mode): SqliteCompat {
         },
         close() {},
         transaction(fn) {
-          const wrapped = (...args: unknown[]) => fn(...args);
+          const wrapped = (...args: unknown[]) => {
+            if (depth > 0) return fn(...args);
+            const authUserId = mustUser();
+            callOk({ type: "rls-begin", claims: JSON.stringify({ sub: authUserId, role: "authenticated" }) });
+            depth += 1;
+            try {
+              const result = fn(...args);
+              callOk({ type: "rls-commit" });
+              return result;
+            } catch (error) {
+              try {
+                callOk({ type: "rls-rollback" });
+              } catch {
+                // Keep the original error.
+              }
+              throw error;
+            } finally {
+              depth -= 1;
+            }
+          };
           return { deferred: wrapped, immediate: wrapped, exclusive: wrapped };
         },
       };

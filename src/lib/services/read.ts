@@ -161,7 +161,8 @@ export function pipelineBoard(orgId: string, filters?: { q?: string; source?: st
 }
 
 export function leadDetail(orgId: string, leadId: string) {
-  const db = getDb();
+  const db = officeDb(orgId);
+  if (!db) return null;
   const lead = db
     .select()
     .from(leads)
@@ -216,7 +217,8 @@ export function leadDetail(orgId: string, leadId: string) {
 }
 
 export function estimateDetail(orgId: string, estimateId: string) {
-  const db = getDb();
+  const db = officeDb(orgId);
+  if (!db) return null;
   const estimate = db
     .select()
     .from(estimates)
@@ -281,7 +283,8 @@ export function listContacts(orgId: string, q?: string, type?: string) {
 }
 
 export function contactDetail(orgId: string, contactId: string) {
-  const db = getDb();
+  const db = officeDb(orgId);
+  if (!db) return null;
   const contact = db
     .select()
     .from(contacts)
@@ -322,7 +325,8 @@ export function listProjects(orgId: string) {
 }
 
 export function projectDetail(orgId: string, projectId: string, role: Role) {
-  const db = getDb();
+  const db = officeDb(orgId);
+  if (!db) return null;
   const project = db.select().from(projects).where(and(eq(projects.id, projectId), eq(projects.orgId, orgId))).get();
   if (!project) return null;
   const contact = db.select().from(contacts).where(eq(contacts.id, project.contactId)).get();
@@ -395,8 +399,10 @@ export function listInvoices(orgId: string) {
 }
 
 export function listPriceBook(orgId: string, q?: string) {
+  const db = officeDb(orgId);
+  if (!db) return [];
   const query = q?.trim();
-  return getDb()
+  return db
     .select()
     .from(priceBookItems)
     .where(
@@ -416,7 +422,9 @@ export function listPriceBook(orgId: string, q?: string) {
 }
 
 export function listDrafts(orgId: string) {
-  return getDb()
+  const db = officeDb(orgId);
+  if (!db) return [];
+  return db
     .select()
     .from(followUpDrafts)
     .where(eq(followUpDrafts.orgId, orgId))
@@ -425,15 +433,33 @@ export function listDrafts(orgId: string) {
 }
 
 export function listTasks(orgId: string) {
-  return getDb().select().from(tasks).where(eq(tasks.orgId, orgId)).orderBy(asc(tasks.dueAt)).all();
+  const db = officeDb(orgId);
+  if (!db) return [];
+  return db.select().from(tasks).where(eq(tasks.orgId, orgId)).orderBy(asc(tasks.dueAt)).all();
 }
 
 export function integrations(orgId: string) {
-  return getDb().select().from(integrationConnections).where(eq(integrationConnections.orgId, orgId)).all();
+  const db = officeDb(orgId);
+  if (!db) return [];
+  return db.select().from(integrationConnections).where(eq(integrationConnections.orgId, orgId)).all();
 }
 
 export function dashboard(orgId: string) {
-  const db = getDb();
+  const db = officeDb(orgId);
+  if (!db) {
+    return {
+      org: undefined,
+      pipelineCents: 0,
+      openLeadCount: 0,
+      receivableCents: 0,
+      openInvoiceCount: 0,
+      marginAlerts: [],
+      categoryAlerts: [] as CategoryAlert[],
+      unsigned: [],
+      drafts: [],
+      tasks: [],
+    };
+  }
   const org = db.select().from(organizations).where(eq(organizations.id, orgId)).get();
   const openLeads = db
     .select()
@@ -473,7 +499,8 @@ export function dashboard(orgId: string) {
 export type CategoryAlert = CategoryAssessment & { projectId: string; projectName: string };
 
 export function listCategoryAlerts(orgId: string): CategoryAlert[] {
-  const db = getDb();
+  const db = officeDb(orgId);
+  if (!db) return [];
   const open = db
     .select()
     .from(projects)
@@ -525,7 +552,8 @@ function coverLines(
 }
 
 export function receivables(orgId: string) {
-  const db = getDb();
+  const db = officeDb(orgId);
+  if (!db) return [];
   return db
     .select({ invoice: invoices, project: projects, contact: contacts })
     .from(invoices)
@@ -536,7 +564,9 @@ export function receivables(orgId: string) {
 }
 
 export function overdueProposals(orgId: string) {
-  return getDb()
+  const db = officeDb(orgId);
+  if (!db) return [];
+  return db
     .select({ proposal: proposals, lead: leads, contact: contacts })
     .from(proposals)
     .innerJoin(leads, eq(leads.id, proposals.leadId))
@@ -710,7 +740,9 @@ export function captionFromMetadata(metadataJson: string | null): string {
 }
 
 export function leadPhotoCues(orgId: string, leadId: string): { filename: string; caption: string }[] {
-  return getDb()
+  const db = officeDb(orgId);
+  if (!db) return [];
+  return db
     .select({ filename: documents.filename, metadataJson: documents.metadataJson })
     .from(documents)
     .where(and(eq(documents.orgId, orgId), eq(documents.leadId, leadId), eq(documents.type, "photo"), isNull(documents.deletedAt)))
@@ -723,7 +755,8 @@ export function leadPhotoNames(orgId: string, leadId: string): string[] {
 }
 
 export function qboInvoicesExport(orgId: string) {
-  const db = getDb();
+  const db = officeDb(orgId);
+  if (!db) return renderQboInvoices([]);
   const invoiceRows = listInvoices(orgId);
   const ids = invoiceRows.map((row) => row.invoice.id);
   const lineRows =

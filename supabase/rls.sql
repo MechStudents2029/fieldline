@@ -4,8 +4,8 @@
 --
 -- Portal, pay, Stripe webhooks, follow-up cron, seed, and migrations use
 -- DATABASE_URL as the database owner or service role, so these policies do not
--- block them. Office reads, after getClaims() verifies the member, run as role
--- `authenticated` with that JWT so auth.uid() and current_org_ids() apply.
+-- block them. Office reads and writes, after getClaims() verifies the member, run as role
+-- `authenticated` with that JWT so auth.uid(), current_org_ids(), and WITH CHECK apply.
 -- The browser and the session refresh use the anon or publishable key only.
 -- users.auth_user_id stores auth.uid() as text so SQLite and Postgres share one column.
 -- App-level org_id checks stay in the query layer even after these policies exist.

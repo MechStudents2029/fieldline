@@ -34,9 +34,9 @@ export function resolveReadConnection(input: {
 }
 
 /**
- * Office tenant read. Demo mode (no Supabase auth, or no verified claim) keeps getDb().
- * A verified claim that does not belong to orgId returns null so the caller shows nothing.
- * On Postgres the rows themselves are read as role `authenticated`, not as the table owner.
+ * Office tenant connection for reads and writes. Demo mode (no Supabase auth, or no verified claim) keeps getDb().
+ * A verified claim that does not belong to orgId returns null so the caller shows nothing or refuses the write.
+ * On Postgres the statements run as role `authenticated`, not as the table owner, so RLS USING and WITH CHECK apply.
  */
 export function officeDb(orgId: string): AppDatabase | null {
   const claim = officeClaim();

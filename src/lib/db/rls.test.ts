@@ -4,8 +4,9 @@ import { eq } from "drizzle-orm";
 import { getDb, getRlsDb, getSqlite, useDatabaseFile, usePostgresMemory } from "@/lib/db/client";
 import { currentOrgIds, resolveReadConnection } from "@/lib/db/office";
 import { withOfficeClaim } from "@/lib/db/rls-context";
-import { contacts, users } from "@/lib/db/schema";
-import { invoiceByPayToken, listContacts, listInvoices, listProjects, pipelineBoard } from "@/lib/services/read";
+import { contacts, tasks, users } from "@/lib/db/schema";
+import { authenticate, estimateDetail, invoiceByPayToken, leadDetail, listContacts, listInvoices, listPriceBook, listProjects, listTasks, pipelineBoard } from "@/lib/services/read";
+import { createTask } from "@/lib/services/write";
 import { authUserIdFromClaims } from "@/lib/supabase/claims";
 import { supabaseAnonKey, supabaseAuthConfigured } from "@/lib/supabase/env";
 
@@ -65,6 +66,45 @@ describe("office RLS path", () => {
     clearSupabaseEnv();
   });
 
+  it("reads a job file and writes a task through getDb when Supabase is unset", () => {
+    clearSupabaseEnv();
+    const lead = withOfficeClaim(JORDAN, () => leadDetail("org_rivera", "lead_vasquez"));
+    expect(lead?.lead.id).toBe("lead_vasquez");
+    const maya = authenticate("maya@rivera.demo", "demo");
+    expect(maya).not.toBeNull();
+    withOfficeClaim(JORDAN, () => createTask(maya!, { title: "Demo task stays on the owner connection", relatedType: "lead", relatedId: "lead_vasquez" }));
+    expect(listTasks("org_rivera").some((task) => task.title === "Demo task stays on the owner connection")).toBe(true);
+  });
+
+  it("hides a job detail and refuses an office write under another company's claim", () => {
+    supabaseEnv();
+    const hidden = withOfficeClaim(JORDAN, () => ({
+      lead: leadDetail("org_rivera", "lead_vasquez"),
+      estimate: estimateDetail("org_rivera", "est_briggs"),
+      book: listPriceBook("org_rivera"),
+    }));
+    expect(hidden.lead).toBeNull();
+    expect(hidden.estimate).toBeNull();
+    expect(hidden.book).toEqual([]);
+    const maya = authenticate("maya@rivera.demo", "demo");
+    expect(maya?.orgId).toBe("org_rivera");
+    expect(() =>
+      withOfficeClaim(JORDAN, () => createTask(maya!, { title: "Cross-org task", relatedType: "lead", relatedId: "lead_vasquez" })),
+    ).toThrow(/signed-in account/);
+    expect(listTasks("org_rivera").some((task) => task.title === "Cross-org task")).toBe(false);
+    expect(withOfficeClaim(MAYA, () => leadDetail("org_rivera", "lead_vasquez"))?.lead.id).toBe("lead_vasquez");
+    const source = readFileSync("src/lib/services/write.ts", "utf8");
+    for (const name of ["markProposalViewed", "signProposal", "declineProposal", "payInvoice", "approveChangeOrder", "scanFollowUps", "addPortalMessage"]) {
+      const start = source.indexOf(`function ${name}`);
+      const next = source.indexOf("\nexport ", start + 1);
+      const body = source.slice(start, next === -1 ? undefined : next);
+      expect(body).toContain("getDb()");
+      expect(body).not.toContain("staffDb");
+    }
+    expect(source.slice(source.indexOf("function createTask"), source.indexOf("function completeTask"))).toContain("staffDb");
+    clearSupabaseEnv();
+  });
+
   it("refuses a public service-role JWT and ignores getSession-style anon claims", () => {
     const header = Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" })).toString("base64url");
     const service = `${header}.${Buffer.from(JSON.stringify({ role: "service_role", sub: MAYA })).toString("base64url")}.sig`;
@@ -118,6 +158,50 @@ describe("postgres authenticated role", () => {
     expect(rows.length).toBeGreaterThan(0);
     expect(rows.every((row) => row.orgId === "org_northline")).toBe(true);
     expect(rows.some((row) => row.id === "c_vasquez")).toBe(false);
+    clearSupabaseEnv();
+  });
+
+  it("rejects a task insert for another company under the authenticated role", () => {
+    getDb().update(users).set({ authUserId: MAYA }).where(eq(users.id, "user_maya")).run();
+    getDb().update(users).set({ authUserId: JORDAN }).where(eq(users.id, "user_jordan")).run();
+    try {
+      getSqlite().exec("create role authenticated nologin");
+    } catch {
+      // The select test already created the role.
+    }
+    getSqlite().exec(`
+      create schema if not exists auth;
+      create or replace function auth.uid() returns text language sql stable as $$ select coalesce(nullif(current_setting('request.jwt.claims', true), '')::json->>'sub', '') $$;
+      create or replace function public.current_org_ids() returns setof text language sql stable security definer set search_path = public as $$ select m.org_id from public.memberships m join public.users u on u.id = m.user_id where u.auth_user_id = auth.uid() $$;
+      grant usage on schema public to authenticated;
+      grant select, insert, update, delete on public.tasks to authenticated;
+      grant execute on function public.current_org_ids() to authenticated;
+      grant execute on function auth.uid() to authenticated;
+      alter table public.tasks enable row level security;
+      alter table public.tasks force row level security;
+      drop policy if exists tasks_member on public.tasks;
+      create policy tasks_member on public.tasks for all to authenticated using (org_id in (select public.current_org_ids())) with check (org_id in (select public.current_org_ids()));
+    `);
+    supabaseEnv();
+    const stamp = "2026-10-04T00:00:00.000Z";
+    expect(() =>
+      withOfficeClaim(JORDAN, () =>
+        getRlsDb()
+          .insert(tasks)
+          .values({ id: "task_rls_rivera", orgId: "org_rivera", title: "Nope", status: "open", createdAt: stamp, updatedAt: stamp })
+          .run(),
+      ),
+    ).toThrow();
+    withOfficeClaim(JORDAN, () =>
+      getRlsDb()
+        .insert(tasks)
+        .values({ id: "task_rls_north", orgId: "org_northline", title: "Northline task", status: "open", createdAt: stamp, updatedAt: stamp })
+        .run(),
+    );
+    const rows = withOfficeClaim(JORDAN, () => getRlsDb().select({ id: tasks.id, orgId: tasks.orgId }).from(tasks).all());
+    expect(rows.some((row) => row.id === "task_rls_north")).toBe(true);
+    expect(rows.some((row) => row.id === "task_rls_rivera")).toBe(false);
+    expect(rows.every((row) => row.orgId === "org_northline")).toBe(true);
     clearSupabaseEnv();
   });
 });

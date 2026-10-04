@@ -8,8 +8,9 @@ const AUTH_USER_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{
 
 /**
  * Resolve the Fieldline membership for a Supabase Auth user.
- * The first sign-in for a seeded email stores auth_user_id. A later sign-in
- * must present that same id. The membership lookup stays inside that user's company.
+ * The first sign-in for a seeded email stores auth_user_id on the owner connection.
+ * There is no member JWT yet, so that write cannot use the authenticated role.
+ * A later sign-in must present that same id.
  */
 export function actorFromAuthUser(authUserId: string, email?: string | null): Actor | null {
   if (!AUTH_USER_ID.test(authUserId)) return null;

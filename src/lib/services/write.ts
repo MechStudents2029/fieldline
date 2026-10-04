@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { dataDir, getDb } from "@/lib/db/client";
+import { officeDb } from "@/lib/db/office";
 import {
   activities,
   aiRuns,
@@ -58,6 +59,13 @@ function assertMoney(actor: Actor) {
   if (!canManageMoney(actor.role as Role)) throw new ServiceError("Your role cannot change prices or invoices.");
 }
 
+/** Office mutation. A verified claim for another company throws so WITH CHECK is never skipped. */
+function staffDb(actor: Actor) {
+  const db = officeDb(actor.orgId);
+  if (!db) throw new ServiceError("This company is not on the signed-in account.");
+  return db;
+}
+
 function log(
   tx: Writer,
   orgId: string,
@@ -102,7 +110,7 @@ function audit(tx: Writer, orgId: string, actorId: string | null, action: string
 
 export function moveLead(actor: Actor, leadId: string, stageId: string) {
   assertCrm(actor);
-  const db = getDb();
+  const db = staffDb(actor);
   const lead = db.select().from(leads).where(and(eq(leads.id, leadId), eq(leads.orgId, actor.orgId))).get();
   const stage = db.select().from(pipelineStages).where(and(eq(pipelineStages.id, stageId), eq(pipelineStages.orgId, actor.orgId))).get();
   if (!lead || !stage) throw new ServiceError("That deal is not in your company.");
@@ -118,7 +126,7 @@ export function logNote(actor: Actor, entityType: string, entityId: string, summ
   if (actor.role === "viewer") throw new ServiceError("Viewers cannot add notes.");
   const text = summary.trim();
   if (!text) throw new ServiceError("Write a note first.");
-  const db = getDb();
+  const db = staffDb(actor);
   if (entityType === "lead") {
     const lead = db.select().from(leads).where(and(eq(leads.id, entityId), eq(leads.orgId, actor.orgId))).get();
     if (!lead) throw new ServiceError("Deal not found.");
@@ -130,7 +138,7 @@ export function logNote(actor: Actor, entityType: string, entityId: string, summ
 export function createTask(actor: Actor, input: { title: string; relatedType: string; relatedId: string; assigneeUserId?: string; dueAt?: string }) {
   assertCrm(actor);
   if (!input.title.trim()) throw new ServiceError("A task needs a title.");
-  getDb()
+  staffDb(actor)
     .insert(tasks)
     .values({
       id: id("task"),
@@ -150,7 +158,7 @@ export function createTask(actor: Actor, input: { title: string; relatedType: st
 
 export function completeTask(actor: Actor, taskId: string) {
   if (actor.role === "viewer") throw new ServiceError("Viewers cannot complete tasks.");
-  const db = getDb();
+  const db = staffDb(actor);
   const task = db.select().from(tasks).where(and(eq(tasks.id, taskId), eq(tasks.orgId, actor.orgId))).get();
   if (!task) throw new ServiceError("Task not found.");
   db.update(tasks).set({ status: "done", updatedAt: nowIso() }).where(eq(tasks.id, taskId)).run();
@@ -159,7 +167,7 @@ export function completeTask(actor: Actor, taskId: string) {
 export function createLeadFromText(actor: Actor, text: string, source = "manual") {
   assertCrm(actor);
   const intake = extractIntake(text);
-  const db = getDb();
+  const db = staffDb(actor);
   const stage = db
     .select()
     .from(pipelineStages)
@@ -275,7 +283,7 @@ export function createLeadFromText(actor: Actor, text: string, source = "manual"
 
 export async function generateEstimate(actor: Actor, leadId: string) {
   assertMoney(actor);
-  const db = getDb();
+  const db = staffDb(actor);
   const lead = db.select().from(leads).where(and(eq(leads.id, leadId), eq(leads.orgId, actor.orgId))).get();
   if (!lead) throw new ServiceError("Deal not found.");
   const org = db.select().from(organizations).where(eq(organizations.id, actor.orgId)).get();
@@ -374,7 +382,7 @@ export async function generateEstimate(actor: Actor, leadId: string) {
 }
 
 function loadEditableEstimate(actor: Actor, estimateId: string) {
-  const db = getDb();
+  const db = staffDb(actor);
   const estimate = db.select().from(estimates).where(and(eq(estimates.id, estimateId), eq(estimates.orgId, actor.orgId))).get();
   if (!estimate) throw new ServiceError("Estimate not found.");
   const sent = db.select().from(proposals).where(eq(proposals.estimateId, estimateId)).all();
@@ -390,7 +398,7 @@ export function updateLine(
   patch: { qty?: number; unitCostCents?: number; markupBps?: number; name?: string },
 ) {
   assertMoney(actor);
-  const db = getDb();
+  const db = staffDb(actor);
   const line = db.select().from(lineItems).where(and(eq(lineItems.id, lineId), eq(lineItems.orgId, actor.orgId))).get();
   if (!line) throw new ServiceError("Line not found.");
   loadEditableEstimate(actor, line.estimateId);
@@ -416,7 +424,7 @@ export function addManualLine(
 ) {
   assertMoney(actor);
   loadEditableEstimate(actor, estimateId);
-  const db = getDb();
+  const db = staffDb(actor);
   const sections = db.select().from(estimateSections).where(eq(estimateSections.estimateId, estimateId)).all();
   let sectionId = sections[0]?.id;
   if (!sectionId) {
@@ -450,7 +458,7 @@ export function addManualLine(
 
 export function removeLine(actor: Actor, lineId: string) {
   assertMoney(actor);
-  const db = getDb();
+  const db = staffDb(actor);
   const line = db.select().from(lineItems).where(and(eq(lineItems.id, lineId), eq(lineItems.orgId, actor.orgId))).get();
   if (!line) throw new ServiceError("Line not found.");
   loadEditableEstimate(actor, line.estimateId);
@@ -459,7 +467,7 @@ export function removeLine(actor: Actor, lineId: string) {
 
 export function reviseEstimate(actor: Actor, estimateId: string) {
   assertMoney(actor);
-  const db = getDb();
+  const db = staffDb(actor);
   const estimate = db.select().from(estimates).where(and(eq(estimates.id, estimateId), eq(estimates.orgId, actor.orgId))).get();
   if (!estimate) throw new ServiceError("Estimate not found.");
   const sections = db.select().from(estimateSections).where(eq(estimateSections.estimateId, estimateId)).all();
@@ -497,7 +505,7 @@ export function reviseEstimate(actor: Actor, estimateId: string) {
 
 export async function sendProposal(actor: Actor, estimateId: string, overrideMargin = false) {
   assertMoney(actor);
-  const db = getDb();
+  const db = staffDb(actor);
   const estimate = db.select().from(estimates).where(and(eq(estimates.id, estimateId), eq(estimates.orgId, actor.orgId))).get();
   if (!estimate) throw new ServiceError("Estimate not found.");
   if (estimate.status === "void") throw new ServiceError("This draft was replaced. Open the latest version.");
@@ -854,7 +862,7 @@ export function payInvoice(input: {
 
 export function issueNextInvoice(actor: Actor, projectId: string) {
   assertMoney(actor);
-  const db = getDb();
+  const db = staffDb(actor);
   const project = db.select().from(projects).where(and(eq(projects.id, projectId), eq(projects.orgId, actor.orgId))).get();
   if (!project?.proposalId) throw new ServiceError("This job has no signed proposal.");
   const proposal = db.select().from(proposals).where(eq(proposals.id, project.proposalId)).get();
@@ -908,7 +916,7 @@ export function createChangeOrder(
   input: { title: string; description: string; name: string; qty: number; unit: string; unitCostCents: number; markupBps: number; costCode?: string },
 ) {
   assertMoney(actor);
-  const db = getDb();
+  const db = staffDb(actor);
   const project = db.select().from(projects).where(and(eq(projects.id, projectId), eq(projects.orgId, actor.orgId))).get();
   if (!project) throw new ServiceError("Job not found.");
   if (!input.title.trim() || input.qty <= 0) throw new ServiceError("A change order needs a title and a quantity.");
@@ -958,7 +966,7 @@ export function createChangeOrder(
 
 export async function sendChangeOrder(actor: Actor, changeOrderId: string) {
   assertMoney(actor);
-  const db = getDb();
+  const db = staffDb(actor);
   const order = db.select().from(changeOrders).where(and(eq(changeOrders.id, changeOrderId), eq(changeOrders.orgId, actor.orgId))).get();
   if (!order) throw new ServiceError("Change order not found.");
   if (order.status !== "draft") throw new ServiceError("Only a draft change order can be sent.");
@@ -1079,7 +1087,7 @@ export function addCost(
   assertMoney(actor);
   const invalidAmount = positiveMoneyError(input.amountCents);
   if (invalidAmount) throw new ServiceError(invalidAmount);
-  const db = getDb();
+  const db = staffDb(actor);
   const project = db.select().from(projects).where(and(eq(projects.id, projectId), eq(projects.orgId, actor.orgId))).get();
   if (!project) throw new ServiceError("Job not found.");
   const org = db.select().from(organizations).where(eq(organizations.id, actor.orgId)).get()!;
@@ -1147,7 +1155,7 @@ export function saveUploadedText(actor: Actor, projectId: string, filename: stri
   if (actor.role === "viewer") throw new ServiceError("Viewers cannot upload files.");
   const uploadError = receiptUploadError(filename, text);
   if (uploadError) throw new ServiceError(uploadError);
-  const db = getDb();
+  const db = staffDb(actor);
   const project = db.select().from(projects).where(and(eq(projects.id, projectId), eq(projects.orgId, actor.orgId))).get();
   if (!project) throw new ServiceError("Job not found.");
   const documentId = id("doc");
@@ -1272,7 +1280,7 @@ export function scanFollowUps(orgId: string) {
 
 export async function approveDraft(actor: Actor, draftId: string, body?: string) {
   assertCrm(actor);
-  const db = getDb();
+  const db = staffDb(actor);
   const draft = db.select().from(followUpDrafts).where(and(eq(followUpDrafts.id, draftId), eq(followUpDrafts.orgId, actor.orgId))).get();
   if (!draft || draft.status !== "pending") throw new ServiceError("That draft is not waiting for approval.");
   const contact = draft.contactId ? db.select().from(contacts).where(eq(contacts.id, draft.contactId)).get() : null;
@@ -1327,7 +1335,7 @@ export async function approveDraft(actor: Actor, draftId: string, body?: string)
 
 export function dismissDraft(actor: Actor, draftId: string) {
   assertCrm(actor);
-  const db = getDb();
+  const db = staffDb(actor);
   const draft = db.select().from(followUpDrafts).where(and(eq(followUpDrafts.id, draftId), eq(followUpDrafts.orgId, actor.orgId))).get();
   if (!draft) throw new ServiceError("Draft not found.");
   db.update(followUpDrafts).set({ status: "dismissed", updatedAt: nowIso() }).where(eq(followUpDrafts.id, draftId)).run();
@@ -1391,7 +1399,7 @@ export function addPortalMessage(portalToken: string, body: string) {
 export function updateOrgSettings(actor: Actor, input: { marginAlertBps: number; defaultMarkupBps: number; cardEnabled: boolean }) {
   if (actor.role !== "owner" && actor.role !== "admin") throw new ServiceError("Only an owner or admin can change company settings.");
   if (input.marginAlertBps < 0 || input.defaultMarkupBps < 0) throw new ServiceError("Percentages cannot be negative.");
-  getDb()
+  staffDb(actor)
     .update(organizations)
     .set({
       marginAlertBps: input.marginAlertBps,
@@ -1405,7 +1413,7 @@ export function updateOrgSettings(actor: Actor, input: { marginAlertBps: number;
 
 export function attachPhotoNote(actor: Actor, projectId: string, caption: string) {
   if (actor.role === "viewer") throw new ServiceError("Viewers cannot add photos.");
-  const db = getDb();
+  const db = staffDb(actor);
   const project = db.select().from(projects).where(and(eq(projects.id, projectId), eq(projects.orgId, actor.orgId))).get();
   if (!project) throw new ServiceError("Job not found.");
   const documentId = id("doc");
