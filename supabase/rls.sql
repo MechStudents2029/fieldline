@@ -93,7 +93,8 @@ begin
     'ai_runs',
     'integration_connections',
     'audit_logs',
-    'follow_up_drafts'
+    'follow_up_drafts',
+    'tester_feedback'
   ]
   loop
     execute format('alter table public.%I enable row level security', tbl);

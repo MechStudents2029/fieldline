@@ -2,6 +2,12 @@
 
 import { FlowError } from "@/components/flow-fallback";
 
-export default function OfficeError({ reset }: { error: Error & { digest?: string }; reset: () => void }) {
-  return <FlowError reset={reset} title="The job file did not load." />;
+export default function OfficeError({
+  error,
+  retry,
+}: {
+  error: Error & { digest?: string };
+  retry: () => void;
+}) {
+  return <FlowError error={error} retry={retry} title="The job file did not load." />;
 }

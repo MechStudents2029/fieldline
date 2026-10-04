@@ -5,7 +5,8 @@ import { requireSession } from "@/lib/auth/session";
 import { listDrafts } from "@/lib/services/read";
 import { scanFollowUps } from "@/lib/services/write";
 
-export default async function FollowUpsPage() {
+export default async function FollowUpsPage({ searchParams }: { searchParams: Promise<{ sent?: string }> }) {
+  const { sent } = await searchParams;
   const session = await requireSession();
   scanFollowUps(session.orgId);
   const drafts = listDrafts(session.orgId);
@@ -18,6 +19,16 @@ export default async function FollowUpsPage() {
           Drafts wait here until someone approves them. Nothing sends on its own. SMS stays off until Twilio 10DLC is approved.
         </p>
       </div>
+      {sent === "stub" ? (
+        <p role="status" className="rounded-lg bg-primary px-3 py-2 text-sm text-primary-foreground">
+          Sent to the local outbox. Add a Resend key to deliver it.
+        </p>
+      ) : null}
+      {sent === "1" ? (
+        <p role="status" className="rounded-lg bg-primary px-3 py-2 text-sm text-primary-foreground">
+          Sent.
+        </p>
+      ) : null}
       {pending.length === 0 ? (
         <p className="text-sm text-muted-foreground">
           No drafts waiting. A viewed proposal is drafted after 1 day. One that was never opened waits 3 days. Quiet leads wait 5 days. Nothing sends until you approve it.

@@ -32,6 +32,7 @@ import {
   proposals,
   signatures,
   tasks,
+  testerFeedback,
 } from "@/lib/db/schema";
 import { estimateFromScope } from "@/lib/ai/gateway";
 import { extractIntake } from "@/lib/ai/intake";
@@ -1612,6 +1613,36 @@ function storedPhoto(orgId: string, documentId: string, caption: string, fallbac
     filename: `${documentId}.svg`,
     metadataJson: JSON.stringify({ caption }),
   };
+}
+
+export function submitTesterFeedback(
+  actor: Actor,
+  input: { path: string; body: string; context?: string; userAgent?: string },
+) {
+  const body = input.body.trim();
+  if (!body) throw new ServiceError("Write a short note before saving.");
+  if (body.length > 2000) throw new ServiceError("Keep the note under 2,000 characters.");
+  if (/data:image\//i.test(body) || /data:image\//i.test(input.context || "")) {
+    throw new ServiceError("Leave screenshots out. A short note is enough.");
+  }
+  const pagePath = input.path.trim().slice(0, 180);
+  if (!pagePath.startsWith("/") || pagePath.startsWith("//")) throw new ServiceError("That page path is not in Fieldline.");
+  const context = input.context?.trim().slice(0, 500) || null;
+  const db = staffDb(actor);
+  const noteId = id("fb");
+  db.insert(testerFeedback)
+    .values({
+      id: noteId,
+      orgId: actor.orgId,
+      userId: actor.userId,
+      path: pagePath,
+      body,
+      context,
+      userAgent: input.userAgent?.trim().slice(0, 300) || null,
+      createdAt: nowIso(),
+    })
+    .run();
+  return { id: noteId };
 }
 
 export function attachPhotoNote(actor: Actor, projectId: string, caption: string, upload?: { filename: string; bytes: Buffer } | null) {

@@ -2,6 +2,12 @@
 
 import { FlowError } from "@/components/flow-fallback";
 
-export default function PayError({ reset }: { error: Error & { digest?: string }; reset: () => void }) {
-  return <FlowError reset={reset} title="This invoice did not load." />;
+export default function PayError({
+  error,
+  retry,
+}: {
+  error: Error & { digest?: string };
+  retry: () => void;
+}) {
+  return <FlowError error={error} retry={retry} title="This invoice did not load." />;
 }

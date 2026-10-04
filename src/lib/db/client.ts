@@ -84,6 +84,7 @@ export function ensureReady(holder: Holder) {
     holder.sqlite.exec(migrationSql(holder.dialect));
   }
   ensureAuthUserId(holder);
+  ensureTesterFeedback(holder);
   const version = holder.sqlite.prepare("select value from app_meta where key = ?").get("seed_version") as
     | { value: string }
     | undefined;
@@ -159,9 +160,43 @@ export function usePostgresMemory(): AppDatabase {
   return globalForDb.fieldline.db;
 }
 
+function ensureTesterFeedback(holder: Holder) {
+  if (tableExists(holder.sqlite, "tester_feedback", holder.dialect)) return;
+  const ddl =
+    holder.dialect === "postgres"
+      ? `create table if not exists tester_feedback (
+          id text primary key,
+          org_id text not null,
+          user_id text not null,
+          path text not null,
+          body text not null,
+          context text,
+          user_agent text,
+          created_at text not null
+        );
+        create index if not exists tester_feedback_org on tester_feedback (org_id);`
+      : `create table if not exists tester_feedback (
+          id text primary key not null,
+          org_id text not null,
+          user_id text not null,
+          path text not null,
+          body text not null,
+          context text,
+          user_agent text,
+          created_at text not null
+        );
+        create index if not exists tester_feedback_org on tester_feedback (org_id);`;
+  holder.sqlite.exec(ddl);
+}
+
 export function resetDatabase(): AppDatabase {
   const target = databaseTarget();
   closeHolder();
-  if (target.kind === "sqlite" && target.file !== ":memory:" && fs.existsSync(target.file)) fs.rmSync(target.file);
+  if (target.kind === "sqlite" && target.file !== ":memory:") {
+    const files = [target.file, `${target.file}-wal`, `${target.file}-shm`];
+    for (const file of files) {
+      if (fs.existsSync(/*turbopackIgnore: true*/ file)) fs.rmSync(/*turbopackIgnore: true*/ file);
+    }
+  }
   return getDb();
 }

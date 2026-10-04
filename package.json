@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "check": "npm run lint && npm run typecheck && npm test && npm run build",
+    "e2e": "playwright test",
     "smoke": "vitest run src/lib/services/flow.test.ts",
     "seed": "tsx src/lib/db/seed-cli.ts",
     "eval": "tsx src/lib/ai/eval-cli.ts",
@@ -45,6 +46,7 @@
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.8",
+    "@playwright/test": "^1.63.0",
     "@tailwindcss/postcss": "^4",
     "@types/better-sqlite3": "^9.6.0",
     "@types/node": "^22.20.4",

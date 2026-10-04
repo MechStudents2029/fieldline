@@ -487,3 +487,16 @@ CREATE TABLE `users` (
 CREATE UNIQUE INDEX `users_email_unique` ON `users` (`email`);
 --> statement-breakpoint
 CREATE UNIQUE INDEX `users_auth_user_id` ON `users` (`auth_user_id`);
+--> statement-breakpoint
+CREATE TABLE `tester_feedback` (
+	`id` text PRIMARY KEY NOT NULL,
+	`org_id` text NOT NULL,
+	`user_id` text NOT NULL,
+	`path` text NOT NULL,
+	`body` text NOT NULL,
+	`context` text,
+	`user_agent` text,
+	`created_at` text NOT NULL
+);
+--> statement-breakpoint
+CREATE INDEX `tester_feedback_org` ON `tester_feedback` (`org_id`);

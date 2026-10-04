@@ -30,6 +30,7 @@ import {
   proposals,
   signatures,
   tasks,
+  testerFeedback,
   users,
 } from "@/lib/db/schema";
 import { marginBps, lineAmounts } from "@/lib/money";
@@ -419,6 +420,25 @@ export function listPriceBook(orgId: string, q?: string) {
       ),
     )
     .orderBy(asc(priceBookItems.category), asc(priceBookItems.name))
+    .all();
+}
+
+export function listTesterFeedback(orgId: string) {
+  const db = officeDb(orgId);
+  if (!db) return [];
+  return db
+    .select({
+      id: testerFeedback.id,
+      path: testerFeedback.path,
+      body: testerFeedback.body,
+      context: testerFeedback.context,
+      createdAt: testerFeedback.createdAt,
+      author: users.name,
+    })
+    .from(testerFeedback)
+    .leftJoin(users, eq(users.id, testerFeedback.userId))
+    .where(eq(testerFeedback.orgId, orgId))
+    .orderBy(desc(testerFeedback.createdAt))
     .all();
 }
 

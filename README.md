@@ -74,7 +74,15 @@ npm run dev
 
 Open [http://127.0.0.1:3847](http://127.0.0.1:3847). The first request creates `data/fieldline.db` and loads the seed. Password for every demo user is `demo`.
 
-`npm run check` runs lint, the TypeScript check, tests, and `next build`.
+`npm run check` runs lint, the TypeScript check, unit tests, and `next build`. It does not download a browser.
+
+Browser journeys use Playwright against that production build. The first run installs Chromium. Each spec resets a throwaway SQLite file (`e2e/.data`), so the demo database in `data/` is left alone. Stripe, Resend, and the AI gateway stay off for that process.
+
+```bash
+npm run build
+npx playwright install chromium
+npm run e2e
+```
 
 | Person | Email | Company | Role |
 |---|---|---|---|
@@ -86,8 +94,9 @@ Open [http://127.0.0.1:3847](http://127.0.0.1:3847). The first request creates `
 | Jordan Hale | jordan@northline.demo | Northline Electric | Owner |
 
 ```bash
-npm test          # unit tests plus the kitchen-to-payment smoke flow
-npm run smoke     # the end-to-end service test only
+npm test          # unit tests plus the kitchen-to-payment service flow
+npm run e2e       # Playwright against next start: lead to pay, change order, follow-up
+npm run smoke     # the service-level kitchen flow only
 npm run eval      # print local estimate totals for three scopes
 npm run seed -- --reset   # wipe data/fieldline.db and reseed
 ```

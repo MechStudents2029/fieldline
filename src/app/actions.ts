@@ -36,6 +36,7 @@ import {
   reviseEstimate,
   sendChangeOrder,
   sendProposal,
+  submitTesterFeedback,
   signProposal,
   updateLine,
   updateOrgSettings,
@@ -466,7 +467,8 @@ export async function approveDraftAction(draftId: string, _prev: ActionState, fo
     const user = await actor();
     const result = await approveDraft(user, draftId, String(formData.get("body") || ""));
     revalidatePath("/follow-ups");
-    return { ok: result.stub ? "Sent to the local outbox. Add a Resend key to deliver it." : "Sent." };
+    revalidatePath("/");
+    redirect(result.stub ? "/follow-ups?sent=stub" : "/follow-ups?sent=1");
   } catch (error) {
     return failure(error);
   }
@@ -512,6 +514,27 @@ async function photoUpload(formData: FormData) {
   const file = formData.get("photo");
   if (!(file instanceof File) || file.size === 0) return null;
   return { filename: file.name || "photo.jpg", bytes: Buffer.from(await file.arrayBuffer()) };
+}
+
+export async function feedbackAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    submitTesterFeedback(user, {
+      path: String(formData.get("path") || "/"),
+      body: String(formData.get("body") || ""),
+      context: String(formData.get("context") || ""),
+      userAgent: (await headers()).get("user-agent") || undefined,
+    });
+    revalidatePath("/feedback");
+    return { ok: "Saved. Nothing was emailed." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function reportBoundaryError(input: { ref: string; path: string; message: string; digest?: string }) {
+  const { boundaryLogLine } = await import("@/lib/errors/report");
+  console.error(boundaryLogLine(input));
 }
 
 export async function photoAction(projectId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {

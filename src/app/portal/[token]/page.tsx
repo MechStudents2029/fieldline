@@ -11,6 +11,7 @@ export const dynamic = "force-dynamic";
 
 export default async function PortalPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
+  if (process.env.FIELDLINE_E2E === "1" && token === "e2e-crash") throw new Error("E2E portal crash check");
   const data = portalByToken(token);
   if (!data?.org || !data.contact) notFound();
   return (

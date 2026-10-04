@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { logoutAction } from "@/app/actions";
+import { FeedbackDialog } from "@/components/feedback-dialog";
 import { OfflineBanner } from "@/components/offline-banner";
 import { cn } from "cn";
 
@@ -16,6 +17,7 @@ const links = [
   { href: "/follow-ups", label: "Follow-ups" },
   { href: "/copilot", label: "Copilot" },
   { href: "/settings", label: "Settings" },
+  { href: "/feedback", label: "Feedback" },
 ];
 
 const mobile = [
@@ -83,9 +85,12 @@ export function Shell({
                 {userName} · {role}
               </p>
             </div>
-            <p className="max-w-48 text-right text-[11px] leading-snug text-muted-foreground">
-              Demo mode. Payments, email, SMS, and AI stay local until you add keys.
-            </p>
+            <div className="flex flex-col items-end gap-2">
+              <FeedbackDialog />
+              <p className="max-w-48 text-right text-[11px] leading-snug text-muted-foreground">
+                Demo mode. Payments, email, SMS, and AI stay local until you add keys.
+              </p>
+            </div>
           </div>
         </header>
         <OfflineBanner />

@@ -2,6 +2,13 @@
 
 ## 2026-10-04
 
+### Tester readiness
+
+- Playwright (Chromium) runs the kitchen job, a change order, and a follow-up draft against `next start` on a throwaway seeded database. `npm run e2e` is separate from `npm run check`.
+- Approving a follow-up keeps the “sent” note on the page after the draft leaves the list.
+- Send feedback stores a note, the page path, and optional context on the company. An owner or admin can read them. Nothing is emailed.
+- A crash in the office, portal, proposal, or pay page shows Try again and a short reference. The same id is written to the server log. There is no error-tracking account.
+
 ### Mobile / PWA
 
 - Install icons are 192 and 512 PNG, plus the SVG mark and an Apple touch icon. The manifest stays standalone and starts at `/`.

@@ -2,6 +2,12 @@
 
 import { FlowError } from "@/components/flow-fallback";
 
-export default function PortalError({ reset }: { error: Error & { digest?: string }; reset: () => void }) {
-  return <FlowError reset={reset} title="This project did not load." />;
+export default function PortalError({
+  error,
+  retry,
+}: {
+  error: Error & { digest?: string };
+  retry: () => void;
+}) {
+  return <FlowError error={error} retry={retry} title="This project did not load." />;
 }

@@ -7,6 +7,7 @@ const links = [
   ["/price-book", "Price book"],
   ["/copilot", "Copilot"],
   ["/settings", "Settings"],
+  ["/feedback", "Feedback"],
   ["/leads/new", "New lead"],
 ];
 

@@ -498,6 +498,21 @@ export const auditLogs = sqliteTable("audit_logs", {
   createdAt: text("created_at").notNull(),
 });
 
+export const testerFeedback = sqliteTable(
+  "tester_feedback",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    userId: text("user_id").notNull(),
+    path: text("path").notNull(),
+    body: text("body").notNull(),
+    context: text("context"),
+    userAgent: text("user_agent"),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [index("tester_feedback_org").on(t.orgId)],
+);
+
 export const followUpDrafts = sqliteTable("follow_up_drafts", {
   id: text("id").primaryKey(),
   orgId: text("org_id").notNull(),
