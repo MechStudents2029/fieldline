@@ -2,6 +2,13 @@
 
 ## 2026-10-05
 
+### Time tracking
+
+- A member clocks in on a job and cost code from the Time screen, switches jobs without a separate clock-out, takes a break, and clocks out with an optional note. They see today and this week. They do not see rates or labor cost.
+- The office sets an hourly cost (a company default, or a rate per person), reviews pending punches, edits them, and approves them. A manual punch needs a reason. Approval posts hours times the rate at that moment onto the job budget by cost code. Unapproved time is not a cost. Approved punches are locked until someone reopens them with a reason.
+- Every create, edit, approve, reopen, and void keeps who, when, before, after, and the reason. A punch is voided, not deleted. Today and the review list flag a shift still open after 12 hours, more than 40 hours in a Monday–UTC week, and overlapping punches. Nothing closes by itself.
+- Location is optional, once per punch, from the browser. A denial still clocks in, and only coordinates are stored. Payroll export is a CSV of approved hours per person per day for an owner or admin. There is no wage calculation and no payroll provider.
+
 ### Team invites
 
 - An owner or admin invites a teammate from Settings by email and role (admin, office, or field). Fieldline does not send email. The page shows a link and a short message to paste. The link is shown once.

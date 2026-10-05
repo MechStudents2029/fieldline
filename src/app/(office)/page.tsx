@@ -9,6 +9,7 @@ import { formatBps, formatMoney } from "@/lib/money";
 import { canManageSettings, canSeeMoney } from "@/lib/permissions";
 import { companyChecklist } from "@/lib/services/onboarding";
 import { dashboard, leadDetail, pendingReceipts } from "@/lib/services/read";
+import { timeBoard } from "@/lib/services/time";
 
 export default async function TodayPage() {
   const session = await requireSession();
@@ -18,6 +19,7 @@ export default async function TodayPage() {
   const vasquezOpen = vasquez && !vasquez.proposals.some((proposal) => proposal.status === "signed");
   const receipts = money ? pendingReceipts(session.orgId) : [];
   const checklist = companyChecklist(session.orgId);
+  const time = timeBoard(session);
   const quiet =
     data.openLeadCount === 0 &&
     data.openInvoiceCount === 0 &&
@@ -90,6 +92,21 @@ export default async function TodayPage() {
               ))}
             </ul>
           ) : null}
+        </section>
+      ) : null}
+      {time.flags.length > 0 ? (
+        <section className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
+          <h2 className="font-heading text-xl">Time to check</h2>
+          <p className="mt-1 text-xs text-muted-foreground">Flags stay until the office edits or approves the punch. Nothing closes on its own.</p>
+          <ul className="mt-3 divide-y divide-border">
+            {time.flags.map((flag) => (
+              <li key={`${flag.kind}-${flag.entryIds.join("-")}`} className="py-2 text-sm">
+                <Link href="/time" className="font-medium">
+                  {flag.detail}
+                </Link>
+              </li>
+            ))}
+          </ul>
         </section>
       ) : null}
       {receipts.length > 0 ? (

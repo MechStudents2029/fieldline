@@ -203,6 +203,7 @@ Score each scenario pass or fail, with a note and a screenshot.
 8. **Permissions and tenancy.** Sign in as Dana (`dana@rivera.demo`). Job money, estimate prices, and price-book unit costs are hidden. Sign in as Jordan (`jordan@northline.demo`) and open `/leads/lead_vasquez` or `/projects` — Rivera records are absent.
 9. **Failure paths.** ACH account `000222222227` leaves the invoice open. An expired or unknown proposal token 404s. Paying twice with the same details does not create a second payment. A declined proposal cannot be signed. Signing twice fails. Editing a line after send is refused until you revise a new version.
 10. **AI accuracy.** `npm run eval` prints three local drafts. For a real accuracy pass, run 10 of the tester's own past jobs and log percent error on the total. Target is within ±15%, with lines under 70% confidence flagged. The local matcher is not that study. It only prices from Rivera's book.
+11. **Time.** Sign in as Dana and open Time. Clock out the open punch, clock in on Okonkwo and a cost code, then clock out. The page shows hours and no dollar amounts. Sign in as Maya, correct the punch, and approve it. Okonkwo's job cost includes that labor. A shift still open after 12 hours shows on Today until the office acts. Payroll CSV is hours only, and only an owner or admin can download it.
 
 Feedback: file a GitHub issue with steps, expected, actual, screenshot, and device. A useful score is "would I send this proposal today?" from 1 to 5, plus minutes to a quote versus the current process.
 
@@ -218,6 +219,7 @@ Feedback: file a GitHub issue with steps, expected, actual, screenshot, and devi
 - Client portal, follow-up drafts that require approval, copilot v0 with four read-only answers
 - QuickBooks Online Import Data CSVs for customers and invoices (one row per invoice line). Not a live Intuit connection.
 - Role checks and a second org
+- Crew time on a job and cost code. Approved hours post labor cost from the rate snapshot. Field logins never see that rate. No geofence and no payroll provider.
 
 **Stubbed until keys exist**
 

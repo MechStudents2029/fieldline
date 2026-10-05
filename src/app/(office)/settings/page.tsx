@@ -8,6 +8,7 @@ import { canManageSettings, canSeeMoney, roleLabel } from "@/lib/permissions";
 import { companyChecklist } from "@/lib/services/onboarding";
 import { getOrg, integrations, staff } from "@/lib/services/read";
 import { teamBoard } from "@/lib/services/team";
+import { defaultHourlyCost } from "@/lib/services/time";
 
 function stripeConnection<T extends { provider: string; status: string; label: string | null }>(connection: T): T {
   if (connection.provider !== "stripe") return connection;
@@ -29,6 +30,7 @@ export default async function SettingsPage() {
   const connections = integrations(session.orgId);
   const people = staff(session.orgId);
   const board = canManageSettings(session.role) ? teamBoard(session.orgId) : null;
+  const laborDefault = canManageSettings(session.role) ? defaultHourlyCost(session.orgId) : null;
   if (!org) return null;
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-5">
@@ -53,6 +55,16 @@ export default async function SettingsPage() {
             Default markup (%)
             <input name="markup" defaultValue={(org.defaultMarkupBps / 100).toFixed(0)} className="field mt-1" />
           </label>
+          <label className="text-sm">
+            Default hourly cost
+            <input
+              name="labor"
+              inputMode="decimal"
+              defaultValue={laborDefault == null ? "" : (laborDefault / 100).toFixed(2)}
+              className="field mt-1"
+            />
+          </label>
+          <p className="text-xs text-muted-foreground">Used when a teammate has no rate of their own. Crew never see this number.</p>
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" name="cards" defaultChecked={org.cardEnabled === 1} />
             Allow card payments (ACH stays the default)

@@ -146,7 +146,9 @@ begin
     'payments',
     'bills',
     'budget_lines',
-    'cost_items'
+    'cost_items',
+    'labor_rates',
+    'time_approvals'
   ]
   loop
     execute format('drop policy if exists %I on public.%I', tbl || '_member', tbl);
@@ -158,3 +160,63 @@ begin
     );
   end loop;
 end $$;
+
+alter table public.labor_rates enable row level security;
+alter table public.time_approvals enable row level security;
+
+-- Time punches are visible to the worker and to anyone who can see money.
+-- Rates and the posted labor amount stay on labor_rates and time_approvals.
+create or replace function public.current_user_id()
+returns text
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select u.id from public.users u where u.auth_user_id = auth.uid()::text limit 1
+$$;
+
+revoke all on function public.current_user_id() from public;
+grant execute on function public.current_user_id() to authenticated;
+
+alter table public.time_entries enable row level security;
+drop policy if exists time_entries_member on public.time_entries;
+drop policy if exists time_entries_scope on public.time_entries;
+create policy time_entries_scope on public.time_entries
+  for all
+  to authenticated
+  using (
+    org_id in (select public.current_org_ids())
+    and (public.can_see_money(org_id) or user_id = public.current_user_id())
+  )
+  with check (
+    org_id in (select public.current_org_ids())
+    and (public.can_see_money(org_id) or user_id = public.current_user_id())
+  );
+
+alter table public.time_entry_events enable row level security;
+drop policy if exists time_entry_events_member on public.time_entry_events;
+drop policy if exists time_entry_events_scope on public.time_entry_events;
+create policy time_entry_events_scope on public.time_entry_events
+  for all
+  to authenticated
+  using (
+    org_id in (select public.current_org_ids())
+    and (
+      public.can_see_money(org_id)
+      or exists (
+        select 1 from public.time_entries e
+        where e.id = entry_id and e.org_id = time_entry_events.org_id and e.user_id = public.current_user_id()
+      )
+    )
+  )
+  with check (
+    org_id in (select public.current_org_ids())
+    and (
+      public.can_see_money(org_id)
+      or exists (
+        select 1 from public.time_entries e
+        where e.id = entry_id and e.org_id = time_entry_events.org_id and e.user_id = public.current_user_id()
+      )
+    )
+  );

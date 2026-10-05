@@ -520,3 +520,72 @@ CREATE TABLE `team_invites` (
 CREATE UNIQUE INDEX `team_invites_token_hash` ON `team_invites` (`token_hash`);
 --> statement-breakpoint
 CREATE INDEX `team_invites_org` ON `team_invites` (`org_id`);
+--> statement-breakpoint
+CREATE TABLE `labor_rates` (
+	`id` text PRIMARY KEY NOT NULL,
+	`org_id` text NOT NULL,
+	`user_id` text NOT NULL,
+	`hourly_cost_cents` integer NOT NULL,
+	`updated_at` text NOT NULL,
+	`updated_by` text
+);
+--> statement-breakpoint
+CREATE UNIQUE INDEX `labor_rates_org_user` ON `labor_rates` (`org_id`,`user_id`);
+--> statement-breakpoint
+CREATE INDEX `labor_rates_org` ON `labor_rates` (`org_id`);
+--> statement-breakpoint
+CREATE TABLE `time_entries` (
+	`id` text PRIMARY KEY NOT NULL,
+	`org_id` text NOT NULL,
+	`user_id` text NOT NULL,
+	`project_id` text NOT NULL,
+	`cost_code` text NOT NULL,
+	`status` text NOT NULL,
+	`clock_in_at` text NOT NULL,
+	`clock_out_at` text,
+	`break_minutes` integer DEFAULT 0 NOT NULL,
+	`break_started_at` text,
+	`note` text,
+	`clock_in_lat_e6` integer,
+	`clock_in_lng_e6` integer,
+	`clock_out_lat_e6` integer,
+	`clock_out_lng_e6` integer,
+	`source` text NOT NULL,
+	`created_at` text NOT NULL,
+	`updated_at` text NOT NULL,
+	`created_by` text
+);
+--> statement-breakpoint
+CREATE INDEX `time_entries_org` ON `time_entries` (`org_id`);
+--> statement-breakpoint
+CREATE INDEX `time_entries_user` ON `time_entries` (`org_id`,`user_id`);
+--> statement-breakpoint
+CREATE TABLE `time_entry_events` (
+	`id` text PRIMARY KEY NOT NULL,
+	`org_id` text NOT NULL,
+	`entry_id` text NOT NULL,
+	`actor_id` text,
+	`type` text NOT NULL,
+	`reason` text,
+	`before_json` text,
+	`after_json` text,
+	`created_at` text NOT NULL
+);
+--> statement-breakpoint
+CREATE INDEX `time_entry_events_entry` ON `time_entry_events` (`org_id`,`entry_id`);
+--> statement-breakpoint
+CREATE TABLE `time_approvals` (
+	`id` text PRIMARY KEY NOT NULL,
+	`org_id` text NOT NULL,
+	`entry_id` text NOT NULL,
+	`rate_cents` integer NOT NULL,
+	`minutes` integer NOT NULL,
+	`amount_cents` integer NOT NULL,
+	`cost_item_id` text,
+	`status` text NOT NULL,
+	`reason` text,
+	`created_at` text NOT NULL,
+	`created_by` text
+);
+--> statement-breakpoint
+CREATE INDEX `time_approvals_entry` ON `time_approvals` (`org_id`,`entry_id`);

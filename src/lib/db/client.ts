@@ -87,6 +87,7 @@ export function ensureReady(holder: Holder) {
   ensureSetupDismissed(holder);
   ensureTesterFeedback(holder);
   ensureTeamInvites(holder);
+  ensureTimeTables(holder);
   const version = holder.sqlite.prepare("select value from app_meta where key = ?").get("seed_version") as
     | { value: string }
     | undefined;
@@ -213,6 +214,131 @@ function ensureTeamInvites(holder: Holder) {
         );
         create unique index if not exists team_invites_token_hash on team_invites (token_hash);
         create index if not exists team_invites_org on team_invites (org_id);`;
+  holder.sqlite.exec(ddl);
+}
+
+function ensureTimeTables(holder: Holder) {
+  if (tableExists(holder.sqlite, "time_entries", holder.dialect)) return;
+  const ddl =
+    holder.dialect === "postgres"
+      ? `create table if not exists labor_rates (
+          id text primary key,
+          org_id text not null,
+          user_id text not null,
+          hourly_cost_cents integer not null,
+          updated_at text not null,
+          updated_by text
+        );
+        create unique index if not exists labor_rates_org_user on labor_rates (org_id, user_id);
+        create index if not exists labor_rates_org on labor_rates (org_id);
+        create table if not exists time_entries (
+          id text primary key,
+          org_id text not null,
+          user_id text not null,
+          project_id text not null,
+          cost_code text not null,
+          status text not null,
+          clock_in_at text not null,
+          clock_out_at text,
+          break_minutes integer not null default 0,
+          break_started_at text,
+          note text,
+          clock_in_lat_e6 integer,
+          clock_in_lng_e6 integer,
+          clock_out_lat_e6 integer,
+          clock_out_lng_e6 integer,
+          source text not null,
+          created_at text not null,
+          updated_at text not null,
+          created_by text
+        );
+        create index if not exists time_entries_org on time_entries (org_id);
+        create index if not exists time_entries_user on time_entries (org_id, user_id);
+        create table if not exists time_entry_events (
+          id text primary key,
+          org_id text not null,
+          entry_id text not null,
+          actor_id text,
+          type text not null,
+          reason text,
+          before_json text,
+          after_json text,
+          created_at text not null
+        );
+        create index if not exists time_entry_events_entry on time_entry_events (org_id, entry_id);
+        create table if not exists time_approvals (
+          id text primary key,
+          org_id text not null,
+          entry_id text not null,
+          rate_cents integer not null,
+          minutes integer not null,
+          amount_cents integer not null,
+          cost_item_id text,
+          status text not null,
+          reason text,
+          created_at text not null,
+          created_by text
+        );
+        create index if not exists time_approvals_entry on time_approvals (org_id, entry_id);`
+      : `create table if not exists labor_rates (
+          id text primary key not null,
+          org_id text not null,
+          user_id text not null,
+          hourly_cost_cents integer not null,
+          updated_at text not null,
+          updated_by text
+        );
+        create unique index if not exists labor_rates_org_user on labor_rates (org_id, user_id);
+        create index if not exists labor_rates_org on labor_rates (org_id);
+        create table if not exists time_entries (
+          id text primary key not null,
+          org_id text not null,
+          user_id text not null,
+          project_id text not null,
+          cost_code text not null,
+          status text not null,
+          clock_in_at text not null,
+          clock_out_at text,
+          break_minutes integer not null default 0,
+          break_started_at text,
+          note text,
+          clock_in_lat_e6 integer,
+          clock_in_lng_e6 integer,
+          clock_out_lat_e6 integer,
+          clock_out_lng_e6 integer,
+          source text not null,
+          created_at text not null,
+          updated_at text not null,
+          created_by text
+        );
+        create index if not exists time_entries_org on time_entries (org_id);
+        create index if not exists time_entries_user on time_entries (org_id, user_id);
+        create table if not exists time_entry_events (
+          id text primary key not null,
+          org_id text not null,
+          entry_id text not null,
+          actor_id text,
+          type text not null,
+          reason text,
+          before_json text,
+          after_json text,
+          created_at text not null
+        );
+        create index if not exists time_entry_events_entry on time_entry_events (org_id, entry_id);
+        create table if not exists time_approvals (
+          id text primary key not null,
+          org_id text not null,
+          entry_id text not null,
+          rate_cents integer not null,
+          minutes integer not null,
+          amount_cents integer not null,
+          cost_item_id text,
+          status text not null,
+          reason text,
+          created_at text not null,
+          created_by text
+        );
+        create index if not exists time_approvals_entry on time_approvals (org_id, entry_id);`;
   holder.sqlite.exec(ddl);
 }
 

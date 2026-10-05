@@ -5,6 +5,8 @@ import { canManageSettings } from "@/lib/permissions";
 import { companyChecklist } from "@/lib/services/onboarding";
 
 const links = [
+  ["/time", "Time"],
+  ["/follow-ups", "Follow-ups"],
   ["/contacts", "Contacts"],
   ["/invoices", "Invoices"],
   ["/price-book", "Price book"],
@@ -14,7 +16,7 @@ const links = [
   ["/leads/new", "New lead"],
 ];
 
-const fieldHidden = new Set(["/invoices", "/price-book", "/copilot"]);
+const fieldHidden = new Set(["/invoices", "/price-book", "/copilot", "/follow-ups"]);
 
 export default async function MorePage() {
   const session = await requireSession();

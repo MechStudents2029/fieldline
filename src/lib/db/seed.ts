@@ -20,6 +20,7 @@ import {
   integrationConnections,
   invoiceLines,
   invoices,
+  laborRates,
   leads,
   lineItems,
   memberships,
@@ -34,6 +35,9 @@ import {
   proposals,
   signatures,
   tasks,
+  timeApprovals,
+  timeEntries,
+  timeEntryEvents,
   users,
 } from "@/lib/db/schema";
 import { assembleSnapshot, defaultSchedule, type StoredSnapshot } from "@/lib/domain/snapshot";
@@ -44,7 +48,7 @@ import { achFeeCents, qtyToMilli } from "@/lib/money";
 import { DEMO_PASSWORD } from "@/lib/product";
 import { proposalNudgeCopy } from "@/lib/ai/nurture";
 
-export const SEED_VERSION = "2";
+export const SEED_VERSION = "3";
 
 const ORG = "org_rivera";
 const NORTH = "org_northline";
@@ -975,12 +979,132 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
   db.insert(costItems)
     .values([
       { id: "cost_ok_tile", orgId: ORG, projectId: "proj_okonkwo", budgetLineId: null, costCode: "TILE-SHOWER", amountCents: 620000, vendorName: "Casa Tile", memo: "Shower wall materials and set, draw 1", source: "bill", aiExtracted: 0, documentId: null, createdAt: daysAgo(9), updatedAt: daysAgo(9), createdBy: "user_sam" },
+      { id: "cost_ok_time", orgId: ORG, projectId: "proj_okonkwo", budgetLineId: null, costCode: "TILE-SHOWER", amountCents: 39000, vendorName: "Dana Cho", memo: "Labor", source: "labor", aiExtracted: 0, documentId: null, createdAt: daysAgo(1), updatedAt: daysAgo(1), createdBy: "user_maya" },
       { id: "cost_ok_plb", orgId: ORG, projectId: "proj_okonkwo", budgetLineId: null, costCode: "PLB-SHOWER", amountCents: 280000, vendorName: "Harbor Plumbing", memo: "Rough-in", source: "bill", aiExtracted: 0, documentId: null, createdAt: daysAgo(8), updatedAt: daysAgo(8), createdBy: "user_sam" },
       { id: "cost_br_lumber", orgId: ORG, projectId: "proj_brooks", budgetLineId: null, costCode: "FRM-WALL", amountCents: 1842500, vendorName: "Summit Lumber", memo: "Framing package, ticket 4419", source: "receipt", aiExtracted: 1, documentId: "doc_receipt_summit", createdAt: daysAgo(6), updatedAt: daysAgo(6), createdBy: "user_dana" },
       { id: "cost_br_labor", orgId: ORG, projectId: "proj_brooks", budgetLineId: null, costCode: "FRM-LABOR", amountCents: 3200000, vendorName: "Rivera crew", memo: "Carpenter hours through last Friday", source: "labor", aiExtracted: 0, documentId: null, createdAt: daysAgo(4), updatedAt: daysAgo(4), createdBy: "user_sam" },
       { id: "cost_br_subs", orgId: ORG, projectId: "proj_brooks", budgetLineId: null, costCode: "ROOF-ARCH", amountCents: 2357500, vendorName: "Ridgeline Roofing", memo: "Tie-in and dry-in", source: "bill", aiExtracted: 0, documentId: null, createdAt: daysAgo(3), updatedAt: daysAgo(3), createdBy: "user_sam" },
       { id: "cost_dz_1", orgId: ORG, projectId: "proj_diaz", budgetLineId: null, costCode: "DECK-BOARD", amountCents: 980000, vendorName: "Summit Lumber", memo: "Boards and hardware", source: "bill", aiExtracted: 0, documentId: null, createdAt: daysAgo(30), updatedAt: daysAgo(30), createdBy: "user_sam" },
       { id: "cost_dz_2", orgId: ORG, projectId: "proj_diaz", budgetLineId: null, costCode: "FRM-LABOR", amountCents: 670000, vendorName: "Rivera crew", memo: "Deck labor", source: "labor", aiExtracted: 0, documentId: null, createdAt: daysAgo(20), updatedAt: daysAgo(20), createdBy: "user_sam" },
+    ])
+    .run();
+
+  const hoursAgo = (hours: number) => new Date(Date.now() - hours * 3_600_000).toISOString();
+  const approvedIn = hoursAgo(30);
+  const approvedOut = hoursAgo(22);
+  db.insert(laborRates)
+    .values([
+      { id: "rate_rivera", orgId: ORG, userId: "", hourlyCostCents: 4500, updatedAt: created, updatedBy: "user_maya" },
+      { id: "rate_dana", orgId: ORG, userId: "user_dana", hourlyCostCents: 5200, updatedAt: created, updatedBy: "user_maya" },
+      { id: "rate_north", orgId: NORTH, userId: "", hourlyCostCents: 4800, updatedAt: created, updatedBy: "user_jordan" },
+    ])
+    .run();
+  db.insert(timeEntries)
+    .values([
+      {
+        id: "time_ok_tile",
+        orgId: ORG,
+        userId: "user_dana",
+        projectId: "proj_okonkwo",
+        costCode: "TILE-SHOWER",
+        status: "approved",
+        clockInAt: approvedIn,
+        clockOutAt: approvedOut,
+        breakMinutes: 30,
+        breakStartedAt: null,
+        note: "Set the shower wall",
+        clockInLatE6: 37799400,
+        clockInLngE6: -122247000,
+        clockOutLatE6: 37799400,
+        clockOutLngE6: -122247000,
+        source: "clock",
+        createdAt: approvedIn,
+        updatedAt: approvedOut,
+        createdBy: "user_dana",
+      },
+      {
+        id: "time_ok_open",
+        orgId: ORG,
+        userId: "user_dana",
+        projectId: "proj_okonkwo",
+        costCode: "GC-SUPER",
+        status: "open",
+        clockInAt: hoursAgo(13),
+        clockOutAt: null,
+        breakMinutes: 0,
+        breakStartedAt: null,
+        note: null,
+        clockInLatE6: null,
+        clockInLngE6: null,
+        clockOutLatE6: null,
+        clockOutLngE6: null,
+        source: "clock",
+        createdAt: hoursAgo(13),
+        updatedAt: hoursAgo(13),
+        createdBy: "user_dana",
+      },
+      {
+        id: "time_ok_overlap",
+        orgId: ORG,
+        userId: "user_dana",
+        projectId: "proj_okonkwo",
+        costCode: "PLB-SHOWER",
+        status: "pending",
+        clockInAt: hoursAgo(12),
+        clockOutAt: hoursAgo(11),
+        breakMinutes: 0,
+        breakStartedAt: null,
+        note: "Ran to the supplier",
+        clockInLatE6: null,
+        clockInLngE6: null,
+        clockOutLatE6: null,
+        clockOutLngE6: null,
+        source: "clock",
+        createdAt: hoursAgo(12),
+        updatedAt: hoursAgo(11),
+        createdBy: "user_dana",
+      },
+    ])
+    .run();
+  db.insert(timeApprovals)
+    .values({
+      id: "tap_ok_tile",
+      orgId: ORG,
+      entryId: "time_ok_tile",
+      rateCents: 5200,
+      minutes: 450,
+      amountCents: 39000,
+      costItemId: "cost_ok_time",
+      status: "active",
+      reason: null,
+      createdAt: approvedOut,
+      createdBy: "user_maya",
+    })
+    .run();
+  db.insert(timeEntryEvents)
+    .values([
+      {
+        id: "tev_ok_tile",
+        orgId: ORG,
+        entryId: "time_ok_tile",
+        actorId: "user_maya",
+        type: "approved",
+        reason: null,
+        beforeJson: JSON.stringify({ status: "pending" }),
+        afterJson: JSON.stringify({ status: "approved" }),
+        createdAt: approvedOut,
+      },
+      {
+        id: "tev_ok_open",
+        orgId: ORG,
+        entryId: "time_ok_open",
+        actorId: "user_dana",
+        type: "created",
+        reason: null,
+        beforeJson: null,
+        afterJson: JSON.stringify({ status: "open", costCode: "GC-SUPER" }),
+        createdAt: hoursAgo(13),
+      },
     ])
     .run();
 

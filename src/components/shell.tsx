@@ -11,6 +11,7 @@ const links = [
   { href: "/", label: "Today" },
   { href: "/pipeline", label: "Pipeline" },
   { href: "/projects", label: "Jobs" },
+  { href: "/time", label: "Time" },
   { href: "/invoices", label: "Invoices" },
   { href: "/contacts", label: "Contacts" },
   { href: "/price-book", label: "Price book" },
@@ -22,9 +23,9 @@ const links = [
 
 const mobile = [
   { href: "/", label: "Today" },
-  { href: "/pipeline", label: "Pipeline" },
   { href: "/projects", label: "Jobs" },
-  { href: "/follow-ups", label: "Follow-ups" },
+  { href: "/time", label: "Time" },
+  { href: "/pipeline", label: "Pipeline" },
   { href: "/more", label: "More" },
 ];
 

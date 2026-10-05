@@ -518,6 +518,80 @@ export const teamInvites = sqliteTable(
   (t) => [uniqueIndex("team_invites_token_hash").on(t.tokenHash), index("team_invites_org").on(t.orgId)],
 );
 
+/** user_id "" is the company default hourly cost. Member rows override it. */
+export const laborRates = sqliteTable(
+  "labor_rates",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    userId: text("user_id").notNull(),
+    hourlyCostCents: integer("hourly_cost_cents").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    updatedBy: text("updated_by"),
+  },
+  (t) => [uniqueIndex("labor_rates_org_user").on(t.orgId, t.userId), index("labor_rates_org").on(t.orgId)],
+);
+
+export const timeEntries = sqliteTable(
+  "time_entries",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    userId: text("user_id").notNull(),
+    projectId: text("project_id").notNull(),
+    costCode: text("cost_code").notNull(),
+    status: text("status").notNull(),
+    clockInAt: text("clock_in_at").notNull(),
+    clockOutAt: text("clock_out_at"),
+    breakMinutes: integer("break_minutes").notNull().default(0),
+    breakStartedAt: text("break_started_at"),
+    note: text("note"),
+    clockInLatE6: integer("clock_in_lat_e6"),
+    clockInLngE6: integer("clock_in_lng_e6"),
+    clockOutLatE6: integer("clock_out_lat_e6"),
+    clockOutLngE6: integer("clock_out_lng_e6"),
+    source: text("source").notNull(),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    createdBy: text("created_by"),
+  },
+  (t) => [index("time_entries_org").on(t.orgId), index("time_entries_user").on(t.orgId, t.userId)],
+);
+
+export const timeEntryEvents = sqliteTable(
+  "time_entry_events",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    entryId: text("entry_id").notNull(),
+    actorId: text("actor_id"),
+    type: text("type").notNull(),
+    reason: text("reason"),
+    beforeJson: text("before_json"),
+    afterJson: text("after_json"),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [index("time_entry_events_entry").on(t.orgId, t.entryId)],
+);
+
+export const timeApprovals = sqliteTable(
+  "time_approvals",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    entryId: text("entry_id").notNull(),
+    rateCents: integer("rate_cents").notNull(),
+    minutes: integer("minutes").notNull(),
+    amountCents: integer("amount_cents").notNull(),
+    costItemId: text("cost_item_id"),
+    status: text("status").notNull(),
+    reason: text("reason"),
+    createdAt: text("created_at").notNull(),
+    createdBy: text("created_by"),
+  },
+  (t) => [index("time_approvals_entry").on(t.orgId, t.entryId)],
+);
+
 export const testerFeedback = sqliteTable(
   "tester_feedback",
   {

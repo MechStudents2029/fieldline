@@ -8,6 +8,19 @@ import { registerCompany } from "@/lib/auth/signup";
 import { clearSession, getSession, setSession } from "@/lib/auth/session";
 import { receiptAutoPostAllowed } from "@/lib/ai/receipt";
 import { parseMoneyToCents } from "@/lib/money";
+import {
+  addManualTime,
+  approveTime,
+  clockIn,
+  clockOut,
+  editTime,
+  endBreak,
+  reopenTime,
+  setHourlyCost,
+  startBreak,
+  switchJob,
+  voidTime,
+} from "@/lib/services/time";
 import { supabaseAuthConfigured } from "@/lib/supabase/env";
 import { supabasePasswordAuth } from "@/lib/supabase/password";
 import { ServiceError } from "@/lib/services/errors";
@@ -547,7 +560,14 @@ export async function settingsAction(_prev: ActionState, formData: FormData): Pr
       cardEnabled: formData.get("cards") === "on",
       ...(license == null ? {} : { licenseNumber: String(license) }),
     });
+    const labor = formData.get("labor");
+    if (labor != null && String(labor).trim()) {
+      const cents = parseMoneyToCents(String(labor));
+      if (cents == null || cents <= 0) return { error: "Enter the default hourly cost in dollars." };
+      setHourlyCost(user, null, cents);
+    }
     revalidatePath("/settings");
+    revalidatePath("/time");
     return { ok: "Settings saved." };
   } catch (error) {
     return failure(error);
@@ -749,4 +769,150 @@ export async function askAction(question: string) {
   const user = await actor();
   const { askCopilot } = await import("@/lib/services/read");
   return askCopilot(user.orgId, question, user.role);
+}
+
+function timeRefresh(projectId?: string) {
+  revalidatePath("/time");
+  revalidatePath("/");
+  if (projectId) revalidatePath(`/projects/${projectId}`);
+}
+
+export async function clockInAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    clockIn(user, {
+      projectId: String(formData.get("projectId") || ""),
+      costCode: String(formData.get("costCode") || ""),
+      lat: String(formData.get("lat") || ""),
+      lng: String(formData.get("lng") || ""),
+    });
+    timeRefresh(String(formData.get("projectId") || ""));
+    return { ok: "Clocked in." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function switchJobAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    switchJob(user, { projectId: String(formData.get("projectId") || ""), costCode: String(formData.get("costCode") || "") });
+    timeRefresh();
+    return { ok: "Switched jobs. The earlier punch is waiting for the office." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function breakAction(mode: "start" | "end", _prev: ActionState, _formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    if (mode === "start") startBreak(user);
+    else endBreak(user);
+    timeRefresh();
+    return { ok: mode === "start" ? "Break started." : "Break ended." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function clockOutAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    clockOut(user, {
+      note: String(formData.get("note") || ""),
+      lat: String(formData.get("lat") || ""),
+      lng: String(formData.get("lng") || ""),
+    });
+    timeRefresh();
+    return { ok: "Clocked out. The office still has to approve it." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function editTimeAction(entryId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    editTime(user, entryId, {
+      projectId: String(formData.get("projectId") || ""),
+      costCode: String(formData.get("costCode") || ""),
+      clockInAt: String(formData.get("clockInAt") || ""),
+      clockOutAt: String(formData.get("clockOutAt") || ""),
+      breakMinutes: Number(formData.get("breakMinutes") || 0),
+      note: String(formData.get("note") || ""),
+      reason: String(formData.get("reason") || ""),
+    });
+    timeRefresh(String(formData.get("projectId") || ""));
+    return { ok: "Time updated." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function approveTimeAction(entryId: string, _prev: ActionState, _formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    approveTime(user, entryId);
+    timeRefresh();
+    return { ok: "Approved. Labor is on the job budget." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function reopenTimeAction(entryId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    reopenTime(user, entryId, String(formData.get("reason") || ""));
+    timeRefresh();
+    return { ok: "Reopened. Approve it again after the change." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function voidTimeAction(entryId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    voidTime(user, entryId, String(formData.get("reason") || ""));
+    timeRefresh();
+    return { ok: "Voided. The punch stays on the record." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function manualTimeAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    addManualTime(user, {
+      userId: String(formData.get("userId") || ""),
+      projectId: String(formData.get("projectId") || ""),
+      costCode: String(formData.get("costCode") || ""),
+      clockInAt: String(formData.get("clockInAt") || ""),
+      clockOutAt: String(formData.get("clockOutAt") || ""),
+      breakMinutes: Number(formData.get("breakMinutes") || 0),
+      note: String(formData.get("note") || ""),
+      reason: String(formData.get("reason") || ""),
+    });
+    timeRefresh(String(formData.get("projectId") || ""));
+    return { ok: "Manual entry added. Approve it to post the labor." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function laborRateAction(userId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const cents = parseMoneyToCents(String(formData.get("rate") || ""));
+    if (cents == null || cents <= 0) return { error: "Enter an hourly cost in dollars." };
+    setHourlyCost(user, userId || null, cents);
+    revalidatePath("/time");
+    revalidatePath("/settings");
+    return { ok: "Hourly cost saved." };
+  } catch (error) {
+    return failure(error);
+  }
 }
