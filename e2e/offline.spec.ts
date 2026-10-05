@@ -57,8 +57,8 @@ test.describe("offline clock", () => {
     await expect(page).toHaveURL(/\/offline/);
     await expect(page.getByRole("heading", { name: "Time" })).toBeVisible();
     await expect(page.getByText("$")).toHaveCount(0);
-    await page.getByLabel("Job").selectOption({ label: "Okonkwo primary bath" });
-    await page.getByLabel("Cost code").selectOption("TILE-SHOWER");
+    await page.getByRole("combobox", { name: "Job", exact: true }).selectOption({ label: "Okonkwo primary bath" });
+    await page.getByRole("combobox", { name: "Cost code", exact: true }).selectOption("TILE-SHOWER");
     await page.getByRole("button", { name: "Clock in" }).click();
     await expect(page.getByText("Saved on this phone, will sync").first()).toBeVisible();
     const note = "Offline niche set";
