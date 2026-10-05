@@ -22,7 +22,8 @@ test("office sees overdue bills and field and other companies do not", async ({ 
   await expect(page.getByRole("link", { name: /Due soon · HP-441/ })).toBeVisible();
   await page.goto("/bills");
   await expect(page.getByRole("heading", { name: "Bills" })).toBeVisible();
-  await expect(page.getByText("Overdue").first()).toBeVisible();
+  await expect(page.getByRole("link", { name: /BE-77 · Brighton Electric/ })).toBeVisible();
+  await expect(page.getByText("· Overdue").first()).toBeVisible();
   await page.getByRole("button", { name: "Sign out" }).click();
 
   await signInAs(page, "dana@rivera.demo");
@@ -73,9 +74,9 @@ test.describe("phone bill", () => {
     await expect(save).toBeInViewport();
     await save.click();
     await expect(page.getByRole("heading", { name: "HP-E2E-9" })).toBeVisible();
-    await expect(page.getByText("draft", { exact: true })).toBeVisible();
+    await expect(page.locator(".uppercase").getByText("draft", { exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Approve bill" }).click();
-    await expect(page.getByText("approved", { exact: true })).toBeVisible();
+    await expect(page.locator(".uppercase").getByText("approved", { exact: true })).toBeVisible();
     await page.goto("/projects/proj_okonkwo");
     await expect(page.getByRole("link", { name: /HP-E2E-9 · Harbor Plumbing · approved/ })).toBeVisible();
     const after = costDollars(await page.getByText(/cost \$/).innerText());
@@ -85,7 +86,7 @@ test.describe("phone bill", () => {
     await page.getByLabel("Payment method").selectOption("check");
     await page.getByLabel("Payment reference").fill("E2E-19");
     await page.getByRole("button", { name: "Mark paid" }).click();
-    await expect(page.getByText("paid", { exact: true })).toBeVisible();
+    await expect(page.locator(".uppercase").getByText("paid", { exact: true })).toBeVisible();
     await expect(page.getByText(/check · E2E-19/)).toBeVisible();
     await page.goto("/projects/proj_okonkwo");
     expect(costDollars(await page.getByText(/cost \$/).innerText())).toBeCloseTo(after, 2);
