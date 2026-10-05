@@ -35,6 +35,7 @@ import {
 } from "@/lib/db/schema";
 import { marginBps, lineAmounts } from "@/lib/money";
 import { assessCategories, costCodeKey, rollupCostCodes, type CategoryAssessment, type CoveringLine } from "@/lib/margin/category";
+import { openCommitments } from "@/lib/services/purchase-orders";
 import { canSeeMoney, type Role } from "@/lib/permissions";
 import { verifyPassword } from "@/lib/auth/password";
 import { daysSince } from "@/lib/format";
@@ -356,7 +357,10 @@ export function projectDetail(orgId: string, projectId: string, role: Role) {
     .all();
   const actual = costs.reduce((sum, cost) => sum + cost.amountCents, 0);
   const bps = marginBps(project.contractValueCents, actual);
-  const byCode = assessCategories(rollupCostCodes(budget, costs), coverLines(orders, orderLines, budget));
+  const byCode = assessCategories(
+    rollupCostCodes(budget, costs, openCommitments(orgId, [projectId])),
+    coverLines(orders, orderLines, budget),
+  );
   const money = canSeeMoney(role);
   return {
     project: money ? project : { ...project, contractValueCents: 0, originalContractCents: 0 },
@@ -537,12 +541,14 @@ export function listCategoryAlerts(orgId: string): CategoryAlert[] {
   const lines = orders.length
     ? db.select().from(changeOrderLines).where(and(eq(changeOrderLines.orgId, orgId), inArray(changeOrderLines.changeOrderId, orders.map((order) => order.id)))).all()
     : [];
+  const commitments = openCommitments(orgId, ids);
   const alerts: CategoryAlert[] = [];
   for (const project of open) {
     const projectBudget = budget.filter((line) => line.projectId === project.id);
     const projectCosts = costs.filter((cost) => cost.projectId === project.id);
     const projectOrders = orders.filter((order) => order.projectId === project.id);
-    const assessed = assessCategories(rollupCostCodes(projectBudget, projectCosts), coverLines(projectOrders, lines, projectBudget));
+    const projectCommitments = commitments.filter((row) => row.projectId === project.id);
+    const assessed = assessCategories(rollupCostCodes(projectBudget, projectCosts, projectCommitments), coverLines(projectOrders, lines, projectBudget));
     for (const row of assessed) {
       if (row.level === "ok") continue;
       alerts.push({ ...row, projectId: project.id, projectName: project.name });

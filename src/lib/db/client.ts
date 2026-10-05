@@ -92,6 +92,7 @@ export function ensureReady(holder: Holder) {
   ensureDailyLogs(holder);
   ensureSyncSchema(holder);
   ensureBills(holder);
+  ensurePurchaseOrders(holder);
   const version = holder.sqlite.prepare("select value from app_meta where key = ?").get("seed_version") as
     | { value: string }
     | undefined;
@@ -607,6 +608,62 @@ function ensureBills(holder: Holder) {
   holder.sqlite.exec(
     "create unique index if not exists bills_vendor_number on bills (org_id, vendor_contact_id, bill_number) where status != 'void' and bill_number != ''",
   );
+}
+
+function ensurePurchaseOrders(holder: Holder) {
+  if (tableExists(holder.sqlite, "bills", holder.dialect) && !tableColumn(holder, "bills", "purchase_order_id")) {
+    holder.sqlite.exec("alter table bills add column purchase_order_id text");
+  }
+  const pk = holder.dialect === "postgres" ? "text primary key" : "text primary key not null";
+  if (!tableExists(holder.sqlite, "purchase_orders", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists purchase_orders (
+      id ${pk},
+      org_id text not null,
+      project_id text not null,
+      vendor_contact_id text not null,
+      change_order_id text,
+      number text not null,
+      scope text,
+      status text not null,
+      void_reason text,
+      issued_at text,
+      closed_at text,
+      created_at text not null,
+      updated_at text not null,
+      created_by text
+    )`);
+  }
+  if (!tableExists(holder.sqlite, "purchase_order_lines", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists purchase_order_lines (
+      id ${pk},
+      org_id text not null,
+      purchase_order_id text not null,
+      cost_code text not null,
+      description text,
+      amount_cents integer not null,
+      sort_order integer not null default 0
+    )`);
+  }
+  if (!tableExists(holder.sqlite, "purchase_order_events", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists purchase_order_events (
+      id ${pk},
+      org_id text not null,
+      purchase_order_id text not null,
+      actor_id text,
+      type text not null,
+      reason text,
+      before_json text,
+      after_json text,
+      created_at text not null
+    )`);
+  }
+  holder.sqlite.exec("create unique index if not exists purchase_orders_number on purchase_orders (org_id, number)");
+  holder.sqlite.exec("create index if not exists purchase_orders_org on purchase_orders (org_id)");
+  holder.sqlite.exec("create index if not exists purchase_order_lines_po on purchase_order_lines (org_id, purchase_order_id)");
+  holder.sqlite.exec("create index if not exists purchase_order_events_po on purchase_order_events (org_id, purchase_order_id)");
+  if (tableExists(holder.sqlite, "bills", holder.dialect)) {
+    holder.sqlite.exec("create index if not exists bills_po on bills (org_id, purchase_order_id)");
+  }
 }
 
 function ensureTesterFeedback(holder: Holder) {

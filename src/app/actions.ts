@@ -47,6 +47,13 @@ import {
   updateDraft,
   voidBill,
 } from "@/lib/services/bills";
+import {
+  closePurchaseOrder,
+  createPurchaseOrder,
+  issuePurchaseOrder,
+  savePurchaseOrder,
+  voidPurchaseOrder,
+} from "@/lib/services/purchase-orders";
 import { passwordError } from "@/lib/security";
 import { getDb } from "@/lib/db/client";
 import { dailyLogs, users } from "@/lib/db/schema";
@@ -1050,7 +1057,29 @@ function billInput(formData: FormData) {
     dueDate: String(formData.get("dueDate") || ""),
     memo: String(formData.get("memo") || ""),
     documentId: String(formData.get("documentId") || "") || null,
+    purchaseOrderId: String(formData.get("purchaseOrderId") || "") || null,
     lowConfidence: formData.get("lowConfidence") === "1",
+    lines,
+  };
+}
+
+function poInput(formData: FormData) {
+  const codes = formData.getAll("costCode").map((value) => String(value));
+  const amounts = formData.getAll("amount").map((value) => String(value));
+  const descriptions = formData.getAll("description").map((value) => String(value));
+  const lines = codes
+    .map((costCode, index) => {
+      const raw = amounts[index] ?? "";
+      const description = descriptions[index] ?? "";
+      if (!costCode.trim() && !raw.trim() && !description.trim()) return null;
+      return { costCode, amountCents: parseMoneyToCents(raw) ?? 0, description };
+    })
+    .filter((line): line is { costCode: string; amountCents: number; description: string } => line != null);
+  return {
+    projectId: String(formData.get("projectId") || ""),
+    vendorContactId: String(formData.get("vendorContactId") || ""),
+    scope: String(formData.get("scope") || ""),
+    changeOrderId: String(formData.get("changeOrderId") || "") || null,
     lines,
   };
 }
@@ -1058,6 +1087,15 @@ function billInput(formData: FormData) {
 function refreshBill(projectId: string, billId: string) {
   revalidatePath("/bills");
   revalidatePath(`/bills/${billId}`);
+  revalidatePath("/purchase-orders");
+  revalidatePath("/");
+  if (projectId) revalidatePath(`/projects/${projectId}`);
+}
+
+function refreshPurchaseOrder(projectId: string, poId: string) {
+  revalidatePath("/purchase-orders");
+  revalidatePath(`/purchase-orders/${poId}`);
+  revalidatePath(`/purchase-orders/${poId}/print`);
   revalidatePath("/");
   if (projectId) revalidatePath(`/projects/${projectId}`);
 }
@@ -1127,7 +1165,8 @@ export async function approveBillAction(billId: string, _prev: ActionState, form
     const user = await actor();
     const result = approveBill(user, billId);
     refreshBill(String(formData.get("projectId") || ""), billId);
-    return { ok: result.posted ? "Approved. The job cost includes this bill." : "This bill was already on the job." };
+    const base = result.posted ? "Approved. The job cost includes this bill." : "This bill was already on the job.";
+    return { ok: result.warning ? `${base} ${result.warning}` : base };
   } catch (error) {
     return failure(error);
   }
@@ -1176,6 +1215,52 @@ export async function confirmBillAction(billId: string, _prev: ActionState, form
     confirmBillRead(user, billId);
     refreshBill(String(formData.get("projectId") || ""), billId);
     return { ok: "Read confirmed. You can approve it when the lines look right." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function savePurchaseOrderAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const input = poInput(formData);
+    const existing = String(formData.get("purchaseOrderId") || "");
+    const saved = existing ? savePurchaseOrder(user, existing, input) : createPurchaseOrder(user, input);
+    refreshPurchaseOrder(input.projectId, saved.id);
+    redirect(`/purchase-orders/${saved.id}`);
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function issuePurchaseOrderAction(poId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const result = issuePurchaseOrder(user, poId);
+    refreshPurchaseOrder(String(formData.get("projectId") || ""), poId);
+    return { ok: `Issued ${result.number}. It counts as committed. Nothing was sent.` };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function closePurchaseOrderAction(poId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    closePurchaseOrder(user, poId);
+    refreshPurchaseOrder(String(formData.get("projectId") || ""), poId);
+    return { ok: "Closed. Any balance that was not billed is no longer committed." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function voidPurchaseOrderAction(poId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    voidPurchaseOrder(user, poId, String(formData.get("reason") || ""));
+    refreshPurchaseOrder(String(formData.get("projectId") || ""), poId);
+    return { ok: "Purchase order voided." };
   } catch (error) {
     return failure(error);
   }

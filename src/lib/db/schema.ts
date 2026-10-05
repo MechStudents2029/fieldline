@@ -396,6 +396,7 @@ export const bills = sqliteTable(
     payMethod: text("pay_method"),
     payReference: text("pay_reference"),
     documentId: text("document_id"),
+    purchaseOrderId: text("purchase_order_id"),
     approvedAt: text("approved_at"),
     lowConfidence: integer("low_confidence").notNull().default(0),
     createdAt: text("created_at").notNull(),
@@ -434,6 +435,57 @@ export const billEvents = sqliteTable(
     createdAt: text("created_at").notNull(),
   },
   (t) => [index("bill_events_bill").on(t.orgId, t.billId)],
+);
+
+export const purchaseOrders = sqliteTable(
+  "purchase_orders",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    projectId: text("project_id").notNull(),
+    vendorContactId: text("vendor_contact_id").notNull(),
+    changeOrderId: text("change_order_id"),
+    number: text("number").notNull(),
+    scope: text("scope"),
+    status: text("status").notNull(),
+    voidReason: text("void_reason"),
+    issuedAt: text("issued_at"),
+    closedAt: text("closed_at"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    createdBy: text("created_by"),
+  },
+  (t) => [uniqueIndex("purchase_orders_number").on(t.orgId, t.number), index("purchase_orders_org").on(t.orgId)],
+);
+
+export const purchaseOrderLines = sqliteTable(
+  "purchase_order_lines",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    purchaseOrderId: text("purchase_order_id").notNull(),
+    costCode: text("cost_code").notNull(),
+    description: text("description"),
+    amountCents: integer("amount_cents").notNull(),
+    sortOrder: integer("sort_order").notNull().default(0),
+  },
+  (t) => [index("purchase_order_lines_po").on(t.orgId, t.purchaseOrderId)],
+);
+
+export const purchaseOrderEvents = sqliteTable(
+  "purchase_order_events",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    purchaseOrderId: text("purchase_order_id").notNull(),
+    actorId: text("actor_id"),
+    type: text("type").notNull(),
+    reason: text("reason"),
+    beforeJson: text("before_json"),
+    afterJson: text("after_json"),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [index("purchase_order_events_po").on(t.orgId, t.purchaseOrderId)],
 );
 
 export const costItems = sqliteTable("cost_items", {

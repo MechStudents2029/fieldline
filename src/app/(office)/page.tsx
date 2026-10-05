@@ -12,6 +12,7 @@ import { dashboard, leadDetail, pendingReceipts } from "@/lib/services/read";
 import { MyDay } from "@/components/my-day";
 import { missingDailyLogs } from "@/lib/services/logs";
 import { billsAttention } from "@/lib/services/bills";
+import { stalePurchaseOrders } from "@/lib/services/purchase-orders";
 import { listTimeAnomalies } from "@/lib/services/sync";
 import { timeBoard } from "@/lib/services/time";
 
@@ -28,6 +29,7 @@ export default async function TodayPage() {
   const missingLogs = money ? missingDailyLogs(session.orgId) : [];
   const anomalies = canManageMoney(session.role) ? listTimeAnomalies(session.orgId) : [];
   const billWatch = money ? billsAttention(session.orgId, session.role) : { overdue: [], upcoming: [] };
+  const staleOrders = money ? stalePurchaseOrders(session.orgId, session.role) : [];
   const quiet =
     data.openLeadCount === 0 &&
     data.openInvoiceCount === 0 &&
@@ -179,6 +181,24 @@ export default async function TodayPage() {
               ))}
             </ul>
           ) : null}
+        </section>
+      ) : null}
+      {staleOrders.length > 0 ? (
+        <section className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
+          <h2 className="font-heading text-xl">Purchase orders waiting on a bill</h2>
+          <p className="mt-1 text-xs text-muted-foreground">Issued at least 30 days ago on this company’s clock, with no bill entered. Nothing was sent.</p>
+          <ul className="mt-3 divide-y divide-border">
+            {staleOrders.map((order) => (
+              <li key={order.id} className="flex flex-col gap-1 py-2 text-sm sm:flex-row sm:items-center sm:justify-between">
+                <Link href={`/purchase-orders/${order.id}`} className="font-medium">
+                  {order.number} · {order.vendorName}
+                </Link>
+                <span>
+                  {formatMoney(order.openCents)} open · {order.projectName}
+                </span>
+              </li>
+            ))}
+          </ul>
         </section>
       ) : null}
       {receipts.length > 0 ? (

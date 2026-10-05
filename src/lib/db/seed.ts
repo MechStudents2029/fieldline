@@ -33,6 +33,9 @@ import {
   organizations,
   payments,
   pipelineStages,
+  purchaseOrderEvents,
+  purchaseOrderLines,
+  purchaseOrders,
   pipelines,
   priceBookItems,
   projects,
@@ -54,7 +57,7 @@ import { achFeeCents, qtyToMilli } from "@/lib/money";
 import { DEMO_PASSWORD } from "@/lib/product";
 import { proposalNudgeCopy } from "@/lib/ai/nurture";
 
-export const SEED_VERSION = "6";
+export const SEED_VERSION = "7";
 
 const ORG = "org_rivera";
 const NORTH = "org_northline";
@@ -1024,6 +1027,7 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
         payMethod: null,
         payReference: null,
         documentId: null,
+        purchaseOrderId: null,
         approvedAt: null,
         lowConfidence: 0,
         createdAt: daysAgo(1),
@@ -1046,6 +1050,7 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
         payMethod: null,
         payReference: null,
         documentId: null,
+        purchaseOrderId: "po_ok_harbor",
         approvedAt: daysAgo(4),
         lowConfidence: 0,
         createdAt: daysAgo(5),
@@ -1068,6 +1073,7 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
         payMethod: "check",
         payReference: "4412",
         documentId: null,
+        purchaseOrderId: null,
         approvedAt: daysAgo(18),
         lowConfidence: 0,
         createdAt: daysAgo(20),
@@ -1090,6 +1096,7 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
         payMethod: null,
         payReference: null,
         documentId: null,
+        purchaseOrderId: null,
         approvedAt: daysAgo(10),
         lowConfidence: 0,
         createdAt: daysAgo(14),
@@ -1112,6 +1119,42 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
       { id: "bev_ok_harbor", orgId: ORG, billId: "bill_ok_harbor", actorId: "user_sam", type: "approved", reason: null, beforeJson: null, afterJson: JSON.stringify({ status: "approved", costItemIds: ["cost_bill_hp"] }), createdAt: daysAgo(4) },
       { id: "bev_dz_summit", orgId: ORG, billId: "bill_dz_summit", actorId: "user_sam", type: "paid", reason: null, beforeJson: null, afterJson: JSON.stringify({ status: "paid", method: "check", reference: "4412" }), createdAt: daysAgo(8) },
       { id: "bev_br_brighton", orgId: ORG, billId: "bill_br_brighton", actorId: "user_sam", type: "approved", reason: null, beforeJson: null, afterJson: JSON.stringify({ status: "approved", costItemIds: ["cost_bill_be"] }), createdAt: daysAgo(10) },
+    ])
+    .run();
+
+  db.insert(purchaseOrders)
+    .values({
+      id: "po_ok_harbor",
+      orgId: ORG,
+      projectId: "proj_okonkwo",
+      vendorContactId: "c_harbor",
+      changeOrderId: null,
+      number: "PO-1044",
+      scope: "Shower valve, trim, and the rest of the plumbing package.",
+      status: "issued",
+      voidReason: null,
+      issuedAt: daysAgo(6),
+      closedAt: null,
+      createdAt: daysAgo(7),
+      updatedAt: daysAgo(6),
+      createdBy: "user_sam",
+    })
+    .run();
+  db.insert(purchaseOrderLines)
+    .values({
+      id: "pol_ok_harbor",
+      orgId: ORG,
+      purchaseOrderId: "po_ok_harbor",
+      costCode: "PLB-SHOWER",
+      description: "Valve, trim, and remaining rough",
+      amountCents: 400000,
+      sortOrder: 0,
+    })
+    .run();
+  db.insert(purchaseOrderEvents)
+    .values([
+      { id: "poe_ok_created", orgId: ORG, purchaseOrderId: "po_ok_harbor", actorId: "user_sam", type: "created", reason: null, beforeJson: null, afterJson: null, createdAt: daysAgo(7) },
+      { id: "poe_ok_issued", orgId: ORG, purchaseOrderId: "po_ok_harbor", actorId: "user_sam", type: "issued", reason: null, beforeJson: null, afterJson: JSON.stringify({ status: "issued" }), createdAt: daysAgo(6) },
     ])
     .run();
 

@@ -1,6 +1,7 @@
 import { BillComposer } from "@/components/bill-composer";
 import { requireSession } from "@/lib/auth/session";
 import { canManageMoney, canSeeMoney } from "@/lib/permissions";
+import { listLinkablePurchaseOrders } from "@/lib/services/purchase-orders";
 import { listContacts, listPriceBook, listProjects } from "@/lib/services/read";
 
 export default async function NewBillPage() {
@@ -16,13 +17,17 @@ export default async function NewBillPage() {
     .filter((contact) => contact.type === "sub" || contact.type === "vendor")
     .map((contact) => ({ id: contact.id, label: contact.company || contact.name }));
   const codes = listPriceBook(session.orgId).map((item) => item.code);
+  const purchaseOrders = listLinkablePurchaseOrders(session.orgId, session.role).map((order) => ({
+    id: order.id,
+    label: `${order.number} · ${order.vendorName} · ${order.projectName}`,
+  }));
   return (
     <div className="flex flex-col gap-4">
       <div>
         <h1 className="font-heading text-3xl">New bill</h1>
         <p className="text-sm text-muted-foreground">A bill stays a draft until the office approves it. That is when it becomes job cost.</p>
       </div>
-      <BillComposer projects={projects} vendors={vendors} codes={codes} />
+      <BillComposer projects={projects} vendors={vendors} codes={codes} purchaseOrders={purchaseOrders} />
     </div>
   );
 }
