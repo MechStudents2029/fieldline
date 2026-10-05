@@ -25,7 +25,7 @@ test("an owner invites a field teammate who sees the job without prices", async 
   await invitee.getByLabel("Your name").fill("Casey Cho");
   await invitee.getByLabel("New password").fill("fieldline-test");
   await invitee.getByRole("button", { name: "Create account and join" }).click();
-  await expect(invitee.getByRole("heading", { name: "Today" })).toBeVisible();
+  await expect(invitee.getByRole("heading", { name: "My day" })).toBeVisible();
   await invitee.goto("/projects");
   await invitee.getByRole("link", { name: /Okonkwo primary bath/ }).click();
   await expect(invitee.getByRole("heading", { name: "Okonkwo primary bath" })).toBeVisible();

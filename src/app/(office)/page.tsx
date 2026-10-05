@@ -9,10 +9,13 @@ import { formatBps, formatMoney } from "@/lib/money";
 import { canManageSettings, canSeeMoney } from "@/lib/permissions";
 import { companyChecklist } from "@/lib/services/onboarding";
 import { dashboard, leadDetail, pendingReceipts } from "@/lib/services/read";
+import { MyDay } from "@/components/my-day";
+import { missingDailyLogs } from "@/lib/services/logs";
 import { timeBoard } from "@/lib/services/time";
 
 export default async function TodayPage() {
   const session = await requireSession();
+  if (session.role === "field") return <MyDay actor={session} />;
   const data = dashboard(session.orgId);
   const money = canSeeMoney(session.role);
   const vasquez = leadDetail(session.orgId, "lead_vasquez");
@@ -20,6 +23,7 @@ export default async function TodayPage() {
   const receipts = money ? pendingReceipts(session.orgId) : [];
   const checklist = companyChecklist(session.orgId);
   const time = timeBoard(session);
+  const missingLogs = money ? missingDailyLogs(session.orgId) : [];
   const quiet =
     data.openLeadCount === 0 &&
     data.openInvoiceCount === 0 &&
@@ -92,6 +96,21 @@ export default async function TodayPage() {
               ))}
             </ul>
           ) : null}
+        </section>
+      ) : null}
+      {missingLogs.length > 0 ? (
+        <section className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
+          <h2 className="font-heading text-xl">Logs to write</h2>
+          <p className="mt-1 text-xs text-muted-foreground">These jobs had punches yesterday and no published log. Nothing is sent.</p>
+          <ul className="mt-3 divide-y divide-border">
+            {missingLogs.map((row) => (
+              <li key={row.projectId} className="py-2 text-sm">
+                <Link href={`/projects/${row.projectId}/logs`} className="font-medium">
+                  {row.projectName} · {row.logDate}
+                </Link>
+              </li>
+            ))}
+          </ul>
         </section>
       ) : null}
       {time.flags.length > 0 ? (

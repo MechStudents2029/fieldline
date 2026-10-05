@@ -113,16 +113,18 @@ export function ClockInForm({ jobs, codes }: { jobs: { id: string; name: string 
   );
 }
 
-export function ClockOutForm() {
+export function ClockOutForm({ compact = false }: { compact?: boolean }) {
   const punch = usePunch(clockOutAction);
   return (
     <form action={punch.formAction} onSubmit={punch.onSubmit} className="flex flex-col gap-3">
-      <label className="text-sm">
-        Clock-out note
-        <textarea name="note" rows={2} className="field mt-1" placeholder="Optional" />
-      </label>
-      <LocationFields locNote={punch.locNote} />
-      <Button type="submit" className="h-14 text-base">
+      {compact ? null : (
+        <label className="text-sm">
+          Clock-out note
+          <textarea name="note" rows={2} className="field mt-1" placeholder="Optional" />
+        </label>
+      )}
+      {compact ? null : <LocationFields locNote={punch.locNote} />}
+      <Button type="submit" className="h-14 w-full text-base">
         Clock out
       </Button>
       <Status state={punch.state} pending={punch.pending} />

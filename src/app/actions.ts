@@ -9,6 +9,15 @@ import { clearSession, getSession, setSession } from "@/lib/auth/session";
 import { receiptAutoPostAllowed } from "@/lib/ai/receipt";
 import { parseMoneyToCents } from "@/lib/money";
 import {
+  linkLogPhoto,
+  openDailyLog,
+  publishDailyLog,
+  saveDailyLog,
+  setLogVisibility,
+  utcDay,
+  voidDailyLog,
+} from "@/lib/services/logs";
+import {
   addManualTime,
   approveTime,
   clockIn,
@@ -30,7 +39,7 @@ import { verifyPassword } from "@/lib/auth/password";
 import { canSeeMoney } from "@/lib/permissions";
 import { passwordError } from "@/lib/security";
 import { getDb } from "@/lib/db/client";
-import { users } from "@/lib/db/schema";
+import { dailyLogs, users } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import {
   addCost,
@@ -898,6 +907,91 @@ export async function manualTimeAction(_prev: ActionState, formData: FormData): 
     });
     timeRefresh(String(formData.get("projectId") || ""));
     return { ok: "Manual entry added. Approve it to post the labor." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+function logInput(formData: FormData) {
+  return {
+    notes: String(formData.get("notes") ?? ""),
+    plannedNext: String(formData.get("plannedNext") ?? ""),
+    weatherSky: String(formData.get("weatherSky") ?? ""),
+    weatherHighF: String(formData.get("weatherHighF") ?? ""),
+    weatherLowF: String(formData.get("weatherLowF") ?? ""),
+    weatherLostHours: String(formData.get("weatherLostHours") ?? ""),
+    weatherImpact: String(formData.get("weatherImpact") ?? ""),
+    delayCause: String(formData.get("delayCause") ?? ""),
+    delayHours: String(formData.get("delayHours") ?? ""),
+    deliveries: String(formData.get("deliveries") ?? ""),
+    visitors: String(formData.get("visitors") ?? ""),
+    safetyNote: String(formData.get("safetyNote") ?? ""),
+  };
+}
+
+function refreshLog(projectId: string, logId?: string) {
+  revalidatePath("/");
+  revalidatePath(`/projects/${projectId}`);
+  revalidatePath(`/projects/${projectId}/logs`);
+  if (logId) revalidatePath(`/projects/${projectId}/logs/${logId}`);
+}
+
+export async function startLogAction(projectId: string, formData: FormData) {
+  const user = await actor();
+  const requested = String(formData.get("logDate") || "");
+  const log = openDailyLog(user, projectId, requested || utcDay());
+  refreshLog(projectId, log.id);
+  redirect(`/projects/${projectId}/logs/${log.id}`);
+}
+
+export async function saveLogAction(logId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const input = logInput(formData);
+    if (String(formData.get("intent") || "") === "publish") publishDailyLog(user, logId, input);
+    else saveDailyLog(user, logId, input);
+    const log = getDb().select().from(dailyLogs).where(eq(dailyLogs.id, logId)).get();
+    if (log) refreshLog(log.projectId, log.id);
+    return { ok: String(formData.get("intent") || "") === "publish" ? "Published." : "Draft saved." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function shareLogAction(logId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const visibility = String(formData.get("visibility") || "");
+    setLogVisibility(user, logId, visibility);
+    const log = getDb().select().from(dailyLogs).where(eq(dailyLogs.id, logId)).get();
+    if (log) refreshLog(log.projectId, log.id);
+    return { ok: visibility === "client" ? "On the client portal. Nothing was emailed." : "Hidden from the client portal." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function voidLogAction(logId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    voidDailyLog(user, logId, String(formData.get("reason") || ""));
+    const log = getDb().select().from(dailyLogs).where(eq(dailyLogs.id, logId)).get();
+    if (log) refreshLog(log.projectId, log.id);
+    return { ok: "Voided. The log stays on the record." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function logPhotoAction(logId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const log = getDb().select().from(dailyLogs).where(eq(dailyLogs.id, logId)).get();
+    if (!log || log.orgId !== user.orgId) return { error: "Daily log not found." };
+    const saved = attachPhotoNote(user, log.projectId, String(formData.get("caption") || ""), await photoUpload(formData));
+    linkLogPhoto(user, logId, saved.documentId);
+    refreshLog(log.projectId, log.id);
+    return { ok: "Photo added to the log." };
   } catch (error) {
     return failure(error);
   }

@@ -95,7 +95,9 @@ begin
     'audit_logs',
     'follow_up_drafts',
     'tester_feedback',
-    'team_invites'
+    'team_invites',
+    'daily_log_events',
+    'daily_log_photos'
   ]
   loop
     execute format('alter table public.%I enable row level security', tbl);
@@ -218,5 +220,23 @@ create policy time_entry_events_scope on public.time_entry_events
         select 1 from public.time_entries e
         where e.id = entry_id and e.org_id = time_entry_events.org_id and e.user_id = public.current_user_id()
       )
+    )
+  );
+
+-- Daily logs are company records. A field member can write their own while it
+-- stays internal. Client visibility is an office change, so a field WITH CHECK
+-- fails if visibility is anything other than internal.
+alter table public.daily_logs enable row level security;
+drop policy if exists daily_logs_member on public.daily_logs;
+drop policy if exists daily_logs_scope on public.daily_logs;
+create policy daily_logs_scope on public.daily_logs
+  for all
+  to authenticated
+  using (org_id in (select public.current_org_ids()))
+  with check (
+    org_id in (select public.current_org_ids())
+    and (
+      public.can_see_money(org_id)
+      or (author_id = public.current_user_id() and visibility = 'internal')
     )
   );

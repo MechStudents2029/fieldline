@@ -44,6 +44,7 @@ export function Shell({
 }) {
   const pathname = usePathname();
   const current = (href: string) => (href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`));
+  const labelFor = (label: string, href: string) => (role === "field" && href === "/" ? "My day" : label);
   const nav = role === "field" ? links.filter((link) => !fieldHidden.has(link.href)) : links;
   const tabs = role === "field" ? mobile.filter((link) => !fieldHidden.has(link.href)) : mobile;
   return (
@@ -70,7 +71,7 @@ export function Shell({
                 current(link.href) ? "bg-primary text-primary-foreground" : "hover:bg-muted",
               )}
             >
-              {link.label}
+              {labelFor(link.label, link.href)}
             </Link>
           ))}
         </nav>
@@ -112,7 +113,7 @@ export function Shell({
               current(link.href) ? "font-semibold text-pine" : "text-muted-foreground",
             )}
           >
-            {link.label}
+            {labelFor(link.label, link.href)}
           </Link>
         ))}
       </nav>

@@ -35,6 +35,8 @@ import {
   proposals,
   signatures,
   tasks,
+  dailyLogEvents,
+  dailyLogs,
   timeApprovals,
   timeEntries,
   timeEntryEvents,
@@ -48,7 +50,7 @@ import { achFeeCents, qtyToMilli } from "@/lib/money";
 import { DEMO_PASSWORD } from "@/lib/product";
 import { proposalNudgeCopy } from "@/lib/ai/nurture";
 
-export const SEED_VERSION = "3";
+export const SEED_VERSION = "4";
 
 const ORG = "org_rivera";
 const NORTH = "org_northline";
@@ -1064,6 +1066,27 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
         updatedAt: hoursAgo(11),
         createdBy: "user_dana",
       },
+      {
+        id: "time_chen_yday",
+        orgId: ORG,
+        userId: "user_sam",
+        projectId: "proj_chen",
+        costCode: "GC-SUPER",
+        status: "pending",
+        clockInAt: `${new Date(Date.now() - 86_400_000).toISOString().slice(0, 10)}T14:00:00.000Z`,
+        clockOutAt: `${new Date(Date.now() - 86_400_000).toISOString().slice(0, 10)}T16:00:00.000Z`,
+        breakMinutes: 0,
+        breakStartedAt: null,
+        note: "Walked the powder room",
+        clockInLatE6: null,
+        clockInLngE6: null,
+        clockOutLatE6: null,
+        clockOutLngE6: null,
+        source: "manual",
+        createdAt: daysAgo(1),
+        updatedAt: daysAgo(1),
+        createdBy: "user_maya",
+      },
     ])
     .run();
   db.insert(timeApprovals)
@@ -1104,6 +1127,114 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
         beforeJson: null,
         afterJson: JSON.stringify({ status: "open", costCode: "GC-SUPER" }),
         createdAt: hoursAgo(13),
+      },
+    ])
+    .run();
+
+  const yesterday = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
+  const today = new Date().toISOString().slice(0, 10);
+  db.insert(dailyLogs)
+    .values([
+      {
+        id: "log_ok_yday",
+        orgId: ORG,
+        projectId: "proj_okonkwo",
+        authorId: "user_dana",
+        logDate: yesterday,
+        status: "published",
+        visibility: "client",
+        notes: "Set the shower wall and kept the niche dry.",
+        plannedNext: "Grout the curb.",
+        weatherSky: "Clear",
+        weatherHighF: 72,
+        weatherLowF: 54,
+        weatherLostMinutes: 0,
+        weatherImpact: "No weather delay.",
+        delayCause: "Waited on the inspector for two hours.",
+        delayMinutes: 120,
+        deliveries: "Niche tile from Casa Tile.",
+        visitors: "City inspector, rough-in.",
+        safetyNote: "Wet floor at the curb.",
+        publishedAt: daysAgo(1),
+        voidReason: null,
+        createdAt: daysAgo(1),
+        updatedAt: daysAgo(1),
+      },
+      {
+        id: "log_br_yday",
+        orgId: ORG,
+        projectId: "proj_brooks",
+        authorId: "user_sam",
+        logDate: yesterday,
+        status: "published",
+        visibility: "internal",
+        notes: "Framed the west wall before the rain.",
+        plannedNext: "Shear the corners.",
+        weatherSky: "Rain",
+        weatherHighF: 61,
+        weatherLowF: 52,
+        weatherLostMinutes: 90,
+        weatherImpact: "Stopped the sheathing early.",
+        delayCause: null,
+        delayMinutes: null,
+        deliveries: null,
+        visitors: null,
+        safetyNote: "Slippery scaffold boards.",
+        publishedAt: daysAgo(1),
+        voidReason: null,
+        createdAt: daysAgo(1),
+        updatedAt: daysAgo(1),
+      },
+      {
+        id: "log_ok_draft",
+        orgId: ORG,
+        projectId: "proj_okonkwo",
+        authorId: "user_dana",
+        logDate: today,
+        status: "draft",
+        visibility: "internal",
+        notes: null,
+        plannedNext: null,
+        weatherSky: null,
+        weatherHighF: null,
+        weatherLowF: null,
+        weatherLostMinutes: null,
+        weatherImpact: null,
+        delayCause: null,
+        delayMinutes: null,
+        deliveries: null,
+        visitors: null,
+        safetyNote: null,
+        publishedAt: null,
+        voidReason: null,
+        createdAt: now,
+        updatedAt: now,
+      },
+    ])
+    .run();
+  db.insert(dailyLogEvents)
+    .values([
+      {
+        id: "dlev_ok_yday",
+        orgId: ORG,
+        logId: "log_ok_yday",
+        actorId: "user_maya",
+        type: "published",
+        reason: null,
+        beforeJson: JSON.stringify({ status: "draft", visibility: "internal" }),
+        afterJson: JSON.stringify({ status: "published", visibility: "client", notes: "Set the shower wall and kept the niche dry." }),
+        createdAt: daysAgo(1),
+      },
+      {
+        id: "dlev_br_yday",
+        orgId: ORG,
+        logId: "log_br_yday",
+        actorId: "user_sam",
+        type: "published",
+        reason: null,
+        beforeJson: JSON.stringify({ status: "draft" }),
+        afterJson: JSON.stringify({ status: "published", visibility: "internal" }),
+        createdAt: daysAgo(1),
       },
     ])
     .run();

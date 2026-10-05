@@ -9,6 +9,7 @@ import { requireSession } from "@/lib/auth/session";
 import { formatDateTime } from "@/lib/format";
 import { overBudgetPercent } from "@/lib/margin/category";
 import { formatBps, formatMoney } from "@/lib/money";
+import { JobTabs } from "@/components/job-tabs";
 import { captionFromMetadata, listPriceBook, projectDetail } from "@/lib/services/read";
 
 export default async function ProjectPage({ params }: { params: Promise<{ id: string }> }) {
@@ -23,6 +24,9 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
       <div>
         <p className="text-xs uppercase tracking-wide text-muted-foreground">{detail.project.status}</p>
         <h1 className="font-heading text-3xl">{detail.project.name}</h1>
+        <div className="mt-3">
+          <JobTabs projectId={detail.project.id} current="job" />
+        </div>
         <p className="text-sm text-muted-foreground">{detail.project.address}</p>
         <p className="text-sm">
           Client <Link href={`/contacts/${detail.contact.id}`} className="underline">{detail.contact.name}</Link>

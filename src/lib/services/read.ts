@@ -41,6 +41,7 @@ import { daysSince } from "@/lib/format";
 import { readReceiptMeta } from "@/lib/ai/receipt";
 import { needsProposalNudge } from "@/lib/ai/nurture";
 import { marginThresholdFromQuestion, routeCopilotQuestion, type CopilotTool } from "@/lib/ai/copilot";
+import { clientDailyLogs, jobLogAnswer } from "@/lib/services/logs";
 import { qboCustomersCsv as renderQboCustomers, qboImportLimitWarning, qboInvoicesCsv as renderQboInvoices } from "@/lib/export/qbo";
 import type { StoredSnapshot } from "@/lib/domain/snapshot";
 
@@ -607,11 +608,15 @@ export function askCopilot(orgId: string, question: string, role: Role = "owner"
     };
   }
   const tool = routeCopilotQuestion(question);
+  if (tool === "job_log") {
+    const log = jobLogAnswer(orgId, question);
+    return { tool, answer: log.answer, rows: log.rows };
+  }
   if (!tool) {
     return {
       tool: null as CopilotTool | null,
       answer:
-        "I can answer four things: who owes you, which jobs are under a margin, what the open pipeline is worth, and which proposals are unsigned. Try one of those.",
+        "I can answer who owes you, which jobs are under a margin, what the open pipeline is worth, which proposals are unsigned, and what happened on a job yesterday. Try one of those.",
       rows: [] as { label: string; amountCents: number | null; detail: string }[],
     };
   }
@@ -755,6 +760,7 @@ export function portalByToken(token: string) {
     invoices: invoiceRows,
     photos,
     messages: threadMessages,
+    logs: clientDailyLogs(project.id),
   };
 }
 

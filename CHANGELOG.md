@@ -2,6 +2,13 @@
 
 ## 2026-10-05
 
+### Daily logs
+
+- A job has one log per person per UTC day. Save a draft, then publish. The date cannot be in the future. Notes are the only required field. Weather, delays, deliveries, visitors, and safety sit behind a disclosure. Photos use the same camera capture as the job.
+- Crew headcount and hours by cost code come from that day’s punches, including time the office has not approved. The log does not show rates or labor cost.
+- Logs are internal until an office role marks a published log client-visible. The portal then shows the work note, what’s next, hand-entered weather, deliveries, visitors, and that log’s photos. Delays, safety notes, crew names, hours, and costs stay off the portal. Nothing is emailed. Once a log is on the portal, only the office can edit it.
+- Edits after publish keep a history row. A log is voided with a reason, not deleted. Today lists jobs that had punches yesterday and no published log. Copilot answers “what happened on a job yesterday?” from published logs and cites the log. Weather is typed. There is no weather service.
+
 ### Time tracking
 
 - A member clocks in on a job and cost code from the Time screen, switches jobs without a separate clock-out, takes a break, and clocks out with an optional note. They see today and this week. They do not see rates or labor cost.

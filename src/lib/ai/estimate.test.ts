@@ -159,6 +159,7 @@ describe("copilot routing and payments", () => {
     expect(marginThresholdFromQuestion("under 15% margin", 2000)).toBe(1500);
     expect(routeCopilotQuestion("What's my pipeline value?")).toBe("pipeline");
     expect(routeCopilotQuestion("Which proposals are unsigned?")).toBe("overdue_proposals");
+    expect(routeCopilotQuestion("what happened on Okonkwo yesterday?")).toBe("job_log");
     expect(routeCopilotQuestion("Write a poem")).toBeNull();
   });
 

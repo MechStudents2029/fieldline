@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 export const organizations = sqliteTable("organizations", {
@@ -590,6 +591,70 @@ export const timeApprovals = sqliteTable(
     createdBy: text("created_by"),
   },
   (t) => [index("time_approvals_entry").on(t.orgId, t.entryId)],
+);
+
+/** One active log per job, per UTC day, per author. Voided rows stay and free that day. */
+export const dailyLogs = sqliteTable(
+  "daily_logs",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    projectId: text("project_id").notNull(),
+    authorId: text("author_id").notNull(),
+    logDate: text("log_date").notNull(),
+    status: text("status").notNull(),
+    visibility: text("visibility").notNull(),
+    notes: text("notes"),
+    plannedNext: text("planned_next"),
+    weatherSky: text("weather_sky"),
+    weatherHighF: integer("weather_high_f"),
+    weatherLowF: integer("weather_low_f"),
+    weatherLostMinutes: integer("weather_lost_minutes"),
+    weatherImpact: text("weather_impact"),
+    delayCause: text("delay_cause"),
+    delayMinutes: integer("delay_minutes"),
+    deliveries: text("deliveries"),
+    visitors: text("visitors"),
+    safetyNote: text("safety_note"),
+    publishedAt: text("published_at"),
+    voidReason: text("void_reason"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (t) => [
+    uniqueIndex("daily_logs_one_open")
+      .on(t.orgId, t.projectId, t.authorId, t.logDate)
+      .where(sql`status <> 'void'`),
+    index("daily_logs_project").on(t.orgId, t.projectId, t.logDate),
+  ],
+);
+
+export const dailyLogEvents = sqliteTable(
+  "daily_log_events",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    logId: text("log_id").notNull(),
+    actorId: text("actor_id"),
+    type: text("type").notNull(),
+    reason: text("reason"),
+    beforeJson: text("before_json"),
+    afterJson: text("after_json"),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [index("daily_log_events_log").on(t.orgId, t.logId)],
+);
+
+export const dailyLogPhotos = sqliteTable(
+  "daily_log_photos",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    logId: text("log_id").notNull(),
+    documentId: text("document_id").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [index("daily_log_photos_log").on(t.orgId, t.logId)],
 );
 
 export const testerFeedback = sqliteTable(

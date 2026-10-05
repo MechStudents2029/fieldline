@@ -88,6 +88,7 @@ export function ensureReady(holder: Holder) {
   ensureTesterFeedback(holder);
   ensureTeamInvites(holder);
   ensureTimeTables(holder);
+  ensureDailyLogs(holder);
   const version = holder.sqlite.prepare("select value from app_meta where key = ?").get("seed_version") as
     | { value: string }
     | undefined;
@@ -339,6 +340,107 @@ function ensureTimeTables(holder: Holder) {
           created_by text
         );
         create index if not exists time_approvals_entry on time_approvals (org_id, entry_id);`;
+  holder.sqlite.exec(ddl);
+}
+
+function ensureDailyLogs(holder: Holder) {
+  if (tableExists(holder.sqlite, "daily_logs", holder.dialect)) return;
+  const ddl =
+    holder.dialect === "postgres"
+      ? `create table if not exists daily_logs (
+          id text primary key,
+          org_id text not null,
+          project_id text not null,
+          author_id text not null,
+          log_date text not null,
+          status text not null,
+          visibility text not null,
+          notes text,
+          planned_next text,
+          weather_sky text,
+          weather_high_f integer,
+          weather_low_f integer,
+          weather_lost_minutes integer,
+          weather_impact text,
+          delay_cause text,
+          delay_minutes integer,
+          deliveries text,
+          visitors text,
+          safety_note text,
+          published_at text,
+          void_reason text,
+          created_at text not null,
+          updated_at text not null
+        );
+        create unique index if not exists daily_logs_one_open on daily_logs (org_id, project_id, author_id, log_date) where status <> 'void';
+        create index if not exists daily_logs_project on daily_logs (org_id, project_id, log_date);
+        create table if not exists daily_log_events (
+          id text primary key,
+          org_id text not null,
+          log_id text not null,
+          actor_id text,
+          type text not null,
+          reason text,
+          before_json text,
+          after_json text,
+          created_at text not null
+        );
+        create index if not exists daily_log_events_log on daily_log_events (org_id, log_id);
+        create table if not exists daily_log_photos (
+          id text primary key,
+          org_id text not null,
+          log_id text not null,
+          document_id text not null,
+          created_at text not null
+        );
+        create index if not exists daily_log_photos_log on daily_log_photos (org_id, log_id);`
+      : `create table if not exists daily_logs (
+          id text primary key not null,
+          org_id text not null,
+          project_id text not null,
+          author_id text not null,
+          log_date text not null,
+          status text not null,
+          visibility text not null,
+          notes text,
+          planned_next text,
+          weather_sky text,
+          weather_high_f integer,
+          weather_low_f integer,
+          weather_lost_minutes integer,
+          weather_impact text,
+          delay_cause text,
+          delay_minutes integer,
+          deliveries text,
+          visitors text,
+          safety_note text,
+          published_at text,
+          void_reason text,
+          created_at text not null,
+          updated_at text not null
+        );
+        create unique index if not exists daily_logs_one_open on daily_logs (org_id, project_id, author_id, log_date) where status <> 'void';
+        create index if not exists daily_logs_project on daily_logs (org_id, project_id, log_date);
+        create table if not exists daily_log_events (
+          id text primary key not null,
+          org_id text not null,
+          log_id text not null,
+          actor_id text,
+          type text not null,
+          reason text,
+          before_json text,
+          after_json text,
+          created_at text not null
+        );
+        create index if not exists daily_log_events_log on daily_log_events (org_id, log_id);
+        create table if not exists daily_log_photos (
+          id text primary key not null,
+          org_id text not null,
+          log_id text not null,
+          document_id text not null,
+          created_at text not null
+        );
+        create index if not exists daily_log_photos_log on daily_log_photos (org_id, log_id);`;
   holder.sqlite.exec(ddl);
 }
 

@@ -8,7 +8,7 @@ export type CopilotAnswer = {
   rows: { label: string; amountCents: number | null; detail: string }[];
 };
 
-const prompts = ["Who owes me money?", "Which jobs are under 20% margin?", "Which cost codes are over budget?", "What's my pipeline value?", "Which proposals are unsigned?"];
+const prompts = ["Who owes me money?", "Which jobs are under 20% margin?", "Which cost codes are over budget?", "What's my pipeline value?", "Which proposals are unsigned?", "What happened on Okonkwo yesterday?"];
 
 export function CopilotPanel({ question, result }: { question: string; result: CopilotAnswer | null }) {
   return (

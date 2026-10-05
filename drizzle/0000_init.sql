@@ -589,3 +589,57 @@ CREATE TABLE `time_approvals` (
 );
 --> statement-breakpoint
 CREATE INDEX `time_approvals_entry` ON `time_approvals` (`org_id`,`entry_id`);
+--> statement-breakpoint
+CREATE TABLE `daily_logs` (
+	`id` text PRIMARY KEY NOT NULL,
+	`org_id` text NOT NULL,
+	`project_id` text NOT NULL,
+	`author_id` text NOT NULL,
+	`log_date` text NOT NULL,
+	`status` text NOT NULL,
+	`visibility` text NOT NULL,
+	`notes` text,
+	`planned_next` text,
+	`weather_sky` text,
+	`weather_high_f` integer,
+	`weather_low_f` integer,
+	`weather_lost_minutes` integer,
+	`weather_impact` text,
+	`delay_cause` text,
+	`delay_minutes` integer,
+	`deliveries` text,
+	`visitors` text,
+	`safety_note` text,
+	`published_at` text,
+	`void_reason` text,
+	`created_at` text NOT NULL,
+	`updated_at` text NOT NULL
+);
+--> statement-breakpoint
+CREATE UNIQUE INDEX `daily_logs_one_open` ON `daily_logs` (`org_id`,`project_id`,`author_id`,`log_date`) WHERE status <> 'void';
+--> statement-breakpoint
+CREATE INDEX `daily_logs_project` ON `daily_logs` (`org_id`,`project_id`,`log_date`);
+--> statement-breakpoint
+CREATE TABLE `daily_log_events` (
+	`id` text PRIMARY KEY NOT NULL,
+	`org_id` text NOT NULL,
+	`log_id` text NOT NULL,
+	`actor_id` text,
+	`type` text NOT NULL,
+	`reason` text,
+	`before_json` text,
+	`after_json` text,
+	`created_at` text NOT NULL
+);
+--> statement-breakpoint
+CREATE INDEX `daily_log_events_log` ON `daily_log_events` (`org_id`,`log_id`);
+--> statement-breakpoint
+CREATE TABLE `daily_log_photos` (
+	`id` text PRIMARY KEY NOT NULL,
+	`org_id` text NOT NULL,
+	`log_id` text NOT NULL,
+	`document_id` text NOT NULL,
+	`created_at` text NOT NULL
+);
+--> statement-breakpoint
+CREATE INDEX `daily_log_photos_log` ON `daily_log_photos` (`org_id`,`log_id`);

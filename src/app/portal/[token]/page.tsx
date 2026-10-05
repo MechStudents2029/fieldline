@@ -72,6 +72,39 @@ export default async function PortalPage({ params }: { params: Promise<{ token: 
           </article>
         ))}
       </section>
+      <section className="mt-6" aria-label="Daily log">
+        <h2 className="font-medium">Daily log</h2>
+        {data.logs.length === 0 ? <p className="mt-2 text-sm text-muted-foreground">No shared log yet.</p> : null}
+        {data.logs.map((log) => (
+          <article key={log.id} className="mt-3 rounded-xl bg-card p-4 text-sm ring-1 ring-foreground/10">
+            <p className="text-xs text-muted-foreground">{log.logDate}</p>
+            <p className="mt-1 whitespace-pre-wrap">{log.notes}</p>
+            {log.plannedNext ? <p className="mt-2">Next: {log.plannedNext}</p> : null}
+            {log.weatherSky || log.weatherHighF != null || log.weatherLowF != null ? (
+              <p className="mt-2 text-muted-foreground">
+                {log.weatherSky}
+                {log.weatherHighF != null ? ` · high ${log.weatherHighF}°F` : ""}
+                {log.weatherLowF != null ? ` · low ${log.weatherLowF}°F` : ""}
+                {log.weatherLostMinutes ? ` · ${log.weatherLostMinutes} minutes lost to weather` : ""}
+              </p>
+            ) : null}
+            {log.weatherImpact ? <p className="mt-1">{log.weatherImpact}</p> : null}
+            {log.deliveries ? <p className="mt-2">Deliveries: {log.deliveries}</p> : null}
+            {log.visitors ? <p className="mt-2">Visitors: {log.visitors}</p> : null}
+            {log.photos.length > 0 ? (
+              <ul className="mt-2 space-y-1">
+                {log.photos.map((photo) => (
+                  <li key={photo.id}>
+                    <a className="underline" href={`/api/files/${photo.id}?portal=${token}`}>
+                      {photo.caption || "Photo"}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </article>
+        ))}
+      </section>
       <section className="mt-6">
         <h2 className="font-medium">Photos</h2>
         <div className="mt-2 grid grid-cols-3 gap-2">
