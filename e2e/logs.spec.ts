@@ -23,7 +23,11 @@ test("a field log reaches the portal without hours or cost", async ({ page, requ
   await page.getByText("Weather, delays, and the rest").click();
   await page.getByLabel("Delay cause").fill("Inspector held the rough-in");
   await page.getByLabel("Safety note").fill("Cones at the curb");
-  await page.getByLabel("Add a log photo").setInputFiles({ name: "niche.png", mimeType: "image/png", buffer: png });
+  await page.getByLabel("Add a log photo", { exact: true }).setInputFiles({
+    name: "niche.png",
+    mimeType: "image/png",
+    buffer: png,
+  });
   await page.getByLabel("Add a log photo caption").fill("Niche curb");
   await page.getByRole("button", { name: "Save photo on the log" }).click();
   await expect(page.getByText("Photo added to the log.")).toBeVisible();
