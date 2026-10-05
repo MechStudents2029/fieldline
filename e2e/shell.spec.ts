@@ -35,8 +35,9 @@ test.describe("phone shell", () => {
     await expect(tabs.getByRole("link", { name: "More" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Follow-ups to approve" })).toBeVisible();
     await tabs.getByRole("link", { name: "Jobs" }).click();
-    await expect(page.getByRole("heading", { name: "Jobs" })).toBeVisible();
-    await expect(page.getByRole("link", { name: /Okonkwo primary bath/ })).toBeVisible();
+    await expect(page).toHaveURL(/\/projects$/);
+    await expect(page.getByRole("heading", { level: 1, name: "Jobs" })).toBeVisible();
+    await expect(page.getByRole("link", { name: /^Okonkwo primary bath/ })).toBeVisible();
   });
 
   test("field tabs omit Leads and More still opens Pipeline", async ({ page, request }) => {

@@ -73,12 +73,12 @@ export function Shell({
       >
         Skip to the job file
       </a>
-      <aside className="fixed inset-y-0 left-0 z-20 hidden w-60 flex-col border-r border-border bg-card px-4 py-5 md:flex">
-        <Link href="/" className="px-2">
+      <aside className="fixed inset-y-0 left-0 z-20 hidden w-60 flex-col overflow-hidden border-r border-border bg-card px-4 py-5 md:flex">
+        <Link href="/" className="shrink-0 px-2">
           <p className="font-heading text-2xl tracking-tight text-pine">Fieldline</p>
           <p className="text-xs text-muted-foreground">Job file for remodelers</p>
         </Link>
-        <nav aria-label="Office" className="mt-8 flex flex-1 flex-col gap-1">
+        <nav aria-label="Office" className="mt-8 flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto">
           {nav.map((link) => (
             <Link
               key={link.href}
@@ -96,7 +96,7 @@ export function Shell({
         <span id="fieldline-office-shell" hidden />
         <SignOutButton
           scope={{ orgId, userId }}
-          className="min-h-11 w-full rounded-lg px-3 text-left text-sm text-muted-foreground hover:bg-muted"
+          className="mt-2 min-h-11 w-full shrink-0 rounded-lg px-3 text-left text-sm text-muted-foreground hover:bg-muted"
         />
       </aside>
       <div className="md:pl-60">

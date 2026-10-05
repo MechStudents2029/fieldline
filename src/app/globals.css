@@ -374,7 +374,8 @@
 }
 
 @media (min-width: 768px) {
-  .fl-inline-title {
+  .fl-inline-title,
+  .fl-tabbar {
     display: none;
   }
 }
