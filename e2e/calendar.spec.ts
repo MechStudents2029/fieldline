@@ -32,7 +32,7 @@ test("changing the week start regroups unlocked hours and leaves approved labor"
   await panel.getByLabel("Clock out").fill(`${day}T13:00`);
   await panel.getByLabel("Reason").fill("Week boundary check");
   await panel.getByRole("button", { name: "Add manual entry" }).click();
-  await expect(page.getByText("Week boundary check")).toBeVisible();
+  await expect(page.getByText("4h 00m · pending")).toBeVisible();
   const weekHours = page.getByLabel("Hours this week");
   const before = (await weekHours.textContent())?.trim();
 
