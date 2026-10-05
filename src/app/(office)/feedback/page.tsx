@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { EmptyState } from "@/components/empty-state";
+import { FeedbackDialog } from "@/components/feedback-dialog";
 import { requireSession } from "@/lib/auth/session";
 import { formatDateTime } from "@/lib/format";
 import { canManageSettings } from "@/lib/permissions";
@@ -19,7 +21,14 @@ export default async function FeedbackPage() {
       {allowed ? null : (
         <p className="text-sm text-muted-foreground">An owner or admin can read these notes. You can still send one from the header.</p>
       )}
-      {allowed && notes.length === 0 ? <p className="text-sm text-muted-foreground">No tester notes yet.</p> : null}
+      {allowed && notes.length === 0 ? (
+        <EmptyState
+          title="No tester notes yet"
+          why="Notes you save with Send feedback show up here for an owner or admin. Nothing is emailed. This company has none yet."
+        >
+          <FeedbackDialog />
+        </EmptyState>
+      ) : null}
       <ul className="flex flex-col gap-3">
         {notes.map((note) => (
           <li key={note.id} className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">

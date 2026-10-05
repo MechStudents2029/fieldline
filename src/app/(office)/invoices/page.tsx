@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { EmptyState } from "@/components/empty-state";
 import { requireSession } from "@/lib/auth/session";
 import { formatMoney } from "@/lib/money";
 import { canSeeMoney } from "@/lib/permissions";
@@ -31,7 +32,14 @@ export default async function InvoicesPage() {
           {limitWarning ? <p className="mt-1 text-xs text-copper">{limitWarning}</p> : null}
         </div>
       </div>
-      {rows.length === 0 ? <p className="text-sm text-muted-foreground">A signed proposal creates the deposit invoice.</p> : null}
+      {rows.length === 0 ? (
+        <EmptyState
+          title="No invoices yet"
+          why="Invoices appear after a client signs a proposal. The deposit invoice is created then. This company has none yet."
+          href="/leads/new"
+          action="Add a lead"
+        />
+      ) : null}
       <ul className="divide-y divide-border rounded-xl bg-card ring-1 ring-foreground/10">
         {rows.map(({ invoice, project, contact }) => (
           <li key={invoice.id} className="flex items-center justify-between gap-3 px-4 py-3 text-sm">

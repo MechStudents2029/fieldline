@@ -84,6 +84,7 @@ export function ensureReady(holder: Holder) {
     holder.sqlite.exec(migrationSql(holder.dialect));
   }
   ensureAuthUserId(holder);
+  ensureSetupDismissed(holder);
   ensureTesterFeedback(holder);
   const version = holder.sqlite.prepare("select value from app_meta where key = ?").get("seed_version") as
     | { value: string }
@@ -158,6 +159,21 @@ export function usePostgresMemory(): AppDatabase {
   globalForDb.fieldline = openPostgres("pglite://memory");
   ensureReady(globalForDb.fieldline);
   return globalForDb.fieldline.db;
+}
+
+function ensureSetupDismissed(holder: Holder) {
+  if (!tableExists(holder.sqlite, "organizations", holder.dialect)) return;
+  const exists =
+    holder.dialect === "postgres"
+      ? holder.sqlite
+          .prepare(
+            "select column_name as name from information_schema.columns where table_schema = 'public' and table_name = 'organizations' and column_name = 'setup_dismissed_at'",
+          )
+          .get()
+      : (holder.sqlite.prepare("pragma table_info(organizations)").all() as { name: string }[]).find(
+          (column) => column.name === "setup_dismissed_at",
+        );
+  if (!exists) holder.sqlite.exec("alter table organizations add column setup_dismissed_at text");
 }
 
 function ensureTesterFeedback(holder: Holder) {

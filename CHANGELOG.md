@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-10-05
+
+### Onboarding
+
+- Sign-in offers Start a new company. That creates an empty org, an owner, and a sales pipeline. The Rivera demo login is unchanged, and the new company does not see Rivera rows.
+- An optional starter price book (kitchen and bath, deck, roofing, or general) is inserted only for that company and marked starter, edit your prices. The same choice is on an empty price book.
+- Today shows a setup checklist derived from the license, price book, leads, estimates, and sent proposals. Hide it there, and bring it back from Settings or More. Send proposal stays a button. Nothing is emailed.
+- Empty office lists say what belongs there and link to the action that fills them. The seeded demo still shows its jobs, leads, and invoices.
+
 ## 2026-10-04
 
 ### Tester readiness

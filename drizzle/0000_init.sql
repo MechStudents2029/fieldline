@@ -336,6 +336,7 @@ CREATE TABLE `organizations` (
 	`final_bps` integer DEFAULT 2000 NOT NULL,
 	`card_enabled` integer DEFAULT 1 NOT NULL,
 	`terms_version` text DEFAULT '2026-09-01' NOT NULL,
+	`setup_dismissed_at` text,
 	`created_at` text NOT NULL,
 	`updated_at` text NOT NULL
 );

@@ -4,12 +4,14 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { resolveLogin } from "@/lib/auth/login";
+import { registerCompany } from "@/lib/auth/signup";
 import { clearSession, getSession, setSession } from "@/lib/auth/session";
 import { receiptAutoPostAllowed } from "@/lib/ai/receipt";
 import { parseMoneyToCents } from "@/lib/money";
 import { supabaseAuthConfigured } from "@/lib/supabase/env";
 import { supabasePasswordAuth } from "@/lib/supabase/password";
 import { ServiceError } from "@/lib/services/errors";
+import { addStarterPriceBook, setSetupDismissed } from "@/lib/services/onboarding";
 import {
   addCost,
   addPortalMessage,
@@ -79,6 +81,29 @@ export async function loginAction(_prev: ActionState, formData: FormData): Promi
     auth: supabaseAuthConfigured() ? await supabasePasswordAuth() : undefined,
   });
   if (!result.ok) return { error: result.error };
+  await setSession(result.actor);
+  redirect("/");
+}
+
+export async function signupAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const result = await registerCompany(
+    {
+      ownerName: String(formData.get("ownerName") || ""),
+      email: String(formData.get("email") || ""),
+      password: String(formData.get("password") || ""),
+      companyName: String(formData.get("companyName") || ""),
+      trade: String(formData.get("trade") || ""),
+      state: String(formData.get("state") || ""),
+      starter: formData.get("starter") === "on",
+    },
+    {
+      env: process.env,
+      ip: await requestIp(),
+      auth: supabaseAuthConfigured() ? await supabasePasswordAuth() : undefined,
+    },
+  );
+  if (result.status === "error") return { error: result.error };
+  if (result.status === "confirm") return { ok: result.message };
   await setSession(result.actor);
   redirect("/");
 }
@@ -498,10 +523,12 @@ export async function portalMessageAction(portalToken: string, _prev: ActionStat
 export async function settingsAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
   try {
     const user = await actor();
+    const license = formData.get("license");
     updateOrgSettings(user, {
       marginAlertBps: Math.round(Number(formData.get("margin") || 20) * 100),
       defaultMarkupBps: Math.round(Number(formData.get("markup") || 35) * 100),
       cardEnabled: formData.get("cards") === "on",
+      ...(license == null ? {} : { licenseNumber: String(license) }),
     });
     revalidatePath("/settings");
     return { ok: "Settings saved." };
@@ -514,6 +541,34 @@ async function photoUpload(formData: FormData) {
   const file = formData.get("photo");
   if (!(file instanceof File) || file.size === 0) return null;
   return { filename: file.name || "photo.jpg", bytes: Buffer.from(await file.arrayBuffer()) };
+}
+
+export async function dismissSetupAction() {
+  const user = await actor();
+  setSetupDismissed(user, true);
+  revalidatePath("/");
+  revalidatePath("/settings");
+  revalidatePath("/more");
+}
+
+export async function restoreSetupAction() {
+  const user = await actor();
+  setSetupDismissed(user, false);
+  revalidatePath("/");
+  revalidatePath("/settings");
+  revalidatePath("/more");
+}
+
+export async function seedStarterAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    addStarterPriceBook(user, String(formData.get("trade") || ""));
+    revalidatePath("/price-book");
+    revalidatePath("/");
+    return { ok: "Starter price book added. Edit the prices before you send a proposal." };
+  } catch (error) {
+    return failure(error);
+  }
 }
 
 export async function feedbackAction(_prev: ActionState, formData: FormData): Promise<ActionState> {

@@ -30,7 +30,9 @@ export function CopilotPanel({ question, result }: { question: string; result: C
         <section className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
           <p className="text-xs uppercase tracking-wide text-muted-foreground">{result.tool ?? "no tool"}</p>
           <p className="mt-1 font-heading text-2xl">{result.answer}</p>
-          {result.rows.length === 0 ? <p className="mt-3 text-sm text-muted-foreground">No rows for that question.</p> : null}
+          {result.rows.length === 0 ? (
+            <p className="mt-3 text-sm text-muted-foreground">No rows for that question. The records this company has do not match it.</p>
+          ) : null}
           <ul className="mt-4 divide-y divide-border">
             {result.rows.map((row) => (
               <li key={`${row.label}-${row.detail}`} className="flex items-start justify-between gap-3 py-2 text-sm">

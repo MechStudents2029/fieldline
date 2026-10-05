@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { loginAction } from "@/app/actions";
 import { ActionForm } from "@/components/action-form";
@@ -41,6 +42,12 @@ export default async function LoginPage() {
             Enter the office
           </Button>
         </ActionForm>
+        <p className="mt-4 text-sm">
+          <Link href="/start" className="font-medium underline">
+            Start a new company
+          </Link>
+          <span className="text-muted-foreground"> — empty office, no Rivera jobs.</span>
+        </p>
         <ul className="mt-5 space-y-2 text-sm">
           {people.map((person) => (
             <li key={person.email} className="flex items-baseline justify-between gap-3 border-t border-border pt-2">

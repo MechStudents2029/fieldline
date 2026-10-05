@@ -1,10 +1,13 @@
 import Link from "next/link";
 import { completeTaskAction } from "@/app/actions";
+import { EmptyState } from "@/components/empty-state";
+import { SetupChecklist } from "@/components/setup-checklist";
 import { Button } from "@/components/ui/button";
 import { requireSession } from "@/lib/auth/session";
 import { formatDate } from "@/lib/format";
 import { formatBps, formatMoney } from "@/lib/money";
-import { canSeeMoney } from "@/lib/permissions";
+import { canManageSettings, canSeeMoney } from "@/lib/permissions";
+import { companyChecklist } from "@/lib/services/onboarding";
 import { dashboard, leadDetail, pendingReceipts } from "@/lib/services/read";
 
 export default async function TodayPage() {
@@ -14,12 +17,31 @@ export default async function TodayPage() {
   const vasquez = leadDetail(session.orgId, "lead_vasquez");
   const vasquezOpen = vasquez && !vasquez.proposals.some((proposal) => proposal.status === "signed");
   const receipts = money ? pendingReceipts(session.orgId) : [];
+  const checklist = companyChecklist(session.orgId);
+  const quiet =
+    data.openLeadCount === 0 &&
+    data.openInvoiceCount === 0 &&
+    data.tasks.length === 0 &&
+    data.drafts.length === 0 &&
+    data.marginAlerts.length === 0 &&
+    data.unsigned.length === 0;
   return (
     <div className="flex flex-col gap-6">
       <div>
         <h1 className="font-heading text-3xl">Today</h1>
         <p className="text-sm text-muted-foreground">Open work for {session.orgName}.</p>
       </div>
+      {checklist && !checklist.facts.dismissed ? (
+        <SetupChecklist steps={checklist.steps} canDismiss={canManageSettings(session.role)} />
+      ) : null}
+      {quiet ? (
+        <EmptyState
+          title="Nothing on the board yet"
+          why="Today lists open deals, invoices waiting on payment, and tasks for this company. A new company has none of those yet."
+          href="/leads/new"
+          action="Add a lead"
+        />
+      ) : null}
       {vasquezOpen ? (
         <Link href="/leads/lead_vasquez" className="rounded-2xl bg-primary px-5 py-4 text-primary-foreground">
           <p className="text-xs uppercase tracking-wide opacity-80">Continue the walkthrough</p>

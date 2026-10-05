@@ -53,7 +53,14 @@ export default async function EstimatePage({ params }: { params: Promise<{ id: s
           </div>
         </div>
         {under ? <p className="mt-2 text-sm">This draft is under the margin target. Edit lines or override when you send.</p> : null}
-        {detail.lines.length === 0 ? <p className="mt-2 text-sm text-muted-foreground">No lines yet. Add one below, then send the proposal.</p> : null}
+        {detail.lines.length === 0 ? (
+          <p className="mt-2 text-sm text-muted-foreground">
+            No lines yet. Lines are the priced items the client will see. This estimate is empty because nothing has been added from the price book.{" "}
+            <a href="#add-line" className="underline">
+              Add a line
+            </a>
+          </p>
+        ) : null}
       </section>
       {review.length > 0 ? (
         <section className="rounded-xl bg-accent p-4 ring-1 ring-copper/40">
@@ -132,7 +139,7 @@ export default async function EstimatePage({ params }: { params: Promise<{ id: s
         </section>
       ))}
       {!detail.locked ? (
-        <section className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
+        <section id="add-line" className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
           <h2 className="font-medium">Add a line</h2>
           <ActionForm action={addLineAction.bind(null, detail.estimate.id)} className="mt-2 grid gap-2 sm:grid-cols-3">
             <input name="name" placeholder="Line name" className="field sm:col-span-3" />

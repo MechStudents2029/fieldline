@@ -1,5 +1,6 @@
 import { approveDraftAction, dismissDraftAction } from "@/app/actions";
 import { ActionForm } from "@/components/action-form";
+import { EmptyState } from "@/components/empty-state";
 import { Button } from "@/components/ui/button";
 import { requireSession } from "@/lib/auth/session";
 import { listDrafts } from "@/lib/services/read";
@@ -30,9 +31,12 @@ export default async function FollowUpsPage({ searchParams }: { searchParams: Pr
         </p>
       ) : null}
       {pending.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          No drafts waiting. A viewed proposal is drafted after 1 day. One that was never opened waits 3 days. Quiet leads wait 5 days. Nothing sends until you approve it.
-        </p>
+        <EmptyState
+          title="No follow-ups waiting"
+          why="Drafts show up here after a proposal sits unopened or a lead goes quiet. A viewed proposal is drafted after 1 day, an unopened one after 3 days, and a quiet lead after 5 days. Nothing sends until you approve it. This company has no drafts yet."
+          href="/leads/new"
+          action="Add a lead"
+        />
       ) : null}
       {pending.map((draft) => (
         <article key={draft.id} className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">

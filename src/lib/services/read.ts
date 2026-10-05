@@ -69,6 +69,7 @@ export function listLoginChoices() {
     .from(users)
     .innerJoin(memberships, eq(memberships.userId, users.id))
     .innerJoin(organizations, eq(organizations.id, memberships.orgId))
+    .where(like(users.email, "%.demo"))
     .orderBy(asc(organizations.name), asc(users.name))
     .all();
 }

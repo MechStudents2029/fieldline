@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { EmptyState } from "@/components/empty-state";
 import { Button } from "@/components/ui/button";
 import { requireSession } from "@/lib/auth/session";
 import { listContacts } from "@/lib/services/read";
@@ -7,6 +8,7 @@ export default async function ContactsPage({ searchParams }: { searchParams: Pro
   const session = await requireSession();
   const query = await searchParams;
   const rows = listContacts(session.orgId, query.q, query.type);
+  const filtered = Boolean(query.q?.trim() || query.type);
   return (
     <div className="flex flex-col gap-4">
       <h1 className="font-heading text-3xl">Contacts</h1>
@@ -28,7 +30,15 @@ export default async function ContactsPage({ searchParams }: { searchParams: Pro
           Search
         </Button>
       </form>
-      {rows.length === 0 ? <p className="text-sm text-muted-foreground">No contacts match.</p> : null}
+      {rows.length === 0 && filtered ? <p className="text-sm text-muted-foreground">No contacts match.</p> : null}
+      {rows.length === 0 && !filtered ? (
+        <EmptyState
+          title="No contacts yet"
+          why="Clients, subs, and vendors show up here. A contact is created when you add a lead. This company has none yet."
+          href="/leads/new"
+          action="Add a lead"
+        />
+      ) : null}
       <ul className="divide-y divide-border rounded-xl bg-card ring-1 ring-foreground/10">
         {rows.map((contact) => (
           <li key={contact.id}>

@@ -133,6 +133,143 @@ export function fileResponseHeaders(filename: string, body: Buffer): Headers {
   return headers;
 }
 
+export const STARTER_TRADES = ["remodel", "deck", "roofing", "general"] as const;
+export type StarterTrade = (typeof STARTER_TRADES)[number];
+
+export const STARTER_TRADE_LABELS: Record<StarterTrade, string> = {
+  remodel: "Kitchen and bath remodel",
+  deck: "Deck",
+  roofing: "Roofing",
+  general: "General",
+};
+
+export const US_STATES: { code: string; name: string }[] = [
+  ["AL", "Alabama"],
+  ["AK", "Alaska"],
+  ["AZ", "Arizona"],
+  ["AR", "Arkansas"],
+  ["CA", "California"],
+  ["CO", "Colorado"],
+  ["CT", "Connecticut"],
+  ["DE", "Delaware"],
+  ["DC", "District of Columbia"],
+  ["FL", "Florida"],
+  ["GA", "Georgia"],
+  ["HI", "Hawaii"],
+  ["ID", "Idaho"],
+  ["IL", "Illinois"],
+  ["IN", "Indiana"],
+  ["IA", "Iowa"],
+  ["KS", "Kansas"],
+  ["KY", "Kentucky"],
+  ["LA", "Louisiana"],
+  ["ME", "Maine"],
+  ["MD", "Maryland"],
+  ["MA", "Massachusetts"],
+  ["MI", "Michigan"],
+  ["MN", "Minnesota"],
+  ["MS", "Mississippi"],
+  ["MO", "Missouri"],
+  ["MT", "Montana"],
+  ["NE", "Nebraska"],
+  ["NV", "Nevada"],
+  ["NH", "New Hampshire"],
+  ["NJ", "New Jersey"],
+  ["NM", "New Mexico"],
+  ["NY", "New York"],
+  ["NC", "North Carolina"],
+  ["ND", "North Dakota"],
+  ["OH", "Ohio"],
+  ["OK", "Oklahoma"],
+  ["OR", "Oregon"],
+  ["PA", "Pennsylvania"],
+  ["RI", "Rhode Island"],
+  ["SC", "South Carolina"],
+  ["SD", "South Dakota"],
+  ["TN", "Tennessee"],
+  ["TX", "Texas"],
+  ["UT", "Utah"],
+  ["VT", "Vermont"],
+  ["VA", "Virginia"],
+  ["WA", "Washington"],
+  ["WV", "West Virginia"],
+  ["WI", "Wisconsin"],
+  ["WY", "Wyoming"],
+].map(([code, name]) => ({ code, name }));
+
+const STATE_CODES = new Set(US_STATES.map((state) => state.code));
+
+export function isStarterTrade(value: string): value is StarterTrade {
+  return (STARTER_TRADES as readonly string[]).includes(value);
+}
+
+export type SignupFields = {
+  ownerName: string;
+  email: string;
+  password: string;
+  companyName: string;
+  trade: StarterTrade;
+  state: string;
+  starter: boolean;
+};
+
+export function parseSignup(input: {
+  ownerName: string;
+  email: string;
+  password: string;
+  companyName: string;
+  trade: string;
+  state: string;
+  starter: boolean;
+}): { ok: true; value: SignupFields } | { ok: false; error: string } {
+  const ownerName = cleanLabel(input.ownerName, "Your name");
+  if (typeof ownerName !== "string") return ownerName;
+  const companyName = cleanLabel(input.companyName, "Company name");
+  if (typeof companyName !== "string") return companyName;
+  const email = input.email.trim().toLowerCase();
+  if (email.length > 120 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return { ok: false, error: "Enter a valid email." };
+  }
+  if (input.password.length < 8 || input.password.length > 72 || !/\S/.test(input.password)) {
+    return { ok: false, error: "Use a password of 8 to 72 characters." };
+  }
+  if (!isStarterTrade(input.trade)) return { ok: false, error: "Pick a trade." };
+  const state = input.state.trim().toUpperCase();
+  if (!STATE_CODES.has(state)) return { ok: false, error: "Pick a U.S. state." };
+  return {
+    ok: true,
+    value: { ownerName, email, password: input.password, companyName, trade: input.trade, state, starter: input.starter },
+  };
+}
+
+function cleanLabel(value: string, label: string): string | { ok: false; error: string } {
+  const text = value.trim().replace(/\s+/g, " ");
+  if (text.length < 2 || text.length > 80) return { ok: false, error: `${label} must be 2–80 characters.` };
+  if (/[\u0000-\u001f]/.test(text)) return { ok: false, error: `${label} has an invalid character.` };
+  return text;
+}
+
+/** Process-local. A shared demo server resets this when the process restarts. */
+const SIGNUP_WINDOW_MS = 15 * 60 * 1000;
+const SIGNUP_MAX = 5;
+const signupBuckets = new Map<string, { start: number; count: number }>();
+
+export function resetSignupRateLimit() {
+  signupBuckets.clear();
+}
+
+export function signupAllowed(key: string, now = Date.now()): boolean {
+  const normalized = key.trim() || "local";
+  const bucket = signupBuckets.get(normalized);
+  if (!bucket || now - bucket.start >= SIGNUP_WINDOW_MS) {
+    signupBuckets.set(normalized, { start: now, count: 1 });
+    return true;
+  }
+  if (bucket.count >= SIGNUP_MAX) return false;
+  bucket.count += 1;
+  return true;
+}
+
 export function receiptUploadError(filename: string, text: string): string | null {
   if (text.length > MAX_UPLOAD_CHARS) return "Receipt files must be 1 MB or smaller.";
   const base = path.basename(filename).toLowerCase();

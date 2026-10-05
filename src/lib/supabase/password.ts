@@ -12,5 +12,22 @@ export async function supabasePasswordAuth(): Promise<PasswordAuth> {
     async signOut() {
       await supabase.auth.signOut();
     },
+    async signUp({ email, password, name }) {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: { data: { name } },
+      });
+      if (error || !data.user) return { ok: false as const, error: error?.message || "Sign-up failed." };
+      if (Array.isArray(data.user.identities) && data.user.identities.length === 0) {
+        return { ok: false as const, error: "That email is already registered. Sign in instead." };
+      }
+      return {
+        ok: true as const,
+        userId: data.user.id,
+        email: data.user.email || email,
+        confirmed: Boolean(data.session),
+      };
+    },
   };
 }

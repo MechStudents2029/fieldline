@@ -1,9 +1,10 @@
-import { settingsAction } from "@/app/actions";
+import { restoreSetupAction, settingsAction } from "@/app/actions";
 import { ActionForm } from "@/components/action-form";
 import { Button } from "@/components/ui/button";
 import { requireSession } from "@/lib/auth/session";
 import { supabaseAuthConfigured } from "@/lib/supabase/env";
 import { canManageSettings, canSeeMoney } from "@/lib/permissions";
+import { companyChecklist } from "@/lib/services/onboarding";
 import { getOrg, integrations, staff } from "@/lib/services/read";
 
 function stripeConnection<T extends { provider: string; status: string; label: string | null }>(connection: T): T {
@@ -38,6 +39,10 @@ export default async function SettingsPage() {
       {canManageSettings(session.role) ? (
         <ActionForm action={settingsAction} className="flex flex-col gap-3 rounded-xl bg-card p-4 ring-1 ring-foreground/10">
           <label className="text-sm">
+            License number
+            <input name="license" defaultValue={org.licenseNumber ?? ""} className="field mt-1" />
+          </label>
+          <label className="text-sm">
             Margin alert (%)
             <input name="margin" defaultValue={(org.marginAlertBps / 100).toFixed(0)} className="field mt-1" />
           </label>
@@ -56,6 +61,20 @@ export default async function SettingsPage() {
       ) : (
         <p className="text-sm text-muted-foreground">Only an owner or admin can change these.</p>
       )}
+      {canManageSettings(session.role) ? (
+        <section className="text-sm">
+          <h2 className="font-medium">Setup checklist</h2>
+          {companyChecklist(session.orgId)?.facts.dismissed ? (
+            <form action={restoreSetupAction} className="mt-2">
+              <button type="submit" className="underline">
+                Show setup checklist
+              </button>
+            </form>
+          ) : (
+            <p className="mt-2 text-muted-foreground">The setup checklist is on Today. You can hide it there.</p>
+          )}
+        </section>
+      ) : null}
       <section>
         <h2 className="font-medium">People</h2>
         <ul className="mt-2 text-sm">

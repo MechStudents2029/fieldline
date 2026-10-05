@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { EmptyState } from "@/components/empty-state";
 import { requireSession } from "@/lib/auth/session";
 import { formatBps, formatMoney } from "@/lib/money";
 import { canSeeMoney } from "@/lib/permissions";
@@ -11,7 +12,14 @@ export default async function ProjectsPage() {
   return (
     <div className="flex flex-col gap-4">
       <h1 className="font-heading text-3xl">Jobs</h1>
-      {rows.length === 0 ? <p className="text-sm text-muted-foreground">Signed proposals show up here with a budget snapshot.</p> : null}
+      {rows.length === 0 ? (
+        <EmptyState
+          title="No jobs yet"
+          why="A job appears when a client signs a proposal. The page then shows the contract and the budget. This company has no signed work yet."
+          href="/leads/new"
+          action="Add a lead"
+        />
+      ) : null}
       <ul className="flex flex-col gap-3">
         {rows.map((row) => (
           <li key={row.project.id}>

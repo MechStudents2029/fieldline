@@ -16,6 +16,7 @@ export const organizations = sqliteTable("organizations", {
   finalBps: integer("final_bps").notNull().default(2000),
   cardEnabled: integer("card_enabled").notNull().default(1),
   termsVersion: text("terms_version").notNull().default("2026-09-01"),
+  setupDismissedAt: text("setup_dismissed_at"),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });

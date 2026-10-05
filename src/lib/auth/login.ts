@@ -2,11 +2,16 @@ import { actorFromAuthUser } from "@/lib/auth/membership";
 import { supabaseAuthConfigured, type Env } from "@/lib/supabase/env";
 import { authenticate, type Actor } from "@/lib/services/read";
 
+export type SignUpResult =
+  | { ok: true; userId: string; email: string; confirmed: boolean }
+  | { ok: false; error: string };
+
 export type PasswordAuth = {
   signInWithPassword(input: { email: string; password: string }): Promise<
     { ok: true; userId: string; email: string } | { ok: false; error: string }
   >;
   signOut(): Promise<void>;
+  signUp?(input: { email: string; password: string; name: string }): Promise<SignUpResult>;
 };
 
 export type LoginResult = { ok: true; actor: Actor } | { ok: false; error: string };

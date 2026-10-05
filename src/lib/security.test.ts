@@ -6,10 +6,13 @@ import {
   demoWebhookAllowed,
   fileResponseHeaders,
   fileVisible,
+  parseSignup,
   photoUploadError,
   readSessionPayload,
   receiptUploadError,
+  resetSignupRateLimit,
   resolveInside,
+  signupAllowed,
   svgDocumentIsSafe,
 } from "@/lib/security";
 
@@ -69,6 +72,30 @@ describe("sessions, files, and uploads", () => {
     expect(headers.get("Content-Type")).toBe("application/octet-stream");
     expect(headers.get("Content-Disposition")).toMatch(/^attachment/);
     expect(headers.get("X-Content-Type-Options")).toBe("nosniff");
+  });
+
+  it("checks a new company and slows repeat signups", () => {
+    expect(
+      parseSignup({
+        ownerName: "Avery Cole",
+        email: " Avery@Cole.Example ",
+        password: "fieldline-test",
+        companyName: "Cole Kitchens",
+        trade: "remodel",
+        state: "ca",
+        starter: true,
+      }),
+    ).toMatchObject({ ok: true, value: { email: "avery@cole.example", state: "CA", trade: "remodel" } });
+    expect(parseSignup({ ownerName: "A", email: "a@b.co", password: "short", companyName: "Co", trade: "remodel", state: "CA", starter: false }).ok).toBe(false);
+    expect(parseSignup({ ownerName: "Avery Cole", email: "not-an-email", password: "fieldline-test", companyName: "Cole Kitchens", trade: "remodel", state: "CA", starter: false })).toMatchObject({ ok: false });
+    expect(parseSignup({ ownerName: "Avery Cole", email: "a@b.co", password: "fieldline-test", companyName: "Cole Kitchens", trade: "spaceship", state: "CA", starter: false })).toMatchObject({ error: "Pick a trade." });
+    expect(parseSignup({ ownerName: "Avery Cole", email: "a@b.co", password: "fieldline-test", companyName: "Cole Kitchens", trade: "deck", state: "ZZ", starter: false })).toMatchObject({ error: "Pick a U.S. state." });
+    resetSignupRateLimit();
+    const now = 1_700_000_000_000;
+    for (let attempt = 0; attempt < 5; attempt += 1) expect(signupAllowed("203.0.113.4", now)).toBe(true);
+    expect(signupAllowed("203.0.113.4", now)).toBe(false);
+    expect(signupAllowed("203.0.113.4", now + 15 * 60 * 1000)).toBe(true);
+    expect(signupAllowed("203.0.113.5", now)).toBe(true);
   });
 
   it("rejects markup and oversized receipt uploads", () => {

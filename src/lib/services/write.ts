@@ -1566,15 +1566,20 @@ export function addPortalMessage(portalToken: string, body: string) {
   log(db, project.orgId, "project", project.id, "email", "Client reply is on the contact timeline.", "contact", project.contactId);
 }
 
-export function updateOrgSettings(actor: Actor, input: { marginAlertBps: number; defaultMarkupBps: number; cardEnabled: boolean }) {
+export function updateOrgSettings(
+  actor: Actor,
+  input: { marginAlertBps: number; defaultMarkupBps: number; cardEnabled: boolean; licenseNumber?: string },
+) {
   if (actor.role !== "owner" && actor.role !== "admin") throw new ServiceError("Only an owner or admin can change company settings.");
   if (input.marginAlertBps < 0 || input.defaultMarkupBps < 0) throw new ServiceError("Percentages cannot be negative.");
+  const license = input.licenseNumber?.trim().slice(0, 80);
   staffDb(actor)
     .update(organizations)
     .set({
       marginAlertBps: input.marginAlertBps,
       defaultMarkupBps: input.defaultMarkupBps,
       cardEnabled: input.cardEnabled ? 1 : 0,
+      ...(input.licenseNumber !== undefined ? { licenseNumber: license || null } : {}),
       updatedAt: nowIso(),
     })
     .where(eq(organizations.id, actor.orgId))

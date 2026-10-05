@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { EmptyState } from "@/components/empty-state";
 import { PipelineBoard } from "@/components/pipeline-board";
 import { Button } from "@/components/ui/button";
 import { requireSession } from "@/lib/auth/session";
@@ -13,6 +14,7 @@ export default async function PipelinePage({
   const session = await requireSession();
   const query = await searchParams;
   const board = pipelineBoard(session.orgId, { q: query.q, source: query.source });
+  const filtered = Boolean(query.q?.trim() || query.source);
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-end justify-between gap-3">
@@ -44,7 +46,15 @@ export default async function PipelinePage({
           Filter
         </Button>
       </form>
-      {board.cards.length === 0 ? <p className="text-sm text-muted-foreground">Nothing matches that search.</p> : null}
+      {board.cards.length === 0 && filtered ? <p className="text-sm text-muted-foreground">Nothing matches that search.</p> : null}
+      {board.cards.length === 0 && !filtered ? (
+        <EmptyState
+          title="No leads in the pipeline"
+          why="Leads you add show up here by stage, from the first call through won or lost. This company has no leads yet."
+          href="/leads/new"
+          action="New lead"
+        />
+      ) : null}
       <PipelineBoard
         showMoney={canSeeMoney(session.role)}
         stages={board.stages.map((stage) => ({ id: stage.id, name: stage.name }))}

@@ -60,6 +60,11 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
         {session.role !== "viewer" ? (
           <PhotoCapture action={leadPhotoAction.bind(null, detail.lead.id)} label="Take an estimate photo" submitLabel="Save site photo" />
         ) : null}
+        {detail.estimates.length === 0 ? (
+          <p className="mt-4 text-sm text-muted-foreground">
+            No estimate yet. An estimate is a priced version of this scope, using your price book. This lead has none yet.
+          </p>
+        ) : null}
         <div className="mt-4 flex flex-wrap gap-2">
           {session.role !== "field" && session.role !== "viewer" ? (
             <ActionForm action={generateEstimateAction.bind(null, detail.lead.id)}>

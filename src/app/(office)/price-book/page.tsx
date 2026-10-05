@@ -1,20 +1,59 @@
+import { seedStarterAction } from "@/app/actions";
+import { ActionForm } from "@/components/action-form";
+import { EmptyState } from "@/components/empty-state";
+import { Button } from "@/components/ui/button";
 import { requireSession } from "@/lib/auth/session";
 import { formatMoney } from "@/lib/money";
-import { canSeeMoney } from "@/lib/permissions";
+import { canManageSettings, canSeeMoney } from "@/lib/permissions";
+import { starterMarkVisible } from "@/lib/services/onboarding";
 import { listPriceBook } from "@/lib/services/read";
+import { STARTER_TRADE_LABELS, STARTER_TRADES } from "@/lib/security";
 
 export default async function PriceBookPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
   const session = await requireSession();
   const query = await searchParams;
   const rows = listPriceBook(session.orgId, query.q);
+  const unfiltered = query.q?.trim() ? listPriceBook(session.orgId) : rows;
   const money = canSeeMoney(session.role);
+  const starter = rows.some((item) => starterMarkVisible(item.vendor));
   return (
     <div className="flex flex-col gap-4">
       <h1 className="font-heading text-3xl">Price book</h1>
       <p className="text-sm text-muted-foreground">Estimates use these unit costs. Markup is applied on the estimate, not stored as the sell price.</p>
+      {starter ? (
+        <p className="text-sm text-copper">Starter rows are sample costs. Edit your prices before you send a proposal.</p>
+      ) : null}
       <form>
-        <input name="q" defaultValue={query.q} placeholder="Search code, name, or trade" className="field" />
+        <input name="q" defaultValue={query.q} placeholder="Search code, name, or trade" className="field" aria-label="Search the price book" />
       </form>
+      {unfiltered.length === 0 ? (
+        <EmptyState
+          title="No prices yet"
+          why="Estimates price from this book. Unit costs are yours to edit. This company has no items yet, and nothing is copied from another company."
+        >
+          {canManageSettings(session.role) ? (
+            <ActionForm action={seedStarterAction} className="flex flex-col gap-3">
+              <label className="text-sm">
+                Starter trade
+                <select name="trade" defaultValue="remodel" className="field mt-1">
+                  {STARTER_TRADES.map((trade) => (
+                    <option key={trade} value={trade}>
+                      {STARTER_TRADE_LABELS[trade]}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <Button type="submit" className="h-11">
+                Add starter price book
+              </Button>
+            </ActionForm>
+          ) : (
+            <p className="text-sm text-muted-foreground">An owner or admin can add a starter book.</p>
+          )}
+        </EmptyState>
+      ) : null}
+      {unfiltered.length > 0 && rows.length === 0 ? <p className="text-sm text-muted-foreground">No price book items match.</p> : null}
+      {rows.length > 0 ? (
       <ul className="divide-y divide-border rounded-xl bg-card ring-1 ring-foreground/10">
         {rows.map((item) => (
           <li key={item.id} className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
@@ -29,6 +68,7 @@ export default async function PriceBookPage({ searchParams }: { searchParams: Pr
           </li>
         ))}
       </ul>
+      ) : null}
     </div>
   );
 }

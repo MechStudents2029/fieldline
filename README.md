@@ -74,6 +74,8 @@ npm run dev
 
 Open [http://127.0.0.1:3847](http://127.0.0.1:3847). The first request creates `data/fieldline.db` and loads the seed. Password for every demo user is `demo`.
 
+To start your own company instead of the demo, open Sign in and choose **Start a new company**. You enter an owner name, email, password, company name, trade, and state. That creates an empty office and an owner login. It does not copy Rivera or Northline. Optionally include a starter price book and edit those prices before you send anything. The demo stays available at `maya@rivera.demo` / `demo`. If Supabase Auth is configured, sign-up uses that project. When the project requires email confirmation, the page says so. Fieldline does not send a second email.
+
 `npm run check` runs lint, the TypeScript check, unit tests, and `next build`. It does not download a browser.
 
 Browser journeys use Playwright against that production build. The first run installs Chromium. Each spec resets a throwaway SQLite file (`e2e/.data`), so the demo database in `data/` is left alone. Stripe, Resend, and the AI gateway stay off for that process.
