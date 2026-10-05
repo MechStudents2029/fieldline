@@ -554,11 +554,55 @@ export const timeEntries = sqliteTable(
     clockOutLatE6: integer("clock_out_lat_e6"),
     clockOutLngE6: integer("clock_out_lng_e6"),
     source: text("source").notNull(),
+    clientEventId: text("client_event_id"),
+    syncedAt: text("synced_at"),
+    anomaly: text("anomaly"),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
     createdBy: text("created_by"),
   },
-  (t) => [index("time_entries_org").on(t.orgId), index("time_entries_user").on(t.orgId, t.userId)],
+  (t) => [
+    index("time_entries_org").on(t.orgId),
+    index("time_entries_user").on(t.orgId, t.userId),
+    uniqueIndex("time_entries_client_event").on(t.clientEventId),
+  ],
+);
+
+/** Idempotency row for one offline punch or log draft. Replay returns result_json. */
+export const syncEvents = sqliteTable(
+  "sync_events",
+  {
+    clientEventId: text("client_event_id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    userId: text("user_id").notNull(),
+    kind: text("kind").notNull(),
+    capturedAt: text("captured_at").notNull(),
+    status: text("status").notNull(),
+    resultJson: text("result_json").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [index("sync_events_org_user").on(t.orgId, t.userId)],
+);
+
+/** Office review queue for punches that synced with a clock, sequence, or job problem. */
+export const timeAnomalies = sqliteTable(
+  "time_anomalies",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    userId: text("user_id").notNull(),
+    clientEventId: text("client_event_id").notNull(),
+    kind: text("kind").notNull(),
+    detail: text("detail").notNull(),
+    capturedAt: text("captured_at").notNull(),
+    projectId: text("project_id"),
+    costCode: text("cost_code"),
+    entryId: text("entry_id"),
+    logId: text("log_id"),
+    resolvedAt: text("resolved_at"),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [index("time_anomalies_org").on(t.orgId), uniqueIndex("time_anomalies_event").on(t.clientEventId)],
 );
 
 export const timeEntryEvents = sqliteTable(

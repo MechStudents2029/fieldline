@@ -253,6 +253,36 @@ create policy time_entry_events_scope on public.time_entry_events
 -- Daily logs are company records. A field member can write their own while it
 -- stays internal. Client visibility is an office change, so a field WITH CHECK
 -- fails if visibility is anything other than internal.
+-- Offline sync receipts and clock anomalies. A field member sees their own rows.
+-- The office (anyone who can see money) sees the company. No rates are stored here.
+alter table public.sync_events enable row level security;
+drop policy if exists sync_events_scope on public.sync_events;
+create policy sync_events_scope on public.sync_events
+  for all
+  to authenticated
+  using (
+    org_id in (select public.current_org_ids())
+    and (public.can_see_money(org_id) or user_id = public.current_user_id())
+  )
+  with check (
+    org_id in (select public.current_org_ids())
+    and (public.can_see_money(org_id) or user_id = public.current_user_id())
+  );
+
+alter table public.time_anomalies enable row level security;
+drop policy if exists time_anomalies_scope on public.time_anomalies;
+create policy time_anomalies_scope on public.time_anomalies
+  for all
+  to authenticated
+  using (
+    org_id in (select public.current_org_ids())
+    and (public.can_see_money(org_id) or user_id = public.current_user_id())
+  )
+  with check (
+    org_id in (select public.current_org_ids())
+    and (public.can_see_money(org_id) or user_id = public.current_user_id())
+  );
+
 alter table public.daily_logs enable row level security;
 drop policy if exists daily_logs_member on public.daily_logs;
 drop policy if exists daily_logs_scope on public.daily_logs;

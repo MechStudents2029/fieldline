@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { logPhotoAction, saveLogAction, shareLogAction, voidLogAction } from "@/app/actions";
 import { ActionForm } from "@/components/action-form";
+import { LogDraftSaver } from "@/components/log-draft-saver";
 import { JobTabs } from "@/components/job-tabs";
 import { MissingRecord } from "@/components/missing-record";
 import { PhotoCapture } from "@/components/photo-capture";
@@ -48,7 +49,7 @@ export default async function DailyLogPage({ params }: { params: Promise<{ id: s
         </ul>
       </section>
       {detail.canEdit ? (
-        <ActionForm action={saveLogAction.bind(null, log.id)} className="flex flex-col gap-3 rounded-xl bg-card p-4 ring-1 ring-foreground/10">
+        <LogDraftSaver action={saveLogAction.bind(null, log.id)} scope={{ orgId: session.orgId, userId: session.userId }} projectId={log.projectId}>
           <label className="text-sm">
             Notes
             <textarea name="notes" rows={4} required={log.status === "published"} defaultValue={log.notes ?? ""} className="field mt-1" placeholder="What got done" />
@@ -113,7 +114,7 @@ export default async function DailyLogPage({ params }: { params: Promise<{ id: s
               Publish log
             </Button>
           ) : null}
-        </ActionForm>
+        </LogDraftSaver>
       ) : (
         <article className="rounded-xl bg-card p-4 text-sm ring-1 ring-foreground/10">
           <p className="whitespace-pre-wrap">{log.notes}</p>
@@ -125,6 +126,7 @@ export default async function DailyLogPage({ params }: { params: Promise<{ id: s
       {log.status !== "void" ? (
         <section className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
           <h2 className="font-medium">Photos</h2>
+          <p className="mt-1 text-xs text-muted-foreground">Photos need a connection. They are not saved on this phone.</p>
           <ul className="mt-2 space-y-2 text-sm">
             {detail.photos.map((photo) => (
               <li key={photo.id}>

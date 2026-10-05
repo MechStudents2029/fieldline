@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { logoutAction, restoreSetupAction } from "@/app/actions";
+import { restoreSetupAction } from "@/app/actions";
+import { SignOutButton } from "@/components/sign-out-button";
 import { requireSession } from "@/lib/auth/session";
 import { canManageSettings } from "@/lib/permissions";
 import { companyChecklist } from "@/lib/services/onboarding";
@@ -45,9 +46,7 @@ export default async function MorePage() {
           <p className="text-sm text-muted-foreground">The setup checklist is on Today.</p>
         )
       ) : null}
-      <form action={logoutAction}>
-        <button className="text-sm text-muted-foreground underline">Sign out</button>
-      </form>
+      <SignOutButton scope={{ orgId: session.orgId, userId: session.userId }} className="text-sm text-muted-foreground underline" />
     </div>
   );
 }

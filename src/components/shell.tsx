@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { logoutAction } from "@/app/actions";
 import { FeedbackDialog } from "@/components/feedback-dialog";
 import { OfflineBanner } from "@/components/offline-banner";
+import { SignOutButton } from "@/components/sign-out-button";
 import { cn } from "cn";
 
 const links = [
@@ -35,11 +35,15 @@ export function Shell({
   orgName,
   userName,
   role,
+  orgId,
+  userId,
   children,
 }: {
   orgName: string;
   userName: string;
   role: string;
+  orgId: string;
+  userId: string;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -75,11 +79,11 @@ export function Shell({
             </Link>
           ))}
         </nav>
-        <form action={logoutAction}>
-          <button className="w-full rounded-lg px-3 py-2 text-left text-sm text-muted-foreground hover:bg-muted">
-            Sign out
-          </button>
-        </form>
+        <span id="fieldline-office-shell" hidden />
+        <SignOutButton
+          scope={{ orgId, userId }}
+          className="w-full rounded-lg px-3 py-2 text-left text-sm text-muted-foreground hover:bg-muted"
+        />
       </aside>
       <div className="md:pl-60">
         <header className="sticky top-0 z-10 border-b border-border bg-background/90 px-4 py-3 backdrop-blur md:px-8">

@@ -1,5 +1,8 @@
-import { approveTimeAction, breakAction, editTimeAction, laborRateAction, manualTimeAction, reopenTimeAction, switchJobAction, voidTimeAction } from "@/app/actions";
+import { approveTimeAction, editTimeAction, laborRateAction, manualTimeAction, reopenTimeAction, voidTimeAction } from "@/app/actions";
 import { ActionForm } from "@/components/action-form";
+import { OfflineBridge } from "@/components/offline-bridge";
+import { PendingPunches } from "@/components/offline-clock";
+import { ShiftForms } from "@/components/shift-forms";
 import { ClockInForm, ClockOutForm } from "@/components/time-clock";
 import { Button } from "@/components/ui/button";
 import { requireSession } from "@/lib/auth/session";
@@ -44,6 +47,25 @@ export default async function TimePage() {
       </section>
       {canAddFieldNotes(session.role) ? (
         <section className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
+          <OfflineBridge
+            scope={{ orgId: session.orgId, userId: session.userId }}
+            timeZone={board.timeZone}
+            weekStartsOn={board.weekStartsOn}
+            jobs={board.jobs}
+            codes={board.codes}
+            open={
+              open
+                ? {
+                    projectId: open.projectId,
+                    projectName: board.jobs.find((job) => job.id === open.projectId)?.name ?? "Job",
+                    costCode: open.costCode,
+                    status: open.status === "break" ? "break" : "open",
+                    clockInAt: open.clockInAt,
+                  }
+                : null
+            }
+          />
+          <PendingPunches />
           {open ? (
             <div className="flex flex-col gap-3">
               <p className="text-sm">
@@ -51,40 +73,18 @@ export default async function TimePage() {
                 {open.status === "break" ? " · on break" : ""}
               </p>
               <p className="text-xs text-muted-foreground">Since {formatDateTime(open.clockInAt, board.timeZone)}</p>
-              <ClockOutForm />
-              <ActionForm action={breakAction.bind(null, open.status === "break" ? "end" : "start")}>
-                <Button type="submit" variant="outline" className="h-12 w-full">
-                  {open.status === "break" ? "End break" : "Start break"}
-                </Button>
-              </ActionForm>
-              <ActionForm action={switchJobAction} className="flex flex-col gap-2">
-                <label className="text-sm">
-                  Switch to job
-                  <select name="projectId" className="field mt-1" defaultValue={open.projectId}>
-                    {board.jobs.map((job) => (
-                      <option key={job.id} value={job.id}>
-                        {job.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="text-sm">
-                  Switch to cost code
-                  <select name="costCode" className="field mt-1" defaultValue={open.costCode}>
-                    {board.codes.map((code) => (
-                      <option key={code} value={code}>
-                        {code}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <Button type="submit" variant="outline" className="h-12">
-                  Switch job
-                </Button>
-              </ActionForm>
+              <ClockOutForm scope={{ orgId: session.orgId, userId: session.userId }} />
+              <ShiftForms
+                scope={{ orgId: session.orgId, userId: session.userId }}
+                onBreak={open.status === "break"}
+                jobs={board.jobs}
+                codes={board.codes}
+                projectId={open.projectId}
+                costCode={open.costCode}
+              />
             </div>
           ) : (
-            <ClockInForm jobs={board.jobs} codes={board.codes} />
+            <ClockInForm jobs={board.jobs} codes={board.codes} scope={{ orgId: session.orgId, userId: session.userId }} />
           )}
         </section>
       ) : (

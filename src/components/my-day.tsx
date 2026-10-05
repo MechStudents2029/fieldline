@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { startLogAction } from "@/app/actions";
+import { OfflineBridge } from "@/components/offline-bridge";
+import { PendingPunches } from "@/components/offline-clock";
 import { ClockInForm, ClockOutForm } from "@/components/time-clock";
 import { Button } from "@/components/ui/button";
 import { formatDateTime } from "@/lib/format";
@@ -17,6 +19,15 @@ export function MyDay({ actor }: { actor: Actor }) {
           Where you are, the clock, and today’s log. {day.timeZone}. Week starts {weekdayName(day.weekStartsOn)}.
         </p>
       </div>
+      <OfflineBridge
+        scope={{ orgId: actor.orgId, userId: actor.userId }}
+        timeZone={day.timeZone}
+        weekStartsOn={day.weekStartsOn}
+        jobs={day.clockJobs}
+        codes={day.codes}
+        open={day.open ? { ...day.open, status: day.open.status === "break" ? "break" : "open" } : null}
+      />
+      <PendingPunches />
       <section className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
         {day.open ? (
           <div className="flex flex-col gap-3">
@@ -25,7 +36,7 @@ export function MyDay({ actor }: { actor: Actor }) {
               {day.open.status === "break" ? " · on break" : ""}
             </p>
             <p className="text-xs text-muted-foreground">Since {formatDateTime(day.open.clockInAt, day.timeZone)}</p>
-            <ClockOutForm compact />
+            <ClockOutForm compact scope={{ orgId: actor.orgId, userId: actor.userId }} />
             <form action={startLogAction.bind(null, day.open.projectId)}>
               <Button type="submit" className="h-14 w-full text-base">
                 {day.todayLogId ? "Continue today's log" : "Start today's log"}
@@ -38,7 +49,7 @@ export function MyDay({ actor }: { actor: Actor }) {
         ) : (
           <div className="flex flex-col gap-3">
             <p className="text-sm">You are not clocked in.</p>
-            <ClockInForm jobs={day.clockJobs} codes={day.codes} />
+            <ClockInForm jobs={day.clockJobs} codes={day.codes} scope={{ orgId: actor.orgId, userId: actor.userId }} />
             <p className="text-sm text-muted-foreground">Clock in to start today’s log for that job.</p>
           </div>
         )}

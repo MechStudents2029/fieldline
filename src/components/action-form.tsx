@@ -7,14 +7,18 @@ export function ActionForm({
   action,
   children,
   className,
+  onSubmit,
+  id,
 }: {
   action: (state: ActionState, formData: FormData) => Promise<ActionState>;
   children: React.ReactNode;
   className?: string;
+  onSubmit?: (event: React.FormEvent<HTMLFormElement>) => void;
+  id?: string;
 }) {
   const [state, formAction, pending] = useActionState(action, null);
   return (
-    <form action={formAction} className={className} aria-busy={pending}>
+    <form id={id} action={formAction} onSubmit={onSubmit} className={className} aria-busy={pending}>
       {children}
       {state?.error ? (
         <p role="alert" className="text-sm text-destructive">

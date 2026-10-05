@@ -2,6 +2,13 @@
 
 ## 2026-10-05
 
+### Offline time clock
+
+- A crew member who opened My day or Time while online can clock in, start or end a break, switch job and cost code, and clock out with no signal. Each punch is written to IndexedDB at the moment of the tap, with a client id and the phone's clock. The screen says it is saved on the phone and will sync. A dropped punch is not silent.
+- When the phone can reach Fieldline again, the oldest punches go up in a batch. The server keeps the capture time as the punch time and stores a separate sync time. Sending the same batch twice does not create a second punch. A phone clock more than two minutes off, a future time, or a punch older than seven days is kept and listed under Time anomalies for the office. So is a clock-out with no open punch, an overlapping clock-in, a punch inside approved time, or a job or cost code that was removed before sync.
+- If the session expired or the person can no longer clock in, the phone keeps the queue and asks them to sign in again. It will not sync those punches under a different person or company. Signing out warns when punches are still only on the phone, then clears that person's queue.
+- Daily log notes autosave on the phone while offline and post as a draft later. Photos, manual time, approvals, and office edits stay online. The offline banner says which of those work. The cached clock page has no names, rates, or another company's data. The service worker still does not cache API responses or office pages.
+
 ### Company time zone
 
 - Each company has an IANA time zone and a workweek start day. Rivera is America/New_York. Northline is America/Los_Angeles. A new company takes the browser zone and starts the week on Monday. An owner or admin changes both in Settings. The change writes a before/after audit row and does not move stored clock times.

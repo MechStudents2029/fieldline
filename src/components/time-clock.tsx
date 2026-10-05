@@ -3,45 +3,72 @@
 import { useActionState, useRef, useState } from "react";
 import { clockInAction, clockOutAction, type ActionState } from "@/app/actions";
 import { Button } from "@/components/ui/button";
+import { enqueuePunch, probeOrigin, type Scope } from "@/lib/offline/browser";
 
-function usePunch(action: (state: ActionState, formData: FormData) => Promise<ActionState>) {
+function usePunch(action: (state: ActionState, formData: FormData) => Promise<ActionState>, scope: Scope | undefined, kind: "clock_in" | "clock_out") {
   const [state, formAction, pending] = useActionState(action, null);
-  const armed = useRef(false);
-  const [locNote, setLocNote] = useState("");
+  const [local, setLocal] = useState("");
+  const located = useRef(false);
+  const bypass = useRef(false);
 
-  function onSubmit(event: React.FormEvent<HTMLFormElement>) {
+  async function onSubmit(event: React.FormEvent<HTMLFormElement>) {
     const form = event.currentTarget;
     const include = (form.elements.namedItem("includeLocation") as HTMLInputElement | null)?.checked;
-    if (!include || armed.current) {
-      armed.current = false;
-      return;
-    }
-    event.preventDefault();
-    if (!navigator.geolocation) {
-      setLocNote("Location was not saved. The punch still goes through.");
-      armed.current = true;
+    if (include && !located.current) {
+      event.preventDefault();
+      await new Promise<void>((resolve) => {
+        if (!navigator.geolocation) {
+          setLocal("Location was not saved. The punch still goes through.");
+          resolve();
+          return;
+        }
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            const lat = form.elements.namedItem("lat") as HTMLInputElement | null;
+            const lng = form.elements.namedItem("lng") as HTMLInputElement | null;
+            if (lat) lat.value = String(position.coords.latitude);
+            if (lng) lng.value = String(position.coords.longitude);
+            resolve();
+          },
+          () => {
+            setLocal("Location was not saved. The punch still goes through.");
+            resolve();
+          },
+          { enableHighAccuracy: false, maximumAge: 0, timeout: 8000 },
+        );
+      });
+      located.current = true;
       form.requestSubmit();
       return;
     }
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const lat = form.elements.namedItem("lat") as HTMLInputElement | null;
-        const lng = form.elements.namedItem("lng") as HTMLInputElement | null;
-        if (lat) lat.value = String(position.coords.latitude);
-        if (lng) lng.value = String(position.coords.longitude);
-        armed.current = true;
-        form.requestSubmit();
-      },
-      () => {
-        setLocNote("Location was not saved. The punch still goes through.");
-        armed.current = true;
-        form.requestSubmit();
-      },
-      { enableHighAccuracy: false, maximumAge: 0, timeout: 8000 },
-    );
+    located.current = false;
+    if (bypass.current) {
+      bypass.current = false;
+      return;
+    }
+    if (!scope) return;
+    event.preventDefault();
+    const online = await probeOrigin();
+    if (online) {
+      bypass.current = true;
+      form.requestSubmit();
+      return;
+    }
+    const data = new FormData(form);
+    const capturedAt = new Date().toISOString();
+    await enqueuePunch(scope, {
+      kind,
+      capturedAt,
+      projectId: String(data.get("projectId") || ""),
+      costCode: String(data.get("costCode") || ""),
+      note: String(data.get("note") || ""),
+      lat: String(data.get("lat") || ""),
+      lng: String(data.get("lng") || ""),
+    });
+    setLocal("Saved on this phone, will sync");
   }
 
-  return { state, formAction, pending, onSubmit, locNote };
+  return { state, formAction, pending, onSubmit, local };
 }
 
 function LocationFields({ locNote }: { locNote: string }) {
@@ -62,7 +89,7 @@ function LocationFields({ locNote }: { locNote: string }) {
   );
 }
 
-function Status({ state, pending }: { state: ActionState; pending: boolean }) {
+function Status({ state, pending, local }: { state: ActionState; pending: boolean; local: string }) {
   return (
     <>
       {state?.error ? (
@@ -75,13 +102,18 @@ function Status({ state, pending }: { state: ActionState; pending: boolean }) {
           {state.ok}
         </p>
       ) : null}
+      {local ? (
+        <p role="status" className="text-sm text-pine">
+          {local}
+        </p>
+      ) : null}
       {pending ? <p className="text-xs text-muted-foreground">Working…</p> : null}
     </>
   );
 }
 
-export function ClockInForm({ jobs, codes }: { jobs: { id: string; name: string }[]; codes: string[] }) {
-  const punch = usePunch(clockInAction);
+export function ClockInForm({ jobs, codes, scope }: { jobs: { id: string; name: string }[]; codes: string[]; scope?: Scope }) {
+  const punch = usePunch(clockInAction, scope, "clock_in");
   return (
     <form action={punch.formAction} onSubmit={punch.onSubmit} className="flex flex-col gap-3">
       <label className="text-sm">
@@ -104,17 +136,17 @@ export function ClockInForm({ jobs, codes }: { jobs: { id: string; name: string 
           ))}
         </select>
       </label>
-      <LocationFields locNote={punch.locNote} />
+      <LocationFields locNote={punch.local.startsWith("Location") ? punch.local : ""} />
       <Button type="submit" className="h-14 text-base">
         Clock in
       </Button>
-      <Status state={punch.state} pending={punch.pending} />
+      <Status state={punch.state} pending={punch.pending} local={punch.local.startsWith("Saved") ? punch.local : ""} />
     </form>
   );
 }
 
-export function ClockOutForm({ compact = false }: { compact?: boolean }) {
-  const punch = usePunch(clockOutAction);
+export function ClockOutForm({ compact = false, scope }: { compact?: boolean; scope?: Scope }) {
+  const punch = usePunch(clockOutAction, scope, "clock_out");
   return (
     <form action={punch.formAction} onSubmit={punch.onSubmit} className="flex flex-col gap-3">
       {compact ? null : (
@@ -123,11 +155,11 @@ export function ClockOutForm({ compact = false }: { compact?: boolean }) {
           <textarea name="note" rows={2} className="field mt-1" placeholder="Optional" />
         </label>
       )}
-      {compact ? null : <LocationFields locNote={punch.locNote} />}
+      {compact ? null : <LocationFields locNote={punch.local.startsWith("Location") ? punch.local : ""} />}
       <Button type="submit" className="h-14 w-full text-base">
         Clock out
       </Button>
-      <Status state={punch.state} pending={punch.pending} />
+      <Status state={punch.state} pending={punch.pending} local={punch.local.startsWith("Saved") ? punch.local : ""} />
     </form>
   );
 }

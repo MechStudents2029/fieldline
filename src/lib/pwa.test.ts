@@ -35,10 +35,10 @@ describe("installable shell", () => {
     expect(read("src/app/layout.tsx")).toContain("/apple-touch-icon.png");
   });
 
-  it("registers a service worker that listens for fetch and skips documents", () => {
+  it("registers a service worker that caches only the offline clock document", () => {
     const worker = read("public/sw.js");
     expect(read("src/components/register-pwa.tsx")).toContain('serviceWorker.register("/sw.js")');
-    expect(worker).toContain("fieldline-shell-v1");
+    expect(worker).toContain("fieldline-shell-v2");
     expect(worker).toContain("skipWaiting");
     expect(worker).toContain("clients.claim");
     expect(worker).toContain('addEventListener("fetch"');
@@ -46,6 +46,12 @@ describe("installable shell", () => {
     expect(worker).toContain('"/api/"');
     expect(worker).toContain('"_rsc"');
     expect(worker).toContain("text/html");
+    expect(worker).toContain("fieldline-offline-shell");
+    expect(worker).toContain("fieldline-office-shell");
+    expect(worker).toContain('"/offline"');
+    expect(read("src/app/offline/page.tsx")).toContain("fieldline-offline-shell");
+    expect(read("src/lib/offline/browser.ts")).not.toContain("hourly");
+    expect(read("src/lib/offline/browser.ts")).not.toContain("localStorage");
   });
 
   it("opens the rear camera on job and estimate photos, not on text receipts", () => {
@@ -56,6 +62,8 @@ describe("installable shell", () => {
     expect(read("src/app/(office)/projects/[id]/page.tsx")).toContain("Take a job photo");
     expect(read("src/app/(office)/estimates/[id]/page.tsx")).toContain("Take an estimate photo");
     expect(read("src/components/receipt-capture.tsx")).not.toContain("capture=");
-    expect(read("src/components/offline-banner.tsx")).toContain("You're offline — changes may not save");
+    expect(read("src/components/offline-banner.tsx")).toContain(
+      "You're offline. Clock in, breaks, job switches, clock out, and daily log notes save on this phone and sync later. Photos, approvals, and manual time stay online.",
+    );
   });
 });

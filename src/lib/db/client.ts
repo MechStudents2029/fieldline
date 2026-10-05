@@ -90,6 +90,7 @@ export function ensureReady(holder: Holder) {
   ensureTeamInvites(holder);
   ensureTimeTables(holder);
   ensureDailyLogs(holder);
+  ensureSyncSchema(holder);
   const version = holder.sqlite.prepare("select value from app_meta where key = ?").get("seed_version") as
     | { value: string }
     | undefined;
@@ -273,12 +274,16 @@ function ensureTimeTables(holder: Holder) {
           clock_out_lat_e6 integer,
           clock_out_lng_e6 integer,
           source text not null,
+          client_event_id text,
+          synced_at text,
+          anomaly text,
           created_at text not null,
           updated_at text not null,
           created_by text
         );
         create index if not exists time_entries_org on time_entries (org_id);
         create index if not exists time_entries_user on time_entries (org_id, user_id);
+        create unique index if not exists time_entries_client_event on time_entries (client_event_id);
         create table if not exists time_entry_events (
           id text primary key,
           org_id text not null,
@@ -332,12 +337,16 @@ function ensureTimeTables(holder: Holder) {
           clock_out_lat_e6 integer,
           clock_out_lng_e6 integer,
           source text not null,
+          client_event_id text,
+          synced_at text,
+          anomaly text,
           created_at text not null,
           updated_at text not null,
           created_by text
         );
         create index if not exists time_entries_org on time_entries (org_id);
         create index if not exists time_entries_user on time_entries (org_id, user_id);
+        create unique index if not exists time_entries_client_event on time_entries (client_event_id);
         create table if not exists time_entry_events (
           id text primary key not null,
           org_id text not null,
@@ -466,6 +475,66 @@ function ensureDailyLogs(holder: Holder) {
         );
         create index if not exists daily_log_photos_log on daily_log_photos (org_id, log_id);`;
   holder.sqlite.exec(ddl);
+}
+
+function tableColumn(holder: Holder, table: string, column: string): boolean {
+  if (holder.dialect === "postgres") {
+    return Boolean(
+      holder.sqlite
+        .prepare(
+          "select column_name as name from information_schema.columns where table_schema = 'public' and table_name = ? and column_name = ?",
+        )
+        .get(table, column),
+    );
+  }
+  return (holder.sqlite.prepare(`pragma table_info(${table})`).all() as { name: string }[]).some((row) => row.name === column);
+}
+
+function ensureSyncSchema(holder: Holder) {
+  if (!tableExists(holder.sqlite, "time_entries", holder.dialect)) return;
+  if (!tableColumn(holder, "time_entries", "client_event_id")) {
+    holder.sqlite.exec("alter table time_entries add column client_event_id text");
+  }
+  if (!tableColumn(holder, "time_entries", "synced_at")) {
+    holder.sqlite.exec("alter table time_entries add column synced_at text");
+  }
+  if (!tableColumn(holder, "time_entries", "anomaly")) {
+    holder.sqlite.exec("alter table time_entries add column anomaly text");
+  }
+  holder.sqlite.exec("create unique index if not exists time_entries_client_event on time_entries (client_event_id)");
+  const pk = holder.dialect === "postgres" ? "text primary key" : "text primary key not null";
+  if (!tableExists(holder.sqlite, "sync_events", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists sync_events (
+      client_event_id ${pk},
+      org_id text not null,
+      user_id text not null,
+      kind text not null,
+      captured_at text not null,
+      status text not null,
+      result_json text not null,
+      created_at text not null
+    );
+    create index if not exists sync_events_org_user on sync_events (org_id, user_id);`);
+  }
+  if (!tableExists(holder.sqlite, "time_anomalies", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists time_anomalies (
+      id ${pk},
+      org_id text not null,
+      user_id text not null,
+      client_event_id text not null,
+      kind text not null,
+      detail text not null,
+      captured_at text not null,
+      project_id text,
+      cost_code text,
+      entry_id text,
+      log_id text,
+      resolved_at text,
+      created_at text not null
+    );
+    create index if not exists time_anomalies_org on time_anomalies (org_id);
+    create unique index if not exists time_anomalies_event on time_anomalies (client_event_id);`);
+  }
 }
 
 function ensureTesterFeedback(holder: Holder) {

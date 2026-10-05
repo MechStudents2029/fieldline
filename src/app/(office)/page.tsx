@@ -6,11 +6,12 @@ import { Button } from "@/components/ui/button";
 import { requireSession } from "@/lib/auth/session";
 import { formatDate } from "@/lib/format";
 import { formatBps, formatMoney } from "@/lib/money";
-import { canManageSettings, canSeeMoney } from "@/lib/permissions";
+import { canManageMoney, canManageSettings, canSeeMoney } from "@/lib/permissions";
 import { companyChecklist } from "@/lib/services/onboarding";
 import { dashboard, leadDetail, pendingReceipts } from "@/lib/services/read";
 import { MyDay } from "@/components/my-day";
 import { missingDailyLogs } from "@/lib/services/logs";
+import { listTimeAnomalies } from "@/lib/services/sync";
 import { timeBoard } from "@/lib/services/time";
 
 export default async function TodayPage() {
@@ -24,6 +25,7 @@ export default async function TodayPage() {
   const checklist = companyChecklist(session.orgId);
   const time = timeBoard(session);
   const missingLogs = money ? missingDailyLogs(session.orgId) : [];
+  const anomalies = canManageMoney(session.role) ? listTimeAnomalies(session.orgId) : [];
   const quiet =
     data.openLeadCount === 0 &&
     data.openInvoiceCount === 0 &&
@@ -107,6 +109,21 @@ export default async function TodayPage() {
               <li key={row.projectId} className="py-2 text-sm">
                 <Link href={`/projects/${row.projectId}/logs`} className="font-medium">
                   {row.projectName} · {row.logDate}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+      {anomalies.length > 0 ? (
+        <section className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
+          <h2 className="font-heading text-xl">Time anomalies</h2>
+          <p className="mt-1 text-xs text-muted-foreground">These punches synced from a phone and need someone in the office to look at them. Nothing was discarded.</p>
+          <ul className="mt-3 divide-y divide-border">
+            {anomalies.map((row) => (
+              <li key={row.id} className="py-2 text-sm">
+                <Link href="/time" className="font-medium">
+                  {row.detail}
                 </Link>
               </li>
             ))}
