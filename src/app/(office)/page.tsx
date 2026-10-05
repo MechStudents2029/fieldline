@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { completeTaskAction } from "@/app/actions";
 import { EmptyState } from "@/components/empty-state";
+import { GroupedList, GroupedRow, LargeTitle, StatusPill } from "@/components/ios";
 import { SetupChecklist } from "@/components/setup-checklist";
 import { Button } from "@/components/ui/button";
 import { requireSession } from "@/lib/auth/session";
@@ -8,12 +9,26 @@ import { formatDate } from "@/lib/format";
 import { formatBps, formatMoney } from "@/lib/money";
 import { canManageMoney, canManageSettings, canSeeMoney } from "@/lib/permissions";
 import { companyChecklist } from "@/lib/services/onboarding";
-import { dashboard, leadDetail, pendingReceipts } from "@/lib/services/read";
+import { dashboard, leadDetail, listProjects, pendingReceipts } from "@/lib/services/read";
 import { MyDay } from "@/components/my-day";
 import { missingDailyLogs } from "@/lib/services/logs";
 import { billsAttention } from "@/lib/services/bills";
+import { stalePurchaseOrders } from "@/lib/services/purchase-orders";
 import { listTimeAnomalies } from "@/lib/services/sync";
 import { timeBoard } from "@/lib/services/time";
+
+function todayLabel(timeZone: string) {
+  return new Intl.DateTimeFormat("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    timeZone,
+  }).format(new Date());
+}
+
+function countLabel(count: number, singular: string, plural: string) {
+  return `${count} ${count === 1 ? singular : plural}`;
+}
 
 export default async function TodayPage() {
   const session = await requireSession();
@@ -28,6 +43,21 @@ export default async function TodayPage() {
   const missingLogs = money ? missingDailyLogs(session.orgId) : [];
   const anomalies = canManageMoney(session.role) ? listTimeAnomalies(session.orgId) : [];
   const billWatch = money ? billsAttention(session.orgId, session.role) : { overdue: [], upcoming: [] };
+  const staleOrders = money ? stalePurchaseOrders(session.orgId, session.role) : [];
+  const projects = listProjects(session.orgId);
+  const jobs = projects
+    .filter((row) => row.project.status !== "complete" && row.project.status !== "cancelled")
+    .sort((a, b) => Number(a.alert) - Number(b.alert) || a.project.name.localeCompare(b.project.name));
+  const healthy = projects
+    .filter((row) => row.marginBps != null && !row.alert)
+    .sort((a, b) => {
+      const prefer = (name: string) => (name.includes("Okonkwo") ? 1 : 0);
+      return prefer(b.project.name) - prefer(a.project.name) || (b.marginBps ?? 0) - (a.marginBps ?? 0);
+    })[0];
+  const attentionBits = [
+    data.drafts.length > 0 ? countLabel(data.drafts.length, "follow-up", "follow-ups") : null,
+    billWatch.overdue.length > 0 ? countLabel(billWatch.overdue.length, "overdue bill", "overdue bills") : null,
+  ].filter(Boolean);
   const quiet =
     data.openLeadCount === 0 &&
     data.openInvoiceCount === 0 &&
@@ -35,12 +65,10 @@ export default async function TodayPage() {
     data.drafts.length === 0 &&
     data.marginAlerts.length === 0 &&
     data.unsigned.length === 0;
+  const crew = time.office?.clockedIn ?? [];
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="font-heading text-3xl">Today</h1>
-        <p className="text-sm text-muted-foreground">Open work for {session.orgName}.</p>
-      </div>
+      <LargeTitle title="Today" subtitle={`${todayLabel(time.timeZone)} · ${session.orgName}`} />
       {checklist && !checklist.facts.dismissed ? (
         <SetupChecklist steps={checklist.steps} canDismiss={canManageSettings(session.role)} />
       ) : null}
@@ -52,11 +80,83 @@ export default async function TodayPage() {
           action="Add a lead"
         />
       ) : null}
+      {attentionBits.length > 0 || healthy ? (
+        <section>
+          <p className="fl-footnote text-[var(--fl-secondary)]">Needs attention</p>
+          {attentionBits.length > 0 ? <p className="fl-headline mt-1">{attentionBits.join(" · ")}</p> : null}
+          {healthy ? (
+            <p className="fl-footnote mt-1 font-medium text-[var(--fl-success)]">
+              {healthy.project.name.split(" ")[0]} margin healthy at {formatBps(healthy.marginBps)}
+            </p>
+          ) : null}
+        </section>
+      ) : null}
+      {data.drafts.length > 0 ? (
+        <section className="flex flex-col gap-2">
+          <h2 className="fl-section">Follow-ups to approve</h2>
+          <p className="fl-footnote px-5 text-[var(--fl-secondary)]">These stay drafts until someone approves them. Today does not send email.</p>
+          <ul className="fl-group">
+            {data.drafts.slice(0, 6).map((draft) => (
+              <li key={draft.id}>
+                <div className="fl-cell">
+                  <span className="min-w-0 flex-1">
+                    <span className="fl-headline block">{draft.subject}</span>
+                    <span className="fl-footnote mt-0.5 block text-[var(--fl-secondary)]">
+                      {draft.kind === "proposal_unsigned" ? "Proposal viewed · nudge ready" : "Quiet lead · not sent"}
+                    </span>
+                  </span>
+                  <Link href="/follow-ups" className="fl-press fl-caption inline-flex min-h-11 items-center text-[var(--fl-accent)]">
+                    Review
+                  </Link>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+      {jobs.length > 0 ? (
+        <GroupedList label="Jobs">
+          {jobs.map((row) => (
+            <GroupedRow
+              key={row.project.id}
+              href={`/projects/${row.project.id}`}
+              title={row.project.name}
+              subtitle={
+                row.alert
+                  ? "Under the margin line"
+                  : money
+                    ? `${formatMoney(row.project.contractValueCents)} · ${row.project.status}`
+                    : row.project.status
+              }
+              trailing={
+                money ? (
+                  <StatusPill tone={row.alert ? "danger" : "success"}>{row.alert ? "Alert" : formatBps(row.marginBps)}</StatusPill>
+                ) : (
+                  <span className="fl-footnote text-[var(--fl-secondary)]">Money hidden</span>
+                )
+              }
+            />
+          ))}
+        </GroupedList>
+      ) : null}
+      {crew.length > 0 ? (
+        <GroupedList label="Crew on site">
+          {crew.map((person) => (
+            <GroupedRow
+              key={person.entryId}
+              href="/time"
+              title={person.name}
+              subtitle={`${person.projectName} · ${person.costCode}`}
+              trailing={<StatusPill tone={person.onBreak ? "warning" : "accent"}>{person.onBreak ? "Break" : "In"}</StatusPill>}
+            />
+          ))}
+        </GroupedList>
+      ) : null}
       {vasquezOpen ? (
-        <Link href="/leads/lead_vasquez" className="rounded-2xl bg-primary px-5 py-4 text-primary-foreground">
-          <p className="text-xs uppercase tracking-wide opacity-80">Continue the walkthrough</p>
-          <p className="font-heading text-2xl">Vasquez gut kitchen</p>
-          <p className="mt-1 text-sm opacity-90">Paste is already on the lead. Draft the estimate, send it, and sign it from the client link.</p>
+        <Link href="/leads/lead_vasquez" className="fl-press rounded-[var(--fl-radius)] bg-primary px-5 py-4 text-primary-foreground">
+          <p className="fl-caption uppercase tracking-wide opacity-80">Continue the walkthrough</p>
+          <p className="fl-title-1">Vasquez gut kitchen</p>
+          <p className="fl-footnote mt-1 opacity-90">Paste is already on the lead. Draft the estimate, send it, and sign it from the client link.</p>
         </Link>
       ) : null}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -70,173 +170,124 @@ export default async function TodayPage() {
         <Stat label="Follow-ups due" value={String(data.unsigned.length)} detail={`${data.drafts.length} to approve`} />
       </div>
       {money && (data.marginAlerts.length > 0 || data.categoryAlerts.length > 0) ? (
-        <section className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
-          <h2 className="font-heading text-xl">Margin watch</h2>
-          <p className="mt-1 text-xs text-muted-foreground">Whole-job margin, plus any cost code at 80% of its budget.</p>
-          {data.marginAlerts.length > 0 ? (
-            <ul className="mt-3 divide-y divide-border">
-              {data.marginAlerts.map((row) => (
-                <li key={row.project.id} className="flex items-center justify-between gap-3 py-2 text-sm">
-                  <Link href={`/projects/${row.project.id}`} className="font-medium">
-                    {row.project.name}
-                  </Link>
-                  <span className="text-copper">{formatBps(row.marginBps)}</span>
-                </li>
-              ))}
-            </ul>
-          ) : null}
-          {data.categoryAlerts.length > 0 ? (
-            <ul className="mt-3 divide-y divide-border">
-              {data.categoryAlerts.map((row) => (
-                <li key={`${row.projectId}-${row.code}`} className="flex flex-col gap-1 py-2 text-sm sm:flex-row sm:items-center sm:justify-between">
-                  <Link href={`/projects/${row.projectId}`} className="font-medium">
-                    {row.projectName}
-                  </Link>
-                  <span className="text-copper">
-                    {row.code} · {row.percentOfBudget}% of budget
-                    {row.overageCents > 0 ? ` · ${formatMoney(row.overageCents)} over` : ""}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          ) : null}
-        </section>
+        <GroupedList label="Margin watch">
+          {data.marginAlerts.map((row) => (
+            <GroupedRow
+              key={row.project.id}
+              href={`/projects/${row.project.id}`}
+              title={row.project.name}
+              subtitle="Whole-job margin under the alert line"
+              trailing={<StatusPill tone="danger">{formatBps(row.marginBps)}</StatusPill>}
+            />
+          ))}
+          {data.categoryAlerts.map((row) => (
+            <GroupedRow
+              key={`${row.projectId}-${row.code}`}
+              href={`/projects/${row.projectId}`}
+              title={row.projectName}
+              subtitle={`${row.code} · ${row.percentOfBudget}% of budget${row.overageCents > 0 ? ` · ${formatMoney(row.overageCents)} over` : ""}`}
+              trailing={<StatusPill tone="warning">{row.percentOfBudget}%</StatusPill>}
+            />
+          ))}
+        </GroupedList>
       ) : null}
       {missingLogs.length > 0 ? (
-        <section className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
-          <h2 className="font-heading text-xl">Logs to write</h2>
-          <p className="mt-1 text-xs text-muted-foreground">These jobs had punches yesterday and no published log. Nothing is sent.</p>
-          <ul className="mt-3 divide-y divide-border">
-            {missingLogs.map((row) => (
-              <li key={row.projectId} className="py-2 text-sm">
-                <Link href={`/projects/${row.projectId}/logs`} className="font-medium">
-                  {row.projectName} · {row.logDate}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </section>
+        <GroupedList label="Logs to write">
+          {missingLogs.map((row) => (
+            <GroupedRow
+              key={row.projectId}
+              href={`/projects/${row.projectId}/logs`}
+              title={`${row.projectName} · ${row.logDate}`}
+              subtitle="Punches yesterday and no published log. Nothing is sent."
+            />
+          ))}
+        </GroupedList>
       ) : null}
       {anomalies.length > 0 ? (
-        <section className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
-          <h2 className="font-heading text-xl">Time anomalies</h2>
-          <p className="mt-1 text-xs text-muted-foreground">These punches synced from a phone and need someone in the office to look at them. Nothing was discarded.</p>
-          <ul className="mt-3 divide-y divide-border">
-            {anomalies.map((row) => (
-              <li key={row.id} className="py-2 text-sm">
-                <Link href="/time" className="font-medium">
-                  {row.detail}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </section>
+        <GroupedList label="Time anomalies">
+          {anomalies.map((row) => (
+            <GroupedRow key={row.id} href="/time" title={row.detail} subtitle="Synced from a phone. Nothing was discarded." />
+          ))}
+        </GroupedList>
       ) : null}
       {time.flags.length > 0 ? (
-        <section className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
-          <h2 className="font-heading text-xl">Time to check</h2>
-          <p className="mt-1 text-xs text-muted-foreground">Flags stay until the office edits or approves the punch. Nothing closes on its own.</p>
-          <ul className="mt-3 divide-y divide-border">
-            {time.flags.map((flag) => (
-              <li key={`${flag.kind}-${flag.entryIds.join("-")}`} className="py-2 text-sm">
-                <Link href="/time" className="font-medium">
-                  {flag.detail}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </section>
+        <GroupedList label="Time to check">
+          {time.flags.map((flag) => (
+            <GroupedRow
+              key={`${flag.kind}-${flag.entryIds.join("-")}`}
+              href="/time"
+              title={flag.detail}
+              subtitle="Stays until the office edits or approves the punch."
+            />
+          ))}
+        </GroupedList>
       ) : null}
       {billWatch.overdue.length > 0 || billWatch.upcoming.length > 0 ? (
-        <section className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
-          <h2 className="font-heading text-xl">Bills</h2>
-          <p className="mt-1 text-xs text-muted-foreground">Due dates use {session.orgName}’s clock. Paying a bill here does not send money.</p>
-          {billWatch.overdue.length > 0 ? (
-            <ul className="mt-3 divide-y divide-border">
-              {billWatch.overdue.map((bill) => (
-                <li key={bill.id} className="flex flex-col gap-1 bg-accent py-2 text-sm sm:flex-row sm:items-center sm:justify-between">
-                  <Link href={`/bills/${bill.id}`} className="font-medium">
-                    Overdue · {bill.billNumber} · {bill.vendorName}
-                  </Link>
-                  <span>
-                    {formatMoney(bill.amountCents)} · {bill.projectName}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          ) : null}
-          {billWatch.upcoming.length > 0 ? (
-            <ul className="mt-3 divide-y divide-border">
-              {billWatch.upcoming.map((bill) => (
-                <li key={bill.id} className="flex flex-col gap-1 py-2 text-sm sm:flex-row sm:items-center sm:justify-between">
-                  <Link href={`/bills/${bill.id}`} className="font-medium">
-                    Due soon · {bill.billNumber} · {bill.vendorName}
-                  </Link>
-                  <span>
-                    {formatMoney(bill.amountCents)} · {bill.projectName}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          ) : null}
-        </section>
+        <GroupedList label="Bills">
+          {billWatch.overdue.map((bill) => (
+            <GroupedRow
+              key={bill.id}
+              href={`/bills/${bill.id}`}
+              title={`Overdue · ${bill.billNumber} · ${bill.vendorName}`}
+              subtitle={`${formatMoney(bill.amountCents)} · ${bill.projectName}`}
+              trailing={<StatusPill tone="danger">Overdue</StatusPill>}
+            />
+          ))}
+          {billWatch.upcoming.map((bill) => (
+            <GroupedRow
+              key={bill.id}
+              href={`/bills/${bill.id}`}
+              title={`Due soon · ${bill.billNumber} · ${bill.vendorName}`}
+              subtitle={`${formatMoney(bill.amountCents)} · ${bill.projectName}`}
+              trailing={<StatusPill tone="warning">Due soon</StatusPill>}
+            />
+          ))}
+        </GroupedList>
+      ) : null}
+      {staleOrders.length > 0 ? (
+        <GroupedList label="Purchase orders waiting on a bill">
+          {staleOrders.map((order) => (
+            <GroupedRow
+              key={order.id}
+              href={`/purchase-orders/${order.id}`}
+              title={`${order.number} · ${order.vendorName}`}
+              subtitle={`${formatMoney(order.openCents)} open · ${order.projectName}`}
+            />
+          ))}
+        </GroupedList>
       ) : null}
       {receipts.length > 0 ? (
-        <section className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
-          <h2 className="font-heading text-xl">Receipts to review</h2>
-          <p className="mt-1 text-xs text-muted-foreground">These are not on the job until someone confirms them.</p>
-          <ul className="mt-3 divide-y divide-border">
-            {receipts.map((receipt) => (
-              <li key={receipt.documentId} className="flex flex-col gap-1 py-2 text-sm sm:flex-row sm:items-center sm:justify-between">
-                <Link href={`/projects/${receipt.projectId}`} className="font-medium">
-                  {receipt.vendor ?? "Receipt"} · {receipt.projectName}
-                </Link>
-                <span className="text-muted-foreground">
-                  {receipt.amountCents == null ? "Amount missing" : formatMoney(receipt.amountCents)}
-                  {receipt.confidence != null ? ` · ${Math.round(receipt.confidence * 100)}%` : ""}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
-      {data.drafts.length > 0 ? (
-        <section className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
-          <h2 className="font-heading text-xl">Follow-ups to approve</h2>
-          <p className="mt-1 text-xs text-muted-foreground">These stay drafts until someone approves them. Today does not send email.</p>
-          <ul className="mt-3 divide-y divide-border">
-            {data.drafts.slice(0, 6).map((draft) => (
-              <li key={draft.id} className="flex flex-col gap-1 py-2 text-sm sm:flex-row sm:items-center sm:justify-between">
-                <span>
-                  <span className="font-medium">{draft.subject}</span>
-                  <span className="block text-xs text-muted-foreground">{draft.kind === "proposal_unsigned" ? "Proposal" : "Quiet lead"}</span>
-                </span>
-                <Link href="/follow-ups" className="text-pine underline">
-                  Review
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
-      <section className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
-        <h2 className="font-heading text-xl">Tasks</h2>
-        {data.tasks.length === 0 ? <p className="mt-2 text-sm text-muted-foreground">No open tasks.</p> : null}
-        <ul className="mt-2 space-y-2">
-          {data.tasks.map((task) => (
-            <li key={task.id} className="flex items-center justify-between gap-3 text-sm">
-              <span>
-                {task.title}
-                <span className="block text-xs text-muted-foreground">Due {formatDate(task.dueAt)}</span>
-              </span>
-              <form action={completeTaskAction.bind(null, task.id)}>
-                <Button type="submit" variant="outline" size="sm">
-                  Done
-                </Button>
-              </form>
-            </li>
+        <GroupedList label="Receipts to review">
+          {receipts.map((receipt) => (
+            <GroupedRow
+              key={receipt.documentId}
+              href={`/projects/${receipt.projectId}`}
+              title={`${receipt.vendor ?? "Receipt"} · ${receipt.projectName}`}
+              subtitle={`${receipt.amountCents == null ? "Amount missing" : formatMoney(receipt.amountCents)}${receipt.confidence != null ? ` · ${Math.round(receipt.confidence * 100)}%` : ""}`}
+            />
           ))}
-        </ul>
+        </GroupedList>
+      ) : null}
+      <section className="flex flex-col gap-2">
+        <h2 className="fl-section">Tasks</h2>
+        {data.tasks.length === 0 ? <p className="fl-footnote px-5 text-[var(--fl-secondary)]">No open tasks.</p> : null}
+        {data.tasks.length > 0 ? (
+          <ul className="fl-group">
+            {data.tasks.map((task) => (
+              <li key={task.id} className="fl-cell">
+                <span className="min-w-0 flex-1">
+                  <span className="fl-headline block">{task.title}</span>
+                  <span className="fl-footnote mt-0.5 block text-[var(--fl-secondary)]">Due {formatDate(task.dueAt)}</span>
+                </span>
+                <form action={completeTaskAction.bind(null, task.id)}>
+                  <Button type="submit" variant="outline" size="sm" className="min-h-11 min-w-11">
+                    Done
+                  </Button>
+                </form>
+              </li>
+            ))}
+          </ul>
+        ) : null}
       </section>
     </div>
   );
@@ -244,10 +295,10 @@ export default async function TodayPage() {
 
 function Stat({ label, value, detail }: { label: string; value: string; detail: string }) {
   return (
-    <div className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
-      <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
-      <p className="font-heading mt-1 text-2xl">{value}</p>
-      <p className="text-xs text-muted-foreground">{detail}</p>
+    <div className="rounded-[var(--fl-radius)] bg-card p-4">
+      <p className="fl-caption uppercase tracking-wide text-[var(--fl-secondary)]">{label}</p>
+      <p className="fl-title-1 mt-1">{value}</p>
+      <p className="fl-footnote text-[var(--fl-secondary)]">{detail}</p>
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { startLogAction } from "@/app/actions";
+import { LargeTitle } from "@/components/ios";
 import { OfflineBridge } from "@/components/offline-bridge";
 import { PendingPunches } from "@/components/offline-clock";
 import { ClockInForm, ClockOutForm } from "@/components/time-clock";
@@ -13,12 +14,10 @@ export function MyDay({ actor }: { actor: Actor }) {
   const day = myDay(actor);
   return (
     <div className="mx-auto flex max-w-lg flex-col gap-4">
-      <div>
-        <h1 className="font-heading text-3xl">My day</h1>
-        <p className="text-sm text-muted-foreground">
-          Where you are, the clock, and today’s log. {day.timeZone}. Week starts {weekdayName(day.weekStartsOn)}.
-        </p>
-      </div>
+      <LargeTitle
+        title="My day"
+        subtitle={`Where you are, the clock, and today’s log. ${day.timeZone}. Week starts ${weekdayName(day.weekStartsOn)}.`}
+      />
       <OfflineBridge
         scope={{ orgId: actor.orgId, userId: actor.userId }}
         timeZone={day.timeZone}

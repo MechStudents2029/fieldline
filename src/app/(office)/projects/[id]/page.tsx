@@ -11,6 +11,7 @@ import { overBudgetPercent } from "@/lib/margin/category";
 import { formatBps, formatMoney } from "@/lib/money";
 import { JobTabs } from "@/components/job-tabs";
 import { projectBills } from "@/lib/services/bills";
+import { projectPurchaseOrders } from "@/lib/services/purchase-orders";
 import { captionFromMetadata, listPriceBook, projectDetail } from "@/lib/services/read";
 
 export default async function ProjectPage({ params }: { params: Promise<{ id: string }> }) {
@@ -20,6 +21,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
   if (!detail?.contact) return <MissingRecord orgName={session.orgName} kind="job" />;
   const costCodes = detail.money ? listPriceBook(session.orgId).map((item) => item.code) : [];
   const jobBills = detail.money ? projectBills(session.orgId, detail.project.id, session.role) : [];
+  const jobOrders = detail.money ? projectPurchaseOrders(session.orgId, detail.project.id, session.role) : [];
   const money = detail.financials;
   return (
     <div className="flex flex-col gap-5">
@@ -45,36 +47,62 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
             Contract {formatMoney(money.contractCents)} · cost {formatMoney(money.actualCents)} · profit {formatMoney(money.profitCents)}
           </p>
           {money.alert ? <p className="mt-2 text-sm">Under the {formatBps(money.thresholdBps)} watch line.</p> : null}
-          <ul className="mt-4 space-y-3">
+          <div className="mt-4 overflow-x-auto">
+            <table className="w-full min-w-[40rem] text-left text-sm">
+              <caption className="mb-2 text-left text-xs text-muted-foreground">
+                Committed is the open balance on issued purchase orders. Projected is the greater of the budget and actual plus that balance. Cost to complete is projected minus actual.
+              </caption>
+              <thead>
+                <tr className="border-b border-border text-xs uppercase tracking-wide text-muted-foreground">
+                  <th className="py-2 pr-3 font-medium">Code</th>
+                  <th className="py-2 pr-3 font-medium">Budget</th>
+                  <th className="py-2 pr-3 font-medium">Committed</th>
+                  <th className="py-2 pr-3 font-medium">Actual</th>
+                  <th className="py-2 pr-3 font-medium">Projected</th>
+                  <th className="py-2 pr-3 font-medium">To complete</th>
+                  <th className="py-2 font-medium">Variance</th>
+                </tr>
+              </thead>
+              <tbody>
+                {money.byCode.map((row) => (
+                  <tr key={row.code} data-code={row.code} className="border-b border-border">
+                    <th scope="row" className={`py-2 pr-3 font-medium ${row.level !== "ok" ? "text-copper" : ""}`}>
+                      {row.code}
+                    </th>
+                    <td className="py-2 pr-3" data-kind="budget">{formatMoney(row.budgetCents)}</td>
+                    <td className="py-2 pr-3" data-kind="committed">{formatMoney(row.committedOpenCents)}</td>
+                    <td className="py-2 pr-3" data-kind="actual">{formatMoney(row.actualCents)}</td>
+                    <td className="py-2 pr-3" data-kind="projected">{formatMoney(row.projectedCents)}</td>
+                    <td className="py-2 pr-3" data-kind="remaining">{formatMoney(row.costToCompleteCents)}</td>
+                    <td className="py-2" data-kind="variance">{formatMoney(row.varianceCents)}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr data-code="total">
+                  <th scope="row" className="py-2 pr-3">Total</th>
+                  <td className="py-2 pr-3">{formatMoney(money.byCode.reduce((sum, row) => sum + row.budgetCents, 0))}</td>
+                  <td className="py-2 pr-3">{formatMoney(money.byCode.reduce((sum, row) => sum + row.committedOpenCents, 0))}</td>
+                  <td className="py-2 pr-3">{formatMoney(money.byCode.reduce((sum, row) => sum + row.actualCents, 0))}</td>
+                  <td className="py-2 pr-3">{formatMoney(money.byCode.reduce((sum, row) => sum + row.projectedCents, 0))}</td>
+                  <td className="py-2 pr-3">{formatMoney(money.byCode.reduce((sum, row) => sum + row.costToCompleteCents, 0))}</td>
+                  <td className="py-2">{formatMoney(money.byCode.reduce((sum, row) => sum + row.varianceCents, 0))}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+          <ul className="mt-3 space-y-3">
             {money.byCode.map((row) => {
-              const hot = row.level !== "ok";
               const overPercent = overBudgetPercent(row);
+              if (row.level === "ok") return null;
               return (
-                <li key={row.code} className={`text-sm ${hot ? "rounded-lg bg-background/70 p-2" : ""}`}>
-                  <div className="flex justify-between gap-2">
-                    <span className={hot ? "font-medium text-copper" : undefined}>{row.code}</span>
-                    <span>
-                      {formatMoney(row.actualCents)} / {formatMoney(row.budgetCents)}
-                      {row.percentOfBudget != null ? ` · ${row.percentOfBudget}%` : ""}
-                    </span>
-                  </div>
-                  <div className="mt-1 h-1.5 rounded-full bg-muted">
-                    <div
-                      className={`h-1.5 rounded-full ${hot ? "bg-copper" : "bg-pine"}`}
-                      role="progressbar"
-                      aria-valuemin={0}
-                      aria-valuemax={Math.max(row.budgetCents, row.actualCents, 1)}
-                      aria-valuenow={row.actualCents}
-                      aria-label={`${row.code} spent against budget`}
-                      style={{ width: `${Math.min(100, row.budgetCents === 0 ? 100 : (row.actualCents / row.budgetCents) * 100)}%` }}
-                    />
-                  </div>
-                  {row.level === "watch" ? <p className="mt-1 text-xs text-copper">{row.percentOfBudget}% of this cost code’s budget. Not over yet.</p> : null}
-                  {row.level === "over" && row.covered ? <p className="mt-1 text-xs">A change order already covers this overrun.</p> : null}
+                <li key={row.code} className="text-sm">
+                  {row.level === "watch" ? <p className="text-xs text-copper">{row.code} is at {row.percentOfBudget}% of budget, including open commitments. Not over yet.</p> : null}
+                  {row.level === "over" && row.covered ? <p className="text-xs">{row.code}: a change order already covers this overrun.</p> : null}
                   {row.suggestDraft && overPercent != null ? (
-                    <ActionForm action={draftCoAction.bind(null, detail.project.id)} className="mt-2">
+                    <ActionForm action={draftCoAction.bind(null, detail.project.id)} className="mt-1">
                       <input type="hidden" name="title" value={`${row.code} ${overPercent}% over budget`} />
-                      <input type="hidden" name="description" value={`${row.code} is ${formatMoney(row.overageCents)} over its ${formatMoney(row.budgetCents)} budget. Draft only — not sent to the client.`} />
+                      <input type="hidden" name="description" value={`${row.code} is ${formatMoney(row.overageCents)} over its ${formatMoney(row.budgetCents)} budget once open commitments are counted. Draft only — not sent to the client.`} />
                       <input type="hidden" name="name" value={row.code} />
                       <input type="hidden" name="costCode" value={row.code === "Uncoded" ? "" : row.code} />
                       <input type="hidden" name="qty" value="1" />
@@ -166,6 +194,21 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
       {money ? (
         <section className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
           <h2 className="font-medium">Costs</h2>
+          <h3 className="mt-3 text-sm font-medium">Purchase orders</h3>
+          <ul className="mt-1 space-y-1 text-sm">
+            {jobOrders.length === 0 ? <li className="text-muted-foreground">No purchase orders on this job.</li> : null}
+            {jobOrders.map((order) => (
+              <li key={order.id} className="flex justify-between gap-2">
+                <Link href={`/purchase-orders/${order.id}`} className="underline">
+                  {order.number} · {order.vendorName} · {order.status}
+                </Link>
+                <span>
+                  {formatMoney(order.amountCents)}
+                  {order.status === "issued" ? ` · open ${formatMoney(order.openCents)}` : ""}
+                </span>
+              </li>
+            ))}
+          </ul>
           <h3 className="mt-3 text-sm font-medium">Bills</h3>
           <ul className="mt-1 space-y-1 text-sm">
             {jobBills.length === 0 ? <li className="text-muted-foreground">No bills on this job.</li> : null}

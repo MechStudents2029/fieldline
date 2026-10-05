@@ -31,6 +31,33 @@ describe("category budget alerts", () => {
     expect(rows.find((row) => row.code === "ZERO")?.level).toBe("ok");
   });
 
+  it("counts open commitments in the watch, and keeps projected from hiding an 80% actual", () => {
+    const promised = assessCategories([{ code: "PLB-TOILET", budgetCents: 10_000, actualCents: 0, committedOpenCents: 8_000 }]);
+    expect(promised[0]).toMatchObject({
+      level: "watch",
+      percentOfBudget: 80,
+      projectedCents: 10_000,
+      costToCompleteCents: 10_000,
+      varianceCents: 0,
+      suggestDraft: false,
+    });
+    const spent = assessCategories([{ code: "PLB-TOILET", budgetCents: 10_000, actualCents: 8_000, committedOpenCents: 0 }]);
+    expect(spent[0]).toMatchObject({ level: "watch", percentOfBudget: 80, projectedCents: 10_000, exposureCents: 8_000 });
+    const both = assessCategories([{ code: "PLB-TOILET", budgetCents: 10_000, actualCents: 4_000, committedOpenCents: 8_000 }]);
+    expect(both[0]).toMatchObject({
+      level: "over",
+      exposureCents: 12_000,
+      projectedCents: 12_000,
+      costToCompleteCents: 8_000,
+      varianceCents: -2_000,
+      overageCents: 2_000,
+      suggestDraft: true,
+      draftCostCents: 2_000,
+    });
+    const covered = assessCategories(both, [{ status: "draft", costCode: "PLB-TOILET", costCents: 2_000 }]);
+    expect(covered[0]).toMatchObject({ level: "over", covered: true, suggestDraft: false, draftCostCents: 0 });
+  });
+
   it("rolls uncoded costs into one bucket and suggests a draft only when uncovered", () => {
     const rolled = rollupCostCodes(
       [{ costCode: "TILE-BACK", budgetCostCents: 10_000 }],

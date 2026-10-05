@@ -2,6 +2,19 @@
 
 ## 2026-10-05
 
+### iOS shell
+
+- The phone shell uses a Deep Teal accent, the iOS grouped background, and the SF system font. Light and dark follow the system color scheme. A blurred tab bar sits on Today, Jobs, Leads, Time, and More. Field logins get My day, Jobs, Time, and More, and still open the pipeline from More. The large title collapses to an inline title while the page scrolls. Touch targets are at least 44 points, presses scale unless motion is reduced, and the layout uses the safe area.
+- Today and the jobs list use grouped inset rows and status pills. Desktop keeps the sidebar.
+
+### Purchase orders
+
+- An owner, admin, or office user can write a purchase order for a sub or vendor on a job. The number is assigned automatically and stays unique in the company, including after a void. A draft does not commit cost. Issuing it does. Closing it releases whatever has not been billed. Voiding it needs a reason. Revising an issued order keeps the previous lines in the history. Nothing is emailed.
+- A bill can be linked to an issued or closed order. An approved or paid bill reduces that order’s open commitment on the same cost code, and the remainder never goes below zero. A bill that runs past the order is saved anyway, with a warning.
+- Each cost code on the job shows budget, open commitment, actual, projected, cost to complete, and variance. Projected is the greater of the budget and actual plus open commitment. The 80% watch and the overrun change-order draft use actual plus open commitment, so a promise with no bill still counts, and a code that is only 80% spent still warns. A change order that already covers the overrun does not suggest a second draft.
+- Vendor totals include the issued purchase-order amount and what is still open. Today lists issued orders with no bill after 30 days on the company clock.
+- Field logins and the client portal do not see purchase orders or amounts. Another company gets a clean miss.
+
 ### Sub and vendor bills
 
 - An owner, admin, or office user can enter a sub or vendor bill on a job: bill number, dates, and one or more cost-code lines. A text file can be read with the same local receipt reader. A low-confidence read stays a draft until someone confirms it. Nothing is approved by the reader.

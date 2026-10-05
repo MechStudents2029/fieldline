@@ -17,10 +17,12 @@ export function BillComposer({
   projects,
   vendors,
   codes,
+  purchaseOrders = [],
 }: {
   projects: Choice[];
   vendors: Choice[];
   codes: string[];
+  purchaseOrders?: Choice[];
 }) {
   const [read, readAction, reading] = useActionState(readBillAction, null as ActionState);
   const draft = read?.bill ?? null;
@@ -115,6 +117,17 @@ export function BillComposer({
         <label className="text-sm">
           Memo
           <input name="memo" aria-label="Memo" className="field mt-1" />
+        </label>
+        <label className="text-sm sm:col-span-2">
+          Purchase order
+          <select name="purchaseOrderId" aria-label="Purchase order" className="field mt-1" defaultValue="">
+            <option value="">No purchase order</option>
+            {purchaseOrders.map((order) => (
+              <option key={order.id} value={order.id}>
+                {order.label}
+              </option>
+            ))}
+          </select>
         </label>
         <div className="sm:col-span-2">
           <p className="text-sm font-medium">Lines</p>

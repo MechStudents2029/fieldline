@@ -14,11 +14,15 @@ import {
   organizations,
   priceBookItems,
   projects,
+  purchaseOrderLines,
+  purchaseOrders,
 } from "@/lib/db/schema";
 import { id, nowIso } from "@/lib/ids";
-import { positiveMoneyError } from "@/lib/money";
+import { overageByCode } from "@/lib/margin/commitment";
+import { formatMoney, positiveMoneyError } from "@/lib/money";
 import { canManageMoney, canSeeMoney, type Role } from "@/lib/permissions";
 import { ServiceError } from "@/lib/services/errors";
+import { vendorCommitmentTotals } from "@/lib/services/purchase-orders";
 import type { Actor } from "@/lib/services/read";
 import { saveUploadedText } from "@/lib/services/write";
 import { addCalendarDays, localDay } from "@/lib/time/calendar";
@@ -40,6 +44,7 @@ export type BillInput = {
   dueDate: string;
   memo?: string;
   documentId?: string | null;
+  purchaseOrderId?: string | null;
   lowConfidence?: boolean;
   lines: BillLineInput[];
 };
@@ -80,6 +85,8 @@ export type VendorBillSummary = {
   billedCents: number;
   paidCents: number;
   outstandingCents: number;
+  committedCents: number;
+  openBalanceCents: number;
   codes: VendorCodeSpend[];
 };
 
@@ -264,6 +271,49 @@ function replaceLines(db: Writer, orgId: string, billId: string, lines: ReturnTy
   insertLines(db, orgId, billId, lines);
 }
 
+function linkedPurchaseOrder(db: Writer, orgId: string, purchaseOrderId: string | null | undefined, projectId: string, vendorId: string) {
+  if (!purchaseOrderId) return null;
+  const order = db.select().from(purchaseOrders).where(and(eq(purchaseOrders.id, purchaseOrderId), eq(purchaseOrders.orgId, orgId))).get();
+  if (!order) throw new ServiceError("Purchase order not found.");
+  if (order.projectId !== projectId || order.vendorContactId !== vendorId) {
+    throw new ServiceError("That purchase order is not on this job for this vendor.");
+  }
+  if (order.status !== "issued" && order.status !== "closed") {
+    throw new ServiceError("Issue the purchase order before linking a bill.");
+  }
+  return order;
+}
+
+function poWarning(db: Writer, orgId: string, purchaseOrderId: string | null | undefined, lines: { costCode: string; amountCents: number }[], exceptBillId?: string) {
+  if (!purchaseOrderId) return null;
+  const order = db.select().from(purchaseOrders).where(and(eq(purchaseOrders.id, purchaseOrderId), eq(purchaseOrders.orgId, orgId))).get();
+  if (!order) return null;
+  const poLines = db
+    .select()
+    .from(purchaseOrderLines)
+    .where(and(eq(purchaseOrderLines.purchaseOrderId, order.id), eq(purchaseOrderLines.orgId, orgId)))
+    .all();
+  const priorBills = db
+    .select()
+    .from(bills)
+    .where(and(eq(bills.orgId, orgId), eq(bills.purchaseOrderId, order.id)))
+    .all()
+    .filter((bill) => (bill.status === "approved" || bill.status === "paid") && bill.id !== exceptBillId);
+  const priorIds = priorBills.map((bill) => bill.id);
+  const priorLines = priorIds.length
+    ? db
+        .select()
+        .from(billLines)
+        .where(eq(billLines.orgId, orgId))
+        .all()
+        .filter((line) => priorIds.includes(line.billId))
+    : [];
+  const overs = overageByCode(poLines, priorLines, lines);
+  if (overs.length === 0) return null;
+  const detail = overs.map((row) => `${formatMoney(row.overCents)} over on ${row.code}`).join(", ");
+  return `This bill is past ${order.number}: ${detail}. It was still saved.`;
+}
+
 export function createBill(actor: Actor, input: BillInput) {
   assertOffice(actor);
   const db = dbFor(actor);
@@ -271,6 +321,7 @@ export function createBill(actor: Actor, input: BillInput) {
   const lines = cleanLines(input.lines);
   const vendor = requireVendor(db, actor.orgId, input.vendorContactId);
   requireProject(db, actor.orgId, input.projectId);
+  const order = linkedPurchaseOrder(db, actor.orgId, input.purchaseOrderId, input.projectId, vendor.id);
   if (input.documentId) {
     const document = db
       .select()
@@ -305,6 +356,7 @@ export function createBill(actor: Actor, input: BillInput) {
           payMethod: null,
           payReference: null,
           documentId: input.documentId || null,
+          purchaseOrderId: order?.id ?? null,
           approvedAt: null,
           lowConfidence: input.lowConfidence ? 1 : 0,
           createdAt: now,
@@ -323,7 +375,7 @@ export function createBill(actor: Actor, input: BillInput) {
     }
     throw error;
   }
-  return { id: billId };
+  return { id: billId, warning: poWarning(db, actor.orgId, order?.id, lines) };
 }
 
 export function updateDraft(actor: Actor, billId: string, input: BillInput) {
@@ -336,6 +388,7 @@ export function updateDraft(actor: Actor, billId: string, input: BillInput) {
   const lines = cleanLines(input.lines);
   const vendor = requireVendor(db, actor.orgId, input.vendorContactId);
   requireProject(db, actor.orgId, input.projectId);
+  const order = linkedPurchaseOrder(db, actor.orgId, input.purchaseOrderId, input.projectId, vendor.id);
   const duplicate = duplicateBill(actor.orgId, vendor.id, billNumber, bill.id);
   if (duplicate) throw new ServiceError(`${vendorLabel(vendor)} already has bill ${billNumber}.`);
   const now = nowIso();
@@ -350,6 +403,7 @@ export function updateDraft(actor: Actor, billId: string, input: BillInput) {
         dueDate: input.dueDate,
         amountCents: lines.reduce((sum, line) => sum + line.amountCents, 0),
         memo: input.memo?.trim() || null,
+        purchaseOrderId: order?.id ?? null,
         lowConfidence: input.lowConfidence ? 1 : 0,
         updatedAt: now,
       })
@@ -359,7 +413,7 @@ export function updateDraft(actor: Actor, billId: string, input: BillInput) {
     const after = loadBill(tx, actor.orgId, bill.id);
     writeEvent(tx, actor.orgId, bill.id, actor.userId, "updated", null, before, after ? snapshot(after, loadLines(tx, actor.orgId, bill.id)) : null);
   });
-  return { id: bill.id };
+  return { id: bill.id, warning: poWarning(db, actor.orgId, order?.id, lines, bill.id) };
 }
 
 export function confirmBillRead(actor: Actor, billId: string) {
@@ -435,13 +489,15 @@ export function approveBill(actor: Actor, billId: string) {
   const db = dbFor(actor);
   const bill = loadBill(db, actor.orgId, billId);
   if (!bill) throw new ServiceError("Bill not found.");
-  if (bill.status === "approved" || bill.status === "paid") return { id: bill.id, posted: false };
+  if (bill.status === "approved" || bill.status === "paid") return { id: bill.id, posted: false, warning: null };
   if (bill.status !== "draft") throw new ServiceError("Only a draft bill can be approved.");
   if (bill.lowConfidence) {
     throw new ServiceError("This read stays a draft. Confirm the vendor, date, and lines before approving.");
   }
   const vendor = requireVendor(db, actor.orgId, bill.vendorContactId ?? "");
-  const before = snapshot(bill, loadLines(db, actor.orgId, bill.id));
+  const lines = loadLines(db, actor.orgId, bill.id);
+  const warning = poWarning(db, actor.orgId, bill.purchaseOrderId, lines, bill.id);
+  const before = snapshot(bill, lines);
   db.transaction((tx) => {
     const costItemIds = postLines(tx, actor, bill, vendorLabel(vendor));
     const now = nowIso();
@@ -462,7 +518,7 @@ export function approveBill(actor: Actor, billId: string) {
     );
     noteActivity(tx, actor.orgId, bill.projectId, actor.userId, `Approved bill ${bill.billNumber} from ${vendorLabel(vendor)}.`);
   });
-  return { id: bill.id, posted: true };
+  return { id: bill.id, posted: true, warning };
 }
 
 export function unapproveBill(actor: Actor, billId: string, reason: string) {
@@ -633,7 +689,22 @@ export function billDetail(orgId: string, billId: string, role: Role, now = Date
     .where(and(eq(billEvents.billId, bill.id), eq(billEvents.orgId, orgId)))
     .all()
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-  return { bill: toRow(bill, names, jobs, scoped.today), lines, events, memo: bill.memo, voidReason: bill.voidReason, paidAt: bill.paidAt, payMethod: bill.payMethod, payReference: bill.payReference };
+  const order = bill.purchaseOrderId
+    ? scoped.db.select().from(purchaseOrders).where(and(eq(purchaseOrders.id, bill.purchaseOrderId), eq(purchaseOrders.orgId, orgId))).get()
+    : undefined;
+  return {
+    bill: toRow(bill, names, jobs, scoped.today),
+    lines,
+    events,
+    memo: bill.memo,
+    voidReason: bill.voidReason,
+    paidAt: bill.paidAt,
+    payMethod: bill.payMethod,
+    payReference: bill.payReference,
+    purchaseOrderId: bill.purchaseOrderId,
+    purchaseOrderNumber: order?.number ?? null,
+    poWarning: poWarning(scoped.db, orgId, bill.purchaseOrderId, lines, bill.id),
+  };
 }
 
 export function vendorBillSummaries(orgId: string, role: Role): VendorBillSummary[] {
@@ -651,8 +722,11 @@ export function vendorBillSummaries(orgId: string, role: Role): VendorBillSummar
     list.push(bill);
     byVendor.set(bill.vendorContactId, list);
   }
+  const commitments = vendorCommitmentTotals(orgId);
   const summaries: VendorBillSummary[] = [];
-  for (const [contactId, vendorBills] of byVendor) {
+  const vendorIds = new Set<string>([...byVendor.keys(), ...commitments.keys()]);
+  for (const contactId of vendorIds) {
+    const vendorBills = byVendor.get(contactId) ?? [];
     const contact = names.get(contactId);
     if (!contact) continue;
     const ids = new Set(vendorBills.map((bill) => bill.id));
@@ -678,6 +752,7 @@ export function vendorBillSummaries(orgId: string, role: Role): VendorBillSummar
       .sort((a, b) => a.code.localeCompare(b.code));
     const paidCents = vendorBills.filter((bill) => bill.status === "paid").reduce((sum, bill) => sum + bill.amountCents, 0);
     const outstandingCents = vendorBills.filter((bill) => bill.status === "approved").reduce((sum, bill) => sum + bill.amountCents, 0);
+    const commitment = commitments.get(contactId) ?? { committedCents: 0, openBalanceCents: 0 };
     summaries.push({
       contactId,
       name: contact.name,
@@ -685,6 +760,8 @@ export function vendorBillSummaries(orgId: string, role: Role): VendorBillSummar
       billedCents: paidCents + outstandingCents,
       paidCents,
       outstandingCents,
+      committedCents: commitment.committedCents,
+      openBalanceCents: commitment.openBalanceCents,
       codes,
     });
   }

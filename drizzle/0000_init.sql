@@ -60,6 +60,7 @@ CREATE TABLE `bills` (
 	`pay_method` text,
 	`pay_reference` text,
 	`document_id` text,
+	`purchase_order_id` text,
 	`approved_at` text,
 	`low_confidence` integer NOT NULL DEFAULT 0,
 	`created_at` text NOT NULL,
@@ -99,6 +100,53 @@ CREATE TABLE `bill_events` (
 );
 --> statement-breakpoint
 CREATE INDEX `bill_events_bill` ON `bill_events` (`org_id`,`bill_id`);
+--> statement-breakpoint
+CREATE TABLE `purchase_orders` (
+	`id` text PRIMARY KEY NOT NULL,
+	`org_id` text NOT NULL,
+	`project_id` text NOT NULL,
+	`vendor_contact_id` text NOT NULL,
+	`change_order_id` text,
+	`number` text NOT NULL,
+	`scope` text,
+	`status` text NOT NULL,
+	`void_reason` text,
+	`issued_at` text,
+	`closed_at` text,
+	`created_at` text NOT NULL,
+	`updated_at` text NOT NULL,
+	`created_by` text
+);
+--> statement-breakpoint
+CREATE UNIQUE INDEX `purchase_orders_number` ON `purchase_orders` (`org_id`,`number`);
+--> statement-breakpoint
+CREATE INDEX `purchase_orders_org` ON `purchase_orders` (`org_id`);
+--> statement-breakpoint
+CREATE TABLE `purchase_order_lines` (
+	`id` text PRIMARY KEY NOT NULL,
+	`org_id` text NOT NULL,
+	`purchase_order_id` text NOT NULL,
+	`cost_code` text NOT NULL,
+	`description` text,
+	`amount_cents` integer NOT NULL,
+	`sort_order` integer NOT NULL DEFAULT 0
+);
+--> statement-breakpoint
+CREATE INDEX `purchase_order_lines_po` ON `purchase_order_lines` (`org_id`,`purchase_order_id`);
+--> statement-breakpoint
+CREATE TABLE `purchase_order_events` (
+	`id` text PRIMARY KEY NOT NULL,
+	`org_id` text NOT NULL,
+	`purchase_order_id` text NOT NULL,
+	`actor_id` text,
+	`type` text NOT NULL,
+	`reason` text,
+	`before_json` text,
+	`after_json` text,
+	`created_at` text NOT NULL
+);
+--> statement-breakpoint
+CREATE INDEX `purchase_order_events_po` ON `purchase_order_events` (`org_id`,`purchase_order_id`);
 --> statement-breakpoint
 CREATE TABLE `budget_lines` (
 	`id` text PRIMARY KEY NOT NULL,

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { Briefcase, Clock, Ellipsis, Sun, Users } from "lucide-react";
 import { FeedbackDialog } from "@/components/feedback-dialog";
 import { OfflineBanner } from "@/components/offline-banner";
 import { SignOutButton } from "@/components/sign-out-button";
@@ -14,6 +15,7 @@ const links = [
   { href: "/time", label: "Time" },
   { href: "/invoices", label: "Invoices" },
   { href: "/bills", label: "Bills" },
+  { href: "/purchase-orders", label: "Purchase orders" },
   { href: "/contacts", label: "Contacts" },
   { href: "/price-book", label: "Price book" },
   { href: "/follow-ups", label: "Follow-ups" },
@@ -22,15 +24,22 @@ const links = [
   { href: "/feedback", label: "Feedback" },
 ];
 
-const mobile = [
-  { href: "/", label: "Today" },
-  { href: "/projects", label: "Jobs" },
-  { href: "/time", label: "Time" },
-  { href: "/pipeline", label: "Pipeline" },
-  { href: "/more", label: "More" },
+const officeTabs = [
+  { href: "/", label: "Today", icon: Sun },
+  { href: "/projects", label: "Jobs", icon: Briefcase },
+  { href: "/pipeline", label: "Leads", icon: Users },
+  { href: "/time", label: "Time", icon: Clock },
+  { href: "/more", label: "More", icon: Ellipsis },
 ];
 
-const fieldHidden = new Set(["/invoices", "/bills", "/price-book", "/follow-ups", "/copilot"]);
+const fieldTabs = [
+  { href: "/", label: "My day", icon: Sun },
+  { href: "/projects", label: "Jobs", icon: Briefcase },
+  { href: "/time", label: "Time", icon: Clock },
+  { href: "/more", label: "More", icon: Ellipsis },
+];
+
+const fieldHidden = new Set(["/invoices", "/bills", "/purchase-orders", "/price-book", "/follow-ups", "/copilot"]);
 
 export function Shell({
   orgName,
@@ -48,10 +57,14 @@ export function Shell({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const current = (href: string) => (href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`));
+  const current = (href: string) => {
+    if (href === "/") return pathname === "/";
+    if (href === "/pipeline") return pathname.startsWith("/pipeline") || pathname.startsWith("/leads");
+    return pathname === href || pathname.startsWith(`${href}/`);
+  };
   const labelFor = (label: string, href: string) => (role === "field" && href === "/" ? "My day" : label);
   const nav = role === "field" ? links.filter((link) => !fieldHidden.has(link.href)) : links;
-  const tabs = role === "field" ? mobile.filter((link) => !fieldHidden.has(link.href)) : mobile;
+  const tabs = role === "field" ? fieldTabs : officeTabs;
   return (
     <div className="min-h-screen">
       <a
@@ -60,19 +73,19 @@ export function Shell({
       >
         Skip to the job file
       </a>
-      <aside className="fixed inset-y-0 left-0 z-20 hidden w-60 flex-col border-r border-border bg-card px-4 py-5 md:flex">
-        <Link href="/" className="px-2">
+      <aside className="fixed inset-y-0 left-0 z-20 hidden w-60 flex-col overflow-hidden border-r border-border bg-card px-4 py-5 md:flex">
+        <Link href="/" className="shrink-0 px-2">
           <p className="font-heading text-2xl tracking-tight text-pine">Fieldline</p>
           <p className="text-xs text-muted-foreground">Job file for remodelers</p>
         </Link>
-        <nav aria-label="Office" className="mt-8 flex flex-1 flex-col gap-1">
+        <nav aria-label="Office" className="mt-8 flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto">
           {nav.map((link) => (
             <Link
               key={link.href}
               href={link.href}
               aria-current={current(link.href) ? "page" : undefined}
               className={cn(
-                "rounded-lg px-3 py-2 text-sm",
+                "flex min-h-11 items-center rounded-lg px-3 text-sm",
                 current(link.href) ? "bg-primary text-primary-foreground" : "hover:bg-muted",
               )}
             >
@@ -83,14 +96,13 @@ export function Shell({
         <span id="fieldline-office-shell" hidden />
         <SignOutButton
           scope={{ orgId, userId }}
-          className="w-full rounded-lg px-3 py-2 text-left text-sm text-muted-foreground hover:bg-muted"
+          className="mt-2 min-h-11 w-full shrink-0 rounded-lg px-3 text-left text-sm text-muted-foreground hover:bg-muted"
         />
       </aside>
       <div className="md:pl-60">
-        <header className="sticky top-0 z-10 border-b border-border bg-background/90 px-4 py-3 backdrop-blur md:px-8">
+        <header className="sticky top-0 z-10 hidden border-b border-border bg-background/90 px-4 py-3 backdrop-blur md:block md:px-8">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <p className="font-heading text-lg leading-none md:hidden">Fieldline</p>
               <p className="text-sm font-medium">{orgName}</p>
               <p className="text-xs text-muted-foreground">
                 {userName} · {role}
@@ -105,22 +117,25 @@ export function Shell({
           </div>
         </header>
         <OfflineBanner />
-        <main id="main" className="px-4 pt-4 pb-24 md:px-8 md:pb-10">{children}</main>
+        <main id="main" className="px-4 pt-2 pb-[calc(5.25rem+env(safe-area-inset-bottom))] md:px-8 md:pt-4 md:pb-10">
+          {children}
+        </main>
       </div>
-      <nav aria-label="Primary" className={`fixed inset-x-0 bottom-0 z-20 grid border-t border-border bg-card md:hidden ${tabs.length === 5 ? "grid-cols-5" : "grid-cols-4"}`}>
-        {tabs.map((link) => (
-          <Link
-            key={link.href}
-            href={link.href}
-            aria-current={current(link.href) ? "page" : undefined}
-            className={cn(
-              "px-1 py-3 text-center text-[11px]",
-              current(link.href) ? "font-semibold text-pine" : "text-muted-foreground",
-            )}
-          >
-            {labelFor(link.label, link.href)}
-          </Link>
-        ))}
+      <nav aria-label="Primary" className="fl-tabbar fixed inset-x-0 bottom-0 z-20 md:hidden" style={{ gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))` }}>
+        {tabs.map((link) => {
+          const Icon = link.icon;
+          return (
+            <Link
+              key={link.href}
+              href={link.href}
+              aria-current={current(link.href) ? "page" : undefined}
+              className="fl-tab fl-press fl-caption"
+            >
+              <Icon className="size-[22px]" strokeWidth={2} aria-hidden />
+              {link.label}
+            </Link>
+          );
+        })}
       </nav>
     </div>
   );

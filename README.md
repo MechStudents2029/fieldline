@@ -6,6 +6,8 @@ Fieldline is a CRM-first workspace for U.S. small and mid-size contractors: remo
 
 The app runs with no API keys. Stripe, Resend, Twilio, and the Vercel AI Gateway turn on when you add the variables in `.env.example`. Until then, adapters record the same outcomes against seeded data.
 
+On a phone, the office opens on a tab bar: Today, Jobs, Leads, Time, and More. Colors follow the system light or dark setting. A wide window keeps the sidebar.
+
 ## Run locally in 3 minutes
 
 ```bash
@@ -115,7 +117,7 @@ npm run seed -- --reset   # wipe data/fieldline.db and reseed
 4. On Okonkwo, send a change order and approve it. Contract value, budget, and a change-order invoice update.
 5. On Brooks, the job is already under the 20% margin line. On Okonkwo, read the Casa Tile sample, confirm the suggested cost code, and post it. Today lists receipts that are still waiting. Margin moves only after that confirm.
 6. Follow-ups has a Briggs nudge waiting. Approving it writes a message. With no Resend key, the body also lands in `data/outbox/email.jsonl`.
-7. Bills lists Harbor, Summit, Brighton, and a Casa Tile draft. Brighton’s BE-77 is overdue on Rivera’s clock. Approving a bill adds it to the job cost. Marking it paid does not send money. Dana and the client portal do not see bills.
+7. Bills lists Harbor, Summit, Brighton, and a Casa Tile draft. Brighton’s BE-77 is overdue on Rivera’s clock. Approving a bill adds it to the job cost. Marking it paid does not send money. Dana and the client portal do not see bills. Purchase orders lists Harbor’s PO-1044 on Okonkwo. Part of it is already on bill HP-441, and the rest is still committed.
 8. Copilot answers receivables, jobs under a margin, pipeline value, and unsigned proposals. The numbers come from the same queries as the screens.
 
 Stable seeded links (after `npm run dev`):
@@ -207,6 +209,7 @@ Score each scenario pass or fail, with a note and a screenshot.
 11. **Time.** Sign in as Dana and open Time. Clock out the open punch, clock in on Okonkwo and a cost code, then clock out. The page shows hours and no dollar amounts. Sign in as Maya, correct the punch, and approve it. Okonkwo's job cost includes that labor. A shift still open after 12 hours shows on Today until the office acts. Payroll CSV is hours only, and only an owner or admin can download it.
 12. **Daily log.** Dana’s home is My day: the job, a map link, the clock, and today’s log. Publish a note and a photo. Maya opens the job’s Logs tab and shows it on the client portal. The portal copy has the note and not the hours, delays, or safety note. Ask Copilot what happened on Okonkwo yesterday. Nothing is emailed. Weather is typed, not looked up. Rivera’s days are America/New_York, and the week starts Monday. Change either in Settings. Approved labor does not move.
 13. **Bills.** Maya opens Bills. BE-77 is overdue and HP-441 is due soon. Open a new bill, upload a text file, review the vendor and lines, save the draft, and approve it. Okonkwo’s cost moves. Mark it paid with a check number. Dana’s Bills link is gone, and Jordan cannot open a Rivera bill.
+14. **Purchase orders.** Maya opens Purchase orders. PO-1044 is Harbor’s issued order on Okonkwo, partly billed by HP-441, so plumbing shows committed cost that is not actual yet. Issue another order, link a bill, and approve it. Committed drops and actual rises. Dana does not see the page.
 
 Feedback: file a GitHub issue with steps, expected, actual, screenshot, and device. A useful score is "would I send this proposal today?" from 1 to 5, plus minutes to a quote versus the current process.
 
@@ -226,6 +229,7 @@ Feedback: file a GitHub issue with steps, expected, actual, screenshot, and devi
 - Daily logs on a job, and a My day screen for field crew. A published log can be shown on the client portal without hours, delays, or safety notes. No weather API and no message when it is shared.
 - A company time zone and workweek start. Days, logs, and week totals follow that clock. Approved labor is not rewritten.
 - Sub and vendor bills. Approve to post job cost by cost code. Void or unapprove reverses it. Paid is a note, not a payment.
+- Purchase orders commit cost before a bill arrives. An approved bill linked to an order reduces what is still open. The job shows budget, committed, actual, projected, cost to complete, and variance. Nothing is sent to the vendor.
 
 **Stubbed until keys exist**
 

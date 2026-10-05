@@ -101,7 +101,7 @@ export default async function BillsPage({
       </ul>
       <section className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
         <h2 className="font-heading text-xl">Vendors</h2>
-        <p className="mt-1 text-xs text-muted-foreground">Billed is approved and paid. Drafts are not in the job cost. Budget is the cost codes those bills used, on the jobs they were billed to.</p>
+        <p className="mt-1 text-xs text-muted-foreground">Billed is approved and paid. Committed is the issued purchase-order total. Open PO is what those orders still have after approved bills.</p>
         {summaries.length === 0 ? <p className="mt-3 text-sm text-muted-foreground">No approved or paid bills yet.</p> : null}
         <ul className="mt-3 space-y-4">
           {summaries.map((vendor) => (
@@ -110,7 +110,7 @@ export default async function BillsPage({
                 {vendor.company || vendor.name}
               </Link>
               <p className="text-sm">
-                Billed {formatMoney(vendor.billedCents)} · paid {formatMoney(vendor.paidCents)} · outstanding {formatMoney(vendor.outstandingCents)}
+                Billed {formatMoney(vendor.billedCents)} · paid {formatMoney(vendor.paidCents)} · outstanding {formatMoney(vendor.outstandingCents)} · committed {formatMoney(vendor.committedCents)} · open PO {formatMoney(vendor.openBalanceCents)}
               </p>
               <ul className="mt-1 space-y-1 text-xs text-muted-foreground">
                 {vendor.codes.map((code) => (
