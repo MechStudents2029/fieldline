@@ -1,11 +1,13 @@
-import { restoreSetupAction, settingsAction } from "@/app/actions";
+import { changeRoleAction, inviteTeammateAction, removeMemberAction, restoreSetupAction, revokeInviteAction, settingsAction } from "@/app/actions";
 import { ActionForm } from "@/components/action-form";
 import { Button } from "@/components/ui/button";
 import { requireSession } from "@/lib/auth/session";
+import { formatDateTime } from "@/lib/format";
 import { supabaseAuthConfigured } from "@/lib/supabase/env";
-import { canManageSettings, canSeeMoney } from "@/lib/permissions";
+import { canManageSettings, canSeeMoney, roleLabel } from "@/lib/permissions";
 import { companyChecklist } from "@/lib/services/onboarding";
 import { getOrg, integrations, staff } from "@/lib/services/read";
+import { teamBoard } from "@/lib/services/team";
 
 function stripeConnection<T extends { provider: string; status: string; label: string | null }>(connection: T): T {
   if (connection.provider !== "stripe") return connection;
@@ -26,6 +28,7 @@ export default async function SettingsPage() {
   const org = getOrg(session.orgId);
   const connections = integrations(session.orgId);
   const people = staff(session.orgId);
+  const board = canManageSettings(session.role) ? teamBoard(session.orgId) : null;
   if (!org) return null;
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-5">
@@ -75,15 +78,123 @@ export default async function SettingsPage() {
           )}
         </section>
       ) : null}
-      <section>
-        <h2 className="font-medium">People</h2>
-        <ul className="mt-2 text-sm">
-          {people.map((person) => (
-            <li key={person.id}>
-              {person.name} · {person.role}
-            </li>
-          ))}
-        </ul>
+      <section className="flex flex-col gap-4">
+        <div>
+          <h2 className="font-medium">Team</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {canManageSettings(session.role)
+              ? "Invite an admin, an office person, or a field lead. Fieldline does not email the link. Copy it into a text."
+              : "Names and roles for this company. An owner or admin invites teammates."}
+          </p>
+        </div>
+        {canManageSettings(session.role) ? (
+          <ActionForm action={inviteTeammateAction} className="flex flex-col gap-3 rounded-xl bg-card p-4 ring-1 ring-foreground/10">
+            <label className="text-sm">
+              Teammate email
+              <input name="email" type="email" required autoComplete="off" className="field mt-1" />
+            </label>
+            <label className="text-sm">
+              Role
+              <select name="role" defaultValue="field" className="field mt-1">
+                <option value="field">Field</option>
+                <option value="estimator">Office</option>
+                {session.role === "owner" ? <option value="admin">Admin</option> : null}
+              </select>
+            </label>
+            <Button type="submit" className="h-11">
+              Create invite link
+            </Button>
+          </ActionForm>
+        ) : null}
+        {canManageSettings(session.role) && board ? (
+          <>
+            <div>
+              <h3 className="text-sm font-medium">Pending invites</h3>
+              {board.pending.length === 0 ? <p className="mt-1 text-sm text-muted-foreground">No open invites.</p> : null}
+              <ul className="mt-2 space-y-2">
+                {board.pending.map((invite) => (
+                  <li key={invite.id} className="flex flex-col gap-2 rounded-lg bg-card p-3 text-sm ring-1 ring-foreground/10 sm:flex-row sm:items-center sm:justify-between">
+                    <span>
+                      {invite.email} · {roleLabel(invite.role)}
+                      <span className="block text-xs text-muted-foreground">Expires {formatDateTime(invite.expiresAt)}</span>
+                    </span>
+                    <ActionForm action={revokeInviteAction.bind(null, invite.id)}>
+                      <Button type="submit" variant="outline" size="sm" className="h-9">
+                        Revoke
+                      </Button>
+                    </ActionForm>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div>
+              <h3 className="text-sm font-medium">Members</h3>
+              <ul className="mt-2 space-y-3">
+                {board.members.map((member) => {
+                  const editable = session.role === "owner" || (member.role !== "owner" && member.role !== "admin");
+                  return (
+                    <li key={member.userId} className="rounded-lg bg-card p-3 text-sm ring-1 ring-foreground/10">
+                      <p className="font-medium">
+                        {member.name} · {roleLabel(member.role)}
+                      </p>
+                      <p className="text-xs text-muted-foreground">{member.email}</p>
+                      {editable ? (
+                        <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-end">
+                          <ActionForm action={changeRoleAction.bind(null, member.userId)} className="flex flex-1 flex-col gap-2 sm:flex-row sm:items-end">
+                            <label className="text-xs">
+                              New role
+                              <select name="role" defaultValue={member.role} aria-label={`Change role for ${member.name}`} className="field mt-1">
+                                {session.role === "owner" ? (
+                                  <>
+                                    <option value="owner">Owner</option>
+                                    <option value="admin">Admin</option>
+                                  </>
+                                ) : null}
+                                <option value="estimator">Office</option>
+                                <option value="field">Field</option>
+                                <option value="viewer">Viewer</option>
+                              </select>
+                            </label>
+                            <Button type="submit" variant="outline" size="sm" className="h-11">
+                              Update role
+                            </Button>
+                          </ActionForm>
+                          <ActionForm action={removeMemberAction.bind(null, member.userId)}>
+                            <Button type="submit" variant="outline" size="sm" className="h-11">
+                              Remove
+                            </Button>
+                          </ActionForm>
+                        </div>
+                      ) : (
+                        <p className="mt-2 text-xs text-muted-foreground">Only an owner can change an owner or admin.</p>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+            <div>
+              <h3 className="text-sm font-medium">Team activity</h3>
+              {board.activity.length === 0 ? <p className="mt-1 text-sm text-muted-foreground">No team changes yet.</p> : null}
+              <ul className="mt-2 space-y-2 text-sm">
+                {board.activity.map((item) => (
+                  <li key={item.id}>
+                    <span className="text-xs text-muted-foreground">{formatDateTime(item.createdAt)}</span>
+                    <p>{item.summary}</p>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </>
+        ) : (
+          <ul className="text-sm">
+            {people.map((person) => (
+              <li key={person.id}>
+                {person.name} · {roleLabel(person.role)}
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
       <section>
         <h2 className="font-medium">Connections</h2>

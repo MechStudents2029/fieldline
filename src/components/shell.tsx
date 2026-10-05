@@ -28,6 +28,8 @@ const mobile = [
   { href: "/more", label: "More" },
 ];
 
+const fieldHidden = new Set(["/invoices", "/price-book", "/follow-ups", "/copilot"]);
+
 export function Shell({
   orgName,
   userName,
@@ -41,6 +43,8 @@ export function Shell({
 }) {
   const pathname = usePathname();
   const current = (href: string) => (href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`));
+  const nav = role === "field" ? links.filter((link) => !fieldHidden.has(link.href)) : links;
+  const tabs = role === "field" ? mobile.filter((link) => !fieldHidden.has(link.href)) : mobile;
   return (
     <div className="min-h-screen">
       <a
@@ -55,7 +59,7 @@ export function Shell({
           <p className="text-xs text-muted-foreground">Job file for remodelers</p>
         </Link>
         <nav aria-label="Office" className="mt-8 flex flex-1 flex-col gap-1">
-          {links.map((link) => (
+          {nav.map((link) => (
             <Link
               key={link.href}
               href={link.href}
@@ -96,8 +100,8 @@ export function Shell({
         <OfflineBanner />
         <main id="main" className="px-4 pt-4 pb-24 md:px-8 md:pb-10">{children}</main>
       </div>
-      <nav aria-label="Primary" className="fixed inset-x-0 bottom-0 z-20 grid grid-cols-5 border-t border-border bg-card md:hidden">
-        {mobile.map((link) => (
+      <nav aria-label="Primary" className={`fixed inset-x-0 bottom-0 z-20 grid border-t border-border bg-card md:hidden ${tabs.length === 5 ? "grid-cols-5" : "grid-cols-4"}`}>
+        {tabs.map((link) => (
           <Link
             key={link.href}
             href={link.href}

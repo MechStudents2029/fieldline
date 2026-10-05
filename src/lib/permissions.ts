@@ -24,3 +24,27 @@ export function canAddFieldNotes(role: Role): boolean {
 export function canManageSettings(role: Role): boolean {
   return role === "owner" || role === "admin";
 }
+
+/** Office is the estimator seat: prices and drafts, not company settings. */
+export const INVITE_ROLES = ["admin", "estimator", "field"] as const;
+export type InviteRole = (typeof INVITE_ROLES)[number];
+
+export function isInviteRole(value: string): value is InviteRole {
+  return (INVITE_ROLES as readonly string[]).includes(value);
+}
+
+export function roleLabel(role: string): string {
+  if (role === "estimator") return "Office";
+  if (role === "owner") return "Owner";
+  if (role === "admin") return "Admin";
+  if (role === "field") return "Field";
+  if (role === "viewer") return "Viewer";
+  return role;
+}
+
+/** Owners grant owner and admin. Admins grant office, field, and viewer. */
+export function canGrantRole(actorRole: Role, targetRole: Role): boolean {
+  if (!canManageSettings(actorRole)) return false;
+  if ((targetRole === "owner" || targetRole === "admin") && actorRole !== "owner") return false;
+  return true;
+}

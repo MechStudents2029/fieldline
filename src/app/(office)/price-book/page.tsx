@@ -11,6 +11,14 @@ import { STARTER_TRADE_LABELS, STARTER_TRADES } from "@/lib/security";
 
 export default async function PriceBookPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
   const session = await requireSession();
+  if (!canSeeMoney(session.role)) {
+    return (
+      <div>
+        <h1 className="font-heading text-3xl">Price book</h1>
+        <p className="mt-2 text-sm text-muted-foreground">Pricing is hidden for the field role.</p>
+      </div>
+    );
+  }
   const query = await searchParams;
   const rows = listPriceBook(session.orgId, query.q);
   const unfiltered = query.q?.trim() ? listPriceBook(session.orgId) : rows;

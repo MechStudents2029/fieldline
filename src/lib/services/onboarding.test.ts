@@ -50,6 +50,7 @@ describe("checklist derivation", () => {
       estimateCount: 0,
       sentProposalCount: 0,
       stripeTestKey: false,
+      teamInvited: false,
       firstLeadId: null,
       firstEstimateId: null,
       dismissed: false,
@@ -58,6 +59,8 @@ describe("checklist derivation", () => {
     expect(empty.find((step) => step.id === "lead")?.href).toBe("/leads/new");
     expect(empty.find((step) => step.id === "proposal")?.detail).toMatch(/Nothing sends on its own/);
     expect(empty.find((step) => step.id === "stripe")?.optional).toBe(true);
+    expect(empty.find((step) => step.id === "team")?.optional).toBe(true);
+    expect(empty.find((step) => step.id === "team")?.done).toBe(false);
     expect(empty.find((step) => step.id === "stripe")?.done).toBe(false);
 
     const moved = setupChecklist({
@@ -67,6 +70,7 @@ describe("checklist derivation", () => {
       estimateCount: 1,
       sentProposalCount: 0,
       stripeTestKey: true,
+      teamInvited: true,
       firstLeadId: "lead_1",
       firstEstimateId: "est_1",
       dismissed: false,
@@ -78,6 +82,7 @@ describe("checklist derivation", () => {
     expect(moved.find((step) => step.id === "estimate")?.href).toBe("/estimates/est_1");
     expect(moved.find((step) => step.id === "proposal")?.done).toBe(false);
     expect(moved.find((step) => step.id === "stripe")?.done).toBe(true);
+    expect(moved.find((step) => step.id === "team")?.done).toBe(true);
   });
 });
 

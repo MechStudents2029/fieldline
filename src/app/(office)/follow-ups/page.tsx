@@ -9,6 +9,14 @@ import { scanFollowUps } from "@/lib/services/write";
 export default async function FollowUpsPage({ searchParams }: { searchParams: Promise<{ sent?: string }> }) {
   const { sent } = await searchParams;
   const session = await requireSession();
+  if (session.role === "field") {
+    return (
+      <div>
+        <h1 className="font-heading text-3xl">Follow-ups</h1>
+        <p className="mt-2 text-sm text-muted-foreground">Follow-ups stay with the office. Your jobs are under Jobs.</p>
+      </div>
+    );
+  }
   scanFollowUps(session.orgId);
   const drafts = listDrafts(session.orgId);
   const pending = drafts.filter((draft) => draft.status === "pending");

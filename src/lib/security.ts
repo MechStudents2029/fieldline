@@ -226,13 +226,10 @@ export function parseSignup(input: {
   if (typeof ownerName !== "string") return ownerName;
   const companyName = cleanLabel(input.companyName, "Company name");
   if (typeof companyName !== "string") return companyName;
-  const email = input.email.trim().toLowerCase();
-  if (email.length > 120 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    return { ok: false, error: "Enter a valid email." };
-  }
-  if (input.password.length < 8 || input.password.length > 72 || !/\S/.test(input.password)) {
-    return { ok: false, error: "Use a password of 8 to 72 characters." };
-  }
+  const email = normalizeEmail(input.email);
+  if (!email) return { ok: false, error: "Enter a valid email." };
+  const passwordMessage = passwordError(input.password);
+  if (passwordMessage) return { ok: false, error: passwordMessage };
   if (!isStarterTrade(input.trade)) return { ok: false, error: "Pick a trade." };
   const state = input.state.trim().toUpperCase();
   if (!STATE_CODES.has(state)) return { ok: false, error: "Pick a U.S. state." };
@@ -249,25 +246,69 @@ function cleanLabel(value: string, label: string): string | { ok: false; error: 
   return text;
 }
 
+export function normalizeEmail(value: string): string | null {
+  const email = value.trim().toLowerCase();
+  if (email.length > 120 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return null;
+  return email;
+}
+
+export function passwordError(password: string): string | null {
+  if (password.length < 8 || password.length > 72 || !/\S/.test(password)) return "Use a password of 8 to 72 characters.";
+  return null;
+}
+
+/**
+ * Public origin for links we hand to people. Never read from the request Host header.
+ * Production must set APP_URL. Local demo falls back to the dev port.
+ */
+export function appOrigin(env: Env): string | null {
+  const raw = env.APP_URL?.trim();
+  if (!raw) {
+    if (productionLike(env)) return null;
+    return "http://127.0.0.1:3847";
+  }
+  try {
+    const url = new URL(raw);
+    if (url.protocol !== "http:" && url.protocol !== "https:") return null;
+    if (url.username || url.password) return null;
+    return url.origin;
+  } catch {
+    return null;
+  }
+}
+
 /** Process-local. A shared demo server resets this when the process restarts. */
-const SIGNUP_WINDOW_MS = 15 * 60 * 1000;
-const SIGNUP_MAX = 5;
+const WINDOW_MS = 15 * 60 * 1000;
+const WINDOW_MAX = 5;
 const signupBuckets = new Map<string, { start: number; count: number }>();
+const acceptBuckets = new Map<string, { start: number; count: number }>();
+
+function allowInWindow(buckets: Map<string, { start: number; count: number }>, key: string, now: number) {
+  const normalized = key.trim() || "local";
+  const bucket = buckets.get(normalized);
+  if (!bucket || now - bucket.start >= WINDOW_MS) {
+    buckets.set(normalized, { start: now, count: 1 });
+    return true;
+  }
+  if (bucket.count >= WINDOW_MAX) return false;
+  bucket.count += 1;
+  return true;
+}
 
 export function resetSignupRateLimit() {
   signupBuckets.clear();
 }
 
 export function signupAllowed(key: string, now = Date.now()): boolean {
-  const normalized = key.trim() || "local";
-  const bucket = signupBuckets.get(normalized);
-  if (!bucket || now - bucket.start >= SIGNUP_WINDOW_MS) {
-    signupBuckets.set(normalized, { start: now, count: 1 });
-    return true;
-  }
-  if (bucket.count >= SIGNUP_MAX) return false;
-  bucket.count += 1;
-  return true;
+  return allowInWindow(signupBuckets, key, now);
+}
+
+export function resetAcceptRateLimit() {
+  acceptBuckets.clear();
+}
+
+export function acceptAllowed(key: string, now = Date.now()): boolean {
+  return allowInWindow(acceptBuckets, key, now);
 }
 
 export function receiptUploadError(filename: string, text: string): string | null {

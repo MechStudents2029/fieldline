@@ -6,10 +6,13 @@ import {
   demoWebhookAllowed,
   fileResponseHeaders,
   fileVisible,
+  acceptAllowed,
+  appOrigin,
   parseSignup,
   photoUploadError,
   readSessionPayload,
   receiptUploadError,
+  resetAcceptRateLimit,
   resetSignupRateLimit,
   resolveInside,
   signupAllowed,
@@ -96,6 +99,13 @@ describe("sessions, files, and uploads", () => {
     expect(signupAllowed("203.0.113.4", now)).toBe(false);
     expect(signupAllowed("203.0.113.4", now + 15 * 60 * 1000)).toBe(true);
     expect(signupAllowed("203.0.113.5", now)).toBe(true);
+    resetAcceptRateLimit();
+    for (let attempt = 0; attempt < 5; attempt += 1) expect(acceptAllowed("198.51.100.9", now)).toBe(true);
+    expect(acceptAllowed("198.51.100.9", now)).toBe(false);
+    expect(acceptAllowed("198.51.100.9", now + 15 * 60 * 1000)).toBe(true);
+    expect(appOrigin({ APP_URL: "https://jobs.example/ignored", HOST: "evil.test" })).toBe("https://jobs.example");
+    expect(appOrigin({ NODE_ENV: "production", HOST: "evil.test" })).toBeNull();
+    expect(appOrigin({})).toBe("http://127.0.0.1:3847");
   });
 
   it("rejects markup and oversized receipt uploads", () => {

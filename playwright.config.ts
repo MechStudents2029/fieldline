@@ -35,6 +35,7 @@ export default defineConfig({
       NEXT_PUBLIC_SUPABASE_ANON_KEY: "",
       NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "",
       SESSION_SECRET: "e2e-only-session-secret",
+      APP_URL: `http://127.0.0.1:${port}`,
     },
   },
 });

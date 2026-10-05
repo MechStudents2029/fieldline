@@ -86,6 +86,7 @@ export function ensureReady(holder: Holder) {
   ensureAuthUserId(holder);
   ensureSetupDismissed(holder);
   ensureTesterFeedback(holder);
+  ensureTeamInvites(holder);
   const version = holder.sqlite.prepare("select value from app_meta where key = ?").get("seed_version") as
     | { value: string }
     | undefined;
@@ -174,6 +175,45 @@ function ensureSetupDismissed(holder: Holder) {
           (column) => column.name === "setup_dismissed_at",
         );
   if (!exists) holder.sqlite.exec("alter table organizations add column setup_dismissed_at text");
+}
+
+function ensureTeamInvites(holder: Holder) {
+  if (tableExists(holder.sqlite, "team_invites", holder.dialect)) return;
+  const ddl =
+    holder.dialect === "postgres"
+      ? `create table if not exists team_invites (
+          id text primary key,
+          org_id text not null,
+          email text not null,
+          role text not null,
+          token_hash text not null,
+          status text not null,
+          invited_by text not null,
+          expires_at text not null,
+          accepted_by text,
+          accepted_at text,
+          revoked_at text,
+          created_at text not null
+        );
+        create unique index if not exists team_invites_token_hash on team_invites (token_hash);
+        create index if not exists team_invites_org on team_invites (org_id);`
+      : `create table if not exists team_invites (
+          id text primary key not null,
+          org_id text not null,
+          email text not null,
+          role text not null,
+          token_hash text not null,
+          status text not null,
+          invited_by text not null,
+          expires_at text not null,
+          accepted_by text,
+          accepted_at text,
+          revoked_at text,
+          created_at text not null
+        );
+        create unique index if not exists team_invites_token_hash on team_invites (token_hash);
+        create index if not exists team_invites_org on team_invites (org_id);`;
+  holder.sqlite.exec(ddl);
 }
 
 function ensureTesterFeedback(holder: Holder) {

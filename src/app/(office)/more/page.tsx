@@ -14,14 +14,17 @@ const links = [
   ["/leads/new", "New lead"],
 ];
 
+const fieldHidden = new Set(["/invoices", "/price-book", "/copilot"]);
+
 export default async function MorePage() {
   const session = await requireSession();
   const dismissed = companyChecklist(session.orgId)?.facts.dismissed ?? false;
+  const shown = session.role === "field" ? links.filter(([href]) => !fieldHidden.has(href)) : links;
   return (
     <div className="flex flex-col gap-3">
       <h1 className="font-heading text-3xl">More</h1>
       <ul className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
-        {links.map(([href, label]) => (
+        {shown.map(([href, label]) => (
           <li key={href} className="border-b border-border last:border-0">
             <Link href={href} className="block px-4 py-3">
               {label}

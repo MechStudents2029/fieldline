@@ -76,6 +76,8 @@ Open [http://127.0.0.1:3847](http://127.0.0.1:3847). The first request creates `
 
 To start your own company instead of the demo, open Sign in and choose **Start a new company**. You enter an owner name, email, password, company name, trade, and state. That creates an empty office and an owner login. It does not copy Rivera or Northline. Optionally include a starter price book and edit those prices before you send anything. The demo stays available at `maya@rivera.demo` / `demo`. If Supabase Auth is configured, sign-up uses that project. When the project requires email confirmation, the page says so. Fieldline does not send a second email.
 
+To add a teammate, sign in as an owner or admin and open Settings. Enter their email and a role (admin, office, or field). Fieldline does not email them. Copy the invite link, or the short message under it, into a text. The link host is `APP_URL` (local demo uses `http://127.0.0.1:3847` when that is unset). Set `APP_URL` before a production deploy or the invite button will refuse to build a link. A field login sees jobs, photos, daily notes, tasks, and receipt text. Prices, invoices, proposals, and team management stay with the office.
+
 `npm run check` runs lint, the TypeScript check, unit tests, and `next build`. It does not download a browser.
 
 Browser journeys use Playwright against that production build. The first run installs Chromium. Each spec resets a throwaway SQLite file (`e2e/.data`), so the demo database in `data/` is left alone. Stripe, Resend, and the AI gateway stay off for that process.

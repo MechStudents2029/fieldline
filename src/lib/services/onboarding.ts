@@ -8,6 +8,7 @@ import {
   leads,
   memberships,
   organizations,
+  teamInvites,
   pipelineStages,
   pipelines,
   priceBookItems,
@@ -188,6 +189,13 @@ export function setupFacts(orgId: string): ChecklistFacts | null {
     .where(and(eq(proposals.orgId, orgId), inArray(proposals.status, ["sent", "viewed", "signed"])))
     .all();
   const secret = process.env.STRIPE_SECRET_KEY || "";
+  const memberRows = db.select({ id: memberships.id }).from(memberships).where(eq(memberships.orgId, orgId)).all();
+  const pendingInvites = db
+    .select({ expiresAt: teamInvites.expiresAt })
+    .from(teamInvites)
+    .where(and(eq(teamInvites.orgId, orgId), eq(teamInvites.status, "pending")))
+    .all();
+  const teamInvited = memberRows.length > 1 || pendingInvites.some((invite) => Date.parse(invite.expiresAt) > Date.now());
   return {
     licenseNumber: org.licenseNumber,
     priceBookCount: book.length,
@@ -195,6 +203,7 @@ export function setupFacts(orgId: string): ChecklistFacts | null {
     estimateCount: estimateRows.length,
     sentProposalCount: sent.length,
     stripeTestKey: secret.startsWith("sk_test_"),
+    teamInvited,
     firstLeadId: leadRows[0]?.id ?? null,
     firstEstimateId: estimateRows[0]?.id ?? null,
     dismissed: Boolean(org.setupDismissedAt),

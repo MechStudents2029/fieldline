@@ -12,6 +12,13 @@ import { supabaseAuthConfigured } from "@/lib/supabase/env";
 import { supabasePasswordAuth } from "@/lib/supabase/password";
 import { ServiceError } from "@/lib/services/errors";
 import { addStarterPriceBook, setSetupDismissed } from "@/lib/services/onboarding";
+import { acceptExistingAccount, acceptNewAccount, changeMemberRole, createInvite, INVITE_EMAIL, previewInvite, removeMember, revokeInvite } from "@/lib/services/team";
+import { verifyPassword } from "@/lib/auth/password";
+import { canSeeMoney } from "@/lib/permissions";
+import { passwordError } from "@/lib/security";
+import { getDb } from "@/lib/db/client";
+import { users } from "@/lib/db/schema";
+import { eq } from "drizzle-orm";
 import {
   addCost,
   addPortalMessage,
@@ -57,7 +64,14 @@ export type ReceiptDraftState = {
   lines: { description: string; amountCents: number | null }[];
 };
 
-export type ActionState = { error?: string; ok?: string; receipt?: ReceiptDraftState; postedDocumentId?: string } | null;
+export type ActionState = {
+  error?: string;
+  ok?: string;
+  receipt?: ReceiptDraftState;
+  postedDocumentId?: string;
+  inviteUrl?: string;
+  inviteMessage?: string;
+} | null;
 
 async function actor() {
   const session = await getSession();
@@ -422,20 +436,23 @@ export async function receiptAction(projectId: string, _prev: ActionState, formD
     revalidatePath(`/projects/${projectId}`);
     revalidatePath("/");
     const amount = extracted.amountCents == null ? "" : (extracted.amountCents / 100).toFixed(2);
+    const showMoney = canSeeMoney(user.role);
     return {
-      ok: extracted.amountCents
-        ? `Read ${extracted.vendor ?? "a vendor"} for $${amount}. Confirm the fields, then post.`
-        : extracted.note,
+      ok: showMoney
+        ? extracted.amountCents
+          ? `Read ${extracted.vendor ?? "a vendor"} for $${amount}. Confirm the fields, then post.`
+          : extracted.note
+        : "Saved on the job. An office person posts the cost.",
       receipt: {
         documentId: captured.documentId,
         vendor: extracted.vendor ?? "",
-        amount,
+        amount: showMoney ? amount : "",
         purchasedOn: extracted.purchasedOn ?? "",
         costCode: captured.suggestion?.code ?? "",
         suggestionNote: captured.suggestion?.reason ?? "No cost code matched the price book or past costs. Type one if you have it.",
         confidence: extracted.confidence,
-        note: extracted.note,
-        lines: extracted.lines,
+        note: showMoney ? extracted.note : "Saved on the job. An office person posts the cost.",
+        lines: showMoney ? extracted.lines : extracted.lines.map((line) => ({ description: line.description, amountCents: null })),
       },
     };
   } catch (error) {
@@ -614,8 +631,122 @@ export async function leadPhotoAction(leadId: string, _prev: ActionState, formDa
   }
 }
 
+export async function inviteTeammateAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const invite = createInvite(user, {
+      email: String(formData.get("email") || ""),
+      role: String(formData.get("role") || ""),
+    });
+    revalidatePath("/settings");
+    revalidatePath("/");
+    return { ok: "Invite ready.", inviteUrl: invite.url, inviteMessage: invite.message };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function revokeInviteAction(inviteId: string, _prev: ActionState, _formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    revokeInvite(user, inviteId);
+    revalidatePath("/settings");
+    return { ok: "Invite revoked." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function changeRoleAction(userId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    changeMemberRole(user, userId, String(formData.get("role") || ""));
+    revalidatePath("/settings");
+    return { ok: "Role updated." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function removeMemberAction(userId: string, _prev: ActionState, _formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    removeMember(user, userId);
+    revalidatePath("/settings");
+    return { ok: "Teammate removed." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function acceptInviteAction(token: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  const ip = await requestIp();
+  const mode = String(formData.get("mode") || "create");
+  const preview = previewInvite(token, { ip });
+  if (!preview.ok) return { error: preview.error };
+  const session = await getSession();
+  if (session && session.email.toLowerCase() !== preview.preview.email) return { error: INVITE_EMAIL };
+  if (session) {
+    const joined = acceptExistingAccount(token, { userId: session.userId });
+    if (!joined.ok) return { error: joined.error };
+    await setSession(joined.actor);
+    redirect("/");
+  }
+  const password = String(formData.get("password") || "");
+  const name = String(formData.get("name") || "");
+  if (supabaseAuthConfigured()) {
+    const auth = await supabasePasswordAuth();
+    if (!auth.signUp) return { error: "Supabase Auth is not available." };
+    if (mode === "create") {
+      const passwordMessage = passwordError(password);
+      if (passwordMessage) return { error: passwordMessage };
+      if (name.trim().length < 2 || name.trim().length > 80) return { error: "Your name must be 2–80 characters." };
+      const signed = await auth.signUp({ email: preview.preview.email, password, name });
+      if (!signed.ok) return { error: signed.error };
+      if (!signed.confirmed) {
+        return { ok: "Confirm this email in the message Supabase sent, then sign in on this page. Fieldline does not send a second email. The invite stays open." };
+      }
+      const created = acceptNewAccount(token, { name, password, authUserId: signed.userId });
+      if (!created.ok) return { error: created.error };
+      await setSession(created.actor);
+      redirect("/");
+    }
+    const signed = await auth.signInWithPassword({ email: preview.preview.email, password });
+    if (!signed.ok) return { error: "That email and password do not match." };
+    const local = getDb().select().from(users).where(eq(users.email, preview.preview.email)).get();
+    if (local && local.authUserId && local.authUserId !== signed.userId) return { error: INVITE_EMAIL };
+    if (!local) {
+      const created = acceptNewAccount(token, { name: preview.preview.email, password, authUserId: signed.userId });
+      if (!created.ok) return { error: created.error };
+      await setSession(created.actor);
+      redirect("/");
+    }
+    if (!local.authUserId) {
+      getDb().update(users).set({ authUserId: signed.userId }).where(eq(users.id, local.id)).run();
+    }
+    const joined = acceptExistingAccount(token, { userId: local.id });
+    if (!joined.ok) return { error: joined.error };
+    await setSession(joined.actor);
+    redirect("/");
+  }
+  if (mode === "create") {
+    const created = acceptNewAccount(token, { name, password });
+    if (!created.ok) return { error: created.error };
+    await setSession(created.actor);
+    redirect("/");
+  }
+  const existing = getDb().select().from(users).where(eq(users.email, preview.preview.email)).get();
+  if (!existing || !verifyPassword(password, existing.passwordSalt, existing.passwordHash)) {
+    return { error: "That email and password do not match." };
+  }
+  const joined = acceptExistingAccount(token, { userId: existing.id });
+  if (!joined.ok) return { error: joined.error };
+  await setSession(joined.actor);
+  redirect("/");
+}
+
 export async function askAction(question: string) {
   const user = await actor();
   const { askCopilot } = await import("@/lib/services/read");
-  return askCopilot(user.orgId, question);
+  return askCopilot(user.orgId, question, user.role);
 }

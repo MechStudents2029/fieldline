@@ -499,6 +499,25 @@ export const auditLogs = sqliteTable("audit_logs", {
   createdAt: text("created_at").notNull(),
 });
 
+export const teamInvites = sqliteTable(
+  "team_invites",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    email: text("email").notNull(),
+    role: text("role").notNull(),
+    tokenHash: text("token_hash").notNull(),
+    status: text("status").notNull(),
+    invitedBy: text("invited_by").notNull(),
+    expiresAt: text("expires_at").notNull(),
+    acceptedBy: text("accepted_by"),
+    acceptedAt: text("accepted_at"),
+    revokedAt: text("revoked_at"),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [uniqueIndex("team_invites_token_hash").on(t.tokenHash), index("team_invites_org").on(t.orgId)],
+);
+
 export const testerFeedback = sqliteTable(
   "tester_feedback",
   {

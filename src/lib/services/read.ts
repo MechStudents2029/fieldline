@@ -370,7 +370,7 @@ export function projectDetail(orgId: string, projectId: string, role: Role) {
       costDeltaCents: money ? order.costDeltaCents : 0,
       lines: orderLines.filter((line) => line.changeOrderId === order.id),
     })),
-    invoices: invoiceRows.map((invoice) => (money ? invoice : { ...invoice, totalCents: 0, amountPaidCents: 0, subtotalCents: 0 })),
+    invoices: money ? invoiceRows : [],
     photos,
     proposal,
     timeline,
@@ -598,7 +598,14 @@ export function overdueProposals(orgId: string) {
     .filter((row) => needsProposalNudge(row.proposal.status, row.proposal.sentAt, Date.now(), row.proposal.viewedAt));
 }
 
-export function askCopilot(orgId: string, question: string) {
+export function askCopilot(orgId: string, question: string, role: Role = "owner") {
+  if (!canSeeMoney(role)) {
+    return {
+      tool: null as CopilotTool | null,
+      answer: "Pricing is hidden for this role.",
+      rows: [] as { label: string; amountCents: number | null; detail: string }[],
+    };
+  }
   const tool = routeCopilotQuestion(question);
   if (!tool) {
     return {

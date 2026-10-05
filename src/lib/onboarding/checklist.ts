@@ -5,13 +5,14 @@ export type ChecklistFacts = {
   estimateCount: number;
   sentProposalCount: number;
   stripeTestKey: boolean;
+  teamInvited: boolean;
   firstLeadId: string | null;
   firstEstimateId: string | null;
   dismissed: boolean;
 };
 
 export type ChecklistStep = {
-  id: "license" | "book" | "lead" | "estimate" | "proposal" | "stripe";
+  id: "license" | "book" | "lead" | "estimate" | "proposal" | "team" | "stripe";
   label: string;
   detail: string;
   done: boolean;
@@ -68,6 +69,15 @@ export function setupChecklist(facts: ChecklistFacts): ChecklistStep[] {
       href: estimateHref,
       cta: facts.firstEstimateId ? "Open the estimate" : facts.firstLeadId ? "Draft an estimate" : "Add a lead",
       optional: false,
+    },
+    {
+      id: "team",
+      label: "Invite your team",
+      detail: "Optional. An office person or a field lead joins with a link you copy. Nothing is emailed.",
+      done: facts.teamInvited,
+      href: "/settings",
+      cta: "Invite a teammate",
+      optional: true,
     },
     {
       id: "stripe",

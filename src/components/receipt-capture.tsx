@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { RECEIPT_REVIEW_CONFIDENCE } from "@/lib/ai/receipt";
 import { formatMoney } from "@/lib/money";
 
-export function ReceiptCapture({ projectId, codes }: { projectId: string; codes: string[] }) {
+export function ReceiptCapture({ projectId, codes, allowPost = true }: { projectId: string; codes: string[]; allowPost?: boolean }) {
   const [read, readAction, reading] = useActionState(receiptAction.bind(null, projectId), null as ActionState);
   const [posted, postAction, posting] = useActionState(confirmReceiptAction.bind(null, projectId), null as ActionState);
   const draft = read?.receipt && read.receipt.documentId !== posted?.postedDocumentId ? read.receipt : null;
@@ -29,9 +29,9 @@ export function ReceiptCapture({ projectId, codes }: { projectId: string; codes:
           Or use a sample
           <select name="sample" className="field mt-1" defaultValue="">
             <option value="">Upload or paste instead</option>
-            <option value="casa-tile.svg">Casa Tile · $864.50</option>
-            <option value="harbor-plumbing.svg">Harbor Plumbing · $426.00</option>
-            <option value="summit-lumber.svg">Summit Lumber · $18,425.00</option>
+            <option value="casa-tile.svg">{allowPost ? "Casa Tile · $864.50" : "Casa Tile sample"}</option>
+            <option value="harbor-plumbing.svg">{allowPost ? "Harbor Plumbing · $426.00" : "Harbor Plumbing sample"}</option>
+            <option value="summit-lumber.svg">{allowPost ? "Summit Lumber · $18,425.00" : "Summit Lumber sample"}</option>
           </select>
         </label>
         <Button type="submit" variant="outline" className="h-11">
@@ -44,7 +44,12 @@ export function ReceiptCapture({ projectId, codes }: { projectId: string; codes:
           </p>
         ) : null}
       </form>
-      {draft ? (
+      {draft && !allowPost ? (
+        <p role="status" className="text-sm">
+          Saved on the job. An office person posts the cost.
+        </p>
+      ) : null}
+      {draft && allowPost ? (
         <form key={draft.documentId} action={postAction} className="grid gap-2 rounded-lg bg-accent/40 p-3 sm:grid-cols-2" aria-busy={posting}>
           <p className="text-sm font-medium sm:col-span-2">Review before posting</p>
           <p className={`text-xs sm:col-span-2 ${low ? "text-copper" : "text-muted-foreground"}`}>

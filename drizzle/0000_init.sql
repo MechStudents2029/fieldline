@@ -501,3 +501,22 @@ CREATE TABLE `tester_feedback` (
 );
 --> statement-breakpoint
 CREATE INDEX `tester_feedback_org` ON `tester_feedback` (`org_id`);
+--> statement-breakpoint
+CREATE TABLE `team_invites` (
+	`id` text PRIMARY KEY NOT NULL,
+	`org_id` text NOT NULL,
+	`email` text NOT NULL,
+	`role` text NOT NULL,
+	`token_hash` text NOT NULL,
+	`status` text NOT NULL,
+	`invited_by` text NOT NULL,
+	`expires_at` text NOT NULL,
+	`accepted_by` text,
+	`accepted_at` text,
+	`revoked_at` text,
+	`created_at` text NOT NULL
+);
+--> statement-breakpoint
+CREATE UNIQUE INDEX `team_invites_token_hash` ON `team_invites` (`token_hash`);
+--> statement-breakpoint
+CREATE INDEX `team_invites_org` ON `team_invites` (`org_id`);

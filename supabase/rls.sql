@@ -94,7 +94,8 @@ begin
     'integration_connections',
     'audit_logs',
     'follow_up_drafts',
-    'tester_feedback'
+    'tester_feedback',
+    'team_invites'
   ]
   loop
     execute format('alter table public.%I enable row level security', tbl);
@@ -102,6 +103,57 @@ begin
     execute format(
       'create policy %I on public.%I for all to authenticated using (org_id in (select public.current_org_ids())) with check (org_id in (select public.current_org_ids()))',
       tbl || '_member',
+      tbl
+    );
+  end loop;
+end $$;
+
+-- Field members stay on the company, but money tables are not visible to that role.
+-- Job rows stay readable so field notes, photos, and tasks still work. The app also
+-- strips contract dollars before render. Invite acceptance inserts the membership
+-- on the owner connection, because the invitee is not a member yet.
+create or replace function public.can_see_money(target_org text)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.memberships m
+    join public.users u on u.id = m.user_id
+    where u.auth_user_id = auth.uid()::text
+      and m.org_id = target_org
+      and m.role is distinct from 'field'
+  );
+$$;
+
+revoke all on function public.can_see_money(text) from public;
+grant execute on function public.can_see_money(text) to authenticated;
+
+do $$
+declare
+  tbl text;
+begin
+  foreach tbl in array array[
+    'estimates',
+    'estimate_sections',
+    'line_items',
+    'proposals',
+    'invoices',
+    'invoice_lines',
+    'payments',
+    'bills',
+    'budget_lines',
+    'cost_items'
+  ]
+  loop
+    execute format('drop policy if exists %I on public.%I', tbl || '_member', tbl);
+    execute format('drop policy if exists %I on public.%I', tbl || '_money', tbl);
+    execute format(
+      'create policy %I on public.%I for all to authenticated using (org_id in (select public.current_org_ids()) and public.can_see_money(org_id)) with check (org_id in (select public.current_org_ids()) and public.can_see_money(org_id))',
+      tbl || '_money',
       tbl
     );
   end loop;

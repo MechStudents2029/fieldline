@@ -2,6 +2,12 @@
 
 ## 2026-10-05
 
+### Team invites
+
+- An owner or admin invites a teammate from Settings by email and role (admin, office, or field). Fieldline does not send email. The page shows a link and a short message to paste. The link is shown once.
+- The token is 32 random bytes. The database stores only its SHA-256 hash, bound to the company, email, and role. Admin invites expire in 48 hours. Office and field invites expire in 7 days. Accepting is a single use, in one transaction with the membership insert. Inviting the same email again revokes the earlier pending invite. A bad, used, expired, or revoked link returns one generic error. The link host comes from `APP_URL`.
+- The accept page previews the company, role, and inviter without joining. The signed-in email must match the invited email. Demo login and Supabase Auth both work. A field login can see jobs, notes, photos, tasks, and receipts, and cannot see prices, invoices, or the team controls.
+
 ### Onboarding
 
 - Sign-in offers Start a new company. That creates an empty org, an owner, and a sales pipeline. The Rivera demo login is unchanged, and the new company does not see Rivera rows.

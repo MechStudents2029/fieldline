@@ -164,7 +164,7 @@ export function logNote(actor: Actor, entityType: string, entityId: string, summ
 }
 
 export function createTask(actor: Actor, input: { title: string; relatedType: string; relatedId: string; assigneeUserId?: string; dueAt?: string }) {
-  assertCrm(actor);
+  if (!canAddFieldNotes(actor.role as Role)) throw new ServiceError("Viewers cannot add tasks.");
   if (!input.title.trim()) throw new ServiceError("A task needs a title.");
   staffDb(actor)
     .insert(tasks)

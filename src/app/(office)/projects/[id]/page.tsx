@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { addCostAction, createCoAction, draftCoAction, issueInvoiceAction, photoAction } from "@/app/actions";
+import { addCostAction, createCoAction, draftCoAction, issueInvoiceAction, noteAction, photoAction, taskAction } from "@/app/actions";
 import { ActionForm } from "@/components/action-form";
 import { MissingRecord } from "@/components/missing-record";
 import { PhotoCapture } from "@/components/photo-capture";
@@ -88,6 +88,24 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
       ) : (
         <p className="rounded-xl bg-muted p-4 text-sm">Prices, costs, and margin are hidden for the field role.</p>
       )}
+      {session.role === "field" ? (
+        <section className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
+          <h2 className="font-medium">Field notes</h2>
+          <ActionForm action={noteAction.bind(null, "project", detail.project.id)} className="mt-3 flex flex-col gap-2">
+            <textarea name="summary" aria-label="Daily note" rows={3} placeholder="What happened on site" className="w-full rounded-lg border border-input bg-background p-3" />
+            <Button type="submit" variant="outline" className="h-11">
+              Save note
+            </Button>
+          </ActionForm>
+          <ActionForm action={taskAction.bind(null, "project", detail.project.id)} className="mt-3 flex flex-col gap-2">
+            <input name="title" aria-label="Task title" placeholder="Task for this job" className="field" />
+            <Button type="submit" variant="outline" className="h-11">
+              Add task
+            </Button>
+          </ActionForm>
+          <ReceiptCapture projectId={detail.project.id} codes={listPriceBook(session.orgId).map((item) => item.code)} allowPost={false} />
+        </section>
+      ) : null}
       <section className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
         <h2 className="font-medium">Change orders</h2>
         <ul className="mt-2 space-y-2 text-sm">
