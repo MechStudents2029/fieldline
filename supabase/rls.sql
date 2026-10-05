@@ -29,13 +29,40 @@ $$;
 revoke all on function public.current_org_ids() from public;
 grant execute on function public.current_org_ids() to authenticated;
 
+create or replace function public.can_manage_org(target_org text)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.memberships m
+    join public.users u on u.id = m.user_id
+    where u.auth_user_id = auth.uid()::text
+      and m.org_id = target_org
+      and m.role in ('owner', 'admin')
+  )
+$$;
+
+revoke all on function public.can_manage_org(text) from public;
+grant execute on function public.can_manage_org(text) to authenticated;
+
 alter table public.organizations enable row level security;
 drop policy if exists organizations_member on public.organizations;
-create policy organizations_member on public.organizations
-  for all
+drop policy if exists organizations_read on public.organizations;
+drop policy if exists organizations_update on public.organizations;
+create policy organizations_read on public.organizations
+  for select
   to authenticated
-  using (id in (select public.current_org_ids()))
-  with check (id in (select public.current_org_ids()));
+  using (id in (select public.current_org_ids()));
+-- Time zone and workweek are owner/admin settings. A field member can read the company and cannot change it.
+create policy organizations_update on public.organizations
+  for update
+  to authenticated
+  using (id in (select public.current_org_ids()) and public.can_manage_org(id))
+  with check (id in (select public.current_org_ids()) and public.can_manage_org(id));
 
 alter table public.users enable row level security;
 drop policy if exists users_self_or_org on public.users;

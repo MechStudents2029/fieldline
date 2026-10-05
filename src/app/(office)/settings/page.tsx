@@ -8,7 +8,13 @@ import { canManageSettings, canSeeMoney, roleLabel } from "@/lib/permissions";
 import { companyChecklist } from "@/lib/services/onboarding";
 import { getOrg, integrations, staff } from "@/lib/services/read";
 import { teamBoard } from "@/lib/services/team";
+import { WEEKDAY_NAMES } from "@/lib/time/calendar";
 import { defaultHourlyCost } from "@/lib/services/time";
+
+function timeZones(current: string): string[] {
+  const zones = typeof Intl.supportedValuesOf === "function" ? Intl.supportedValuesOf("timeZone") : ["America/New_York"];
+  return zones.includes(current) ? zones : [current, ...zones];
+}
 
 function stripeConnection<T extends { provider: string; status: string; label: string | null }>(connection: T): T {
   if (connection.provider !== "stripe") return connection;
@@ -65,6 +71,29 @@ export default async function SettingsPage() {
             />
           </label>
           <p className="text-xs text-muted-foreground">Used when a teammate has no rate of their own. Crew never see this number.</p>
+          <label className="text-sm">
+            Time zone
+            <select name="timeZone" defaultValue={org.timeZone} className="field mt-1">
+              {timeZones(org.timeZone).map((zone) => (
+                <option key={zone} value={zone}>
+                  {zone}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="text-sm">
+            Week starts
+            <select name="weekStartsOn" defaultValue={String(org.weekStartsOn)} className="field mt-1">
+              {WEEKDAY_NAMES.map((name, index) => (
+                <option key={name} value={index}>
+                  {name} — seven days from {name} morning
+                </option>
+              ))}
+            </select>
+          </label>
+          <p className="text-xs text-muted-foreground">
+            Unlocked week totals regroup when you change this. Approved labor on the job stays as it was. Clock times are not rewritten.
+          </p>
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" name="cards" defaultChecked={org.cardEnabled === 1} />
             Allow card payments (ACH stays the default)

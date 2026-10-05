@@ -14,7 +14,6 @@ import {
   publishDailyLog,
   saveDailyLog,
   setLogVisibility,
-  utcDay,
   voidDailyLog,
 } from "@/lib/services/logs";
 import {
@@ -28,6 +27,7 @@ import {
   setHourlyCost,
   startBreak,
   switchJob,
+  updateWorkCalendar,
   voidTime,
 } from "@/lib/services/time";
 import { supabaseAuthConfigured } from "@/lib/supabase/env";
@@ -131,6 +131,8 @@ export async function signupAction(_prev: ActionState, formData: FormData): Prom
       trade: String(formData.get("trade") || ""),
       state: String(formData.get("state") || ""),
       starter: formData.get("starter") === "on",
+      timeZone: String(formData.get("timeZone") || ""),
+      weekStartsOn: String(formData.get("weekStartsOn") || ""),
     },
     {
       env: process.env,
@@ -575,8 +577,14 @@ export async function settingsAction(_prev: ActionState, formData: FormData): Pr
       if (cents == null || cents <= 0) return { error: "Enter the default hourly cost in dollars." };
       setHourlyCost(user, null, cents);
     }
+    const timeZone = formData.get("timeZone");
+    const weekStartsOn = formData.get("weekStartsOn");
+    if (timeZone != null && weekStartsOn != null) {
+      updateWorkCalendar(user, { timeZone: String(timeZone), weekStartsOn: Number(weekStartsOn) });
+    }
     revalidatePath("/settings");
     revalidatePath("/time");
+    revalidatePath("/");
     return { ok: "Settings saved." };
   } catch (error) {
     return failure(error);
@@ -939,7 +947,7 @@ function refreshLog(projectId: string, logId?: string) {
 export async function startLogAction(projectId: string, formData: FormData) {
   const user = await actor();
   const requested = String(formData.get("logDate") || "");
-  const log = openDailyLog(user, projectId, requested || utcDay());
+  const log = openDailyLog(user, projectId, requested);
   refreshLog(projectId, log.id);
   redirect(`/projects/${projectId}/logs/${log.id}`);
 }

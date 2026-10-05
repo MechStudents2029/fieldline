@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { signupAction } from "@/app/actions";
 import { ActionForm } from "@/components/action-form";
+import { SignupCalendarFields } from "@/components/signup-calendar";
 import { Button } from "@/components/ui/button";
 import { getSession } from "@/lib/auth/session";
 import { STARTER_TRADE_LABELS, STARTER_TRADES, US_STATES } from "@/lib/security";
@@ -66,6 +67,7 @@ export default async function StartPage() {
             ))}
           </select>
         </label>
+        <SignupCalendarFields />
         <label className="flex items-start gap-2 text-sm">
           <input type="checkbox" name="starter" defaultChecked className="mt-1" />
           <span>Include a starter price book. These are sample costs. Edit your prices.</span>

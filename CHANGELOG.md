@@ -2,6 +2,12 @@
 
 ## 2026-10-05
 
+### Company time zone
+
+- Each company has an IANA time zone and a workweek start day. Rivera is America/New_York. Northline is America/Los_Angeles. A new company takes the browser zone and starts the week on Monday. An owner or admin changes both in Settings. The change writes a before/after audit row and does not move stored clock times.
+- Days and weeks use that clock: punches, the 40-hour flag, payroll CSV dates, daily logs, My day, and the missing-log nudge. A shift counts on the local day it clocked in. The week starts at local midnight and runs seven calendar days, so the spring-forward day is 23 hours and the fall-back day is 25. Unlocked week totals regroup. Approved labor on the job stays as it was.
+- Follow-up drafts still wait a fixed number of hours after a proposal is sent or viewed. They do not snap to a local midnight. There is no overtime pay math and no weather service.
+
 ### Daily logs
 
 - A job has one log per person per UTC day. Save a draft, then publish. The date cannot be in the future. Notes are the only required field. Weather, delays, deliveries, visitors, and safety sit behind a disclosure. Photos use the same camera capture as the job.

@@ -74,7 +74,7 @@ npm run dev
 
 Open [http://127.0.0.1:3847](http://127.0.0.1:3847). The first request creates `data/fieldline.db` and loads the seed. Password for every demo user is `demo`.
 
-To start your own company instead of the demo, open Sign in and choose **Start a new company**. You enter an owner name, email, password, company name, trade, and state. That creates an empty office and an owner login. It does not copy Rivera or Northline. Optionally include a starter price book and edit those prices before you send anything. The demo stays available at `maya@rivera.demo` / `demo`. If Supabase Auth is configured, sign-up uses that project. When the project requires email confirmation, the page says so. Fieldline does not send a second email.
+To start your own company instead of the demo, open Sign in and choose **Start a new company**. You enter an owner name, email, password, company name, trade, state, time zone, and the day the week starts. The time zone starts as the browser’s zone. Monday is the default week start. That creates an empty office and an owner login. It does not copy Rivera or Northline. Optionally include a starter price book and edit those prices before you send anything. The demo stays available at `maya@rivera.demo` / `demo`. If Supabase Auth is configured, sign-up uses that project. When the project requires email confirmation, the page says so. Fieldline does not send a second email.
 
 To add a teammate, sign in as an owner or admin and open Settings. Enter their email and a role (admin, office, or field). Fieldline does not email them. Copy the invite link, or the short message under it, into a text. The link host is `APP_URL` (local demo uses `http://127.0.0.1:3847` when that is unset). Set `APP_URL` before a production deploy or the invite button will refuse to build a link. A field login sees jobs, photos, daily notes, tasks, and receipt text. Prices, invoices, proposals, and team management stay with the office.
 
@@ -204,7 +204,7 @@ Score each scenario pass or fail, with a note and a screenshot.
 9. **Failure paths.** ACH account `000222222227` leaves the invoice open. An expired or unknown proposal token 404s. Paying twice with the same details does not create a second payment. A declined proposal cannot be signed. Signing twice fails. Editing a line after send is refused until you revise a new version.
 10. **AI accuracy.** `npm run eval` prints three local drafts. For a real accuracy pass, run 10 of the tester's own past jobs and log percent error on the total. Target is within ±15%, with lines under 70% confidence flagged. The local matcher is not that study. It only prices from Rivera's book.
 11. **Time.** Sign in as Dana and open Time. Clock out the open punch, clock in on Okonkwo and a cost code, then clock out. The page shows hours and no dollar amounts. Sign in as Maya, correct the punch, and approve it. Okonkwo's job cost includes that labor. A shift still open after 12 hours shows on Today until the office acts. Payroll CSV is hours only, and only an owner or admin can download it.
-12. **Daily log.** Dana’s home is My day: the job, a map link, the clock, and today’s log. Publish a note and a photo. Maya opens the job’s Logs tab and shows it on the client portal. The portal copy has the note and not the hours, delays, or safety note. Ask Copilot what happened on Okonkwo yesterday. Nothing is emailed. Weather is typed, not looked up.
+12. **Daily log.** Dana’s home is My day: the job, a map link, the clock, and today’s log. Publish a note and a photo. Maya opens the job’s Logs tab and shows it on the client portal. The portal copy has the note and not the hours, delays, or safety note. Ask Copilot what happened on Okonkwo yesterday. Nothing is emailed. Weather is typed, not looked up. Rivera’s days are America/New_York, and the week starts Monday. Change either in Settings. Approved labor does not move.
 
 Feedback: file a GitHub issue with steps, expected, actual, screenshot, and device. A useful score is "would I send this proposal today?" from 1 to 5, plus minutes to a quote versus the current process.
 
@@ -222,6 +222,7 @@ Feedback: file a GitHub issue with steps, expected, actual, screenshot, and devi
 - Role checks and a second org
 - Crew time on a job and cost code. Approved hours post labor cost from the rate snapshot. Field logins never see that rate. No geofence and no payroll provider.
 - Daily logs on a job, and a My day screen for field crew. A published log can be shown on the client portal without hours, delays, or safety notes. No weather API and no message when it is shared.
+- A company time zone and workweek start. Days, logs, and week totals follow that clock. Approved labor is not rewritten.
 
 **Stubbed until keys exist**
 

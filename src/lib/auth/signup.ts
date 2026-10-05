@@ -21,6 +21,8 @@ export async function registerCompany(
     trade: string;
     state: string;
     starter: boolean;
+    timeZone?: string;
+    weekStartsOn?: string | number;
   },
   options: { env: Env; ip: string; auth?: PasswordAuth },
 ): Promise<RegisterResult> {

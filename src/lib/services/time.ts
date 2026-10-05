@@ -7,6 +7,7 @@ import {
   laborRates,
   memberships,
   priceBookItems,
+  organizations,
   projects,
   timeApprovals,
   timeEntries,
@@ -14,6 +15,16 @@ import {
   users,
 } from "@/lib/db/schema";
 import { id, nowIso } from "@/lib/ids";
+import {
+  DEFAULT_TIME_ZONE,
+  DEFAULT_WEEK_START,
+  isValidTimeZone,
+  localDay,
+  localWeek,
+  weekdayName,
+  zonedTimeToUtc,
+  type WorkCalendar,
+} from "@/lib/time/calendar";
 import { canAddFieldNotes, canManageMoney, canManageSettings, type Role } from "@/lib/permissions";
 import { ServiceError } from "@/lib/services/errors";
 import type { Actor } from "@/lib/services/read";
@@ -66,17 +77,22 @@ export function workedMinutes(entry: { clockInAt: string; clockOutAt: string | n
   return Math.max(0, Math.round((end - start - breakMs) / 60_000));
 }
 
-/** Monday 00:00 UTC through the following Monday. */
-export function weekBoundsUtc(now = Date.now()): { start: number; end: number } {
-  const date = new Date(now);
-  const mondayOffset = (date.getUTCDay() + 6) % 7;
-  const start = Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() - mondayOffset);
-  return { start, end: start + 7 * 86_400_000 };
+export function calendarForOrg(orgId: string): WorkCalendar {
+  const org = getDb()
+    .select({ timeZone: organizations.timeZone, weekStartsOn: organizations.weekStartsOn })
+    .from(organizations)
+    .where(eq(organizations.id, orgId))
+    .get();
+  const timeZone = org && isValidTimeZone(org.timeZone) ? org.timeZone : DEFAULT_TIME_ZONE;
+  const weekStartsOn =
+    org && Number.isInteger(org.weekStartsOn) && org.weekStartsOn >= 0 && org.weekStartsOn <= 6 ? org.weekStartsOn : DEFAULT_WEEK_START;
+  return { timeZone, weekStartsOn };
 }
 
 export function detectTimeFlags(
   entries: { id: string; userId: string; status: string; clockInAt: string; clockOutAt: string | null; breakMinutes: number; breakStartedAt: string | null }[],
   now = Date.now(),
+  calendar: WorkCalendar = { timeZone: DEFAULT_TIME_ZONE, weekStartsOn: DEFAULT_WEEK_START },
 ): TimeFlag[] {
   const flags: TimeFlag[] = [];
   const live = entries.filter((entry) => entry.status !== "void");
@@ -96,7 +112,7 @@ export function detectTimeFlags(
     list.push(entry);
     byUser.set(entry.userId, list);
   }
-  const week = weekBoundsUtc(now);
+  const week = localWeek(now, calendar);
   for (const [userId, rows] of byUser) {
     const weekMinutes = rows
       .filter((entry) => {
@@ -302,8 +318,9 @@ export function addManualTime(
   requireMember(db, actor.orgId, input.userId);
   const projectId = requireProject(db, actor.orgId, input.projectId);
   const costCode = requireCode(input.costCode);
-  const clockInAt = requireWhen(input.clockInAt);
-  const clockOutAt = requireWhen(input.clockOutAt);
+  const zone = calendarForOrg(actor.orgId).timeZone;
+  const clockInAt = requireWhen(input.clockInAt, zone);
+  const clockOutAt = requireWhen(input.clockOutAt, zone);
   const breakMinutes = requireBreak(input.breakMinutes ?? 0, clockInAt, clockOutAt);
   const stamp = nowIso();
   const entryId = id("time");
@@ -350,9 +367,10 @@ export function editTime(
   if (entry.status === "void") throw new ServiceError("Voided time stays on the record.");
   const projectId = requireProject(db, actor.orgId, input.projectId);
   const costCode = requireCode(input.costCode);
-  const clockInAt = requireWhen(input.clockInAt);
+  const zone = calendarForOrg(actor.orgId).timeZone;
+  const clockInAt = requireWhen(input.clockInAt, zone);
   const open = entry.status === "open" || entry.status === "break";
-  const clockOutAt = open ? null : requireWhen(input.clockOutAt || "");
+  const clockOutAt = open ? null : requireWhen(input.clockOutAt || "", zone);
   if (clockOutAt) requireBreak(input.breakMinutes ?? entry.breakMinutes, clockInAt, clockOutAt);
   const breakMinutes = Math.max(0, Math.round(input.breakMinutes ?? entry.breakMinutes));
   const stamp = nowIso();
@@ -526,6 +544,41 @@ export function setHourlyCost(actor: Actor, userId: string | null, hourlyCostCen
     .run();
 }
 
+export function updateWorkCalendar(actor: Actor, input: { timeZone: string; weekStartsOn: number }) {
+  if (!canManageSettings(actor.role as Role)) throw new ServiceError("Only an owner or admin can change the workweek.");
+  if (!isValidTimeZone(input.timeZone)) throw new ServiceError("Pick a time zone.");
+  if (!Number.isInteger(input.weekStartsOn) || input.weekStartsOn < 0 || input.weekStartsOn > 6) {
+    throw new ServiceError("Pick the day the week starts.");
+  }
+  const db = officeOrThrow(actor);
+  const org = db.select().from(organizations).where(eq(organizations.id, actor.orgId)).get();
+  if (!org) throw new ServiceError("Company not found.");
+  const before = { timeZone: org.timeZone, weekStartsOn: org.weekStartsOn };
+  const after = { timeZone: input.timeZone, weekStartsOn: input.weekStartsOn };
+  if (before.timeZone === after.timeZone && before.weekStartsOn === after.weekStartsOn) return;
+  const stamp = nowIso();
+  db.transaction((tx) => {
+    tx.update(organizations)
+      .set({ timeZone: after.timeZone, weekStartsOn: after.weekStartsOn, updatedAt: stamp })
+      .where(eq(organizations.id, actor.orgId))
+      .run();
+    tx.insert(activities)
+      .values({
+        id: id("act"),
+        orgId: actor.orgId,
+        entityType: "organization",
+        entityId: actor.orgId,
+        type: "calendar",
+        actorType: "user",
+        actorId: actor.userId,
+        summary: `Workweek set to ${weekdayName(after.weekStartsOn)} in ${after.timeZone}. Stored clock times were not moved.`,
+        payloadJson: JSON.stringify({ before, after }),
+        createdAt: stamp,
+      })
+      .run();
+  });
+}
+
 export function defaultHourlyCost(orgId: string): number | null {
   const db = officeDb(orgId);
   if (!db) return null;
@@ -536,8 +589,9 @@ export function approvedHoursCsv(actor: Actor, from: string, to: string): string
   if (!canManageSettings(actor.role as Role)) throw new ServiceError("Only an owner or admin can export payroll hours.");
   const start = dateStart(from);
   const end = dateStart(to);
-  if (start == null || end == null || end < start) throw new ServiceError("Pick a start and end date.");
+  if (start == null || end == null || from > to) throw new ServiceError("Pick a start and end date.");
   const db = officeOrThrow(actor);
+  const zone = calendarForOrg(actor.orgId).timeZone;
   const rows = db
     .select({ entry: timeEntries, name: users.name, email: users.email })
     .from(timeEntries)
@@ -545,12 +599,12 @@ export function approvedHoursCsv(actor: Actor, from: string, to: string): string
     .where(and(eq(timeEntries.orgId, actor.orgId), eq(timeEntries.status, "approved")))
     .all()
     .filter((row) => {
-      const day = row.entry.clockInAt.slice(0, 10);
+      const day = localDay(Date.parse(row.entry.clockInAt), zone);
       return day >= from && day <= to;
     });
   const totals = new Map<string, { date: string; name: string; email: string; minutes: number }>();
   for (const row of rows) {
-    const date = row.entry.clockInAt.slice(0, 10);
+    const date = localDay(Date.parse(row.entry.clockInAt), zone);
     const key = `${date}|${row.entry.userId}`;
     const current = totals.get(key) ?? { date, name: row.name, email: row.email, minutes: 0 };
     current.minutes += workedMinutes(row.entry);
@@ -580,18 +634,21 @@ export function timeBoard(actor: Actor, now = Date.now()) {
         .map((row) => row.code),
     ),
   ].sort();
+  const calendar = calendarForOrg(actor.orgId);
   const mine = db.select().from(timeEntries).where(and(eq(timeEntries.orgId, actor.orgId), eq(timeEntries.userId, actor.userId))).all();
   const names = new Map(jobs.map((job) => [job.id, job.name]));
-  const selfFlags = detectTimeFlags(mine, now);
-  const week = weekBoundsUtc(now);
-  const today = new Date(now).toISOString().slice(0, 10);
+  const selfFlags = detectTimeFlags(mine, now, calendar);
+  const week = localWeek(now, calendar);
+  const today = localDay(now, calendar.timeZone);
   const countable = mine.filter((entry) => entry.status !== "void");
   const open = mine.find((entry) => entry.status === "open" || entry.status === "break") ?? null;
   const base = {
     jobs,
     codes,
     open,
-    todayMinutes: countable.filter((entry) => entry.clockInAt.slice(0, 10) === today).reduce((sum, entry) => sum + workedMinutes(entry, now), 0),
+    timeZone: calendar.timeZone,
+    weekStartsOn: calendar.weekStartsOn,
+    todayMinutes: countable.filter((entry) => localDay(Date.parse(entry.clockInAt), calendar.timeZone) === today).reduce((sum, entry) => sum + workedMinutes(entry, now), 0),
     weekMinutes: countable
       .filter((entry) => {
         const start = Date.parse(entry.clockInAt);
@@ -615,7 +672,7 @@ export function timeBoard(actor: Actor, now = Date.now()) {
     .all()
     .sort((a, b) => a.name.localeCompare(b.name));
   const personName = new Map(people.map((person) => [person.userId, person.name]));
-  const flags = detectTimeFlags(all, now);
+  const flags = detectTimeFlags(all, now, calendar);
   const rates = db.select().from(laborRates).where(eq(laborRates.orgId, actor.orgId)).all();
   const defaultHourlyCostCents = rates.find((rate) => rate.userId === DEFAULT_RATE_USER)?.hourlyCostCents ?? null;
   return {
@@ -767,10 +824,18 @@ function requireCode(value: string) {
   return code;
 }
 
-function requireWhen(value: string) {
-  const date = new Date(value);
-  if (!value.trim() || Number.isNaN(date.getTime())) throw new ServiceError("Enter a valid time.");
-  return date.toISOString();
+function requireWhen(value: string, timeZone: string) {
+  const trimmed = value.trim();
+  if (!trimmed) throw new ServiceError("Enter a valid time.");
+  if (/[zZ]$|[+-]\d{2}:\d{2}$/.test(trimmed)) {
+    const date = new Date(trimmed);
+    if (Number.isNaN(date.getTime())) throw new ServiceError("Enter a valid time.");
+    return date.toISOString();
+  }
+  const match = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2}))?$/);
+  if (!match) throw new ServiceError("Enter a valid time.");
+  const utc = zonedTimeToUtc(Number(match[1]), Number(match[2]), Number(match[3]), Number(match[4]), Number(match[5]), Number(match[6] ?? 0), timeZone);
+  return new Date(utc).toISOString();
 }
 
 function requireBreak(minutes: number, clockInAt: string, clockOutAt: string) {

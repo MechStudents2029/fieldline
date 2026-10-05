@@ -17,9 +17,9 @@ import {
   publishDailyLog,
   saveDailyLog,
   setLogVisibility,
-  utcDay,
   voidDailyLog,
 } from "@/lib/services/logs";
+import { addCalendarDays, localDay, zonedTimeToUtc } from "@/lib/time/calendar";
 
 const DANA = "66666666-6666-4666-8666-666666666666";
 const MAYA = "11111111-1111-4111-8111-111111111111";
@@ -47,10 +47,13 @@ describe("daily logs", () => {
     expect(lookupWeather()).toBeNull();
     const dana = actor("dana@rivera.demo");
     const maya = actor("maya@rivera.demo");
-    const today = utcDay();
+    const today = localDay(Date.now(), "America/New_York");
     const again = openDailyLog(dana, "proj_okonkwo", today);
     expect(again.id).toBe("log_ok_draft");
-    expect(() => openDailyLog(dana, "proj_okonkwo", utcDay(Date.now() + 3 * 86_400_000))).toThrow(/future/);
+    expect(() => openDailyLog(dana, "proj_okonkwo", addCalendarDays(today, 3))).toThrow(/future/);
+    const eleven = zonedTimeToUtc(2026, 3, 8, 23, 0, 0, "America/New_York");
+    expect(() => openDailyLog(dana, "proj_brooks", "2026-03-09", eleven)).toThrow(/future/);
+    expect(openDailyLog(dana, "proj_brooks", "2026-03-08", eleven).logDate).toBe("2026-03-08");
     expect(() => publishDailyLog(dana, again.id, { notes: "   " })).toThrow(/note before publishing/);
     publishDailyLog(dana, again.id, {
       notes: "Set the niche and waited on the curb.",
@@ -90,7 +93,7 @@ describe("daily logs", () => {
   });
 
   it("counts unapproved punches without rates and nudges a job with no published log", () => {
-    const yesterday = utcDay(Date.now() - 86_400_000);
+    const yesterday = addCalendarDays(localDay(Date.now(), "America/New_York"), -1);
     const crew = crewForLog("org_rivera", "proj_chen", yesterday);
     expect(crew.headcount).toBe(1);
     expect(crew.minutes).toBe(120);
@@ -108,8 +111,8 @@ describe("daily logs", () => {
     expect(jobLogAnswer(maya.orgId, "what happened on a missing job yesterday?").answer).toMatch(/No job matches/);
     const jordan = actor("jordan@northline.demo");
     const riley = actor("riley@rivera.demo");
-    expect(() => openDailyLog(jordan, "proj_okonkwo", utcDay())).toThrow(/Job not found/);
-    expect(() => openDailyLog(riley, "proj_okonkwo", utcDay())).toThrow(/Viewers cannot/);
+    expect(() => openDailyLog(jordan, "proj_okonkwo", localDay(Date.now(), "America/New_York"))).toThrow(/Job not found/);
+    expect(() => openDailyLog(riley, "proj_okonkwo", localDay(Date.now(), "America/New_York"))).toThrow(/Viewers cannot/);
     const source = readFileSync(path.join(process.cwd(), "supabase", "rls.sql"), "utf8");
     expect(source).toContain("daily_logs_scope");
     expect(source).toContain("visibility = 'internal'");

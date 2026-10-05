@@ -17,6 +17,7 @@ import {
 } from "@/lib/db/schema";
 import { STARTER_MARK, starterRows, TRADE_FOCUS } from "@/lib/db/starter";
 import { id, nowIso } from "@/lib/ids";
+import { DEFAULT_TIME_ZONE, DEFAULT_WEEK_START, isValidTimeZone } from "@/lib/time/calendar";
 import { setupChecklist, type ChecklistFacts, type ChecklistStep } from "@/lib/onboarding/checklist";
 import { canManageSettings } from "@/lib/permissions";
 import { isStarterTrade, type SignupFields, type StarterTrade } from "@/lib/security";
@@ -72,6 +73,11 @@ export function createCompany(input: SignupFields & { authUserId?: string | null
           cardEnabled: 1,
           termsVersion: "2026-09-01",
           setupDismissedAt: null,
+          timeZone: input.timeZone && isValidTimeZone(input.timeZone) ? input.timeZone : DEFAULT_TIME_ZONE,
+          weekStartsOn:
+            input.weekStartsOn != null && Number.isInteger(input.weekStartsOn) && input.weekStartsOn >= 0 && input.weekStartsOn <= 6
+              ? input.weekStartsOn
+              : DEFAULT_WEEK_START,
           createdAt: now,
           updatedAt: now,
         })

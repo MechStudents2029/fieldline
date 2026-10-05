@@ -3,16 +3,9 @@ import { JobTabs } from "@/components/job-tabs";
 import { MissingRecord } from "@/components/missing-record";
 import { Button } from "@/components/ui/button";
 import { requireSession } from "@/lib/auth/session";
+import { formatCalendarDay } from "@/lib/format";
 import { canAddFieldNotes } from "@/lib/permissions";
-import { jobLogs, utcDay } from "@/lib/services/logs";
-
-function formatLogDate(day: string) {
-  const [year, month, date] = day.split("-").map(Number);
-  if (!year || !month || !date) return day;
-  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }).format(
-    new Date(Date.UTC(year, month - 1, date)),
-  );
-}
+import { jobLogs } from "@/lib/services/logs";
 
 export default async function JobLogsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -23,7 +16,9 @@ export default async function JobLogsPage({ params }: { params: Promise<{ id: st
     <div className="mx-auto flex max-w-2xl flex-col gap-4">
       <div>
         <h1 className="font-heading text-3xl">Logs</h1>
-        <p className="text-sm text-muted-foreground">{board.project.name}. One log per person per day. Dates are UTC.</p>
+        <p className="text-sm text-muted-foreground">
+          {board.project.name}. One log per person per day in {board.timeZone}.
+        </p>
         <div className="mt-3">
           <JobTabs projectId={id} current="logs" />
         </div>
@@ -32,7 +27,7 @@ export default async function JobLogsPage({ params }: { params: Promise<{ id: st
         <form action={startLogAction.bind(null, id)} className="flex flex-col gap-2 rounded-xl bg-card p-4 ring-1 ring-foreground/10 sm:flex-row sm:items-end">
           <label className="text-sm">
             Date
-            <input type="date" name="logDate" max={utcDay()} defaultValue={utcDay()} required className="field mt-1" />
+            <input type="date" name="logDate" max={board.today} defaultValue={board.today} required className="field mt-1" />
           </label>
           <Button type="submit" className="h-12">
             Open log
@@ -47,7 +42,7 @@ export default async function JobLogsPage({ params }: { params: Promise<{ id: st
           <li key={log.id}>
             <a href={`/projects/${id}/logs/${log.id}`} className="block rounded-xl bg-card p-4 text-sm ring-1 ring-foreground/10">
               <span className="font-medium">
-                {formatLogDate(log.logDate)} · {author}
+                {formatCalendarDay(log.logDate)} · {author}
               </span>
               <span className="block text-xs text-muted-foreground">
                 {log.status} · {log.visibility === "client" ? "on the client portal" : "internal"}

@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { formatDateTime } from "@/lib/format";
 import type { Actor } from "@/lib/services/read";
 import { myDay } from "@/lib/services/logs";
+import { weekdayName } from "@/lib/time/calendar";
 
 export function MyDay({ actor }: { actor: Actor }) {
   const day = myDay(actor);
@@ -12,7 +13,9 @@ export function MyDay({ actor }: { actor: Actor }) {
     <div className="mx-auto flex max-w-lg flex-col gap-4">
       <div>
         <h1 className="font-heading text-3xl">My day</h1>
-        <p className="text-sm text-muted-foreground">Where you are, the clock, and today’s log. Week days are UTC.</p>
+        <p className="text-sm text-muted-foreground">
+          Where you are, the clock, and today’s log. {day.timeZone}. Week starts {weekdayName(day.weekStartsOn)}.
+        </p>
       </div>
       <section className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
         {day.open ? (
@@ -21,7 +24,7 @@ export function MyDay({ actor }: { actor: Actor }) {
               Clocked in on {day.open.projectName} · {day.open.costCode}
               {day.open.status === "break" ? " · on break" : ""}
             </p>
-            <p className="text-xs text-muted-foreground">Since {formatDateTime(day.open.clockInAt)}</p>
+            <p className="text-xs text-muted-foreground">Since {formatDateTime(day.open.clockInAt, day.timeZone)}</p>
             <ClockOutForm compact />
             <form action={startLogAction.bind(null, day.open.projectId)}>
               <Button type="submit" className="h-14 w-full text-base">

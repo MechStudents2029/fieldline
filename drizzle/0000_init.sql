@@ -337,6 +337,8 @@ CREATE TABLE `organizations` (
 	`card_enabled` integer DEFAULT 1 NOT NULL,
 	`terms_version` text DEFAULT '2026-09-01' NOT NULL,
 	`setup_dismissed_at` text,
+	`time_zone` text DEFAULT 'America/New_York' NOT NULL,
+	`week_starts_on` integer DEFAULT 1 NOT NULL,
 	`created_at` text NOT NULL,
 	`updated_at` text NOT NULL
 );

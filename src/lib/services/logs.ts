@@ -16,7 +16,8 @@ import { id, nowIso } from "@/lib/ids";
 import { canAddFieldNotes, canManageMoney, type Role } from "@/lib/permissions";
 import { ServiceError } from "@/lib/services/errors";
 import type { Actor } from "@/lib/services/read";
-import { formatHours, timeBoard, workedMinutes } from "@/lib/services/time";
+import { calendarForOrg, formatHours, timeBoard, workedMinutes } from "@/lib/services/time";
+import { addCalendarDays, localDay } from "@/lib/time/calendar";
 
 /**
  * Visibility is internal or client. There is no private-to-author flag.
@@ -24,7 +25,8 @@ import { formatHours, timeBoard, workedMinutes } from "@/lib/services/time";
  * next, hand-entered weather, deliveries, visitors, and that log's photos.
  * Delays, safety notes, crew names, hours, and costs stay off the portal.
  * After a log is client-visible, only the office can edit it.
- * The day is the UTC date, same as time punches. lookupWeather is a stub.
+ * A log date is the company-local calendar day. A punch counts on the local
+ * day of its clock-in, including a shift that crosses midnight. lookupWeather is a stub.
  */
 
 type LogRow = typeof dailyLogs.$inferSelect;
@@ -65,17 +67,14 @@ export function lookupWeather(): null {
   return null;
 }
 
-export function utcDay(now = Date.now()): string {
-  return new Date(now).toISOString().slice(0, 10);
-}
-
 export function mapLink(address: string): string {
   return `https://maps.google.com/maps?q=${encodeURIComponent(address)}`;
 }
 
 export function openDailyLog(actor: Actor, projectId: string, logDate: string, now = Date.now()) {
   assertWriter(actor);
-  const day = requireDay(logDate, now);
+  const zone = calendarForOrg(actor.orgId).timeZone;
+  const day = logDate.trim() ? requireDay(logDate, now, zone) : localDay(now, zone);
   const db = officeOrThrow(actor);
   requireProject(db, actor.orgId, projectId);
   const existing = activeLog(db, actor.orgId, projectId, actor.userId, day);
@@ -243,7 +242,7 @@ export function crewForLog(orgId: string, projectId: string, logDate: string) {
     .from(timeEntries)
     .where(and(eq(timeEntries.orgId, orgId), eq(timeEntries.projectId, projectId)))
     .all()
-    .filter((entry) => entry.status !== "void" && entry.clockInAt.slice(0, 10) === logDate);
+    .filter((entry) => entry.status !== "void" && localDay(Date.parse(entry.clockInAt), calendarForOrg(orgId).timeZone) === logDate);
   const byCode = new Map<string, number>();
   const people = new Set<string>();
   let includesUnapproved = false;
@@ -276,7 +275,8 @@ export function jobLogs(actor: Actor, projectId: string) {
     .where(and(eq(dailyLogs.orgId, actor.orgId), eq(dailyLogs.projectId, project.id)))
     .all()
     .sort((a, b) => b.log.logDate.localeCompare(a.log.logDate) || b.log.createdAt.localeCompare(a.log.createdAt));
-  return { project, logs: rows };
+  const calendar = calendarForOrg(actor.orgId);
+  return { project, logs: rows, today: localDay(Date.now(), calendar.timeZone), timeZone: calendar.timeZone };
 }
 
 export function logDetail(actor: Actor, logId: string) {
@@ -358,13 +358,14 @@ export function clientDailyLogs(projectId: string): ClientDailyLog[] {
 export function missingDailyLogs(orgId: string, now = Date.now()) {
   const db = officeDb(orgId);
   if (!db) return [];
-  const day = utcDay(now - 86_400_000);
+  const calendar = calendarForOrg(orgId);
+  const day = addCalendarDays(localDay(now, calendar.timeZone), -1);
   const punches = db
     .select()
     .from(timeEntries)
     .where(eq(timeEntries.orgId, orgId))
     .all()
-    .filter((entry) => entry.status !== "void" && entry.clockInAt.slice(0, 10) === day);
+    .filter((entry) => entry.status !== "void" && localDay(Date.parse(entry.clockInAt), calendar.timeZone) === day);
   const covered = new Set(
     db
       .select()
@@ -388,7 +389,8 @@ export function missingDailyLogs(orgId: string, now = Date.now()) {
 
 export function jobLogAnswer(orgId: string, question: string, now = Date.now()) {
   const match = question.match(/what happened on\s+(.+?)\s+yesterday\??/i);
-  const day = utcDay(now - 86_400_000);
+  const calendar = calendarForOrg(orgId);
+  const day = addCalendarDays(localDay(now, calendar.timeZone), -1);
   if (!match) {
     return {
       answer: "Ask it as: what happened on Okonkwo yesterday?",
@@ -435,7 +437,8 @@ export function jobLogAnswer(orgId: string, question: string, now = Date.now()) 
 export function myDay(actor: Actor, now = Date.now()) {
   const db = officeOrThrow(actor);
   const board = timeBoard(actor, now);
-  const day = utcDay(now);
+  const calendar = calendarForOrg(actor.orgId);
+  const day = localDay(now, calendar.timeZone);
   const taskRows = db
     .select()
     .from(tasks)
@@ -448,7 +451,7 @@ export function myDay(actor: Actor, now = Date.now()) {
     if (task.relatedType === "project" && task.relatedId) projectIds.add(task.relatedId);
   }
   for (const entry of board.entries) {
-    if (entry.clockInAt.slice(0, 10) === day) projectIds.add(entry.projectId);
+    if (localDay(Date.parse(entry.clockInAt), calendar.timeZone) === day) projectIds.add(entry.projectId);
   }
   const jobs = db
     .select({ id: projects.id, name: projects.name, address: projects.address, status: projects.status })
@@ -460,6 +463,8 @@ export function myDay(actor: Actor, now = Date.now()) {
   const todayLog = board.open ? activeLog(db, actor.orgId, board.open.projectId, actor.userId, day) : null;
   return {
     day,
+    timeZone: calendar.timeZone,
+    weekStartsOn: calendar.weekStartsOn,
     open: board.open
       ? {
           projectId: board.open.projectId,
@@ -613,11 +618,11 @@ function hoursToMinutes(value: string | null | undefined) {
   return Math.round(number * 60);
 }
 
-function requireDay(value: string, now: number) {
+function requireDay(value: string, now: number, timeZone: string) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || Number.isNaN(Date.parse(`${value}T00:00:00.000Z`))) {
     throw new ServiceError("Pick a date.");
   }
-  if (value > utcDay(now)) throw new ServiceError("A log can't be dated in the future.");
+  if (value > localDay(now, timeZone)) throw new ServiceError("A log can't be dated in the future.");
   return value;
 }
 

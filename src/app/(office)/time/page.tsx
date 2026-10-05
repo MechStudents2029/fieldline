@@ -7,10 +7,11 @@ import { formatDateTime } from "@/lib/format";
 import { formatMoney } from "@/lib/money";
 import { canAddFieldNotes, canManageMoney, canManageSettings } from "@/lib/permissions";
 import { formatHours, timeBoard } from "@/lib/services/time";
+import { formatLocalInput, weekdayName } from "@/lib/time/calendar";
 
-function whenValue(iso: string | null) {
+function whenValue(iso: string | null, timeZone: string) {
   if (!iso) return "";
-  return iso.slice(0, 16);
+  return formatLocalInput(iso, timeZone);
 }
 
 export default async function TimePage() {
@@ -23,17 +24,22 @@ export default async function TimePage() {
       <div>
         <h1 className="font-heading text-3xl">Time</h1>
         <p className="text-sm text-muted-foreground">
-          Clock in on a job and cost code. Hours land on the budget only after the office approves them. Week starts Monday, UTC.
+          Clock in on a job and cost code. Hours land on the budget only after the office approves them. Days follow {board.timeZone}. The week starts{" "}
+          {weekdayName(board.weekStartsOn)}.
         </p>
       </div>
       <section className="grid grid-cols-2 gap-3">
         <div className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
           <p className="text-xs uppercase text-muted-foreground">Today</p>
-          <p className="font-heading text-3xl">{formatHours(board.todayMinutes)}</p>
+          <p className="font-heading text-3xl" aria-label="Hours today">
+            {formatHours(board.todayMinutes)}
+          </p>
         </div>
         <div className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
           <p className="text-xs uppercase text-muted-foreground">This week</p>
-          <p className="font-heading text-3xl">{formatHours(board.weekMinutes)}</p>
+          <p className="font-heading text-3xl" aria-label="Hours this week">
+            {formatHours(board.weekMinutes)}
+          </p>
         </div>
       </section>
       {canAddFieldNotes(session.role) ? (
@@ -44,7 +50,7 @@ export default async function TimePage() {
                 Clocked in on {board.jobs.find((job) => job.id === open.projectId)?.name ?? "a job"} · {open.costCode}
                 {open.status === "break" ? " · on break" : ""}
               </p>
-              <p className="text-xs text-muted-foreground">Since {formatDateTime(open.clockInAt)}</p>
+              <p className="text-xs text-muted-foreground">Since {formatDateTime(open.clockInAt, board.timeZone)}</p>
               <ClockOutForm />
               <ActionForm action={breakAction.bind(null, open.status === "break" ? "end" : "start")}>
                 <Button type="submit" variant="outline" className="h-12 w-full">
@@ -101,8 +107,8 @@ export default async function TimePage() {
                 {entry.projectName} · {entry.costCode}
               </p>
               <p className="text-xs text-muted-foreground">
-                {formatDateTime(entry.clockInAt)}
-                {entry.clockOutAt ? ` – ${formatDateTime(entry.clockOutAt)}` : " · open"} · {formatHours(entry.minutes)} · {entry.status}
+                {formatDateTime(entry.clockInAt, board.timeZone)}
+                {entry.clockOutAt ? ` – ${formatDateTime(entry.clockOutAt, board.timeZone)}` : " · open"} · {formatHours(entry.minutes)} · {entry.status}
               </p>
               {entry.note ? <p>{entry.note}</p> : null}
             </li>
@@ -118,7 +124,7 @@ export default async function TimePage() {
               {office.clockedIn.map((row) => (
                 <li key={row.entryId}>
                   {row.name} · {row.projectName} · {row.costCode}
-                  {row.onBreak ? " · on break" : ""} · since {formatDateTime(row.since)}
+                  {row.onBreak ? " · on break" : ""} · since {formatDateTime(row.since, board.timeZone)}
                 </li>
               ))}
             </ul>
@@ -160,11 +166,11 @@ export default async function TimePage() {
                   </label>
                   <label className="text-sm">
                     Clock in
-                    <input type="datetime-local" name="clockInAt" defaultValue={whenValue(entry.clockInAt)} className="field mt-1" required />
+                    <input type="datetime-local" name="clockInAt" defaultValue={whenValue(entry.clockInAt, board.timeZone)} className="field mt-1" required />
                   </label>
                   <label className="text-sm">
                     Clock out
-                    <input type="datetime-local" name="clockOutAt" defaultValue={whenValue(entry.clockOutAt)} className="field mt-1" required />
+                    <input type="datetime-local" name="clockOutAt" defaultValue={whenValue(entry.clockOutAt, board.timeZone)} className="field mt-1" required />
                   </label>
                   <label className="text-sm">
                     Break minutes
@@ -313,7 +319,9 @@ export default async function TimePage() {
           {canManageSettings(session.role) ? (
             <section className="text-sm">
               <h2 className="font-medium">Payroll hours</h2>
-              <p className="mt-1 text-xs text-muted-foreground">Approved hours per person per day. No rates in the file.</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Approved hours per person per day in {board.timeZone}. The date is the clock-in day. No rates in the file.
+              </p>
               <form action="/api/export/time" className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-end">
                 <label>
                   From

@@ -110,6 +110,10 @@ describe("new company", () => {
     const { actor } = created;
     expect(actor.role).toBe("owner");
     expect(actor.orgName).toBe("Cole Kitchens");
+    expect(getDb().select().from(organizations).where(eq(organizations.id, actor.orgId)).get()).toMatchObject({
+      timeZone: "America/New_York",
+      weekStartsOn: 1,
+    });
     expect(actor.orgId).not.toBe("org_rivera");
     const members = getDb().select().from(memberships).where(eq(memberships.orgId, actor.orgId)).all();
     expect(members).toHaveLength(1);

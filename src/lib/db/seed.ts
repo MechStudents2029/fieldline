@@ -1,6 +1,7 @@
 import type Database from "better-sqlite3";
 import { eq } from "drizzle-orm";
 import type { AppDatabase } from "@/lib/db/client";
+import { addCalendarDays, localDay, zonedTimeToUtc } from "@/lib/time/calendar";
 import { northlineCatalog, riveraCatalog } from "@/lib/db/catalog";
 import {
   activities,
@@ -50,7 +51,7 @@ import { achFeeCents, qtyToMilli } from "@/lib/money";
 import { DEMO_PASSWORD } from "@/lib/product";
 import { proposalNudgeCopy } from "@/lib/ai/nurture";
 
-export const SEED_VERSION = "4";
+export const SEED_VERSION = "5";
 
 const ORG = "org_rivera";
 const NORTH = "org_northline";
@@ -112,6 +113,8 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
         finalBps: 2000,
         cardEnabled: 1,
         termsVersion: "2026-09-01",
+        timeZone: "America/New_York",
+        weekStartsOn: 1,
         createdAt: created,
         updatedAt: now,
       },
@@ -131,6 +134,8 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
         finalBps: 0,
         cardEnabled: 1,
         termsVersion: "2026-09-01",
+        timeZone: "America/Los_Angeles",
+        weekStartsOn: 1,
         createdAt: created,
         updatedAt: now,
       },
@@ -992,6 +997,13 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
     .run();
 
   const hoursAgo = (hours: number) => new Date(Date.now() - hours * 3_600_000).toISOString();
+  const riveraZone = "America/New_York";
+  const today = localDay(Date.now(), riveraZone);
+  const yesterday = addCalendarDays(today, -1);
+  const riveraAt = (day: string, hour: number) => {
+    const [year, month, date] = day.split("-").map(Number);
+    return new Date(zonedTimeToUtc(year, month, date, hour, 0, 0, riveraZone)).toISOString();
+  };
   const approvedIn = hoursAgo(30);
   const approvedOut = hoursAgo(22);
   db.insert(laborRates)
@@ -1073,8 +1085,8 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
         projectId: "proj_chen",
         costCode: "GC-SUPER",
         status: "pending",
-        clockInAt: `${new Date(Date.now() - 86_400_000).toISOString().slice(0, 10)}T14:00:00.000Z`,
-        clockOutAt: `${new Date(Date.now() - 86_400_000).toISOString().slice(0, 10)}T16:00:00.000Z`,
+        clockInAt: riveraAt(yesterday, 10),
+        clockOutAt: riveraAt(yesterday, 12),
         breakMinutes: 0,
         breakStartedAt: null,
         note: "Walked the powder room",
@@ -1131,8 +1143,6 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
     ])
     .run();
 
-  const yesterday = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
-  const today = new Date().toISOString().slice(0, 10);
   db.insert(dailyLogs)
     .values([
       {

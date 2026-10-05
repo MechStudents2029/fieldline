@@ -6,16 +6,9 @@ import { MissingRecord } from "@/components/missing-record";
 import { PhotoCapture } from "@/components/photo-capture";
 import { Button } from "@/components/ui/button";
 import { requireSession } from "@/lib/auth/session";
+import { formatCalendarDay } from "@/lib/format";
 import { captionFromMetadata } from "@/lib/services/read";
 import { logDetail, lookupWeather } from "@/lib/services/logs";
-
-function formatLogDate(day: string) {
-  const [year, month, date] = day.split("-").map(Number);
-  if (!year || !month || !date) return day;
-  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }).format(
-    new Date(Date.UTC(year, month - 1, date)),
-  );
-}
 
 function hoursValue(minutes: number | null) {
   if (minutes == null) return "";
@@ -34,7 +27,7 @@ export default async function DailyLogPage({ params }: { params: Promise<{ id: s
       <div>
         <h1 className="font-heading text-3xl">Daily log</h1>
         <p className="text-sm text-muted-foreground">
-          {detail.authorName} · {formatLogDate(log.logDate)} · {log.status} · {log.visibility === "client" ? "on the client portal" : "internal"}
+          {detail.authorName} · {formatCalendarDay(log.logDate)} · {log.status} · {log.visibility === "client" ? "on the client portal" : "internal"}
         </p>
         <div className="mt-3">
           <JobTabs projectId={id} current="logs" />

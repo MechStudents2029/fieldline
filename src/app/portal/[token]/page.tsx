@@ -4,6 +4,7 @@ import { approveCoAction, portalMessageAction } from "@/app/actions";
 import { ActionForm } from "@/components/action-form";
 import { Button } from "@/components/ui/button";
 import { CONSENT_TEXT } from "@/lib/product";
+import { formatCalendarDay } from "@/lib/format";
 import { formatMoney } from "@/lib/money";
 import { portalByToken } from "@/lib/services/read";
 
@@ -77,7 +78,7 @@ export default async function PortalPage({ params }: { params: Promise<{ token: 
         {data.logs.length === 0 ? <p className="mt-2 text-sm text-muted-foreground">No shared log yet.</p> : null}
         {data.logs.map((log) => (
           <article key={log.id} className="mt-3 rounded-xl bg-card p-4 text-sm ring-1 ring-foreground/10">
-            <p className="text-xs text-muted-foreground">{log.logDate}</p>
+            <p className="text-xs text-muted-foreground">{formatCalendarDay(log.logDate)}</p>
             <p className="mt-1 whitespace-pre-wrap">{log.notes}</p>
             {log.plannedNext ? <p className="mt-2">Next: {log.plannedNext}</p> : null}
             {log.weatherSky || log.weatherHighF != null || log.weatherLowF != null ? (

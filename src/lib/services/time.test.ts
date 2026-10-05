@@ -4,11 +4,12 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { and, eq } from "drizzle-orm";
 import { getDb, getRlsDb, getSqlite, useDatabaseFile, usePostgresMemory } from "@/lib/db/client";
 import { withOfficeClaim } from "@/lib/db/rls-context";
-import { activities, costItems, laborRates, timeApprovals, timeEntries, timeEntryEvents, users } from "@/lib/db/schema";
+import { activities, costItems, laborRates, organizations, timeApprovals, timeEntries, timeEntryEvents, users } from "@/lib/db/schema";
 import { authenticate } from "@/lib/services/read";
 import {
   approvedHoursCsv,
   approveTime,
+  calendarForOrg,
   clockIn,
   clockOut,
   detectTimeFlags,
@@ -21,10 +22,11 @@ import {
   startBreak,
   switchJob,
   timeBoard,
+  updateWorkCalendar,
   voidTime,
   addManualTime,
-  weekBoundsUtc,
 } from "@/lib/services/time";
+import { localDay, localWeek, zonedTimeToUtc } from "@/lib/time/calendar";
 
 const DANA = "66666666-6666-4666-8666-666666666666";
 const MAYA = "11111111-1111-4111-8111-111111111111";
@@ -66,8 +68,8 @@ describe("time tracking", () => {
     expect(laborCostCents(450, 5200)).toBe(39_000);
     expect(laborCostCents(120, 5200)).toBe(10_400);
     const now = Date.UTC(2026, 9, 7, 15);
-    const week = weekBoundsUtc(now);
-    expect(new Date(week.start).getUTCDay()).toBe(1);
+    const week = localWeek(now, { timeZone: "America/New_York", weekStartsOn: 1 });
+    expect(week.startDay).toBe("2026-10-05");
     const monday = week.start + HOUR;
     const flags = detectTimeFlags(
       [
@@ -117,7 +119,7 @@ describe("time tracking", () => {
     expect(() => approvedHoursCsv(luis, "2026-10-01", "2026-10-07")).toThrow(/owner or admin/);
     const seeded = getDb().select().from(timeEntries).where(eq(timeEntries.id, "time_ok_tile")).get();
     expect(seeded?.status).toBe("approved");
-    const day = seeded!.clockInAt.slice(0, 10);
+    const day = localDay(Date.parse(seeded!.clockInAt), "America/New_York");
     const csv = approvedHoursCsv(maya, day, day);
     expect(csv.split("\n")[0]).toBe("date,name,email,hours");
     expect(csv).toContain("Dana Cho,dana@rivera.demo,7.50");
@@ -128,6 +130,8 @@ describe("time tracking", () => {
     expect(source).toContain("time_approvals");
     expect(source).toContain("time_entries_scope");
     expect(source).toContain("current_user_id");
+    expect(source).toContain("organizations_update");
+    expect(source).toContain("can_manage_org");
   });
 
   it("posts approved labor at the approval snapshot, then locks it until reopen", () => {
@@ -249,6 +253,47 @@ describe("time tracking", () => {
     clockOut(dana, {}, Date.UTC(2026, 9, 6, 21));
     expect(() => approveTime(maya, zero.entryId)).toThrow(/no time/);
   });
+
+  it("regroups an unlocked week without moving stored instants or approved labor", () => {
+    const maya = actor("maya@rivera.demo");
+    const dana = actor("dana@rivera.demo");
+    const luis = actor("luis@rivera.demo");
+    const jordan = actor("jordan@northline.demo");
+    expect(calendarForOrg("org_rivera")).toEqual({ timeZone: "America/New_York", weekStartsOn: 1 });
+    expect(calendarForOrg("org_northline").timeZone).toBe("America/Los_Angeles");
+    expect(() => updateWorkCalendar(dana, { timeZone: "Europe/London", weekStartsOn: 0 })).toThrow(/owner or admin/);
+    expect(() => updateWorkCalendar(luis, { timeZone: "Europe/London", weekStartsOn: 0 })).toThrow(/owner or admin/);
+    const riveraBefore = getDb().select().from(organizations).where(eq(organizations.id, "org_rivera")).get();
+    updateWorkCalendar(jordan, { timeZone: "Europe/London", weekStartsOn: 0 });
+    expect(getDb().select().from(organizations).where(eq(organizations.id, "org_rivera")).get()?.timeZone).toBe("America/New_York");
+    expect(getDb().select().from(organizations).where(eq(organizations.id, "org_northline")).get()?.timeZone).toBe("Europe/London");
+    updateWorkCalendar(jordan, { timeZone: "America/Los_Angeles", weekStartsOn: 1 });
+
+    const approved = getDb().select().from(timeApprovals).where(eq(timeApprovals.entryId, "time_ok_tile")).get();
+    const punch = getDb().select().from(timeEntries).where(eq(timeEntries.id, "time_ok_tile")).get();
+    const cents = approved?.amountCents;
+    const clockInAt = punch?.clockInAt;
+    const sundayNight = zonedTimeToUtc(2026, 10, 4, 20, 0, 0, "America/New_York");
+    const mondayMorning = zonedTimeToUtc(2026, 10, 5, 8, 0, 0, "America/New_York");
+    clockIn(maya, { projectId: "proj_okonkwo", costCode: "GC-SUPER" }, sundayNight);
+    clockOut(maya, {}, mondayMorning);
+    const mondayBoard = timeBoard(maya, mondayMorning);
+    expect(mondayBoard.todayMinutes).toBe(0);
+    expect(mondayBoard.weekMinutes).toBe(0);
+    updateWorkCalendar(maya, { timeZone: "America/New_York", weekStartsOn: 0 });
+    const sundayBoard = timeBoard(maya, mondayMorning);
+    expect(sundayBoard.weekMinutes).toBe(12 * 60);
+    expect(sundayBoard.todayMinutes).toBe(0);
+    expect(getDb().select().from(timeEntries).where(eq(timeEntries.id, "time_ok_tile")).get()?.clockInAt).toBe(clockInAt);
+    expect(getDb().select().from(timeApprovals).where(eq(timeApprovals.entryId, "time_ok_tile")).get()?.amountCents).toBe(cents);
+    const audit = getDb().select().from(activities).where(eq(activities.type, "calendar")).all();
+    const payload = JSON.parse(audit.at(-1)?.payloadJson ?? "{}") as { before: { weekStartsOn: number }; after: { weekStartsOn: number } };
+    expect(payload.before.weekStartsOn).toBe(1);
+    expect(payload.after.weekStartsOn).toBe(0);
+    expect(audit.at(-1)?.payloadJson).not.toContain("5200");
+    expect(riveraBefore?.timeZone).toBe("America/New_York");
+    updateWorkCalendar(maya, { timeZone: "America/New_York", weekStartsOn: 1 });
+  });
 });
 
 describe("time under postgres RLS", () => {
@@ -342,6 +387,24 @@ describe("time under postgres RLS", () => {
     expect(ownerRates.length).toBeGreaterThan(0);
     expect(jordanEntries.every((row) => row.orgId === "org_northline")).toBe(true);
     expect(jordanEntries.some((row) => row.id === "time_ok_tile")).toBe(false);
+    getSqlite().exec(`
+      create or replace function public.can_manage_org(target_org text) returns boolean language sql stable security definer set search_path = public as $$ select exists (select 1 from public.memberships m join public.users u on u.id = m.user_id where u.auth_user_id = auth.uid() and m.org_id = target_org and m.role in ('owner', 'admin')) $$;
+      grant execute on function public.can_manage_org(text) to authenticated;
+      grant select, update on public.organizations to authenticated;
+      alter table public.organizations enable row level security;
+      alter table public.organizations force row level security;
+      drop policy if exists organizations_read on public.organizations;
+      drop policy if exists organizations_update on public.organizations;
+      create policy organizations_read on public.organizations for select to authenticated using (id in (select public.current_org_ids()));
+      create policy organizations_update on public.organizations for update to authenticated
+        using (id in (select public.current_org_ids()) and public.can_manage_org(id))
+        with check (id in (select public.current_org_ids()) and public.can_manage_org(id));
+    `);
+    withOfficeClaim(DANA, () => getRlsDb().update(organizations).set({ timeZone: "Europe/Paris" }).where(eq(organizations.id, "org_rivera")).run());
+    withOfficeClaim(JORDAN, () => getRlsDb().update(organizations).set({ timeZone: "Europe/Paris" }).where(eq(organizations.id, "org_rivera")).run());
+    expect(getDb().select().from(organizations).where(eq(organizations.id, "org_rivera")).get()?.timeZone).toBe("America/New_York");
+    withOfficeClaim(MAYA, () => getRlsDb().update(organizations).set({ timeZone: "America/Chicago" }).where(eq(organizations.id, "org_rivera")).run());
+    expect(getDb().select().from(organizations).where(eq(organizations.id, "org_rivera")).get()?.timeZone).toBe("America/Chicago");
     clearSupabaseEnv();
   });
 });

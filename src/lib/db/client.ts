@@ -85,6 +85,7 @@ export function ensureReady(holder: Holder) {
   }
   ensureAuthUserId(holder);
   ensureSetupDismissed(holder);
+  ensureOrgCalendar(holder);
   ensureTesterFeedback(holder);
   ensureTeamInvites(holder);
   ensureTimeTables(holder);
@@ -177,6 +178,29 @@ function ensureSetupDismissed(holder: Holder) {
           (column) => column.name === "setup_dismissed_at",
         );
   if (!exists) holder.sqlite.exec("alter table organizations add column setup_dismissed_at text");
+}
+
+function ensureOrgCalendar(holder: Holder) {
+  if (!tableExists(holder.sqlite, "organizations", holder.dialect)) return;
+  if (!orgColumn(holder, "time_zone")) {
+    holder.sqlite.exec("alter table organizations add column time_zone text not null default 'America/New_York'");
+  }
+  if (!orgColumn(holder, "week_starts_on")) {
+    holder.sqlite.exec("alter table organizations add column week_starts_on integer not null default 1");
+  }
+}
+
+function orgColumn(holder: Holder, column: string): boolean {
+  if (holder.dialect === "postgres") {
+    return Boolean(
+      holder.sqlite
+        .prepare(
+          "select column_name as name from information_schema.columns where table_schema = 'public' and table_name = 'organizations' and column_name = ?",
+        )
+        .get(column),
+    );
+  }
+  return (holder.sqlite.prepare("pragma table_info(organizations)").all() as { name: string }[]).some((row) => row.name === column);
 }
 
 function ensureTeamInvites(holder: Holder) {

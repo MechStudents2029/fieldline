@@ -88,7 +88,32 @@ describe("sessions, files, and uploads", () => {
         state: "ca",
         starter: true,
       }),
-    ).toMatchObject({ ok: true, value: { email: "avery@cole.example", state: "CA", trade: "remodel" } });
+    ).toMatchObject({ ok: true, value: { email: "avery@cole.example", state: "CA", trade: "remodel", timeZone: "America/New_York", weekStartsOn: 1 } });
+    expect(
+      parseSignup({
+        ownerName: "Avery Cole",
+        email: "a@b.co",
+        password: "fieldline-test",
+        companyName: "Cole Kitchens",
+        trade: "remodel",
+        state: "CA",
+        starter: false,
+        timeZone: "America/Los_Angeles",
+        weekStartsOn: "0",
+      }),
+    ).toMatchObject({ ok: true, value: { timeZone: "America/Los_Angeles", weekStartsOn: 0 } });
+    expect(
+      parseSignup({
+        ownerName: "Avery Cole",
+        email: "a@b.co",
+        password: "fieldline-test",
+        companyName: "Cole Kitchens",
+        trade: "remodel",
+        state: "CA",
+        starter: false,
+        timeZone: "Not/AZone",
+      }),
+    ).toMatchObject({ error: "Pick a time zone." });
     expect(parseSignup({ ownerName: "A", email: "a@b.co", password: "short", companyName: "Co", trade: "remodel", state: "CA", starter: false }).ok).toBe(false);
     expect(parseSignup({ ownerName: "Avery Cole", email: "not-an-email", password: "fieldline-test", companyName: "Cole Kitchens", trade: "remodel", state: "CA", starter: false })).toMatchObject({ ok: false });
     expect(parseSignup({ ownerName: "Avery Cole", email: "a@b.co", password: "fieldline-test", companyName: "Cole Kitchens", trade: "spaceship", state: "CA", starter: false })).toMatchObject({ error: "Pick a trade." });

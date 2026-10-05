@@ -1,5 +1,6 @@
 import { timingSafeEqual } from "node:crypto";
 import path from "node:path";
+import { DEFAULT_TIME_ZONE, DEFAULT_WEEK_START, isValidTimeZone } from "@/lib/time/calendar";
 
 type Env = Record<string, string | undefined>;
 
@@ -211,6 +212,8 @@ export type SignupFields = {
   trade: StarterTrade;
   state: string;
   starter: boolean;
+  timeZone?: string;
+  weekStartsOn?: number;
 };
 
 export function parseSignup(input: {
@@ -221,6 +224,8 @@ export function parseSignup(input: {
   trade: string;
   state: string;
   starter: boolean;
+  timeZone?: string;
+  weekStartsOn?: string | number;
 }): { ok: true; value: SignupFields } | { ok: false; error: string } {
   const ownerName = cleanLabel(input.ownerName, "Your name");
   if (typeof ownerName !== "string") return ownerName;
@@ -233,9 +238,18 @@ export function parseSignup(input: {
   if (!isStarterTrade(input.trade)) return { ok: false, error: "Pick a trade." };
   const state = input.state.trim().toUpperCase();
   if (!STATE_CODES.has(state)) return { ok: false, error: "Pick a U.S. state." };
+  const timeZone = (input.timeZone ?? "").trim() || DEFAULT_TIME_ZONE;
+  if (!isValidTimeZone(timeZone)) return { ok: false, error: "Pick a time zone." };
+  let weekStartsOn = DEFAULT_WEEK_START;
+  if (input.weekStartsOn !== undefined && String(input.weekStartsOn).trim() !== "") {
+    weekStartsOn = Number(input.weekStartsOn);
+    if (!Number.isInteger(weekStartsOn) || weekStartsOn < 0 || weekStartsOn > 6) {
+      return { ok: false, error: "Pick the day the week starts." };
+    }
+  }
   return {
     ok: true,
-    value: { ownerName, email, password: input.password, companyName, trade: input.trade, state, starter: input.starter },
+    value: { ownerName, email, password: input.password, companyName, trade: input.trade, state, starter: input.starter, timeZone, weekStartsOn },
   };
 }
 
