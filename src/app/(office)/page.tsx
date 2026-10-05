@@ -11,6 +11,7 @@ import { companyChecklist } from "@/lib/services/onboarding";
 import { dashboard, leadDetail, pendingReceipts } from "@/lib/services/read";
 import { MyDay } from "@/components/my-day";
 import { missingDailyLogs } from "@/lib/services/logs";
+import { billsAttention } from "@/lib/services/bills";
 import { listTimeAnomalies } from "@/lib/services/sync";
 import { timeBoard } from "@/lib/services/time";
 
@@ -26,6 +27,7 @@ export default async function TodayPage() {
   const time = timeBoard(session);
   const missingLogs = money ? missingDailyLogs(session.orgId) : [];
   const anomalies = canManageMoney(session.role) ? listTimeAnomalies(session.orgId) : [];
+  const billWatch = money ? billsAttention(session.orgId, session.role) : { overdue: [], upcoming: [] };
   const quiet =
     data.openLeadCount === 0 &&
     data.openInvoiceCount === 0 &&
@@ -143,6 +145,40 @@ export default async function TodayPage() {
               </li>
             ))}
           </ul>
+        </section>
+      ) : null}
+      {billWatch.overdue.length > 0 || billWatch.upcoming.length > 0 ? (
+        <section className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
+          <h2 className="font-heading text-xl">Bills</h2>
+          <p className="mt-1 text-xs text-muted-foreground">Due dates use {session.orgName}’s clock. Paying a bill here does not send money.</p>
+          {billWatch.overdue.length > 0 ? (
+            <ul className="mt-3 divide-y divide-border">
+              {billWatch.overdue.map((bill) => (
+                <li key={bill.id} className="flex flex-col gap-1 bg-accent py-2 text-sm sm:flex-row sm:items-center sm:justify-between">
+                  <Link href={`/bills/${bill.id}`} className="font-medium">
+                    Overdue · {bill.billNumber} · {bill.vendorName}
+                  </Link>
+                  <span>
+                    {formatMoney(bill.amountCents)} · {bill.projectName}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          {billWatch.upcoming.length > 0 ? (
+            <ul className="mt-3 divide-y divide-border">
+              {billWatch.upcoming.map((bill) => (
+                <li key={bill.id} className="flex flex-col gap-1 py-2 text-sm sm:flex-row sm:items-center sm:justify-between">
+                  <Link href={`/bills/${bill.id}`} className="font-medium">
+                    Due soon · {bill.billNumber} · {bill.vendorName}
+                  </Link>
+                  <span>
+                    {formatMoney(bill.amountCents)} · {bill.projectName}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
         </section>
       ) : null}
       {receipts.length > 0 ? (

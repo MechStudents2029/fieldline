@@ -8,6 +8,9 @@ import {
   aiRuns,
   appMeta,
   auditLogs,
+  billEvents,
+  billLines,
+  bills,
   budgetLines,
   changeOrderLines,
   changeOrders,
@@ -51,7 +54,7 @@ import { achFeeCents, qtyToMilli } from "@/lib/money";
 import { DEMO_PASSWORD } from "@/lib/product";
 import { proposalNudgeCopy } from "@/lib/ai/nurture";
 
-export const SEED_VERSION = "5";
+export const SEED_VERSION = "6";
 
 const ORG = "org_rivera";
 const NORTH = "org_northline";
@@ -993,6 +996,122 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
       { id: "cost_br_subs", orgId: ORG, projectId: "proj_brooks", budgetLineId: null, costCode: "ROOF-ARCH", amountCents: 2357500, vendorName: "Ridgeline Roofing", memo: "Tie-in and dry-in", source: "bill", aiExtracted: 0, documentId: null, createdAt: daysAgo(3), updatedAt: daysAgo(3), createdBy: "user_sam" },
       { id: "cost_dz_1", orgId: ORG, projectId: "proj_diaz", budgetLineId: null, costCode: "DECK-BOARD", amountCents: 980000, vendorName: "Summit Lumber", memo: "Boards and hardware", source: "bill", aiExtracted: 0, documentId: null, createdAt: daysAgo(30), updatedAt: daysAgo(30), createdBy: "user_sam" },
       { id: "cost_dz_2", orgId: ORG, projectId: "proj_diaz", budgetLineId: null, costCode: "FRM-LABOR", amountCents: 670000, vendorName: "Rivera crew", memo: "Deck labor", source: "labor", aiExtracted: 0, documentId: null, createdAt: daysAgo(20), updatedAt: daysAgo(20), createdBy: "user_sam" },
+      { id: "cost_bill_hp", orgId: ORG, projectId: "proj_okonkwo", budgetLineId: null, costCode: "PLB-SHOWER", amountCents: 150000, vendorName: "Harbor Plumbing", memo: "Bill HP-441", source: "bill", aiExtracted: 0, documentId: null, createdAt: daysAgo(4), updatedAt: daysAgo(4), createdBy: "user_sam" },
+      { id: "cost_bill_sl", orgId: ORG, projectId: "proj_diaz", budgetLineId: null, costCode: "DECK-BOARD", amountCents: 125000, vendorName: "Summit Lumber", memo: "Bill SL-1904", source: "bill", aiExtracted: 0, documentId: null, createdAt: daysAgo(12), updatedAt: daysAgo(8), createdBy: "user_sam" },
+      { id: "cost_bill_be", orgId: ORG, projectId: "proj_brooks", budgetLineId: null, costCode: "ELE-KIT", amountCents: 700000, vendorName: "Brighton Electric", memo: "Bill BE-77", source: "bill", aiExtracted: 0, documentId: null, createdAt: daysAgo(10), updatedAt: daysAgo(10), createdBy: "user_sam" },
+    ])
+    .run();
+
+  const billToday = localDay(Date.now(), "America/New_York");
+  const billDueSoon = addCalendarDays(billToday, 3);
+  const billDueLater = addCalendarDays(billToday, 12);
+  const billOverdue = addCalendarDays(billToday, -1);
+  db.insert(bills)
+    .values([
+      {
+        id: "bill_ok_draft",
+        orgId: ORG,
+        projectId: "proj_okonkwo",
+        vendorContactId: "c_casa",
+        billNumber: "CT-2208",
+        billDate: addCalendarDays(billToday, -2),
+        amountCents: 42000,
+        dueDate: billDueLater,
+        status: "draft",
+        memo: "Niche tile, not approved yet",
+        voidReason: null,
+        paidAt: null,
+        payMethod: null,
+        payReference: null,
+        documentId: null,
+        approvedAt: null,
+        lowConfidence: 0,
+        createdAt: daysAgo(1),
+        updatedAt: daysAgo(1),
+        createdBy: "user_sam",
+      },
+      {
+        id: "bill_ok_harbor",
+        orgId: ORG,
+        projectId: "proj_okonkwo",
+        vendorContactId: "c_harbor",
+        billNumber: "HP-441",
+        billDate: addCalendarDays(billToday, -5),
+        amountCents: 150000,
+        dueDate: billDueSoon,
+        status: "approved",
+        memo: "Valve and trim",
+        voidReason: null,
+        paidAt: null,
+        payMethod: null,
+        payReference: null,
+        documentId: null,
+        approvedAt: daysAgo(4),
+        lowConfidence: 0,
+        createdAt: daysAgo(5),
+        updatedAt: daysAgo(4),
+        createdBy: "user_sam",
+      },
+      {
+        id: "bill_dz_summit",
+        orgId: ORG,
+        projectId: "proj_diaz",
+        vendorContactId: "c_summit",
+        billNumber: "SL-1904",
+        billDate: addCalendarDays(billToday, -20),
+        amountCents: 125000,
+        dueDate: addCalendarDays(billToday, -10),
+        status: "paid",
+        memo: "Extra boards",
+        voidReason: null,
+        paidAt: addCalendarDays(billToday, -8),
+        payMethod: "check",
+        payReference: "4412",
+        documentId: null,
+        approvedAt: daysAgo(18),
+        lowConfidence: 0,
+        createdAt: daysAgo(20),
+        updatedAt: daysAgo(8),
+        createdBy: "user_sam",
+      },
+      {
+        id: "bill_br_brighton",
+        orgId: ORG,
+        projectId: "proj_brooks",
+        vendorContactId: "c_brighton",
+        billNumber: "BE-77",
+        billDate: addCalendarDays(billToday, -14),
+        amountCents: 700000,
+        dueDate: billOverdue,
+        status: "approved",
+        memo: "Rough electrical",
+        voidReason: null,
+        paidAt: null,
+        payMethod: null,
+        payReference: null,
+        documentId: null,
+        approvedAt: daysAgo(10),
+        lowConfidence: 0,
+        createdAt: daysAgo(14),
+        updatedAt: daysAgo(10),
+        createdBy: "user_sam",
+      },
+    ])
+    .run();
+  db.insert(billLines)
+    .values([
+      { id: "bln_ok_draft", orgId: ORG, billId: "bill_ok_draft", costCode: "TILE-SHOWER", description: "Niche tile", amountCents: 42000, costItemId: null, sortOrder: 0 },
+      { id: "bln_ok_harbor", orgId: ORG, billId: "bill_ok_harbor", costCode: "PLB-SHOWER", description: "Valve and trim", amountCents: 150000, costItemId: "cost_bill_hp", sortOrder: 0 },
+      { id: "bln_dz_summit", orgId: ORG, billId: "bill_dz_summit", costCode: "DECK-BOARD", description: "Extra boards", amountCents: 125000, costItemId: "cost_bill_sl", sortOrder: 0 },
+      { id: "bln_br_brighton", orgId: ORG, billId: "bill_br_brighton", costCode: "ELE-KIT", description: "Rough electrical", amountCents: 700000, costItemId: "cost_bill_be", sortOrder: 0 },
+    ])
+    .run();
+  db.insert(billEvents)
+    .values([
+      { id: "bev_ok_draft", orgId: ORG, billId: "bill_ok_draft", actorId: "user_sam", type: "created", reason: null, beforeJson: null, afterJson: null, createdAt: daysAgo(1) },
+      { id: "bev_ok_harbor", orgId: ORG, billId: "bill_ok_harbor", actorId: "user_sam", type: "approved", reason: null, beforeJson: null, afterJson: JSON.stringify({ status: "approved", costItemIds: ["cost_bill_hp"] }), createdAt: daysAgo(4) },
+      { id: "bev_dz_summit", orgId: ORG, billId: "bill_dz_summit", actorId: "user_sam", type: "paid", reason: null, beforeJson: null, afterJson: JSON.stringify({ status: "paid", method: "check", reference: "4412" }), createdAt: daysAgo(8) },
+      { id: "bev_br_brighton", orgId: ORG, billId: "bill_br_brighton", actorId: "user_sam", type: "approved", reason: null, beforeJson: null, afterJson: JSON.stringify({ status: "approved", costItemIds: ["cost_bill_be"] }), createdAt: daysAgo(10) },
     ])
     .run();
 

@@ -37,6 +37,16 @@ import { addStarterPriceBook, setSetupDismissed } from "@/lib/services/onboardin
 import { acceptExistingAccount, acceptNewAccount, changeMemberRole, createInvite, INVITE_EMAIL, previewInvite, removeMember, revokeInvite } from "@/lib/services/team";
 import { verifyPassword } from "@/lib/auth/password";
 import { canSeeMoney } from "@/lib/permissions";
+import {
+  approveBill,
+  confirmBillRead,
+  createBill,
+  markBillPaid,
+  readBillFile,
+  unapproveBill,
+  updateDraft,
+  voidBill,
+} from "@/lib/services/bills";
 import { passwordError } from "@/lib/security";
 import { getDb } from "@/lib/db/client";
 import { dailyLogs, users } from "@/lib/db/schema";
@@ -93,7 +103,22 @@ export type ActionState = {
   postedDocumentId?: string;
   inviteUrl?: string;
   inviteMessage?: string;
+  bill?: BillDraftState;
 } | null;
+
+export type BillDraftState = {
+  documentId: string;
+  projectId: string;
+  vendorContactId: string;
+  vendorLabel: string;
+  billNumber: string;
+  billDate: string;
+  dueDate: string;
+  confidence: number;
+  lowConfidence: boolean;
+  note: string;
+  lines: { description: string; amount: string; costCode: string }[];
+};
 
 async function actor() {
   const session = await getSession();
@@ -1000,6 +1025,157 @@ export async function logPhotoAction(logId: string, _prev: ActionState, formData
     linkLogPhoto(user, logId, saved.documentId);
     refreshLog(log.projectId, log.id);
     return { ok: "Photo added to the log." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+function billInput(formData: FormData) {
+  const codes = formData.getAll("costCode").map((value) => String(value));
+  const amounts = formData.getAll("amount").map((value) => String(value));
+  const descriptions = formData.getAll("description").map((value) => String(value));
+  const lines = codes
+    .map((costCode, index) => {
+      const raw = amounts[index] ?? "";
+      const description = descriptions[index] ?? "";
+      if (!costCode.trim() && !raw.trim() && !description.trim()) return null;
+      return { costCode, amountCents: parseMoneyToCents(raw) ?? 0, description };
+    })
+    .filter((line): line is { costCode: string; amountCents: number; description: string } => line != null);
+  return {
+    projectId: String(formData.get("projectId") || ""),
+    vendorContactId: String(formData.get("vendorContactId") || ""),
+    billNumber: String(formData.get("billNumber") || ""),
+    billDate: String(formData.get("billDate") || ""),
+    dueDate: String(formData.get("dueDate") || ""),
+    memo: String(formData.get("memo") || ""),
+    documentId: String(formData.get("documentId") || "") || null,
+    lowConfidence: formData.get("lowConfidence") === "1",
+    lines,
+  };
+}
+
+function refreshBill(projectId: string, billId: string) {
+  revalidatePath("/bills");
+  revalidatePath(`/bills/${billId}`);
+  revalidatePath("/");
+  if (projectId) revalidatePath(`/projects/${projectId}`);
+}
+
+export async function readBillAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const projectId = String(formData.get("projectId") || "");
+    if (!projectId) return { error: "Choose the job this bill belongs to." };
+    const sample = String(formData.get("sample") || "");
+    const file = formData.get("file");
+    let text = "";
+    let filename = "bill.txt";
+    if (sample) {
+      text = readDemoReceipt(sample);
+      filename = sample;
+    } else if (file instanceof File && file.size > 0) {
+      if (file.size > 1_000_000) return { error: "Bill files must be 1 MB or smaller." };
+      text = await file.text();
+      filename = file.name || "bill.txt";
+    } else {
+      return { error: "Choose a bill file or a sample." };
+    }
+    const read = readBillFile(user, projectId, filename, text);
+    return {
+      ok: read.lowConfidence
+        ? "Low confidence. This stays a draft until you confirm the vendor, date, and lines."
+        : `Read ${read.vendorLabel || "a vendor"}. Review the lines, then save the draft.`,
+      bill: {
+        documentId: read.documentId,
+        projectId,
+        vendorContactId: read.vendorContactId,
+        vendorLabel: read.vendorLabel,
+        billNumber: read.billNumber,
+        billDate: read.billDate,
+        dueDate: read.dueDate,
+        confidence: read.confidence,
+        lowConfidence: read.lowConfidence,
+        note: read.note,
+        lines: read.lines.map((line) => ({
+          description: line.description,
+          amount: (line.amountCents / 100).toFixed(2),
+          costCode: line.costCode,
+        })),
+      },
+    };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function saveBillAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const input = billInput(formData);
+    const existing = String(formData.get("billId") || "");
+    const saved = existing ? updateDraft(user, existing, input) : createBill(user, input);
+    refreshBill(input.projectId, saved.id);
+    redirect(`/bills/${saved.id}`);
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function approveBillAction(billId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const result = approveBill(user, billId);
+    refreshBill(String(formData.get("projectId") || ""), billId);
+    return { ok: result.posted ? "Approved. The job cost includes this bill." : "This bill was already on the job." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function unapproveBillAction(billId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    unapproveBill(user, billId, String(formData.get("reason") || ""));
+    refreshBill(String(formData.get("projectId") || ""), billId);
+    return { ok: "Moved back to draft. The job cost no longer includes this bill." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function payBillAction(billId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    markBillPaid(user, billId, {
+      paidOn: String(formData.get("paidOn") || ""),
+      method: String(formData.get("method") || ""),
+      reference: String(formData.get("reference") || ""),
+    });
+    refreshBill(String(formData.get("projectId") || ""), billId);
+    return { ok: "Marked paid. Nothing was sent to a bank." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function voidBillAction(billId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    voidBill(user, billId, String(formData.get("reason") || ""));
+    refreshBill(String(formData.get("projectId") || ""), billId);
+    return { ok: "Bill voided." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function confirmBillAction(billId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    confirmBillRead(user, billId);
+    refreshBill(String(formData.get("projectId") || ""), billId);
+    return { ok: "Read confirmed. You can approve it when the lines look right." };
   } catch (error) {
     return failure(error);
   }

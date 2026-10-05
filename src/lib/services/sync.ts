@@ -83,13 +83,12 @@ function applyOfflineEvent(actor: Actor, event: OfflineEvent, serverNow: number)
   }
   const db = officeDb(actor.orgId);
   if (!db) return result(event.clientEventId, "sign_in", "sign_in", null, null);
-  const existing = db.select().from(syncEvents).where(eq(syncEvents.clientEventId, event.clientEventId)).get();
-  if (existing) {
-    if (existing.orgId !== actor.orgId || existing.userId !== actor.userId) {
-      return result(event.clientEventId, "wrong_user", "wrong_user", null, null);
-    }
-    return JSON.parse(existing.resultJson) as SyncResult;
-  }
+  const existing = db
+    .select()
+    .from(syncEvents)
+    .where(and(eq(syncEvents.orgId, actor.orgId), eq(syncEvents.userId, actor.userId), eq(syncEvents.clientEventId, event.clientEventId)))
+    .get();
+  if (existing) return JSON.parse(existing.resultJson) as SyncResult;
   syncTestHooks.beforeApply?.(event.clientEventId);
   const capturedMs = Date.parse(event.capturedAt);
   if (!Number.isFinite(capturedMs)) return remember(db, actor, event, result(event.clientEventId, "needs_review", "invalid", null, null), serverNow);
@@ -324,11 +323,16 @@ function remember(
 ): SyncResult {
   if (value.status === "wrong_user" || value.status === "sign_in" || value.status === "error") return value;
   if (value.anomaly && value.anomaly !== "clock_drift" && value.anomaly !== "future" && value.anomaly !== "stale") {
-    const already = db.select().from(timeAnomalies).where(eq(timeAnomalies.clientEventId, event.clientEventId)).get();
+    const already = db
+      .select()
+      .from(timeAnomalies)
+      .where(and(eq(timeAnomalies.orgId, actor.orgId), eq(timeAnomalies.userId, actor.userId), eq(timeAnomalies.clientEventId, event.clientEventId)))
+      .get();
     if (!already) writeAnomaly(db, actor, event, value.anomaly, value.detail, value.entryId, value.logId, serverNow);
   }
   db.insert(syncEvents)
     .values({
+      id: id("sev"),
       clientEventId: event.clientEventId,
       orgId: actor.orgId,
       userId: actor.userId,

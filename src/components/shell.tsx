@@ -13,6 +13,7 @@ const links = [
   { href: "/projects", label: "Jobs" },
   { href: "/time", label: "Time" },
   { href: "/invoices", label: "Invoices" },
+  { href: "/bills", label: "Bills" },
   { href: "/contacts", label: "Contacts" },
   { href: "/price-book", label: "Price book" },
   { href: "/follow-ups", label: "Follow-ups" },
@@ -29,7 +30,7 @@ const mobile = [
   { href: "/more", label: "More" },
 ];
 
-const fieldHidden = new Set(["/invoices", "/price-book", "/follow-ups", "/copilot"]);
+const fieldHidden = new Set(["/invoices", "/bills", "/price-book", "/follow-ups", "/copilot"]);
 
 export function Shell({
   orgName,
