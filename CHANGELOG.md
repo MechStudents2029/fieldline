@@ -2,6 +2,11 @@
 
 ## 2026-10-05
 
+### iOS shell
+
+- The phone shell uses a Deep Teal accent, the iOS grouped background, and the SF system font. Light and dark follow the system color scheme. A blurred tab bar sits on Today, Jobs, Leads, Time, and More. Field logins get My day, Jobs, Time, and More, and still open the pipeline from More. The large title collapses to an inline title while the page scrolls. Touch targets are at least 44 points, presses scale unless motion is reduced, and the layout uses the safe area.
+- Today and the jobs list use grouped inset rows and status pills. Desktop keeps the sidebar.
+
 ### Purchase orders
 
 - An owner, admin, or office user can write a purchase order for a sub or vendor on a job. The number is assigned automatically and stays unique in the company, including after a void. A draft does not commit cost. Issuing it does. Closing it releases whatever has not been billed. Voiding it needs a reason. Revising an issued order keeps the previous lines in the history. Nothing is emailed.

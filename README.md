@@ -6,6 +6,8 @@ Fieldline is a CRM-first workspace for U.S. small and mid-size contractors: remo
 
 The app runs with no API keys. Stripe, Resend, Twilio, and the Vercel AI Gateway turn on when you add the variables in `.env.example`. Until then, adapters record the same outcomes against seeded data.
 
+On a phone, the office opens on a tab bar: Today, Jobs, Leads, Time, and More. Colors follow the system light or dark setting. A wide window keeps the sidebar.
+
 ## Run locally in 3 minutes
 
 ```bash
