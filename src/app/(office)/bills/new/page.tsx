@@ -1,0 +1,28 @@
+import { BillComposer } from "@/components/bill-composer";
+import { requireSession } from "@/lib/auth/session";
+import { canManageMoney, canSeeMoney } from "@/lib/permissions";
+import { listContacts, listPriceBook, listProjects } from "@/lib/services/read";
+
+export default async function NewBillPage() {
+  const session = await requireSession();
+  if (!canSeeMoney(session.role)) {
+    return <p className="rounded-xl bg-muted p-4 text-sm">Bills are for the office.</p>;
+  }
+  if (!canManageMoney(session.role)) {
+    return <p className="rounded-xl bg-muted p-4 text-sm">Your role can view bills, not enter them.</p>;
+  }
+  const projects = listProjects(session.orgId).map((row) => ({ id: row.project.id, label: row.project.name }));
+  const vendors = listContacts(session.orgId)
+    .filter((contact) => contact.type === "sub" || contact.type === "vendor")
+    .map((contact) => ({ id: contact.id, label: contact.company || contact.name }));
+  const codes = listPriceBook(session.orgId).map((item) => item.code);
+  return (
+    <div className="flex flex-col gap-4">
+      <div>
+        <h1 className="font-heading text-3xl">New bill</h1>
+        <p className="text-sm text-muted-foreground">A bill stays a draft until the office approves it. That is when it becomes job cost.</p>
+      </div>
+      <BillComposer projects={projects} vendors={vendors} codes={codes} />
+    </div>
+  );
+}

@@ -10,6 +10,7 @@ import { formatDateTime } from "@/lib/format";
 import { overBudgetPercent } from "@/lib/margin/category";
 import { formatBps, formatMoney } from "@/lib/money";
 import { JobTabs } from "@/components/job-tabs";
+import { projectBills } from "@/lib/services/bills";
 import { captionFromMetadata, listPriceBook, projectDetail } from "@/lib/services/read";
 
 export default async function ProjectPage({ params }: { params: Promise<{ id: string }> }) {
@@ -18,6 +19,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
   const detail = projectDetail(session.orgId, id, session.role);
   if (!detail?.contact) return <MissingRecord orgName={session.orgName} kind="job" />;
   const costCodes = detail.money ? listPriceBook(session.orgId).map((item) => item.code) : [];
+  const jobBills = detail.money ? projectBills(session.orgId, detail.project.id, session.role) : [];
   const money = detail.financials;
   return (
     <div className="flex flex-col gap-5">
@@ -164,7 +166,20 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
       {money ? (
         <section className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
           <h2 className="font-medium">Costs</h2>
-          <ul className="mt-2 space-y-1 text-sm">
+          <h3 className="mt-3 text-sm font-medium">Bills</h3>
+          <ul className="mt-1 space-y-1 text-sm">
+            {jobBills.length === 0 ? <li className="text-muted-foreground">No bills on this job.</li> : null}
+            {jobBills.map((bill) => (
+              <li key={bill.id} className={`flex justify-between gap-2 ${bill.timing === "overdue" ? "text-copper" : ""}`}>
+                <Link href={`/bills/${bill.id}`} className="underline">
+                  {bill.billNumber} · {bill.vendorName} · {bill.status}
+                  {bill.timing === "overdue" ? " · Overdue" : ""}
+                </Link>
+                <span>{formatMoney(bill.amountCents)}</span>
+              </li>
+            ))}
+          </ul>
+          <ul className="mt-3 space-y-1 text-sm">
             {detail.costs.map((cost) => (
               <li key={cost.id} className="flex justify-between gap-2">
                 <span>

@@ -168,6 +168,60 @@ describe("offline sync", () => {
     expect(kinds).toEqual(expect.arrayContaining(["out_without_in", "overlap", "locked", "missing_job", "missing_code"]));
   });
 
+  it("keeps a reused client id from matching or blocking another person", () => {
+    ensureOut();
+    const dana = actor("dana@rivera.demo");
+    const sam = actor("sam@rivera.demo");
+    const jordan = actor("jordan@northline.demo");
+    const shared = randomUUID();
+    const serverNow = Date.now();
+    const danaEvent = event({
+      clientEventId: shared,
+      kind: "clock_in",
+      capturedAt: new Date(serverNow - 9_000).toISOString(),
+      projectId: "proj_chen",
+      costCode: "GC-SUPER",
+    });
+    const first = applyOfflineBatch(dana, [danaEvent], serverNow)[0];
+    expect(first?.status).toBe("applied");
+    const samEvent = event({
+      clientEventId: shared,
+      kind: "clock_in",
+      capturedAt: new Date(serverNow - 8_000).toISOString(),
+      userId: "user_sam",
+      projectId: "proj_chen",
+      costCode: "GC-SUPER",
+    });
+    const second = applyOfflineBatch(sam, [samEvent], serverNow)[0];
+    expect(second?.status).toBe("applied");
+    expect(second?.entryId).toBeTruthy();
+    expect(second?.entryId).not.toBe(first?.entryId);
+    const jordanEvent = event({
+      clientEventId: shared,
+      kind: "clock_in",
+      capturedAt: new Date(serverNow - 7_000).toISOString(),
+      orgId: "org_northline",
+      userId: "user_jordan",
+      projectId: "proj_okonkwo",
+      costCode: "GC-SUPER",
+    });
+    const third = applyOfflineBatch(jordan, [jordanEvent], serverNow)[0];
+    expect(third?.status).toBe("needs_review");
+    expect(third?.anomaly).toBe("missing_job");
+    expect(third?.entryId).toBeNull();
+    expect(JSON.stringify(third)).not.toContain(first?.entryId ?? "no-entry");
+    const rows = getDb().select().from(syncEvents).where(eq(syncEvents.clientEventId, shared)).all();
+    expect(rows).toHaveLength(3);
+    expect(rows.map((row) => row.userId).sort()).toEqual(["user_dana", "user_jordan", "user_sam"]);
+    const replay = applyOfflineBatch(dana, [danaEvent], serverNow + 1_000)[0];
+    expect(replay?.entryId).toBe(first?.entryId);
+    expect(replay?.detail).not.toContain(String(third?.detail));
+    expect(applyOfflineBatch(jordan, [jordanEvent], serverNow + 1_000)[0]).toEqual(third);
+    expect(getDb().select().from(timeEntries).where(eq(timeEntries.clientEventId, shared)).all()).toHaveLength(2);
+    clockOut(dana, { note: "Close shared id" }, serverNow - 500);
+    clockOut(sam, { note: "Close shared id" }, serverNow - 400);
+  });
+
   it("keeps the queue when the role is revoked or the session is gone, and refuses another user", () => {
     ensureOut();
     const serverNow = Date.now();

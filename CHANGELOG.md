@@ -2,6 +2,13 @@
 
 ## 2026-10-05
 
+### Sub and vendor bills
+
+- An owner, admin, or office user can enter a sub or vendor bill on a job: bill number, dates, and one or more cost-code lines. A text file can be read with the same local receipt reader. A low-confidence read stays a draft until someone confirms it. Nothing is approved by the reader.
+- Approving a bill posts each line to that job’s cost once. Unapproving or voiding (with a reason) takes those costs back off and writes a history row. Marking a bill paid records the date, method, and reference only. No payment is sent.
+- The same 80% budget warning and overrun change-order draft use those posted costs. The same vendor and bill number in one company is flagged before save. Due and overdue follow the company time zone. Today lists bills due within seven days and bills that are overdue.
+- Field logins do not see bills or amounts. The client portal does not either. Another company gets a clean miss. A phone punch id is matched only for that person and company, so a reused id cannot reveal or block someone else’s punch.
+
 ### Offline time clock
 
 - A crew member who opened My day or Time while online can clock in, start or end a break, switch job and cost code, and clock out with no signal. Each punch is written to IndexedDB at the moment of the tap, with a client id and the phone's clock. The screen says it is saved on the phone and will sync. A dropped punch is not silent.

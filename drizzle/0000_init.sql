@@ -49,14 +49,56 @@ CREATE TABLE `bills` (
 	`org_id` text NOT NULL,
 	`project_id` text NOT NULL,
 	`vendor_contact_id` text,
+	`bill_number` text NOT NULL DEFAULT '',
+	`bill_date` text,
 	`amount_cents` integer NOT NULL,
 	`due_date` text,
 	`status` text NOT NULL,
 	`memo` text,
+	`void_reason` text,
+	`paid_at` text,
+	`pay_method` text,
+	`pay_reference` text,
+	`document_id` text,
+	`approved_at` text,
+	`low_confidence` integer NOT NULL DEFAULT 0,
 	`created_at` text NOT NULL,
 	`updated_at` text NOT NULL,
 	`created_by` text
 );
+--> statement-breakpoint
+CREATE INDEX `bills_org` ON `bills` (`org_id`);
+--> statement-breakpoint
+CREATE INDEX `bills_vendor` ON `bills` (`org_id`,`vendor_contact_id`);
+--> statement-breakpoint
+CREATE UNIQUE INDEX `bills_vendor_number` ON `bills` (`org_id`,`vendor_contact_id`,`bill_number`) WHERE `status` != 'void' AND `bill_number` != '';
+--> statement-breakpoint
+CREATE TABLE `bill_lines` (
+	`id` text PRIMARY KEY NOT NULL,
+	`org_id` text NOT NULL,
+	`bill_id` text NOT NULL,
+	`cost_code` text NOT NULL,
+	`description` text,
+	`amount_cents` integer NOT NULL,
+	`cost_item_id` text,
+	`sort_order` integer NOT NULL DEFAULT 0
+);
+--> statement-breakpoint
+CREATE INDEX `bill_lines_bill` ON `bill_lines` (`org_id`,`bill_id`);
+--> statement-breakpoint
+CREATE TABLE `bill_events` (
+	`id` text PRIMARY KEY NOT NULL,
+	`org_id` text NOT NULL,
+	`bill_id` text NOT NULL,
+	`actor_id` text,
+	`type` text NOT NULL,
+	`reason` text,
+	`before_json` text,
+	`after_json` text,
+	`created_at` text NOT NULL
+);
+--> statement-breakpoint
+CREATE INDEX `bill_events_bill` ON `bill_events` (`org_id`,`bill_id`);
 --> statement-breakpoint
 CREATE TABLE `budget_lines` (
 	`id` text PRIMARY KEY NOT NULL,
@@ -565,7 +607,7 @@ CREATE INDEX `time_entries_org` ON `time_entries` (`org_id`);
 --> statement-breakpoint
 CREATE INDEX `time_entries_user` ON `time_entries` (`org_id`,`user_id`);
 --> statement-breakpoint
-CREATE UNIQUE INDEX `time_entries_client_event` ON `time_entries` (`client_event_id`);
+CREATE UNIQUE INDEX `time_entries_client_event` ON `time_entries` (`org_id`,`user_id`,`client_event_id`);
 --> statement-breakpoint
 CREATE TABLE `time_entry_events` (
 	`id` text PRIMARY KEY NOT NULL,
@@ -652,7 +694,8 @@ CREATE TABLE `daily_log_photos` (
 CREATE INDEX `daily_log_photos_log` ON `daily_log_photos` (`org_id`,`log_id`);
 --> statement-breakpoint
 CREATE TABLE `sync_events` (
-	`client_event_id` text PRIMARY KEY NOT NULL,
+	`id` text PRIMARY KEY NOT NULL,
+	`client_event_id` text NOT NULL,
 	`org_id` text NOT NULL,
 	`user_id` text NOT NULL,
 	`kind` text NOT NULL,
@@ -661,6 +704,8 @@ CREATE TABLE `sync_events` (
 	`result_json` text NOT NULL,
 	`created_at` text NOT NULL
 );
+--> statement-breakpoint
+CREATE UNIQUE INDEX `sync_events_scope` ON `sync_events` (`org_id`,`user_id`,`client_event_id`);
 --> statement-breakpoint
 CREATE INDEX `sync_events_org_user` ON `sync_events` (`org_id`,`user_id`);
 --> statement-breakpoint
@@ -682,4 +727,4 @@ CREATE TABLE `time_anomalies` (
 --> statement-breakpoint
 CREATE INDEX `time_anomalies_org` ON `time_anomalies` (`org_id`);
 --> statement-breakpoint
-CREATE UNIQUE INDEX `time_anomalies_event` ON `time_anomalies` (`client_event_id`);
+CREATE UNIQUE INDEX `time_anomalies_event` ON `time_anomalies` (`org_id`,`user_id`,`client_event_id`);

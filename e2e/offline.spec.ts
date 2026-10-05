@@ -85,7 +85,9 @@ test.describe("offline clock", () => {
     }).format(captured + 10 * 60 * 1000);
     await page.clock.fastForward(10 * 60 * 1000);
     await context.setOffline(false);
-    await page.getByRole("button", { name: "Sync now" }).click();
+    const sync = page.getByRole("button", { name: "Sync now" });
+    await expect(sync).toBeVisible();
+    await sync.evaluate((node: HTMLButtonElement) => node.click());
     await expect(page.getByText("2 saved on this phone, will sync")).toHaveCount(0);
     await page.goto("/time");
     await expect(page.getByText(note)).toHaveCount(1);

@@ -91,6 +91,7 @@ export function ensureReady(holder: Holder) {
   ensureTimeTables(holder);
   ensureDailyLogs(holder);
   ensureSyncSchema(holder);
+  ensureBills(holder);
   const version = holder.sqlite.prepare("select value from app_meta where key = ?").get("seed_version") as
     | { value: string }
     | undefined;
@@ -501,11 +502,13 @@ function ensureSyncSchema(holder: Holder) {
   if (!tableColumn(holder, "time_entries", "anomaly")) {
     holder.sqlite.exec("alter table time_entries add column anomaly text");
   }
-  holder.sqlite.exec("create unique index if not exists time_entries_client_event on time_entries (client_event_id)");
+  holder.sqlite.exec("drop index if exists time_entries_client_event");
+  holder.sqlite.exec("create unique index if not exists time_entries_client_event on time_entries (org_id, user_id, client_event_id)");
   const pk = holder.dialect === "postgres" ? "text primary key" : "text primary key not null";
   if (!tableExists(holder.sqlite, "sync_events", holder.dialect)) {
     holder.sqlite.exec(`create table if not exists sync_events (
-      client_event_id ${pk},
+      id ${pk},
+      client_event_id text not null,
       org_id text not null,
       user_id text not null,
       kind text not null,
@@ -513,9 +516,26 @@ function ensureSyncSchema(holder: Holder) {
       status text not null,
       result_json text not null,
       created_at text not null
-    );
-    create index if not exists sync_events_org_user on sync_events (org_id, user_id);`);
+    )`);
+  } else if (!tableColumn(holder, "sync_events", "id")) {
+    holder.sqlite.exec(`create table sync_events_next (
+      id ${pk},
+      client_event_id text not null,
+      org_id text not null,
+      user_id text not null,
+      kind text not null,
+      captured_at text not null,
+      status text not null,
+      result_json text not null,
+      created_at text not null
+    )`);
+    holder.sqlite.exec(`insert into sync_events_next (id, client_event_id, org_id, user_id, kind, captured_at, status, result_json, created_at)
+      select client_event_id, client_event_id, org_id, user_id, kind, captured_at, status, result_json, created_at from sync_events`);
+    holder.sqlite.exec("drop table sync_events");
+    holder.sqlite.exec("alter table sync_events_next rename to sync_events");
   }
+  holder.sqlite.exec("create unique index if not exists sync_events_scope on sync_events (org_id, user_id, client_event_id)");
+  holder.sqlite.exec("create index if not exists sync_events_org_user on sync_events (org_id, user_id)");
   if (!tableExists(holder.sqlite, "time_anomalies", holder.dialect)) {
     holder.sqlite.exec(`create table if not exists time_anomalies (
       id ${pk},
@@ -531,10 +551,62 @@ function ensureSyncSchema(holder: Holder) {
       log_id text,
       resolved_at text,
       created_at text not null
-    );
-    create index if not exists time_anomalies_org on time_anomalies (org_id);
-    create unique index if not exists time_anomalies_event on time_anomalies (client_event_id);`);
+    )`);
+    holder.sqlite.exec("create index if not exists time_anomalies_org on time_anomalies (org_id)");
   }
+  holder.sqlite.exec("drop index if exists time_anomalies_event");
+  holder.sqlite.exec("create unique index if not exists time_anomalies_event on time_anomalies (org_id, user_id, client_event_id)");
+}
+
+function ensureBills(holder: Holder) {
+  if (!tableExists(holder.sqlite, "bills", holder.dialect)) return;
+  const adds: [string, string][] = [
+    ["bill_number", "text not null default ''"],
+    ["bill_date", "text"],
+    ["void_reason", "text"],
+    ["paid_at", "text"],
+    ["pay_method", "text"],
+    ["pay_reference", "text"],
+    ["document_id", "text"],
+    ["approved_at", "text"],
+    ["low_confidence", "integer not null default 0"],
+  ];
+  for (const [column, type] of adds) {
+    if (!tableColumn(holder, "bills", column)) holder.sqlite.exec(`alter table bills add column ${column} ${type}`);
+  }
+  const pk = holder.dialect === "postgres" ? "text primary key" : "text primary key not null";
+  if (!tableExists(holder.sqlite, "bill_lines", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists bill_lines (
+      id ${pk},
+      org_id text not null,
+      bill_id text not null,
+      cost_code text not null,
+      description text,
+      amount_cents integer not null,
+      cost_item_id text,
+      sort_order integer not null default 0
+    )`);
+  }
+  if (!tableExists(holder.sqlite, "bill_events", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists bill_events (
+      id ${pk},
+      org_id text not null,
+      bill_id text not null,
+      actor_id text,
+      type text not null,
+      reason text,
+      before_json text,
+      after_json text,
+      created_at text not null
+    )`);
+  }
+  holder.sqlite.exec("create index if not exists bills_org on bills (org_id)");
+  holder.sqlite.exec("create index if not exists bills_vendor on bills (org_id, vendor_contact_id)");
+  holder.sqlite.exec("create index if not exists bill_lines_bill on bill_lines (org_id, bill_id)");
+  holder.sqlite.exec("create index if not exists bill_events_bill on bill_events (org_id, bill_id)");
+  holder.sqlite.exec(
+    "create unique index if not exists bills_vendor_number on bills (org_id, vendor_contact_id, bill_number) where status != 'void' and bill_number != ''",
+  );
 }
 
 function ensureTesterFeedback(holder: Holder) {

@@ -378,19 +378,63 @@ export const payments = sqliteTable(
   (t) => [uniqueIndex("payments_idem").on(t.idempotencyKey)],
 );
 
-export const bills = sqliteTable("bills", {
-  id: text("id").primaryKey(),
-  orgId: text("org_id").notNull(),
-  projectId: text("project_id").notNull(),
-  vendorContactId: text("vendor_contact_id"),
-  amountCents: integer("amount_cents").notNull(),
-  dueDate: text("due_date"),
-  status: text("status").notNull(),
-  memo: text("memo"),
-  createdAt: text("created_at").notNull(),
-  updatedAt: text("updated_at").notNull(),
-  createdBy: text("created_by"),
-});
+export const bills = sqliteTable(
+  "bills",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    projectId: text("project_id").notNull(),
+    vendorContactId: text("vendor_contact_id"),
+    billNumber: text("bill_number").notNull().default(""),
+    billDate: text("bill_date"),
+    amountCents: integer("amount_cents").notNull(),
+    dueDate: text("due_date"),
+    status: text("status").notNull(),
+    memo: text("memo"),
+    voidReason: text("void_reason"),
+    paidAt: text("paid_at"),
+    payMethod: text("pay_method"),
+    payReference: text("pay_reference"),
+    documentId: text("document_id"),
+    approvedAt: text("approved_at"),
+    lowConfidence: integer("low_confidence").notNull().default(0),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    createdBy: text("created_by"),
+  },
+  (t) => [index("bills_org").on(t.orgId), index("bills_vendor").on(t.orgId, t.vendorContactId)],
+);
+
+export const billLines = sqliteTable(
+  "bill_lines",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    billId: text("bill_id").notNull(),
+    costCode: text("cost_code").notNull(),
+    description: text("description"),
+    amountCents: integer("amount_cents").notNull(),
+    costItemId: text("cost_item_id"),
+    sortOrder: integer("sort_order").notNull().default(0),
+  },
+  (t) => [index("bill_lines_bill").on(t.orgId, t.billId)],
+);
+
+export const billEvents = sqliteTable(
+  "bill_events",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    billId: text("bill_id").notNull(),
+    actorId: text("actor_id"),
+    type: text("type").notNull(),
+    reason: text("reason"),
+    beforeJson: text("before_json"),
+    afterJson: text("after_json"),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [index("bill_events_bill").on(t.orgId, t.billId)],
+);
 
 export const costItems = sqliteTable("cost_items", {
   id: text("id").primaryKey(),
@@ -564,15 +608,17 @@ export const timeEntries = sqliteTable(
   (t) => [
     index("time_entries_org").on(t.orgId),
     index("time_entries_user").on(t.orgId, t.userId),
-    uniqueIndex("time_entries_client_event").on(t.clientEventId),
+    uniqueIndex("time_entries_client_event").on(t.orgId, t.userId, t.clientEventId),
   ],
 );
 
 /** Idempotency row for one offline punch or log draft. Replay returns result_json. */
+/** One offline punch or log draft. The client id is unique per person, not globally. */
 export const syncEvents = sqliteTable(
   "sync_events",
   {
-    clientEventId: text("client_event_id").primaryKey(),
+    id: text("id").primaryKey(),
+    clientEventId: text("client_event_id").notNull(),
     orgId: text("org_id").notNull(),
     userId: text("user_id").notNull(),
     kind: text("kind").notNull(),
@@ -581,7 +627,7 @@ export const syncEvents = sqliteTable(
     resultJson: text("result_json").notNull(),
     createdAt: text("created_at").notNull(),
   },
-  (t) => [index("sync_events_org_user").on(t.orgId, t.userId)],
+  (t) => [uniqueIndex("sync_events_scope").on(t.orgId, t.userId, t.clientEventId), index("sync_events_org_user").on(t.orgId, t.userId)],
 );
 
 /** Office review queue for punches that synced with a clock, sequence, or job problem. */
@@ -602,7 +648,7 @@ export const timeAnomalies = sqliteTable(
     resolvedAt: text("resolved_at"),
     createdAt: text("created_at").notNull(),
   },
-  (t) => [index("time_anomalies_org").on(t.orgId), uniqueIndex("time_anomalies_event").on(t.clientEventId)],
+  (t) => [index("time_anomalies_org").on(t.orgId), uniqueIndex("time_anomalies_event").on(t.orgId, t.userId, t.clientEventId)],
 );
 
 export const timeEntryEvents = sqliteTable(
