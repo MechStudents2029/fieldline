@@ -1,0 +1,579 @@
+import fs from "node:fs";
+import path from "node:path";
+import Database from "better-sqlite3";
+import { drizzle, type BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
+import * as schema from "@/lib/db/schema";
+import { createSqliteCompat } from "@/lib/db/pg-bridge";
+import { officeClaim } from "@/lib/db/rls-context";
+import { databaseTarget, resolveDataDir } from "@/lib/db/paths";
+import { SEED_VERSION, seedDatabase } from "@/lib/db/seed";
+import { toPostgresDdl } from "@/lib/db/sql";
+
+export type AppDatabase = BetterSQLite3Database<typeof schema>;
+
+type Dialect = "sqlite" | "postgres";
+
+type Holder = {
+  db: AppDatabase;
+  rls: AppDatabase | null;
+  sqlite: Database.Database;
+  dialect: Dialect;
+  close: () => void;
+};
+
+const globalForDb = globalThis as unknown as { fieldline?: Holder };
+
+function migrationSql(dialect: Dialect): string {
+  const file = path.join(process.cwd(), "drizzle", "0000_init.sql");
+  const raw = fs.readFileSync(file, "utf8");
+  return dialect === "postgres" ? toPostgresDdl(raw) : raw.replace(/--> statement-breakpoint/g, "");
+}
+
+function openSqlite(file: string): Holder {
+  if (file !== ":memory:") {
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+  }
+  const sqlite = new Database(file);
+  if (file !== ":memory:") {
+    // WAL needs extra files beside the database. /tmp on Vercel is happier with a single file.
+    sqlite.pragma(file.startsWith("/tmp/") ? "journal_mode = DELETE" : "journal_mode = WAL");
+  }
+  sqlite.pragma("foreign_keys = ON");
+  return { db: drizzle(sqlite, { schema }), rls: null, sqlite, dialect: "sqlite", close: () => sqlite.close() };
+}
+
+function openPostgres(url: string): Holder {
+  const sqlite = createSqliteCompat(url === "pglite://memory" || url.startsWith("pglite:") ? { mode: "pglite" } : { mode: "pg", url });
+  const db = drizzle(sqlite as unknown as Database.Database, { schema });
+  const rlsCompat = sqlite.asAuthenticated?.(() => officeClaim()?.authUserId ?? "");
+  const rls = rlsCompat ? drizzle(rlsCompat as unknown as Database.Database, { schema }) : null;
+  return {
+    db,
+    rls,
+    sqlite: sqlite as unknown as Database.Database,
+    dialect: "postgres",
+    close: () => sqlite.close(),
+  };
+}
+
+function tableExists(sqlite: Database.Database, name: string, dialect: Dialect): boolean {
+  const sql =
+    dialect === "postgres"
+      ? "select table_name as name from information_schema.tables where table_schema = 'public' and table_name = ?"
+      : "select name from sqlite_master where type = 'table' and name = ?";
+  const row = sqlite.prepare(sql).get(name) as { name: string } | undefined;
+  return Boolean(row);
+}
+
+function ensureAuthUserId(holder: Holder) {
+  if (!tableExists(holder.sqlite, "users", holder.dialect)) return;
+  const exists =
+    holder.dialect === "postgres"
+      ? holder.sqlite
+          .prepare(
+            "select column_name as name from information_schema.columns where table_schema = 'public' and table_name = 'users' and column_name = 'auth_user_id'",
+          )
+          .get()
+      : (holder.sqlite.prepare("pragma table_info(users)").all() as { name: string }[]).find((column) => column.name === "auth_user_id");
+  if (!exists) holder.sqlite.exec("alter table users add column auth_user_id text");
+  holder.sqlite.exec("create unique index if not exists users_auth_user_id on users (auth_user_id)");
+}
+
+export function ensureReady(holder: Holder) {
+  if (!tableExists(holder.sqlite, "organizations", holder.dialect)) {
+    holder.sqlite.exec(migrationSql(holder.dialect));
+  }
+  ensureAuthUserId(holder);
+  ensureSetupDismissed(holder);
+  ensureOrgCalendar(holder);
+  ensureTesterFeedback(holder);
+  ensureTeamInvites(holder);
+  ensureTimeTables(holder);
+  ensureDailyLogs(holder);
+  ensureSyncSchema(holder);
+  const version = holder.sqlite.prepare("select value from app_meta where key = ?").get("seed_version") as
+    | { value: string }
+    | undefined;
+  if (!version || version.value !== SEED_VERSION) {
+    seedDatabase(holder.db, holder.sqlite, holder.dialect);
+  }
+}
+
+export function dataDir(): string {
+  return resolveDataDir();
+}
+
+export function databasePath(): string {
+  const target = databaseTarget();
+  if (target.kind === "postgres") return target.url;
+  return target.file;
+}
+
+function openFromEnv(): Holder {
+  const target = databaseTarget();
+  if (target.kind === "postgres") return openPostgres(target.url);
+  return openSqlite(target.file);
+}
+
+function closeHolder() {
+  if (!globalForDb.fieldline) return;
+  globalForDb.fieldline.close();
+  globalForDb.fieldline = undefined;
+}
+
+export function getHolder(): Holder {
+  if (!globalForDb.fieldline) {
+    globalForDb.fieldline = openFromEnv();
+    ensureReady(globalForDb.fieldline);
+  }
+  return globalForDb.fieldline;
+}
+
+/**
+ * Owner connection (DATABASE_URL or the local SQLite file). Bypasses RLS.
+ * Portal magic links, the pay page, Stripe webhooks, follow-up cron, seed, and
+ * migrations stay on this connection. Office reads with a verified Supabase
+ * session use officeDb() instead.
+ */
+export function getDb(): AppDatabase {
+  return getHolder().db;
+}
+
+/** Postgres session as role `authenticated` with the verified user's JWT claims. */
+export function getRlsDb(): AppDatabase {
+  const holder = getHolder();
+  if (!holder.rls) throw new Error("RLS reads need Postgres. The demo database has no role authenticated.");
+  return holder.rls;
+}
+
+export function getSqlite(): Database.Database {
+  return getHolder().sqlite;
+}
+
+/** Test helper. Reopens the singleton on a new file or :memory:. */
+export function useDatabaseFile(file: string): AppDatabase {
+  closeHolder();
+  globalForDb.fieldline = openSqlite(file);
+  ensureReady(globalForDb.fieldline);
+  return globalForDb.fieldline.db;
+}
+
+/** In-memory Postgres for tests. Production uses DATABASE_URL. */
+export function usePostgresMemory(): AppDatabase {
+  closeHolder();
+  globalForDb.fieldline = openPostgres("pglite://memory");
+  ensureReady(globalForDb.fieldline);
+  return globalForDb.fieldline.db;
+}
+
+function ensureSetupDismissed(holder: Holder) {
+  if (!tableExists(holder.sqlite, "organizations", holder.dialect)) return;
+  const exists =
+    holder.dialect === "postgres"
+      ? holder.sqlite
+          .prepare(
+            "select column_name as name from information_schema.columns where table_schema = 'public' and table_name = 'organizations' and column_name = 'setup_dismissed_at'",
+          )
+          .get()
+      : (holder.sqlite.prepare("pragma table_info(organizations)").all() as { name: string }[]).find(
+          (column) => column.name === "setup_dismissed_at",
+        );
+  if (!exists) holder.sqlite.exec("alter table organizations add column setup_dismissed_at text");
+}
+
+function ensureOrgCalendar(holder: Holder) {
+  if (!tableExists(holder.sqlite, "organizations", holder.dialect)) return;
+  if (!orgColumn(holder, "time_zone")) {
+    holder.sqlite.exec("alter table organizations add column time_zone text not null default 'America/New_York'");
+  }
+  if (!orgColumn(holder, "week_starts_on")) {
+    holder.sqlite.exec("alter table organizations add column week_starts_on integer not null default 1");
+  }
+}
+
+function orgColumn(holder: Holder, column: string): boolean {
+  if (holder.dialect === "postgres") {
+    return Boolean(
+      holder.sqlite
+        .prepare(
+          "select column_name as name from information_schema.columns where table_schema = 'public' and table_name = 'organizations' and column_name = ?",
+        )
+        .get(column),
+    );
+  }
+  return (holder.sqlite.prepare("pragma table_info(organizations)").all() as { name: string }[]).some((row) => row.name === column);
+}
+
+function ensureTeamInvites(holder: Holder) {
+  if (tableExists(holder.sqlite, "team_invites", holder.dialect)) return;
+  const ddl =
+    holder.dialect === "postgres"
+      ? `create table if not exists team_invites (
+          id text primary key,
+          org_id text not null,
+          email text not null,
+          role text not null,
+          token_hash text not null,
+          status text not null,
+          invited_by text not null,
+          expires_at text not null,
+          accepted_by text,
+          accepted_at text,
+          revoked_at text,
+          created_at text not null
+        );
+        create unique index if not exists team_invites_token_hash on team_invites (token_hash);
+        create index if not exists team_invites_org on team_invites (org_id);`
+      : `create table if not exists team_invites (
+          id text primary key not null,
+          org_id text not null,
+          email text not null,
+          role text not null,
+          token_hash text not null,
+          status text not null,
+          invited_by text not null,
+          expires_at text not null,
+          accepted_by text,
+          accepted_at text,
+          revoked_at text,
+          created_at text not null
+        );
+        create unique index if not exists team_invites_token_hash on team_invites (token_hash);
+        create index if not exists team_invites_org on team_invites (org_id);`;
+  holder.sqlite.exec(ddl);
+}
+
+function ensureTimeTables(holder: Holder) {
+  if (tableExists(holder.sqlite, "time_entries", holder.dialect)) return;
+  const ddl =
+    holder.dialect === "postgres"
+      ? `create table if not exists labor_rates (
+          id text primary key,
+          org_id text not null,
+          user_id text not null,
+          hourly_cost_cents integer not null,
+          updated_at text not null,
+          updated_by text
+        );
+        create unique index if not exists labor_rates_org_user on labor_rates (org_id, user_id);
+        create index if not exists labor_rates_org on labor_rates (org_id);
+        create table if not exists time_entries (
+          id text primary key,
+          org_id text not null,
+          user_id text not null,
+          project_id text not null,
+          cost_code text not null,
+          status text not null,
+          clock_in_at text not null,
+          clock_out_at text,
+          break_minutes integer not null default 0,
+          break_started_at text,
+          note text,
+          clock_in_lat_e6 integer,
+          clock_in_lng_e6 integer,
+          clock_out_lat_e6 integer,
+          clock_out_lng_e6 integer,
+          source text not null,
+          client_event_id text,
+          synced_at text,
+          anomaly text,
+          created_at text not null,
+          updated_at text not null,
+          created_by text
+        );
+        create index if not exists time_entries_org on time_entries (org_id);
+        create index if not exists time_entries_user on time_entries (org_id, user_id);
+        create unique index if not exists time_entries_client_event on time_entries (client_event_id);
+        create table if not exists time_entry_events (
+          id text primary key,
+          org_id text not null,
+          entry_id text not null,
+          actor_id text,
+          type text not null,
+          reason text,
+          before_json text,
+          after_json text,
+          created_at text not null
+        );
+        create index if not exists time_entry_events_entry on time_entry_events (org_id, entry_id);
+        create table if not exists time_approvals (
+          id text primary key,
+          org_id text not null,
+          entry_id text not null,
+          rate_cents integer not null,
+          minutes integer not null,
+          amount_cents integer not null,
+          cost_item_id text,
+          status text not null,
+          reason text,
+          created_at text not null,
+          created_by text
+        );
+        create index if not exists time_approvals_entry on time_approvals (org_id, entry_id);`
+      : `create table if not exists labor_rates (
+          id text primary key not null,
+          org_id text not null,
+          user_id text not null,
+          hourly_cost_cents integer not null,
+          updated_at text not null,
+          updated_by text
+        );
+        create unique index if not exists labor_rates_org_user on labor_rates (org_id, user_id);
+        create index if not exists labor_rates_org on labor_rates (org_id);
+        create table if not exists time_entries (
+          id text primary key not null,
+          org_id text not null,
+          user_id text not null,
+          project_id text not null,
+          cost_code text not null,
+          status text not null,
+          clock_in_at text not null,
+          clock_out_at text,
+          break_minutes integer not null default 0,
+          break_started_at text,
+          note text,
+          clock_in_lat_e6 integer,
+          clock_in_lng_e6 integer,
+          clock_out_lat_e6 integer,
+          clock_out_lng_e6 integer,
+          source text not null,
+          client_event_id text,
+          synced_at text,
+          anomaly text,
+          created_at text not null,
+          updated_at text not null,
+          created_by text
+        );
+        create index if not exists time_entries_org on time_entries (org_id);
+        create index if not exists time_entries_user on time_entries (org_id, user_id);
+        create unique index if not exists time_entries_client_event on time_entries (client_event_id);
+        create table if not exists time_entry_events (
+          id text primary key not null,
+          org_id text not null,
+          entry_id text not null,
+          actor_id text,
+          type text not null,
+          reason text,
+          before_json text,
+          after_json text,
+          created_at text not null
+        );
+        create index if not exists time_entry_events_entry on time_entry_events (org_id, entry_id);
+        create table if not exists time_approvals (
+          id text primary key not null,
+          org_id text not null,
+          entry_id text not null,
+          rate_cents integer not null,
+          minutes integer not null,
+          amount_cents integer not null,
+          cost_item_id text,
+          status text not null,
+          reason text,
+          created_at text not null,
+          created_by text
+        );
+        create index if not exists time_approvals_entry on time_approvals (org_id, entry_id);`;
+  holder.sqlite.exec(ddl);
+}
+
+function ensureDailyLogs(holder: Holder) {
+  if (tableExists(holder.sqlite, "daily_logs", holder.dialect)) return;
+  const ddl =
+    holder.dialect === "postgres"
+      ? `create table if not exists daily_logs (
+          id text primary key,
+          org_id text not null,
+          project_id text not null,
+          author_id text not null,
+          log_date text not null,
+          status text not null,
+          visibility text not null,
+          notes text,
+          planned_next text,
+          weather_sky text,
+          weather_high_f integer,
+          weather_low_f integer,
+          weather_lost_minutes integer,
+          weather_impact text,
+          delay_cause text,
+          delay_minutes integer,
+          deliveries text,
+          visitors text,
+          safety_note text,
+          published_at text,
+          void_reason text,
+          created_at text not null,
+          updated_at text not null
+        );
+        create unique index if not exists daily_logs_one_open on daily_logs (org_id, project_id, author_id, log_date) where status <> 'void';
+        create index if not exists daily_logs_project on daily_logs (org_id, project_id, log_date);
+        create table if not exists daily_log_events (
+          id text primary key,
+          org_id text not null,
+          log_id text not null,
+          actor_id text,
+          type text not null,
+          reason text,
+          before_json text,
+          after_json text,
+          created_at text not null
+        );
+        create index if not exists daily_log_events_log on daily_log_events (org_id, log_id);
+        create table if not exists daily_log_photos (
+          id text primary key,
+          org_id text not null,
+          log_id text not null,
+          document_id text not null,
+          created_at text not null
+        );
+        create index if not exists daily_log_photos_log on daily_log_photos (org_id, log_id);`
+      : `create table if not exists daily_logs (
+          id text primary key not null,
+          org_id text not null,
+          project_id text not null,
+          author_id text not null,
+          log_date text not null,
+          status text not null,
+          visibility text not null,
+          notes text,
+          planned_next text,
+          weather_sky text,
+          weather_high_f integer,
+          weather_low_f integer,
+          weather_lost_minutes integer,
+          weather_impact text,
+          delay_cause text,
+          delay_minutes integer,
+          deliveries text,
+          visitors text,
+          safety_note text,
+          published_at text,
+          void_reason text,
+          created_at text not null,
+          updated_at text not null
+        );
+        create unique index if not exists daily_logs_one_open on daily_logs (org_id, project_id, author_id, log_date) where status <> 'void';
+        create index if not exists daily_logs_project on daily_logs (org_id, project_id, log_date);
+        create table if not exists daily_log_events (
+          id text primary key not null,
+          org_id text not null,
+          log_id text not null,
+          actor_id text,
+          type text not null,
+          reason text,
+          before_json text,
+          after_json text,
+          created_at text not null
+        );
+        create index if not exists daily_log_events_log on daily_log_events (org_id, log_id);
+        create table if not exists daily_log_photos (
+          id text primary key not null,
+          org_id text not null,
+          log_id text not null,
+          document_id text not null,
+          created_at text not null
+        );
+        create index if not exists daily_log_photos_log on daily_log_photos (org_id, log_id);`;
+  holder.sqlite.exec(ddl);
+}
+
+function tableColumn(holder: Holder, table: string, column: string): boolean {
+  if (holder.dialect === "postgres") {
+    return Boolean(
+      holder.sqlite
+        .prepare(
+          "select column_name as name from information_schema.columns where table_schema = 'public' and table_name = ? and column_name = ?",
+        )
+        .get(table, column),
+    );
+  }
+  return (holder.sqlite.prepare(`pragma table_info(${table})`).all() as { name: string }[]).some((row) => row.name === column);
+}
+
+function ensureSyncSchema(holder: Holder) {
+  if (!tableExists(holder.sqlite, "time_entries", holder.dialect)) return;
+  if (!tableColumn(holder, "time_entries", "client_event_id")) {
+    holder.sqlite.exec("alter table time_entries add column client_event_id text");
+  }
+  if (!tableColumn(holder, "time_entries", "synced_at")) {
+    holder.sqlite.exec("alter table time_entries add column synced_at text");
+  }
+  if (!tableColumn(holder, "time_entries", "anomaly")) {
+    holder.sqlite.exec("alter table time_entries add column anomaly text");
+  }
+  holder.sqlite.exec("create unique index if not exists time_entries_client_event on time_entries (client_event_id)");
+  const pk = holder.dialect === "postgres" ? "text primary key" : "text primary key not null";
+  if (!tableExists(holder.sqlite, "sync_events", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists sync_events (
+      client_event_id ${pk},
+      org_id text not null,
+      user_id text not null,
+      kind text not null,
+      captured_at text not null,
+      status text not null,
+      result_json text not null,
+      created_at text not null
+    );
+    create index if not exists sync_events_org_user on sync_events (org_id, user_id);`);
+  }
+  if (!tableExists(holder.sqlite, "time_anomalies", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists time_anomalies (
+      id ${pk},
+      org_id text not null,
+      user_id text not null,
+      client_event_id text not null,
+      kind text not null,
+      detail text not null,
+      captured_at text not null,
+      project_id text,
+      cost_code text,
+      entry_id text,
+      log_id text,
+      resolved_at text,
+      created_at text not null
+    );
+    create index if not exists time_anomalies_org on time_anomalies (org_id);
+    create unique index if not exists time_anomalies_event on time_anomalies (client_event_id);`);
+  }
+}
+
+function ensureTesterFeedback(holder: Holder) {
+  if (tableExists(holder.sqlite, "tester_feedback", holder.dialect)) return;
+  const ddl =
+    holder.dialect === "postgres"
+      ? `create table if not exists tester_feedback (
+          id text primary key,
+          org_id text not null,
+          user_id text not null,
+          path text not null,
+          body text not null,
+          context text,
+          user_agent text,
+          created_at text not null
+        );
+        create index if not exists tester_feedback_org on tester_feedback (org_id);`
+      : `create table if not exists tester_feedback (
+          id text primary key not null,
+          org_id text not null,
+          user_id text not null,
+          path text not null,
+          body text not null,
+          context text,
+          user_agent text,
+          created_at text not null
+        );
+        create index if not exists tester_feedback_org on tester_feedback (org_id);`;
+  holder.sqlite.exec(ddl);
+}
+
+export function resetDatabase(): AppDatabase {
+  const target = databaseTarget();
+  closeHolder();
+  if (target.kind === "sqlite" && target.file !== ":memory:") {
+    const files = [target.file, `${target.file}-wal`, `${target.file}-shm`];
+    for (const file of files) {
+      if (fs.existsSync(/*turbopackIgnore: true*/ file)) fs.rmSync(/*turbopackIgnore: true*/ file);
+    }
+  }
+  return getDb();
+}

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="520" viewBox="0 0 800 520" role="img" aria-label="Powder room before">
+  <rect width="800" height="520" fill="#f4efe6"/>
+  <rect x="36" y="28" width="728" height="360" rx="16" fill="#e7d7d2"/>
+  <rect x="72" y="72" width="220" height="250" rx="6" fill="#7a5a55"/>
+  <rect x="320" y="90" width="180" height="120" rx="4" fill="#f7f3ea" opacity="0.85"/>
+  <rect x="530" y="160" width="160" height="160" rx="80" fill="#f7f3ea" opacity="0.55"/>
+  <text x="40" y="440" font-family="Georgia, serif" font-size="28" fill="#1f4d3a">Powder room before</text>
+  <text x="40" y="478" font-family="Source Sans 3, sans-serif" font-size="16" fill="#5c5346">Chen powder · demo photo, not a site image</text>
+</svg>
