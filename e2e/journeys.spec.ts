@@ -14,8 +14,8 @@ test("client approves a change order and the contract and budget move", async ({
   await signIn(page);
   await page.goto("/projects/proj_okonkwo");
   const before = await contractDollars(page);
-  const sink = page.getByRole("listitem").filter({ hasText: "PLB-SINK" });
-  const beforeBudget = (await sink.count()) > 0 ? await sink.first().innerText() : "";
+  const sink = page.locator('[data-code="PLB-SINK"]');
+  const beforeBudget = (await sink.count()) > 0 ? await sink.locator('[data-kind="budget"]').innerText() : "";
   await page.getByLabel("Change order title").fill("Add a linen niche");
   await page.getByLabel("What changed").fill("Niche in the wet wall.");
   await page.getByLabel("Line name").fill("Linen niche");
@@ -31,8 +31,8 @@ test("client approves a change order and the contract and budget move", async ({
   await page.goto("/projects/proj_okonkwo");
   expect(await contractDollars(page)).toBeCloseTo(before + 1350, 2);
   await expect(page.getByText(/Add a linen niche · approved/)).toBeVisible();
-  await expect(sink.first()).toBeVisible();
-  expect(await sink.first().innerText()).not.toBe(beforeBudget);
+  await expect(sink).toBeVisible();
+  expect(await sink.locator('[data-kind="budget"]').innerText()).not.toBe(beforeBudget);
 });
 
 test("a follow-up draft is on Today and stays unsent until approved", async ({ page }) => {

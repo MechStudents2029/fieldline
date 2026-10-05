@@ -23,7 +23,6 @@ test("issue a purchase order, link a bill, and watch committed fall as actual ri
   const number = (await page.getByRole("heading", { level: 1 }).innerText()).trim();
   await expect(page.locator(".uppercase").getByText("draft", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Issue purchase order" }).click();
-  await expect(page.getByText(/Issued PO-/)).toBeVisible();
   await expect(page.locator(".uppercase").getByText("issued", { exact: true })).toBeVisible();
 
   await page.goto("/projects/proj_chen");

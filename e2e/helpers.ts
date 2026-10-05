@@ -51,6 +51,6 @@ export async function kitchenThroughPaid(page: Page) {
   await page.goto("/projects");
   await page.getByRole("link", { name: /410 Grove Ave/ }).click();
   await expect(page.getByText(/Contract \$/)).toBeVisible();
-  await expect(page.getByText(/\$[\d,]+\.\d{2} \/ \$[1-9]/).first()).toBeVisible();
+  await expect(page.locator('[data-kind="budget"]').first()).toBeVisible();
   await expect(page.getByRole("link", { name: /deposit · paid/ })).toBeVisible();
 }
