@@ -132,7 +132,9 @@ begin
     'daily_log_photos',
     'schedule_items',
     'schedule_assignees',
-    'calendar_feeds'
+    'calendar_feeds',
+    'import_batches',
+    'import_rows'
   ]
   loop
     execute format('alter table public.%I enable row level security', tbl);

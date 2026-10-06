@@ -3,12 +3,12 @@ import { completeTaskAction } from "@/app/actions";
 import { EmptyState } from "@/components/empty-state";
 import { GroupedList, GroupedRow, LargeTitle, NumberStrip, PlusLink } from "@/components/ios";
 import { Toolbar } from "@/components/mac/toolbar";
-import { SetupRow } from "@/components/setup-checklist";
+import { FirstProposal, SetupRow } from "@/components/setup-checklist";
 import { requireSession } from "@/lib/auth/session";
 import { formatCalendarDay } from "@/lib/format";
 import { formatCompact, formatPercent, formatWhole } from "@/lib/money";
 import { canSeeMoney } from "@/lib/permissions";
-import { companyChecklist } from "@/lib/services/onboarding";
+import { companyChecklist, firstProposal } from "@/lib/services/onboarding";
 import { dashboard, listInvoices, listProjects, pipelineBoard } from "@/lib/services/read";
 import { MyDay } from "@/components/my-day";
 import { timeBoard } from "@/lib/services/time";
@@ -63,6 +63,7 @@ export default async function TodayPage() {
   const board = pipelineBoard(session.orgId);
   const crew = time.office?.clockedIn ?? [];
   const showSetup = checklist && !checklist.facts.dismissed;
+  const proposal = firstProposal(session.orgId);
   const draftLeadIds = new Set(data.drafts.map((draft) => draft.leadId));
   const needs: { key: string; href: string; title: string; subtitle?: string; trailing: string; late?: boolean }[] = [];
   for (const draft of data.drafts) {
@@ -122,6 +123,7 @@ export default async function TodayPage() {
     <div className="mx-auto flex max-w-lg flex-col gap-7 md:hidden">
       <LargeTitle title="Today" subtitle={longDate(time.timeZone)} action={<PlusLink href="/leads/new" label="Add a lead" />} />
       {showSetup ? <SetupRow steps={checklist.steps} /> : null}
+      {proposal ? <FirstProposal steps={proposal} /> : null}
       {money ? (
         <NumberStrip
           items={[
@@ -192,6 +194,7 @@ export default async function TodayPage() {
       <Toolbar title="Today" subtitle={longDate(time.timeZone)} primaryHref="/leads/new" />
       <div className="flex flex-col gap-5 px-6 pb-8">
         {showSetup ? <SetupRow steps={checklist.steps} /> : null}
+        {proposal ? <FirstProposal steps={proposal} /> : null}
         {money ? (
           <div className="mac-strip">
             <div>

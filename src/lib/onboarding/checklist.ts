@@ -78,3 +78,15 @@ export function setupChecklist(facts: ChecklistFacts): ChecklistStep[] {
 export function requiredChecklistRemaining(steps: ChecklistStep[]): number {
   return steps.filter((step) => !step.optional && !step.done).length;
 }
+
+export type ProposalStep = {
+  id: "contacts" | "book" | "job" | "proposal";
+  label: string;
+  href: string;
+  done: boolean;
+};
+
+/** Hidden once every step is done, including on a company that already works. */
+export function proposalChecklist(steps: ProposalStep[]): ProposalStep[] | null {
+  return steps.every((step) => step.done) ? null : steps;
+}

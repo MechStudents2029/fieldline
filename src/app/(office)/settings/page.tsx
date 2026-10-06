@@ -59,6 +59,13 @@ export default async function SettingsPage() {
               </Link>
             </li>
           ))}
+          {canManageSettings(session.role) ? (
+            <li>
+              <Link href="/import" className="block py-2 mac-t13 text-[var(--mac-accent)]">
+                Import
+              </Link>
+            </li>
+          ) : null}
         </ul>
         <div className="mt-2">
           <FeedbackDialog />

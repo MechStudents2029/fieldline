@@ -876,6 +876,38 @@ export const calendarFeeds = sqliteTable(
   (t) => [uniqueIndex("calendar_feeds_user").on(t.orgId, t.userId), uniqueIndex("calendar_feeds_hash").on(t.tokenHash)],
 );
 
+export const importBatches = sqliteTable(
+  "import_batches",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    kind: text("kind").notNull(),
+    createdBy: text("created_by"),
+    createdAt: text("created_at").notNull(),
+    undoneAt: text("undone_at"),
+    summaryJson: text("summary_json").notNull(),
+  },
+  (t) => [index("import_batches_org").on(t.orgId, t.createdAt)],
+);
+
+export const importRows = sqliteTable(
+  "import_rows",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    batchId: text("batch_id").notNull(),
+    rowIndex: integer("row_index").notNull(),
+    action: text("action").notNull(),
+    recordKind: text("record_kind").notNull(),
+    recordId: text("record_id"),
+    beforeJson: text("before_json"),
+    afterJson: text("after_json"),
+    undoneAt: text("undone_at"),
+    undoBlock: text("undo_block"),
+  },
+  (t) => [index("import_rows_batch").on(t.orgId, t.batchId)],
+);
+
 export const appMeta = sqliteTable("app_meta", {
   key: text("key").primaryKey(),
   value: text("value").notNull(),

@@ -25,7 +25,14 @@ export default async function PriceBookPage({ searchParams }: { searchParams: Pr
   const starter = rows.some((item) => starterMarkVisible(item.vendor));
   return (
     <div className="flex flex-col gap-4">
-      <h1 className="font-heading text-3xl">Price book</h1>
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="font-heading text-3xl">Price book</h1>
+        {canManageSettings(session.role) ? (
+          <a href="/import?kind=price_book" className="mac-t13 text-[var(--mac-accent)]">
+            Import
+          </a>
+        ) : null}
+      </div>
       <p className="text-sm text-muted-foreground">Estimates use these unit costs. Markup is applied on the estimate, not stored as the sell price.</p>
       {starter ? (
         <p className="text-sm text-copper">Starter rows are sample costs. Edit your prices before you send a proposal.</p>

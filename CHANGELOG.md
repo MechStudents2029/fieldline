@@ -2,6 +2,12 @@
 
 ## 2026-10-06
 
+### Import
+
+- An owner or admin can import contacts, subs and vendors, or price book items from a CSV or a pasted spreadsheet. Templates are on the import screen. Common headers map themselves, including a QuickBooks customer export and a contacts export with address columns. Each column can be remapped before anything is saved.
+- The review step counts new, update, duplicate, and error rows. A bad email, a missing name, a negative amount, an amount over $10,000,000, or an unknown unit stays on the row. A match on email, phone, or name can be skipped or used to update. A price row with cost and margin fills in the other side. An unknown cost code is created under General, or mapped to one that already exists.
+- The import is one batch. Undo removes rows that import created and puts back fields it changed. A row already used on an estimate or a job is left in place. Field and portal logins do not get the screen. A new company sees a four-step list until the first proposal is sent.
+
 ### Schedule
 
 - Schedule is a week grid of crew against days. An empty cell adds an item. A chip opens the same sheet to edit the job, the title, the days, and who is on it. Drag a chip, or move it with the arrow keys and save with Command-Return. Week and two weeks share the company calendar.

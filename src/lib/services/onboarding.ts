@@ -4,6 +4,7 @@ import { hashPassword, newSalt } from "@/lib/auth/password";
 import { getDb, type AppDatabase } from "@/lib/db/client";
 import { officeDb } from "@/lib/db/office";
 import {
+  contacts,
   estimates,
   leads,
   memberships,
@@ -12,13 +13,14 @@ import {
   pipelineStages,
   pipelines,
   priceBookItems,
+  projects,
   proposals,
   users,
 } from "@/lib/db/schema";
 import { STARTER_MARK, starterRows, TRADE_FOCUS } from "@/lib/db/starter";
 import { id, nowIso } from "@/lib/ids";
 import { DEFAULT_TIME_ZONE, DEFAULT_WEEK_START, isValidTimeZone } from "@/lib/time/calendar";
-import { setupChecklist, type ChecklistFacts, type ChecklistStep } from "@/lib/onboarding/checklist";
+import { proposalChecklist, setupChecklist, type ChecklistFacts, type ChecklistStep, type ProposalStep } from "@/lib/onboarding/checklist";
 import { canManageSettings } from "@/lib/permissions";
 import { isStarterTrade, type SignupFields, type StarterTrade } from "@/lib/security";
 import { ServiceError } from "@/lib/services/errors";
@@ -220,6 +222,28 @@ export function companyChecklist(orgId: string): { facts: ChecklistFacts; steps:
   const facts = setupFacts(orgId);
   if (!facts) return null;
   return { facts, steps: setupChecklist(facts) };
+}
+
+export function firstProposal(orgId: string): ProposalStep[] | null {
+  const db = getDb();
+  const contactCount = db
+    .select({ id: contacts.id })
+    .from(contacts)
+    .where(and(eq(contacts.orgId, orgId), isNull(contacts.deletedAt)))
+    .all().length;
+  const bookCount = db.select({ id: priceBookItems.id }).from(priceBookItems).where(eq(priceBookItems.orgId, orgId)).all().length;
+  const jobCount = db.select({ id: projects.id }).from(projects).where(eq(projects.orgId, orgId)).all().length;
+  const sentCount = db
+    .select({ id: proposals.id })
+    .from(proposals)
+    .where(and(eq(proposals.orgId, orgId), inArray(proposals.status, ["sent", "viewed", "signed"])))
+    .all().length;
+  return proposalChecklist([
+    { id: "contacts", label: "Contacts", href: "/import?kind=contacts", done: contactCount > 0 },
+    { id: "book", label: "Price book", href: "/import?kind=price_book", done: bookCount > 0 },
+    { id: "job", label: "First job", href: "/leads/new", done: jobCount > 0 },
+    { id: "proposal", label: "First proposal", href: "/estimates", done: sentCount > 0 },
+  ]);
 }
 
 export function starterMarkVisible(vendor: string | null): boolean {
