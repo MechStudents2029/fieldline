@@ -43,6 +43,7 @@ import {
   signatures,
   tasks,
   dailyLogEvents,
+  dailyLogPhotos,
   dailyLogs,
   timeApprovals,
   timeEntries,
@@ -58,7 +59,7 @@ import { achFeeCents, qtyToMilli } from "@/lib/money";
 import { DEMO_PASSWORD } from "@/lib/product";
 import { proposalNudgeCopy } from "@/lib/ai/nurture";
 
-export const SEED_VERSION = "10";
+export const SEED_VERSION = "11";
 
 const ORG = "org_rivera";
 const NORTH = "org_northline";
@@ -879,6 +880,23 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
         updatedAt: daysAgo(7),
         createdBy: "user_luis",
       },
+      {
+        id: "co_ok_3",
+        orgId: ORG,
+        projectId: "proj_okonkwo",
+        number: 3,
+        title: "Heated floor mat",
+        status: "sent",
+        description: "Mat under the vanity tile.",
+        priceDeltaCents: 96000,
+        costDeltaCents: 64000,
+        publicToken: "demo_co_okonkwo_3",
+        sentAt: daysAgo(2),
+        approvedAt: null,
+        createdAt: daysAgo(2),
+        updatedAt: daysAgo(2),
+        createdBy: "user_luis",
+      },
     ])
     .run();
   db.insert(changeOrderLines)
@@ -907,6 +925,19 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
         markupBps: 3500,
         priceCents: 240000,
         costCode: "PLB-VANITY",
+        sortOrder: 0,
+      },
+      {
+        id: "col_ok_3",
+        orgId: ORG,
+        changeOrderId: "co_ok_3",
+        name: "Heated floor mat",
+        qtyMilli: 1000,
+        unit: "ea",
+        unitCostCents: 64000,
+        markupBps: 3500,
+        priceCents: 96000,
+        costCode: "TILE-HEAT",
         sortOrder: 0,
       },
     ])
@@ -1570,6 +1601,15 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
         createdBy: "user_sam",
       },
     ])
+    .run();
+  db.insert(dailyLogPhotos)
+    .values({
+      id: "dlp_ok_yday",
+      orgId: ORG,
+      logId: "log_ok_yday",
+      documentId: "doc_o1",
+      createdAt: daysAgo(1),
+    })
     .run();
 
   db.insert(tasks)

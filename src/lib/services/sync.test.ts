@@ -62,6 +62,20 @@ describe("offline sync", () => {
   });
 
   it("keeps the capture time, replays once, and lands on the company local day", () => {
+    const parked = getDb().select().from(timeEntries).where(eq(timeEntries.userId, "user_dana")).all();
+    parked.forEach((row, index) => {
+      const start = Date.parse("2026-09-01T12:00:00.000Z") + index * 3_600_000;
+      getDb()
+        .update(timeEntries)
+        .set({
+          clockInAt: new Date(start).toISOString(),
+          clockOutAt: new Date(start + 60_000).toISOString(),
+          status: row.status === "open" ? "pending" : row.status,
+          updatedAt: new Date(start).toISOString(),
+        })
+        .where(eq(timeEntries.id, row.id))
+        .run();
+    });
     const dana = actor("dana@rivera.demo");
     const serverNow = Date.parse("2026-10-05T18:00:30.000Z");
     const clockInAt = "2026-10-05T18:00:00.000Z";

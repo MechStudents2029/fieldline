@@ -29,9 +29,6 @@ export function PayForm({ token, cardEnabled }: { token: string; cardEnabled: bo
             Account number
             <input name="account" className="field mt-1" defaultValue="000123456789" inputMode="numeric" autoComplete="off" />
           </label>
-          <p className="text-xs text-muted-foreground">
-            Demo success: routing 110000000, account 000123456789. Insufficient funds: 000222222227.
-          </p>
         </>
       ) : (
         <>
@@ -49,7 +46,6 @@ export function PayForm({ token, cardEnabled }: { token: string; cardEnabled: bo
               <input name="cvc" className="field mt-1" defaultValue="123" />
             </label>
           </div>
-          <p className="text-xs text-muted-foreground">Demo success card 4242 4242 4242 4242. Decline: 4000 0000 0000 0002.</p>
         </>
       )}
       <Button type="submit" className="h-11">

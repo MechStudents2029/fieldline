@@ -2,6 +2,12 @@
 
 ## 2026-10-06
 
+### Client portal polish
+
+- The homeowner portal opens with the company, the job, and the address, then Contract, Paid, and Balance. Contract is the signed proposal plus approved change orders. A Needs you row appears only for a change order waiting on approval, or an open invoice, with one Approve or Pay button.
+- Progress lists only the dates that exist: signed, deposit paid, first shared log, a later shared log, and a final invoice. Change orders show a signed amount and a sentence-case status. Shared logs show the date, notes, next step, and photos. A photo opens in a lightbox that closes with Escape. Messages stay at the bottom, and a photo can be attached.
+- The proposal page leads with the company, the title, who it is for, the price, the deposit, and the scope. Optional lines and allowances stay labeled. Sign and decline behave as before. The pay page uses the same header.
+
 ### Mac time review
 
 - On a laptop, Time is a week grid. The office steps through the company workweek, switches day, week, or pay period, and approves every submitted punch from one button. Hours over 40 show in amber. Labor cost is the approved snapshot only. Field logins do not see rates or cost.

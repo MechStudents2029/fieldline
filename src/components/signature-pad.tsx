@@ -123,7 +123,6 @@ export function SignaturePad() {
 
   return (
     <div>
-      <p className="text-sm">Draw a signature, or leave this blank and sign with your typed name.</p>
       <canvas
         ref={canvasRef}
         className="mt-1 h-28 w-full touch-none rounded-lg border border-input bg-white"

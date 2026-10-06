@@ -3,7 +3,12 @@ import { resetDemo } from "./helpers";
 
 async function signInAs(page: import("@playwright/test").Page, email: string) {
   await page.goto("/login");
-  await page.getByLabel("Email").fill(email);
+  const field = page.getByLabel("Email");
+  if (!(await field.isVisible().catch(() => false))) {
+    await page.getByRole("button", { name: "Sign out" }).click();
+    await page.waitForURL(/\/login/);
+  }
+  await field.fill(email);
   await page.getByLabel("Password").fill("demo");
   await page.getByRole("button", { name: "Enter the office" }).click();
   await expect(page.getByRole("heading", { level: 1, name: /Today|My day/ })).toBeVisible();
