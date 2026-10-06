@@ -7,10 +7,10 @@ import { companyChecklist } from "@/lib/services/onboarding";
 
 const links = [
   ["/setup", "Setup"],
-  ["/pipeline", "Pipeline"],
+  ["/pipeline", "Leads"],
   ["/time", "Time"],
   ["/follow-ups", "Follow-ups"],
-  ["/contacts", "Contacts"],
+  ["/contacts", "Clients"],
   ["/invoices", "Invoices"],
   ["/bills", "Bills"],
   ["/purchase-orders", "Purchase orders"],

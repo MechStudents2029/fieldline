@@ -2,15 +2,20 @@ import Link from "next/link";
 import { completeTaskAction } from "@/app/actions";
 import { EmptyState } from "@/components/empty-state";
 import { GroupedList, GroupedRow, LargeTitle, NumberStrip, PlusLink } from "@/components/ios";
+import { Toolbar } from "@/components/mac/toolbar";
 import { SetupRow } from "@/components/setup-checklist";
 import { requireSession } from "@/lib/auth/session";
 import { formatCompact, formatPercent, formatWhole } from "@/lib/money";
 import { canSeeMoney } from "@/lib/permissions";
 import { companyChecklist } from "@/lib/services/onboarding";
-import { dashboard, pipelineBoard } from "@/lib/services/read";
+import { dashboard, listInvoices, listProjects, pipelineBoard } from "@/lib/services/read";
 import { MyDay } from "@/components/my-day";
 import { timeBoard } from "@/lib/services/time";
 import { addCalendarDays, localDay } from "@/lib/time/calendar";
+
+function officeDay(timeZone: string) {
+  return localDay(Date.now(), timeZone);
+}
 
 function longDate(timeZone: string) {
   return new Intl.DateTimeFormat("en-US", { weekday: "long", month: "long", day: "numeric", timeZone }).format(new Date());
@@ -92,8 +97,17 @@ export default async function TodayPage() {
   }
   const shown = needs.slice(0, 5);
   const quiet = shown.length === 0 && data.tasks.length === 0 && crew.length === 0;
+  const projects = listProjects(session.orgId);
+  const active = projects.filter((row) => row.project.status === "active" && row.marginBps != null);
+  const avgMargin = active.length === 0 ? null : Math.round(active.reduce((sum, row) => sum + (row.marginBps ?? 0), 0) / active.length);
+  const todayKey = officeDay(time.timeZone);
+  const soon = addCalendarDays(todayKey, 14);
+  const cash = listInvoices(session.orgId).filter(({ invoice }) => invoice.status === "open" && invoice.dueDate.slice(0, 10) <= soon);
+  const weekJobs = projects.filter((row) => row.project.status === "active").slice(0, 4);
+  const fresh = board.cards.filter((card) => card.stage.kind === "open" && card.stage.name !== "Estimate sent" && card.stage.name !== "Negotiation").slice(0, 3);
   return (
-    <div className="mx-auto flex max-w-lg flex-col gap-7">
+    <>
+    <div className="mx-auto flex max-w-lg flex-col gap-7 md:hidden">
       <LargeTitle title="Today" subtitle={longDate(time.timeZone)} action={<PlusLink href="/leads/new" label="Add a lead" />} />
       {showSetup ? <SetupRow steps={checklist.steps} /> : null}
       {money ? (
@@ -162,5 +176,114 @@ export default async function TodayPage() {
         </section>
       ) : null}
     </div>
+    <div className="hidden md:flex md:flex-col">
+      <Toolbar title="Today" subtitle={longDate(time.timeZone)} primaryHref="/leads/new" />
+      <div className="flex flex-col gap-5 px-6 pb-8">
+        {showSetup ? <SetupRow steps={checklist.steps} /> : null}
+        {money ? (
+          <div className="mac-strip">
+            <div>
+              <p className="mac-t22 num">{formatCompact(data.pipelineCents)}</p>
+              <p className="mac-t11 text-[var(--mac-secondary)]">Pipeline</p>
+            </div>
+            <div>
+              <p className="mac-t22 num">{formatCompact(data.receivableCents)}</p>
+              <p className="mac-t11 text-[var(--mac-secondary)]">To collect</p>
+            </div>
+            <div>
+              <p className="mac-t22 num">{crew.length}</p>
+              <p className="mac-t11 text-[var(--mac-secondary)]">On site</p>
+            </div>
+            <div>
+              <p className="mac-t22 num">{formatPercent(avgMargin)}</p>
+              <p className="mac-t11 text-[var(--mac-secondary)]">Avg margin</p>
+            </div>
+          </div>
+        ) : null}
+        {quiet ? <EmptyState title="No jobs yet" why="Add a lead to start your pipeline." href="/leads/new" action="Add a lead" /> : null}
+        <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_400px]">
+          <div className="flex flex-col gap-6">
+            {shown.length > 0 ? (
+              <GroupedList label="Needs you">
+                {shown.map((row) => (
+                  <GroupedRow key={row.key} href={row.href} title={row.title} subtitle={row.subtitle} trailing={<span className={row.late ? "text-[var(--mac-danger)]" : undefined}>{row.trailing}</span>} />
+                ))}
+              </GroupedList>
+            ) : null}
+            {weekJobs.length > 0 ? (
+              <GroupedList label="This week">
+                {weekJobs.map((row) => (
+                  <GroupedRow
+                    key={row.project.id}
+                    href={`/projects/${row.project.id}`}
+                    title={row.project.name}
+                    subtitle={row.project.status}
+                    trailing={money ? <span className={row.alert ? "text-[var(--mac-danger)]" : undefined}>{formatPercent(row.marginBps)} {formatWhole(row.project.contractValueCents)}</span> : undefined}
+                  />
+                ))}
+              </GroupedList>
+            ) : null}
+            {fresh.length > 0 ? (
+              <GroupedList label="New leads">
+                {fresh.map((card) => (
+                  <GroupedRow
+                    key={card.lead.id}
+                    href={`/leads/${card.lead.id}`}
+                    title={card.lead.title}
+                    subtitle={`${card.contact.name} · ${card.lead.source}`}
+                    trailing={money && card.lead.valueEstCents ? formatWhole(card.lead.valueEstCents) : undefined}
+                  />
+                ))}
+              </GroupedList>
+            ) : null}
+          </div>
+          <div className="flex flex-col gap-6">
+            {crew.length > 0 ? (
+              <GroupedList label="On site">
+                {crew.map((person) => (
+                  <GroupedRow key={person.entryId} href="/time" title={person.name} subtitle={`${person.projectName} · ${person.costCode}`} trailing={elapsed(person.since)} />
+                ))}
+              </GroupedList>
+            ) : null}
+            {data.tasks.length > 0 ? (
+              <section className="flex flex-col gap-2">
+                <h2 className="fl-section">Tasks</h2>
+                <ul className="fl-group">
+                  {data.tasks.map((task) => {
+                    const word = dueWord(task.dueAt, time.timeZone);
+                    const late = word === "Yesterday" || word === "Late";
+                    return (
+                      <li key={task.id} className="fl-cell" data-mac-row={task.title}>
+                        <form action={completeTaskAction.bind(null, task.id)}>
+                          <button type="submit" aria-label="Done" className="fl-press inline-flex size-8 items-center justify-center">
+                            <span className="size-[18px] rounded-full border border-[var(--mac-separator)]" />
+                          </button>
+                        </form>
+                        <span className="min-w-0 flex-1 truncate mac-t13">{task.title}</span>
+                        <span className={`num mac-t13 ${late ? "text-[var(--mac-danger)]" : "text-[var(--mac-secondary)]"}`}>{word}</span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </section>
+            ) : null}
+            {money && cash.length > 0 ? (
+              <GroupedList label="Cash next 14 days">
+                {cash.map(({ invoice, project }) => (
+                  <GroupedRow
+                    key={invoice.id}
+                    href={`/pay/${invoice.payToken}`}
+                    title={project.name}
+                    subtitle={invoice.dueDate < todayKey ? "Late" : invoice.dueDate.slice(0, 10)}
+                    trailing={formatWhole(invoice.totalCents - invoice.amountPaidCents)}
+                  />
+                ))}
+              </GroupedList>
+            ) : null}
+          </div>
+        </div>
+      </div>
+    </div>
+    </>
   );
 }

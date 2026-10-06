@@ -54,6 +54,6 @@ describe("iOS shell", () => {
     expect(field).toContain('label: "Time"');
     expect(field).toContain('label: "More"');
     expect(field).not.toContain("Leads");
-    expect(read("src/app/(office)/more/page.tsx")).toContain('["/pipeline", "Pipeline"]');
+    expect(read("src/app/(office)/more/page.tsx")).toContain('["/pipeline", "Leads"]');
   });
 });

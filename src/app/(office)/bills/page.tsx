@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Toolbar } from "@/components/mac/toolbar";
 import { Button } from "@/components/ui/button";
 import { requireSession } from "@/lib/auth/session";
 import { formatCalendarDay } from "@/lib/format";
@@ -27,7 +28,10 @@ export default async function BillsPage({
   const vendors = listContacts(session.orgId).filter((contact) => contact.type === "sub" || contact.type === "vendor");
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex flex-wrap items-end justify-between gap-3">
+      <div className="hidden md:block">
+        <Toolbar title="Bills" primary={canManageMoney(session.role) ? "New bill" : undefined} primaryHref={canManageMoney(session.role) ? "/bills/new" : undefined} search={false} />
+      </div>
+      <div className="flex flex-wrap items-end justify-between gap-3 md:hidden">
         <div>
           <h1 className="font-heading text-3xl">Bills</h1>
           <p className="text-sm text-muted-foreground">Sub and vendor bills for {session.orgName}. Approving one adds it to the job. Paying one does not move money.</p>
@@ -77,28 +81,42 @@ export default async function BillsPage({
           Filter
         </Button>
       </form>
-      <ul className="divide-y divide-border rounded-xl bg-card ring-1 ring-foreground/10">
-        {rows.length === 0 ? <li className="p-4 text-sm text-muted-foreground">No bills match these filters.</li> : null}
-        {rows.map((bill) => (
-          <li key={bill.id} className={`flex flex-col gap-1 p-4 text-sm sm:flex-row sm:items-center sm:justify-between ${bill.timing === "overdue" ? "bg-accent" : ""}`}>
-            <div>
-              <Link href={`/bills/${bill.id}`} className="font-medium">
-                {bill.billNumber} · {bill.vendorName}
-              </Link>
-              <p className="text-xs text-muted-foreground">
-                {bill.projectName}
-                {bill.dueDate ? ` · due ${formatCalendarDay(bill.dueDate)}` : ""}
-                {bill.timing === "overdue" ? " · Overdue" : ""}
-                {bill.timing === "upcoming" ? " · Due soon" : ""}
-              </p>
-            </div>
-            <div className="text-left sm:text-right">
-              <p>{formatMoney(bill.amountCents)}</p>
-              <p className="text-xs capitalize text-muted-foreground">{bill.status}</p>
-            </div>
-          </li>
-        ))}
-      </ul>
+      <div className="overflow-x-auto">
+        <table className="mac-table">
+          <thead>
+            <tr>
+              <th className="px-2">Bill</th>
+              <th className="px-2">Job</th>
+              <th className="px-2">Status</th>
+              <th className="px-2 text-right">Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.length === 0 ? (
+              <tr>
+                <td className="px-2" colSpan={4}>No bills match these filters.</td>
+              </tr>
+            ) : null}
+            {rows.map((bill) => (
+              <tr key={bill.id}>
+                <td className="px-2">
+                  <Link href={`/bills/${bill.id}`} className="font-medium">
+                    {bill.billNumber} · {bill.vendorName}
+                  </Link>
+                  {bill.timing === "overdue" ? " · Overdue" : ""}
+                  {bill.timing === "upcoming" ? " · Due soon" : ""}
+                </td>
+                <td className="px-2">
+                  {bill.projectName}
+                  {bill.dueDate ? ` · due ${formatCalendarDay(bill.dueDate)}` : ""}
+                </td>
+                <td className="px-2">{bill.status === "draft" ? <span className="fl-pill">{bill.status}</span> : bill.status}</td>
+                <td className="px-2 text-right num">{formatMoney(bill.amountCents)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
       <section className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
         <h2 className="font-heading text-xl">Vendors</h2>
         <p className="mt-1 text-xs text-muted-foreground">Billed is approved and paid. Committed is the issued purchase-order total. Open PO is what those orders still have after approved bills.</p>

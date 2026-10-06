@@ -19,6 +19,7 @@ import {
   DEFAULT_TIME_ZONE,
   DEFAULT_WEEK_START,
   isValidTimeZone,
+  addCalendarDays,
   localDay,
   localWeek,
   weekdayName,
@@ -722,6 +723,68 @@ export function timeBoard(actor: Actor, now = Date.now()) {
       defaultHourlyCostCents,
       members: people.map((person) => ({ userId: person.userId, name: person.name })),
     },
+  };
+}
+
+export type WeekGrid = {
+  days: string[];
+  range: string;
+  rows: { userId: string; name: string; hours: number[]; total: number; status: string }[];
+  totalHours: number;
+  overtimeHours: number;
+  laborCents: number;
+  pendingCount: number;
+};
+
+export function weekGrid(actor: Actor, now = Date.now()): WeekGrid {
+  const db = officeOrThrow(actor);
+  const calendar = calendarForOrg(actor.orgId);
+  const week = localWeek(now, calendar);
+  const days = Array.from({ length: 7 }, (_, index) => addCalendarDays(week.startDay, index));
+  const manage = canManageMoney(actor.role as Role);
+  const entries = db
+    .select()
+    .from(timeEntries)
+    .where(and(eq(timeEntries.orgId, actor.orgId), manage ? undefined : eq(timeEntries.userId, actor.userId)))
+    .all();
+  const people = manage
+    ? db
+        .select({ userId: users.id, name: users.name })
+        .from(memberships)
+        .innerJoin(users, eq(users.id, memberships.userId))
+        .where(eq(memberships.orgId, actor.orgId))
+        .all()
+        .sort((a, b) => a.name.localeCompare(b.name))
+    : [{ userId: actor.userId, name: actor.name }];
+  const rates = db.select().from(laborRates).where(eq(laborRates.orgId, actor.orgId)).all();
+  const fallback = rates.find((rate) => rate.userId === DEFAULT_RATE_USER)?.hourlyCostCents ?? 0;
+  const rateFor = (userId: string) => rates.find((rate) => rate.userId === userId)?.hourlyCostCents ?? fallback;
+  let overtime = 0;
+  let labor = 0;
+  const rows = people.map((person) => {
+    const hours = days.map((day) => {
+      const minutes = entries
+        .filter((entry) => entry.userId === person.userId && entry.status !== "void" && localDay(Date.parse(entry.clockInAt), calendar.timeZone) === day)
+        .reduce((sum, entry) => sum + workedMinutes(entry, now), 0);
+      if (minutes > 8 * 60) overtime += minutes - 8 * 60;
+      const rate = rateFor(person.userId);
+      if (rate > 0) labor += Math.round((minutes * rate) / 60);
+      return minutes / 60;
+    });
+    const mine = entries.filter((entry) => entry.userId === person.userId && days.includes(localDay(Date.parse(entry.clockInAt), calendar.timeZone)));
+    const status = mine.some((entry) => entry.status === "pending") ? "Submitted" : mine.some((entry) => entry.status === "approved") ? "Approved" : "—";
+    return { userId: person.userId, name: person.name, hours, total: hours.reduce((sum, value) => sum + value, 0), status };
+  });
+  const pendingCount = entries.filter((entry) => entry.status === "pending" && days.includes(localDay(Date.parse(entry.clockInAt), calendar.timeZone))).length;
+  const fmt = (day: string) => new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "UTC" }).format(new Date(`${day}T12:00:00Z`));
+  return {
+    days,
+    range: `${fmt(days[0] ?? week.startDay)} – ${fmt(days[6] ?? week.startDay)}`,
+    rows,
+    totalHours: rows.reduce((sum, row) => sum + row.total, 0),
+    overtimeHours: overtime / 60,
+    laborCents: labor,
+    pendingCount,
   };
 }
 

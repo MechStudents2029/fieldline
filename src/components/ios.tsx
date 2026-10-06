@@ -34,7 +34,7 @@ export function LargeTitle({
   }, []);
 
   return (
-    <div className="fl-safe-top">
+    <div className="fl-safe-top md:hidden">
       <div ref={bar} className="fl-inline-title md:hidden" aria-hidden="true">
         {title}
       </div>
