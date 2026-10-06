@@ -25,6 +25,11 @@ export function canManageSettings(role: Role): boolean {
   return role === "owner" || role === "admin";
 }
 
+/** Office plans the week. Field and viewer can look, not move the board. */
+export function canEditSchedule(role: Role): boolean {
+  return role === "owner" || role === "admin" || role === "estimator";
+}
+
 /** Office is the estimator seat: prices and drafts, not company settings. */
 export const INVITE_ROLES = ["admin", "estimator", "field"] as const;
 export type InviteRole = (typeof INVITE_ROLES)[number];

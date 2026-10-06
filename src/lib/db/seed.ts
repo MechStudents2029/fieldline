@@ -36,6 +36,8 @@ import {
   purchaseOrderEvents,
   purchaseOrderLines,
   purchaseOrders,
+  scheduleAssignees,
+  scheduleItems,
   pipelines,
   priceBookItems,
   projects,
@@ -59,7 +61,7 @@ import { achFeeCents, qtyToMilli } from "@/lib/money";
 import { DEMO_PASSWORD } from "@/lib/product";
 import { proposalNudgeCopy } from "@/lib/ai/nurture";
 
-export const SEED_VERSION = "11";
+export const SEED_VERSION = "12";
 
 const ORG = "org_rivera";
 const NORTH = "org_northline";
@@ -1677,6 +1679,58 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
     payloadJson: null,
     createdAt: when,
   });
+
+  const tomorrow = addCalendarDays(today, 1);
+  const scheduleDay = (offset: number) => addCalendarDays(weekStart, offset);
+  const scheduleSeed: {
+    id: string;
+    projectId: string;
+    title: string;
+    start: string;
+    end: string;
+    time: string | null;
+    status: string;
+    note: string | null;
+    assignees: string[];
+  }[] = [
+    { id: "sch_ok_tile", projectId: "proj_okonkwo", title: "Tile shower", start: today, end: tomorrow, time: "07:30", status: "confirmed", note: "Homeowner home after 3", assignees: ["user_dana"] },
+    { id: "sch_chen_conflict", projectId: "proj_chen", title: "Vanity set", start: today, end: today, time: null, status: "planned", note: null, assignees: ["user_dana"] },
+    { id: "sch_br_frame", projectId: "proj_brooks", title: "Framing walk", start: scheduleDay(0), end: scheduleDay(1), time: "08:00", status: "confirmed", note: null, assignees: ["user_luis"] },
+    { id: "sch_ok_walk", projectId: "proj_okonkwo", title: "Client walk", start: scheduleDay(4), end: scheduleDay(4), time: null, status: "planned", note: null, assignees: ["user_maya"] },
+    { id: "sch_dz_punch", projectId: "proj_diaz", title: "Punch list", start: scheduleDay(2), end: scheduleDay(2), time: null, status: "done", note: null, assignees: [] },
+    { id: "sch_chen_measure", projectId: "proj_chen", title: "Measure", start: scheduleDay(8), end: scheduleDay(8), time: "09:00", status: "planned", note: null, assignees: ["user_sam"] },
+    { id: "sch_br_delivery", projectId: "proj_brooks", title: "Window delivery", start: scheduleDay(10), end: scheduleDay(10), time: null, status: "confirmed", note: null, assignees: ["user_dana"] },
+  ];
+  db.insert(scheduleItems)
+    .values(
+      scheduleSeed.map((item) => ({
+        id: item.id,
+        orgId: ORG,
+        projectId: item.projectId,
+        title: item.title,
+        startDate: item.start,
+        endDate: item.end,
+        startTime: item.time,
+        status: item.status,
+        note: item.note,
+        createdAt: now,
+        updatedAt: now,
+        createdBy: "user_maya",
+      })),
+    )
+    .run();
+  db.insert(scheduleAssignees)
+    .values(
+      scheduleSeed.flatMap((item) =>
+        item.assignees.map((userId, index) => ({
+          id: `scha_${item.id}_${index}`,
+          orgId: ORG,
+          itemId: item.id,
+          userId,
+        })),
+      ),
+    )
+    .run();
 
   db.insert(activities)
     .values([

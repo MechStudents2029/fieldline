@@ -12,9 +12,11 @@ import { requireSession } from "@/lib/auth/session";
 import { formatCalendarDay, formatDateTime } from "@/lib/format";
 import { overBudgetPercent } from "@/lib/margin/category";
 import { formatMoney, formatPercent, formatWhole } from "@/lib/money";
+import { canEditSchedule } from "@/lib/permissions";
 import { projectBills } from "@/lib/services/bills";
 import { projectPurchaseOrders } from "@/lib/services/purchase-orders";
 import { captionFromMetadata, listPriceBook, listProjects, pipelineBoard, projectDetail } from "@/lib/services/read";
+import { jobSchedule } from "@/lib/services/schedule";
 import { timeBoard } from "@/lib/services/time";
 import { localDay } from "@/lib/time/calendar";
 
@@ -40,6 +42,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
   const board = timeBoard(session);
   const crew = board.office?.clockedIn.filter((row) => row.projectName === detail.project.name) ?? [];
   const todayKey = officeToday(board.timeZone);
+  const schedule = jobSchedule(session, detail.project.id);
   const ranked = money ? [...money.byCode].sort((a, b) => (b.percentOfBudget ?? 0) - (a.percentOfBudget ?? 0)).slice(0, 2) : [];
   const paid = detail.invoices.reduce((sum, invoice) => sum + invoice.amountPaidCents, 0);
   const projectRows = listProjects(session.orgId);
@@ -370,6 +373,31 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
       ) : null}
       {money ? <ReceiptCapture projectId={detail.project.id} codes={costCodes} /> : null}
       </div>
+      <section id="schedule" className="flex flex-col gap-2">
+        <div className="flex items-center justify-between">
+          <h2 className="fl-section">Schedule</h2>
+          {canEditSchedule(session.role) ? (
+            <Link href={`/schedule?job=${detail.project.id}&new=1`} aria-label="Add schedule">
+              Add
+            </Link>
+          ) : null}
+        </div>
+        <ul className="fl-group">
+          {schedule.length === 0 ? <li className="fl-cell">No items</li> : null}
+          {schedule.map((item) => (
+            <li key={item.id} className="fl-cell">
+              <span className="min-w-0 flex-1">
+                <span className="fl-body block truncate">{item.title}</span>
+                <span className="fl-footnote block truncate text-[var(--fl-secondary)]">
+                  {formatCalendarDay(item.startDate)}
+                  {item.endDate !== item.startDate ? ` – ${formatCalendarDay(item.endDate)}` : ""} · {item.who}
+                </span>
+              </span>
+              <span className="fl-pill">{item.status === "planned" ? "Planned" : item.status === "confirmed" ? "Confirmed" : item.status === "done" ? "Done" : item.status}</span>
+            </li>
+          ))}
+        </ul>
+      </section>
       <section id="photos" className="mac-docs flex flex-col gap-3">
         <h2 className="fl-section">Photos</h2>
         <div className="grid grid-cols-3 gap-2">

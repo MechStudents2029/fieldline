@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { formatDateTime } from "@/lib/format";
 import type { Actor } from "@/lib/services/read";
 import { myDay } from "@/lib/services/logs";
+import { memberAssignments } from "@/lib/services/schedule";
 import { formatHours, timeBoard } from "@/lib/services/time";
 
 function clock(iso: string) {
@@ -21,9 +22,14 @@ function dayTitle(timeZone: string) {
   return new Intl.DateTimeFormat("en-US", { weekday: "long", month: "long", day: "numeric", timeZone }).format(new Date());
 }
 
+function assignmentLine(jobName: string, title: string, startTime: string | null) {
+  return `${jobName} · ${title}${startTime ? ` · ${startTime}` : ""}`;
+}
+
 export function MyDay({ actor }: { actor: Actor }) {
   const day = myDay(actor);
   const board = timeBoard(actor);
+  const plan = memberAssignments(actor);
   const open = day.open;
   return (
     <div className="mx-auto flex max-w-lg flex-col gap-7 md:max-w-none md:px-6">
@@ -31,6 +37,32 @@ export function MyDay({ actor }: { actor: Actor }) {
         <Toolbar title="My day" subtitle={dayTitle(day.timeZone)} search={false} />
       </div>
       <LargeTitle title="My day" subtitle={dayTitle(day.timeZone)} />
+      <section aria-label="Today on the schedule" className="flex flex-col gap-2">
+        <h2 className="fl-section">Today</h2>
+        <ul className="fl-group">
+          {plan.today.length === 0 ? <li className="fl-cell">No job today</li> : null}
+          {plan.today.map((item) => (
+            <li key={item.id} className="fl-cell">
+              <Link href={`/projects/${item.projectId}`} className="fl-body min-w-0 flex-1 truncate">
+                {assignmentLine(item.jobName, item.title, item.startTime)}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </section>
+      <section aria-label="Tomorrow" className="flex flex-col gap-2">
+        <h2 className="fl-section">Tomorrow</h2>
+        <ul className="fl-group">
+          {plan.tomorrow.length === 0 ? <li className="fl-cell">No job tomorrow</li> : null}
+          {plan.tomorrow.map((item) => (
+            <li key={item.id} className="fl-cell">
+              <Link href={`/projects/${item.projectId}`} className="fl-body min-w-0 flex-1 truncate">
+                {assignmentLine(item.jobName, item.title, item.startTime)}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </section>
       <OfflineBridge
         scope={{ orgId: actor.orgId, userId: actor.userId }}
         timeZone={day.timeZone}
@@ -63,7 +95,7 @@ export function MyDay({ actor }: { actor: Actor }) {
         </section>
       )}
       <section className="flex flex-col gap-2">
-        <h2 className="fl-section">Today</h2>
+        <h2 className="fl-section">Hours</h2>
         <ul className="fl-group">
           <li className="fl-cell">
             <span className="fl-body flex-1">Clocked in</span>
