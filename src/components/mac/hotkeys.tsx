@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 
-const go = { t: "/", l: "/pipeline", j: "/projects", e: "/estimates", h: "/time", b: "/bills", c: "/contacts" } as const;
+const go = { t: "/", l: "/pipeline", j: "/projects", e: "/estimates", h: "/time", s: "/schedule", b: "/bills", c: "/contacts" } as const;
 
 function typingTarget(target: EventTarget | null) {
   if (!(target instanceof HTMLElement)) return false;

@@ -94,6 +94,7 @@ export function ensureReady(holder: Holder) {
   ensureBills(holder);
   ensurePurchaseOrders(holder);
   ensureLineBilling(holder);
+  ensureSchedule(holder);
   const version = holder.sqlite.prepare("select value from app_meta where key = ?").get("seed_version") as
     | { value: string }
     | undefined;
@@ -672,6 +673,48 @@ function ensurePurchaseOrders(holder: Holder) {
   if (tableExists(holder.sqlite, "bills", holder.dialect)) {
     holder.sqlite.exec("create index if not exists bills_po on bills (org_id, purchase_order_id)");
   }
+}
+
+function ensureSchedule(holder: Holder) {
+  const pk = holder.dialect === "postgres" ? "text primary key" : "text primary key not null";
+  if (!tableExists(holder.sqlite, "schedule_items", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists schedule_items (
+      id ${pk},
+      org_id text not null,
+      project_id text not null,
+      title text not null,
+      start_date text not null,
+      end_date text not null,
+      start_time text,
+      status text not null,
+      note text,
+      created_at text not null,
+      updated_at text not null,
+      created_by text
+    )`);
+  }
+  if (!tableExists(holder.sqlite, "schedule_assignees", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists schedule_assignees (
+      id ${pk},
+      org_id text not null,
+      item_id text not null,
+      user_id text not null
+    )`);
+  }
+  if (!tableExists(holder.sqlite, "calendar_feeds", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists calendar_feeds (
+      id ${pk},
+      org_id text not null,
+      user_id text not null,
+      token_hash text not null,
+      created_at text not null
+    )`);
+  }
+  holder.sqlite.exec("create index if not exists schedule_items_org on schedule_items (org_id, start_date)");
+  holder.sqlite.exec("create unique index if not exists schedule_assignees_slot on schedule_assignees (org_id, item_id, user_id)");
+  holder.sqlite.exec("create index if not exists schedule_assignees_user on schedule_assignees (org_id, user_id)");
+  holder.sqlite.exec("create unique index if not exists calendar_feeds_user on calendar_feeds (org_id, user_id)");
+  holder.sqlite.exec("create unique index if not exists calendar_feeds_hash on calendar_feeds (token_hash)");
 }
 
 function ensureTesterFeedback(holder: Holder) {

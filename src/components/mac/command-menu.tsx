@@ -29,8 +29,13 @@ export function CommandMenu({ chrome, role }: { chrome: OfficeChrome; role: stri
     setOpen(false);
     window.dispatchEvent(new CustomEvent("fieldline-time", { detail: action }));
   };
+  const scheduleCommand = (action: string) => {
+    setOpen(false);
+    window.dispatchEvent(new CustomEvent("fieldline-schedule", { detail: action }));
+  };
   const field = role === "field";
   const onTime = pathname === "/time";
+  const onSchedule = pathname === "/schedule";
   return (
     <>
       <DialogPrimitive.Root open={open} onOpenChange={setOpen}>
@@ -47,6 +52,7 @@ export function CommandMenu({ chrome, role }: { chrome: OfficeChrome; role: stri
             <Command.Item onSelect={() => go("/pipeline")}>Leads</Command.Item>
             <Command.Item onSelect={() => go("/projects")}>Jobs</Command.Item>
             {field ? null : <Command.Item onSelect={() => go("/estimates")}>Estimates</Command.Item>}
+            <Command.Item onSelect={() => go("/schedule")}>Schedule</Command.Item>
             <Command.Item onSelect={() => go("/time")}>Time</Command.Item>
             {field ? null : <Command.Item onSelect={() => go("/invoices")}>Invoices</Command.Item>}
             {field ? null : <Command.Item onSelect={() => go("/bills")}>Bills</Command.Item>}
@@ -94,6 +100,15 @@ export function CommandMenu({ chrome, role }: { chrome: OfficeChrome; role: stri
               <Command.Item onSelect={() => timeCommand("clockout")}>Clock out on site</Command.Item>
             </Command.Group>
           ) : null}
+          {onSchedule ? (
+            <Command.Group heading="Schedule">
+              <Command.Item onSelect={() => scheduleCommand("prev")}>Previous week</Command.Item>
+              <Command.Item onSelect={() => scheduleCommand("next")}>Next week</Command.Item>
+              <Command.Item onSelect={() => scheduleCommand("today")}>Today</Command.Item>
+              <Command.Item onSelect={() => scheduleCommand("week")}>Week</Command.Item>
+              <Command.Item onSelect={() => scheduleCommand("two")}>2 weeks</Command.Item>
+            </Command.Group>
+          ) : null}
         </Command.List>
             </Command>
           </DialogPrimitive.Content>
@@ -103,7 +118,7 @@ export function CommandMenu({ chrome, role }: { chrome: OfficeChrome; role: stri
         <button type="button" className="mac-command-overlay" aria-label="Close shortcuts" onClick={() => setHelp(false)}>
           <span className="mac-command block p-4 text-left" onClick={(event) => event.stopPropagation()}>
             <span className="mac-t15">Shortcuts</span>
-            <span className="mt-2 block mac-t13 text-[var(--mac-secondary)]">⌘K command menu · / search · G then T L J E H B C · ⌃⌘S sidebar · ⌥⌘0 inspector · ⌘N new · ⌘↩ primary · ? this list</span>
+            <span className="mt-2 block mac-t13 text-[var(--mac-secondary)]">⌘K command menu · / search · G then T L J E H S B C · ⌃⌘S sidebar · ⌥⌘0 inspector · ⌘N new · ⌘↩ primary · ? this list</span>
           </span>
         </button>
       ) : null}

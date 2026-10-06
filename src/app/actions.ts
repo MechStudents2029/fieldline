@@ -35,6 +35,7 @@ import {
   voidTime,
 } from "@/lib/services/time";
 import type { TimeUndo } from "@/lib/services/time";
+import { moveScheduleItem, rotateCalendarFeed, saveScheduleItem, type ScheduleStatus } from "@/lib/services/schedule";
 import { supabaseAuthConfigured } from "@/lib/supabase/env";
 import { supabasePasswordAuth } from "@/lib/supabase/password";
 import { ServiceError } from "@/lib/services/errors";
@@ -117,6 +118,7 @@ export type ActionState = {
   inviteUrl?: string;
   inviteMessage?: string;
   bill?: BillDraftState;
+  feedUrl?: string;
 } | null;
 
 export type BillDraftState = {
@@ -1339,6 +1341,64 @@ export async function laborRateAction(userId: string, _prev: ActionState, formDa
     revalidatePath("/time");
     revalidatePath("/settings");
     return { ok: "Hourly cost saved." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+function scheduleInput(formData: FormData) {
+  const status = String(formData.get("status") || "planned");
+  return {
+    projectId: String(formData.get("projectId") || ""),
+    title: String(formData.get("title") || ""),
+    startDate: String(formData.get("startDate") || ""),
+    endDate: String(formData.get("endDate") || ""),
+    startTime: String(formData.get("startTime") || "") || null,
+    status: (status === "confirmed" || status === "done" ? status : "planned") as ScheduleStatus,
+    note: String(formData.get("note") || "") || null,
+    assigneeIds: formData.getAll("assignee").map(String).filter(Boolean),
+  };
+}
+
+function refreshSchedule(projectId: string) {
+  revalidatePath("/schedule");
+  revalidatePath("/");
+  if (projectId) revalidatePath(`/projects/${projectId}`);
+}
+
+export async function saveScheduleAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const input = scheduleInput(formData);
+    const existing = String(formData.get("itemId") || "");
+    saveScheduleItem(user, input, existing || undefined);
+    refreshSchedule(input.projectId);
+    return { ok: "Saved." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function moveScheduleAction(input: { id: string; startDate: string; endDate: string; assigneeId: string | null }): Promise<ActionState> {
+  try {
+    const user = await actor();
+    moveScheduleItem(user, input.id, input);
+    refreshSchedule("");
+    return { ok: "Saved." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function rotateCalendarFeedAction(_prev: ActionState, _formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const token = rotateCalendarFeed(user);
+    const headerList = await headers();
+    const host = headerList.get("x-forwarded-host") || headerList.get("host") || "localhost";
+    const proto = headerList.get("x-forwarded-proto") || "http";
+    revalidatePath("/settings");
+    return { feedUrl: `${proto}://${host}/feed/${token}` };
   } catch (error) {
     return failure(error);
   }

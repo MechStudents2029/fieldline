@@ -129,7 +129,10 @@ begin
     'tester_feedback',
     'team_invites',
     'daily_log_events',
-    'daily_log_photos'
+    'daily_log_photos',
+    'schedule_items',
+    'schedule_assignees',
+    'calendar_feeds'
   ]
   loop
     execute format('alter table public.%I enable row level security', tbl);

@@ -9,6 +9,8 @@ import { supabaseAuthConfigured } from "@/lib/supabase/env";
 import { canManageSettings, canSeeMoney, roleLabel } from "@/lib/permissions";
 import { companyChecklist } from "@/lib/services/onboarding";
 import { getOrg, integrations, staff } from "@/lib/services/read";
+import { CalendarFeed } from "@/components/calendar-feed";
+import { calendarFeedReady } from "@/lib/services/schedule";
 import { teamBoard } from "@/lib/services/team";
 import { WEEKDAY_NAMES } from "@/lib/time/calendar";
 import { defaultHourlyCost } from "@/lib/services/time";
@@ -138,6 +140,7 @@ export default async function SettingsPage() {
           )}
         </section>
       ) : null}
+      <CalendarFeed hasFeed={calendarFeedReady(session)} />
       <section className="flex flex-col gap-4">
         <div>
           <h2 className="font-medium">Team</h2>

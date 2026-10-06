@@ -832,6 +832,50 @@ export const followUpDrafts = sqliteTable("follow_up_drafts", {
   updatedAt: text("updated_at").notNull(),
 });
 
+/** All-day crew assignment. Dates are company-local calendar days, inclusive. */
+export const scheduleItems = sqliteTable(
+  "schedule_items",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    projectId: text("project_id").notNull(),
+    title: text("title").notNull(),
+    startDate: text("start_date").notNull(),
+    endDate: text("end_date").notNull(),
+    startTime: text("start_time"),
+    status: text("status").notNull(),
+    note: text("note"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    createdBy: text("created_by"),
+  },
+  (t) => [index("schedule_items_org").on(t.orgId, t.startDate)],
+);
+
+export const scheduleAssignees = sqliteTable(
+  "schedule_assignees",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    itemId: text("item_id").notNull(),
+    userId: text("user_id").notNull(),
+  },
+  (t) => [uniqueIndex("schedule_assignees_slot").on(t.orgId, t.itemId, t.userId), index("schedule_assignees_user").on(t.orgId, t.userId)],
+);
+
+/** One feed per person. The URL secret is stored as a hash. Rotating replaces it. */
+export const calendarFeeds = sqliteTable(
+  "calendar_feeds",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    userId: text("user_id").notNull(),
+    tokenHash: text("token_hash").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [uniqueIndex("calendar_feeds_user").on(t.orgId, t.userId), uniqueIndex("calendar_feeds_hash").on(t.tokenHash)],
+);
+
 export const appMeta = sqliteTable("app_meta", {
   key: text("key").primaryKey(),
   value: text("value").notNull(),

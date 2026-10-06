@@ -2,6 +2,12 @@
 
 ## 2026-10-06
 
+### Schedule
+
+- Schedule is a week grid of crew against days. An empty cell adds an item. A chip opens the same sheet to edit the job, the title, the days, and who is on it. Drag a chip, or move it with the arrow keys and save with Command-Return. Week and two weeks share the company calendar.
+- A person on two different jobs the same day shows a conflict on the chip and in the count. The item still saves. The job page lists that job’s items and adds from the same sheet. My day shows today and tomorrow for the signed-in person. Field can look, not edit.
+- Settings can create a calendar link for the signed-in person. The link is a secret stored as a hash. A new link replaces the old one. The feed is a read-only calendar of that person’s items.
+
 ### Client portal polish
 
 - The homeowner portal opens with the company, the job, and the address, then Contract, Paid, and Balance. Contract is the signed proposal plus approved change orders. A Needs you row appears only for a change order waiting on approval, or an open invoice, with one Approve or Pay button.
