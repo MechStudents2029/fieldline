@@ -15,7 +15,7 @@ test("desktop keeps the sidebar and the light grouped background", async ({ page
   await signIn(page);
   await expect(page.getByRole("navigation", { name: "Office" })).toBeVisible();
   await expect(page.getByRole("navigation", { name: "Primary" })).toBeHidden();
-  await expect(page.getByRole("link", { name: "Pipeline", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Leads", exact: true })).toBeVisible();
   const background = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
   expect(background).toBe("rgb(242, 242, 247)");
 });
@@ -51,7 +51,7 @@ test.describe("phone shell", () => {
     await expect(tabs.getByRole("link", { name: "My day" })).toBeVisible();
     await expect(tabs.getByRole("link", { name: "Leads" })).toHaveCount(0);
     await tabs.getByRole("link", { name: "More" }).click();
-    await expect(page.getByRole("link", { name: "Pipeline", exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Leads", exact: true })).toBeVisible();
     await expect(page.getByRole("link", { name: "Purchase orders", exact: true })).toHaveCount(0);
   });
 

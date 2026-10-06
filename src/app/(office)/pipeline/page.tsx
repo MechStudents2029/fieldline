@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { EmptyState } from "@/components/empty-state";
+import { Toolbar } from "@/components/mac/toolbar";
 import { PipelineBoard } from "@/components/pipeline-board";
 import { Button } from "@/components/ui/button";
 import { requireSession } from "@/lib/auth/session";
@@ -17,9 +18,12 @@ export default async function PipelinePage({
   const filtered = Boolean(query.q?.trim() || query.source);
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-end justify-between gap-3">
+      <div className="hidden md:block">
+        <Toolbar title="Leads" subtitle={`${board.cards.length} open`} primary="New lead" primaryHref="/leads/new" search={false} />
+      </div>
+      <div className="flex items-end justify-between gap-3 md:hidden">
         <div>
-          <h1 className="font-heading text-3xl">Pipeline</h1>
+          <h1 className="font-heading text-3xl md:hidden">Leads</h1>
           <p className="text-sm text-muted-foreground">Drag a card, or use Move on a phone.</p>
         </div>
         <Button asChild className="h-11">

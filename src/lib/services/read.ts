@@ -5,6 +5,7 @@ import { officeClaim } from "@/lib/db/rls-context";
 import { supabaseAuthConfigured } from "@/lib/supabase/env";
 import {
   activities,
+  bills,
   budgetLines,
   changeOrderLines,
   changeOrders,
@@ -390,6 +391,64 @@ export function projectDetail(orgId: string, projectId: string, role: Role) {
           byCode,
         }
       : null,
+  };
+}
+
+export function listEstimates(orgId: string) {
+  const db = officeDb(orgId);
+  if (!db) return [];
+  const rows = db
+    .select({ estimate: estimates, lead: leads, contact: contacts })
+    .from(estimates)
+    .innerJoin(leads, eq(leads.id, estimates.leadId))
+    .innerJoin(contacts, eq(contacts.id, leads.contactId))
+    .where(eq(estimates.orgId, orgId))
+    .orderBy(desc(estimates.updatedAt))
+    .all();
+  const ids = rows.map((row) => row.estimate.id);
+  const lines = ids.length
+    ? db.select().from(lineItems).where(and(eq(lineItems.orgId, orgId), inArray(lineItems.estimateId, ids))).all()
+    : [];
+  return rows.map((row) => {
+    const priceCents = lines
+      .filter((line) => line.estimateId === row.estimate.id)
+      .reduce((sum, line) => sum + lineAmounts(line.qtyMilli, line.unitCostCents, line.markupBps).price, 0);
+    return { ...row, priceCents };
+  });
+}
+
+export type OfficeChrome = {
+  leadCount: number;
+  estimateCount: number;
+  invoiceCount: number;
+  billCount: number;
+  clientCount: number;
+  pins: { id: string; name: string }[];
+  jobs: { id: string; name: string }[];
+  estimates: { id: string; title: string; status: string }[];
+  clients: { id: string; name: string }[];
+};
+
+export function officeChrome(orgId: string): OfficeChrome {
+  const db = officeDb(orgId);
+  const projectRows = listProjects(orgId);
+  const estimateRows = listEstimates(orgId);
+  const invoiceRows = listInvoices(orgId);
+  const clientRows = listContacts(orgId).filter((contact) => contact.type === "client");
+  const openLeads = pipelineBoard(orgId).cards.filter((card) => card.stage.kind === "open");
+  return {
+    leadCount: openLeads.length,
+    estimateCount: estimateRows.length,
+    invoiceCount: invoiceRows.length,
+    billCount: db ? db.select().from(bills).where(eq(bills.orgId, orgId)).all().length : 0,
+    clientCount: clientRows.length,
+    pins: projectRows
+      .filter((row) => row.project.status === "active")
+      .slice(0, 3)
+      .map((row) => ({ id: row.project.id, name: row.project.name })),
+    jobs: projectRows.map((row) => ({ id: row.project.id, name: row.project.name })),
+    estimates: estimateRows.map((row) => ({ id: row.estimate.id, title: row.estimate.title, status: row.estimate.status })),
+    clients: clientRows.map((contact) => ({ id: contact.id, name: contact.name })),
   };
 }
 

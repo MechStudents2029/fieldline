@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { startLogAction } from "@/app/actions";
 import { LargeTitle } from "@/components/ios";
+import { Toolbar } from "@/components/mac/toolbar";
 import { OfflineBridge } from "@/components/offline-bridge";
 import { PendingPunches } from "@/components/offline-clock";
 import { BreakControl } from "@/components/shift-forms";
@@ -25,7 +26,10 @@ export function MyDay({ actor }: { actor: Actor }) {
   const board = timeBoard(actor);
   const open = day.open;
   return (
-    <div className="mx-auto flex max-w-lg flex-col gap-7">
+    <div className="mx-auto flex max-w-lg flex-col gap-7 md:max-w-none md:px-6">
+      <div className="hidden md:block">
+        <Toolbar title="My day" subtitle={dayTitle(day.timeZone)} search={false} />
+      </div>
       <LargeTitle title="My day" subtitle={dayTitle(day.timeZone)} />
       <OfflineBridge
         scope={{ orgId: actor.orgId, userId: actor.userId }}

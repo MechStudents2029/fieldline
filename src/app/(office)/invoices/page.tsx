@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { EmptyState } from "@/components/empty-state";
+import { Toolbar } from "@/components/mac/toolbar";
 import { requireSession } from "@/lib/auth/session";
 import { formatMoney } from "@/lib/money";
 import { canSeeMoney } from "@/lib/permissions";
@@ -20,7 +21,7 @@ export default async function InvoicesPage() {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-        <h1 className="font-heading text-3xl">Invoices</h1>
+        <h1 className="font-heading text-3xl md:hidden">Invoices</h1>
         <div className="max-w-md text-sm sm:text-right">
           <a href="/api/export/invoices" className="underline">
             QuickBooks Online invoices
@@ -31,6 +32,9 @@ export default async function InvoicesPage() {
           {limitWarning ? <p className="mt-1 text-xs text-copper">{limitWarning}</p> : null}
         </div>
       </div>
+      <div className="hidden md:block">
+        <Toolbar title="Invoices" search={false} />
+      </div>
       {rows.length === 0 ? (
         <EmptyState
           title="No invoices yet"
@@ -39,24 +43,34 @@ export default async function InvoicesPage() {
           action="Add a lead"
         />
       ) : null}
-      <ul className="divide-y divide-border rounded-xl bg-card ring-1 ring-foreground/10">
-        {rows.map(({ invoice, project, contact }) => (
-          <li key={invoice.id} className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
-            <span>
-              <Link href={`/pay/${invoice.payToken}`} className="font-medium underline">
-                {invoice.number}
-              </Link>
-              <span className="block text-xs text-muted-foreground">
-                {contact.name} · {project.name} · {invoice.type}
-              </span>
-            </span>
-            <span className="text-right">
-              {formatMoney(invoice.totalCents)}
-              <span className="block text-xs uppercase text-muted-foreground">{invoice.status}</span>
-            </span>
-          </li>
-        ))}
-      </ul>
+      <div className="overflow-x-auto">
+        <table className="mac-table">
+          <thead>
+            <tr>
+              <th className="px-2">Invoice</th>
+              <th className="px-2">Client</th>
+              <th className="px-2">Job</th>
+              <th className="px-2">Status</th>
+              <th className="px-2 text-right">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(({ invoice, project, contact }) => (
+              <tr key={invoice.id}>
+                <td className="px-2">
+                  <Link href={`/pay/${invoice.payToken}`} className="font-medium underline">
+                    {invoice.number}
+                  </Link>
+                </td>
+                <td className="px-2">{contact.name}</td>
+                <td className="px-2">{project.name} · {invoice.type}</td>
+                <td className="px-2">{invoice.status === "open" ? <span className="fl-pill">{invoice.status}</span> : invoice.status}</td>
+                <td className="px-2 text-right num">{formatMoney(invoice.totalCents)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

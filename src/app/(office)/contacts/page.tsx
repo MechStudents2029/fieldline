@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { EmptyState } from "@/components/empty-state";
+import { Toolbar } from "@/components/mac/toolbar";
 import { Button } from "@/components/ui/button";
 import { requireSession } from "@/lib/auth/session";
 import { listContacts } from "@/lib/services/read";
@@ -11,7 +12,10 @@ export default async function ContactsPage({ searchParams }: { searchParams: Pro
   const filtered = Boolean(query.q?.trim() || query.type);
   return (
     <div className="flex flex-col gap-4">
-      <h1 className="font-heading text-3xl">Contacts</h1>
+      <div className="hidden md:block">
+        <Toolbar title="Clients" search={false} />
+      </div>
+      <h1 className="font-heading text-3xl md:hidden">Clients</h1>
       <form className="grid gap-2 sm:grid-cols-[1fr_160px_auto]" aria-label="Search contacts">
         <label className="text-sm">
           Search
@@ -39,19 +43,30 @@ export default async function ContactsPage({ searchParams }: { searchParams: Pro
           action="Add a lead"
         />
       ) : null}
-      <ul className="divide-y divide-border rounded-xl bg-card ring-1 ring-foreground/10">
-        {rows.map((contact) => (
-          <li key={contact.id}>
-            <Link href={`/contacts/${contact.id}`} className="flex items-center justify-between px-4 py-3">
-              <span>
-                <span className="font-medium">{contact.name}</span>
-                <span className="block text-xs text-muted-foreground">{contact.company || contact.email || contact.city}</span>
-              </span>
-              <span className="text-xs uppercase text-muted-foreground">{contact.type}</span>
-            </Link>
-          </li>
-        ))}
-      </ul>
+      <div className="overflow-x-auto">
+        <table className="mac-table">
+          <thead>
+            <tr>
+              <th className="px-2">Name</th>
+              <th className="px-2">Company</th>
+              <th className="px-2">Type</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((contact) => (
+              <tr key={contact.id}>
+                <td className="px-2">
+                  <Link href={`/contacts/${contact.id}`} className="font-medium">
+                    {contact.name}
+                  </Link>
+                </td>
+                <td className="px-2">{contact.company || contact.email || contact.city}</td>
+                <td className="px-2">{contact.type}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

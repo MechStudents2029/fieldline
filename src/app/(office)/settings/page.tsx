@@ -1,4 +1,6 @@
+import Link from "next/link";
 import { changeRoleAction, inviteTeammateAction, removeMemberAction, restoreSetupAction, revokeInviteAction, settingsAction } from "@/app/actions";
+import { FeedbackDialog } from "@/components/feedback-dialog";
 import { ActionForm } from "@/components/action-form";
 import { Button } from "@/components/ui/button";
 import { requireSession } from "@/lib/auth/session";
@@ -39,7 +41,27 @@ export default async function SettingsPage() {
   const laborDefault = canManageSettings(session.role) ? defaultHourlyCost(session.orgId) : null;
   if (!org) return null;
   return (
-    <div className="mx-auto flex max-w-2xl flex-col gap-5">
+    <div className="mx-auto flex max-w-2xl flex-col gap-5 md:max-w-none md:px-6">
+      <div>
+        <h2 className="fl-section">More</h2>
+        <ul className="mt-2 flex flex-col">
+          {[
+            ["/purchase-orders", "Purchase orders"],
+            ["/price-book", "Price book"],
+            ["/follow-ups", "Follow-ups"],
+            ["/copilot", "Copilot"],
+          ].map(([href, label]) => (
+            <li key={href}>
+              <Link href={href} className="block py-2 mac-t13 text-[var(--mac-accent)]">
+                {label}
+              </Link>
+            </li>
+          ))}
+        </ul>
+        <div className="mt-2">
+          <FeedbackDialog />
+        </div>
+      </div>
       <div>
         <h1 className="font-heading text-3xl">Settings</h1>
         <p className="text-sm text-muted-foreground">

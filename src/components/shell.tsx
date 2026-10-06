@@ -2,27 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import { Briefcase, Clock, Ellipsis, Sun, Users } from "lucide-react";
-import { FeedbackDialog } from "@/components/feedback-dialog";
+import { CommandMenu } from "@/components/mac/command-menu";
+import { Hotkeys } from "@/components/mac/hotkeys";
+import { Sidebar } from "@/components/mac/sidebar";
 import { OfflineBanner } from "@/components/offline-banner";
-import { SignOutButton } from "@/components/sign-out-button";
-import { cn } from "cn";
-
-const links = [
-  { href: "/", label: "Today" },
-  { href: "/pipeline", label: "Pipeline" },
-  { href: "/projects", label: "Jobs" },
-  { href: "/time", label: "Time" },
-  { href: "/invoices", label: "Invoices" },
-  { href: "/bills", label: "Bills" },
-  { href: "/purchase-orders", label: "Purchase orders" },
-  { href: "/contacts", label: "Contacts" },
-  { href: "/price-book", label: "Price book" },
-  { href: "/follow-ups", label: "Follow-ups" },
-  { href: "/copilot", label: "Copilot" },
-  { href: "/settings", label: "Settings" },
-  { href: "/feedback", label: "Feedback" },
-];
+import type { OfficeChrome } from "@/lib/services/read";
 
 const officeTabs = [
   { href: "/", label: "Today", icon: Sun },
@@ -47,6 +33,7 @@ export function Shell({
   role,
   orgId,
   userId,
+  chrome,
   children,
 }: {
   orgName: string;
@@ -54,65 +41,45 @@ export function Shell({
   role: string;
   orgId: string;
   userId: string;
+  chrome: OfficeChrome;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const [open, setOpen] = useState(true);
+  const tabs = role === "field" ? fieldTabs : officeTabs;
   const current = (href: string) => {
     if (href === "/") return pathname === "/";
     if (href === "/pipeline") return pathname.startsWith("/pipeline") || pathname.startsWith("/leads");
     return pathname === href || pathname.startsWith(`${href}/`);
   };
-  const labelFor = (label: string, href: string) => (role === "field" && href === "/" ? "My day" : label);
-  const nav = role === "field" ? links.filter((link) => !fieldHidden.has(link.href)) : links;
-  const tabs = role === "field" ? fieldTabs : officeTabs;
+  useEffect(() => {
+    const collapsed = () => document.cookie.split("; ").find((row) => row.startsWith("fl-sidebar="))?.split("=")[1] === "0";
+    const apply = () => setOpen(window.innerWidth >= 1024 && !collapsed());
+    apply();
+    const toggle = () => {
+      setOpen((value) => {
+        const next = !value;
+        document.cookie = `fl-sidebar=${next ? "1" : "0"}; path=/; max-age=31536000`;
+        return next;
+      });
+    };
+    window.addEventListener("resize", apply);
+    window.addEventListener("fieldline-sidebar", toggle);
+    return () => {
+      window.removeEventListener("resize", apply);
+      window.removeEventListener("fieldline-sidebar", toggle);
+    };
+  }, []);
   return (
-    <div className="min-h-screen">
-      <a
-        href="#main"
-        className="absolute left-4 top-4 z-50 -translate-y-24 rounded-lg bg-card px-3 py-2 text-sm shadow ring-1 ring-border focus:translate-y-0"
-      >
+    <div id="fieldline-office-shell" className="min-h-screen md:flex md:h-dvh md:min-h-0 md:overflow-hidden">
+      <a href="#main" className="absolute left-4 top-4 z-50 -translate-y-24 rounded-lg bg-card px-3 py-2 text-sm shadow ring-1 ring-border focus:translate-y-0">
         Skip to the job file
       </a>
-      <aside className="fixed inset-y-0 left-0 z-20 hidden w-60 flex-col overflow-hidden border-r border-border bg-card px-4 py-5 md:flex">
-        <Link href="/" className="shrink-0 px-2">
-          <p className="font-heading text-2xl tracking-tight text-pine">Fieldline</p>
-          <p className="text-xs text-muted-foreground">Job file for remodelers</p>
-        </Link>
-        <nav aria-label="Office" className="mt-8 flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto">
-          {nav.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              aria-current={current(link.href) ? "page" : undefined}
-              className={cn(
-                "flex min-h-11 items-center rounded-lg px-3 text-sm",
-                current(link.href) ? "bg-primary text-primary-foreground" : "hover:bg-muted",
-              )}
-            >
-              {labelFor(link.label, link.href)}
-            </Link>
-          ))}
-        </nav>
-        <span id="fieldline-office-shell" hidden />
-        <SignOutButton
-          scope={{ orgId, userId }}
-          className="mt-2 min-h-11 w-full shrink-0 rounded-lg px-3 text-left text-sm text-muted-foreground hover:bg-muted"
-        />
-      </aside>
-      <div className="md:pl-60">
-        <header className="sticky top-0 z-10 hidden border-b border-border bg-background/90 px-4 py-3 backdrop-blur md:block md:px-8">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-sm font-medium">{orgName}</p>
-              <p className="text-xs text-muted-foreground">
-                {userName} · {role}
-              </p>
-            </div>
-            <FeedbackDialog />
-          </div>
-        </header>
+      {/* Desktop source list: Sidebar renders nav aria-label="Office" */}
+      <Sidebar orgName={orgName} userName={userName} role={role} orgId={orgId} userId={userId} chrome={chrome} open={open} />
+      <div className="flex min-w-0 flex-1 flex-col md:m-2 md:overflow-hidden md:rounded-[14px] md:bg-[var(--mac-window)]">
         <OfflineBanner />
-        <main id="main" className="px-4 pt-2 pb-[calc(5.25rem+env(safe-area-inset-bottom))] md:px-8 md:pt-4 md:pb-10">
+        <main id="main" className="px-4 pt-2 pb-[calc(5.25rem+env(safe-area-inset-bottom))] md:flex md:min-h-0 md:flex-1 md:flex-col md:overflow-auto md:px-0 md:pt-0 md:pb-0">
           {children}
         </main>
       </div>
@@ -120,18 +87,16 @@ export function Shell({
         {tabs.map((link) => {
           const Icon = link.icon;
           return (
-            <Link
-              key={link.href}
-              href={link.href}
-              aria-current={current(link.href) ? "page" : undefined}
-              className="fl-tab fl-press fl-caption"
-            >
+            <Link key={link.href} href={link.href} aria-current={current(link.href) ? "page" : undefined} className="fl-tab fl-press fl-caption">
               <Icon className="size-[22px]" strokeWidth={2} aria-hidden />
               {link.label}
             </Link>
           );
         })}
       </nav>
+      <CommandMenu chrome={chrome} role={role} />
+      <Hotkeys />
+      <span hidden>{fieldHidden.size}</span>
     </div>
   );
 }

@@ -50,6 +50,7 @@ test("a follow-up draft is on Today and stays unsent until approved", async ({ p
 
 test("a tester note is stored and listed for the owner", async ({ page }) => {
   await signIn(page);
+  await page.goto("/settings");
   await page.getByRole("button", { name: "Send feedback" }).click();
   await page.getByRole("textbox", { name: "Feedback", exact: true }).fill("The Today list made the unsigned Briggs draft obvious.");
   await page.getByRole("textbox", { name: "Feedback context" }).fill("Desktop, no screenshot");
