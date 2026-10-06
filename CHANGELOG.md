@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-10-06
+
+### Mac estimate builder
+
+- On a laptop, an estimate opens as a dense grid beside a live client preview. Tab, Enter, and Esc move through cells. Command-Enter or Control-Enter adds a line. Backspace on an empty row removes it, and Undo puts it back. Groups collapse, and lines move by drag or option-arrow. The totals bar shows cost, price, and margin. A target margin reprices the job, or one group, after a preview. Optional lines and allowances show on the preview and the proposal. Optional and excluded lines stay out of the total. The phone keeps the simple line list.
+
 ## 2026-10-05
 
 ### iOS shell

@@ -47,6 +47,7 @@ export default async function ProposalPage({ params }: { params: Promise<{ token
               {section.lines.map((line) => (
                 <li key={`${section.name}-${line.name}`} className="flex justify-between gap-3 py-2 text-sm">
                   <span>
+                    {line.kind === "optional" ? "Optional · " : line.kind === "allowance" ? "Allowance · " : ""}
                     {line.name}
                     <span className="block text-xs text-muted-foreground">
                       {line.qty} {line.unit} × {formatMoney(line.unitPriceCents)}

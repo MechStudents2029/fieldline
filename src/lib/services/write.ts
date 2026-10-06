@@ -46,6 +46,8 @@ import {
 } from "@/lib/ai/nurture";
 import { suggestCostCode } from "@/lib/ai/cost-code";
 import { extractReceiptText, readReceiptMeta, type StoredReceipt } from "@/lib/ai/receipt";
+import { parseGridSync } from "@/lib/estimate/grid";
+import { countsTowardTotal, type Billing } from "@/lib/estimate/pricing";
 import { assembleSnapshot, defaultSchedule, type StoredSnapshot } from "@/lib/domain/snapshot";
 import { canonicalJson, sha256 } from "@/lib/esign/hash";
 import { daysFromNow, id, nowIso, token } from "@/lib/ids";
@@ -484,6 +486,113 @@ export function addManualLine(
     .run();
 }
 
+export function syncEstimateGrid(actor: Actor, input: unknown) {
+  assertMoney(actor);
+  let parsed: ReturnType<typeof parseGridSync>;
+  try {
+    parsed = parseGridSync(input);
+  } catch (error) {
+    throw new ServiceError(error instanceof Error ? error.message : "Check the line.");
+  }
+  const estimate = loadEditableEstimate(actor, parsed.estimateId);
+  const db = staffDb(actor);
+  const sections = db
+    .select()
+    .from(estimateSections)
+    .where(and(eq(estimateSections.estimateId, estimate.id), eq(estimateSections.orgId, actor.orgId)))
+    .all();
+  const sectionIds = new Set(sections.map((section) => section.id));
+  const existing = db
+    .select()
+    .from(lineItems)
+    .where(and(eq(lineItems.estimateId, estimate.id), eq(lineItems.orgId, actor.orgId)))
+    .all();
+  const byId = new Map(existing.map((line) => [line.id, line]));
+  for (const line of parsed.lines) {
+    if (!sectionIds.has(line.sectionId) && !/^sec_[A-Za-z0-9_-]{1,80}$/.test(line.sectionId)) {
+      throw new ServiceError("That group is not on this estimate.");
+    }
+    const row = byId.get(line.id);
+    if (!row) {
+      const other = db.select().from(lineItems).where(eq(lineItems.id, line.id)).get();
+      if (other) throw new ServiceError("Line not found.");
+    }
+  }
+  const now = nowIso();
+  db.transaction((tx) => {
+    for (const line of parsed.lines) {
+      if (!sectionIds.has(line.sectionId)) {
+        tx.insert(estimateSections)
+          .values({ id: line.sectionId, orgId: actor.orgId, estimateId: estimate.id, name: "Added", sortOrder: sectionIds.size })
+          .run();
+        sectionIds.add(line.sectionId);
+      }
+      const row = byId.get(line.id);
+      const qtyMilli = qtyToMilli(line.qty);
+      if (!row) {
+        tx.insert(lineItems)
+          .values({
+            id: line.id,
+            orgId: actor.orgId,
+            sectionId: line.sectionId,
+            estimateId: estimate.id,
+            priceBookItemId: null,
+            name: line.name,
+            description: null,
+            qtyMilli,
+            unit: line.unit,
+            unitCostCents: line.unitCostCents,
+            markupBps: line.markupBps,
+            costCode: line.costCode,
+            source: "manual",
+            aiConfidenceMilli: null,
+            sourceNote: null,
+            sortOrder: line.sortOrder,
+            billing: line.billing,
+          })
+          .run();
+        continue;
+      }
+      const changed =
+        row.name !== line.name ||
+        row.qtyMilli !== qtyMilli ||
+        row.unit !== line.unit ||
+        row.unitCostCents !== line.unitCostCents ||
+        row.markupBps !== line.markupBps ||
+        row.sectionId !== line.sectionId ||
+        (row.billing || "included") !== line.billing;
+      tx.update(lineItems)
+        .set({
+          sectionId: line.sectionId,
+          name: line.name,
+          qtyMilli,
+          unit: line.unit,
+          unitCostCents: line.unitCostCents,
+          markupBps: line.markupBps,
+          costCode: line.costCode,
+          sortOrder: line.sortOrder,
+          billing: line.billing,
+          source: changed && row.source === "ai" ? "manual" : row.source,
+          aiConfidenceMilli: changed && row.source === "ai" ? null : row.aiConfidenceMilli,
+        })
+        .where(and(eq(lineItems.id, line.id), eq(lineItems.orgId, actor.orgId)))
+        .run();
+    }
+    for (const id of parsed.deletedIds) {
+      tx.delete(lineItems)
+        .where(and(eq(lineItems.id, id), eq(lineItems.estimateId, estimate.id), eq(lineItems.orgId, actor.orgId)))
+        .run();
+    }
+    tx.update(estimates)
+      .set({
+        updatedAt: now,
+        ...(parsed.marginTargetBps != null ? { marginTargetBps: parsed.marginTargetBps } : {}),
+      })
+      .where(and(eq(estimates.id, estimate.id), eq(estimates.orgId, actor.orgId)))
+      .run();
+  });
+}
+
 export function removeLine(actor: Actor, lineId: string) {
   assertMoney(actor);
   const db = staffDb(actor);
@@ -542,10 +651,11 @@ export async function sendProposal(actor: Actor, estimateId: string, overrideMar
   const contact = db.select().from(contacts).where(eq(contacts.id, lead.contactId)).get()!;
   const sections = db.select().from(estimateSections).where(eq(estimateSections.estimateId, estimateId)).all();
   const lines = db.select().from(lineItems).where(eq(lineItems.estimateId, estimateId)).all();
-  if (lines.length === 0) throw new ServiceError("Add at least one line before sending.");
+  const counting = lines.filter((line) => countsTowardTotal((line.billing || "included") as Billing));
+  if (counting.length === 0) throw new ServiceError("Add at least one line before sending.");
   let cost = 0;
   let price = 0;
-  for (const line of lines) {
+  for (const line of counting) {
     const amounts = lineAmounts(line.qtyMilli, line.unitCostCents, line.markupBps);
     cost += amounts.cost;
     price += amounts.price;
@@ -570,6 +680,7 @@ export async function sendProposal(actor: Actor, estimateId: string, overrideMar
           unitCostCents: line.unitCostCents,
           markupBps: line.markupBps,
           costCode: line.costCode,
+          billing: (line.billing || "included") as Billing,
         })),
     })),
     taxBps: estimate.taxBps,

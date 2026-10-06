@@ -372,7 +372,8 @@ CREATE TABLE `line_items` (
 	`source` text NOT NULL,
 	`ai_confidence_milli` integer,
 	`source_note` text,
-	`sort_order` integer NOT NULL
+	`sort_order` integer NOT NULL,
+	`billing` text DEFAULT 'included' NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE `memberships` (

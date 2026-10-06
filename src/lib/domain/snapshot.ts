@@ -1,3 +1,4 @@
+import { countsTowardTotal, type Billing } from "@/lib/estimate/pricing";
 import { CONSENT_VERSION, PROPOSAL_DISCLAIMER } from "@/lib/product";
 import { formatQty, lineAmounts, scheduleAmounts, taxCents } from "@/lib/money";
 
@@ -8,6 +9,7 @@ export type SnapshotLineInput = {
   unitCostCents: number;
   markupBps: number;
   costCode: string | null;
+  billing?: Billing;
 };
 
 export type InternalLine = {
@@ -32,6 +34,7 @@ export type PublicSnapshot = {
       unit: string;
       unitPriceCents: number;
       priceCents: number;
+      kind?: "optional" | "allowance";
     }[];
   }[];
   subtotalCents: number;
@@ -58,29 +61,36 @@ export function assembleSnapshot(input: {
   termsVersion?: string;
 }): StoredSnapshot {
   const internal: InternalLine[] = [];
-  const sections = input.sections.map((section) => ({
-    name: section.name,
-    lines: section.lines.map((line) => {
+  const sections = input.sections.flatMap((section) => {
+    const lines = section.lines.flatMap((line) => {
+      const billing = line.billing ?? "included";
+      if (billing === "excluded") return [];
       const amounts = lineAmounts(line.qtyMilli, line.unitCostCents, line.markupBps);
-      internal.push({
-        name: line.name,
-        costCode: line.costCode,
-        costCents: amounts.cost,
-        priceCents: amounts.price,
-        qtyMilli: line.qtyMilli,
-        unit: line.unit,
-      });
+      if (countsTowardTotal(billing)) {
+        internal.push({
+          name: line.name,
+          costCode: line.costCode,
+          costCents: amounts.cost,
+          priceCents: amounts.price,
+          qtyMilli: line.qtyMilli,
+          unit: line.unit,
+        });
+      }
       const qty = line.qtyMilli / 1000;
       const unitPriceCents = qty === 0 ? 0 : Math.round(amounts.price / qty);
-      return {
-        name: line.name,
-        qty: formatQty(line.qtyMilli),
-        unit: line.unit,
-        unitPriceCents,
-        priceCents: amounts.price,
-      };
-    }),
-  }));
+      return [
+        {
+          name: line.name,
+          qty: formatQty(line.qtyMilli),
+          unit: line.unit,
+          unitPriceCents,
+          priceCents: amounts.price,
+          ...(billing === "optional" || billing === "allowance" ? { kind: billing } : {}),
+        },
+      ];
+    });
+    return lines.length ? [{ name: section.name, lines }] : [];
+  });
 
   const subtotalCents = internal.reduce((sum, line) => sum + line.priceCents, 0);
   const tax = taxCents(subtotalCents, input.taxBps);

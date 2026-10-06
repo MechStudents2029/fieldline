@@ -93,6 +93,7 @@ export function ensureReady(holder: Holder) {
   ensureSyncSchema(holder);
   ensureBills(holder);
   ensurePurchaseOrders(holder);
+  ensureLineBilling(holder);
   const version = holder.sqlite.prepare("select value from app_meta where key = ?").get("seed_version") as
     | { value: string }
     | undefined;
@@ -477,6 +478,13 @@ function ensureDailyLogs(holder: Holder) {
         );
         create index if not exists daily_log_photos_log on daily_log_photos (org_id, log_id);`;
   holder.sqlite.exec(ddl);
+}
+
+function ensureLineBilling(holder: Holder) {
+  if (!tableExists(holder.sqlite, "line_items", holder.dialect)) return;
+  if (!tableColumn(holder, "line_items", "billing")) {
+    holder.sqlite.exec("alter table line_items add column billing text not null default 'included'");
+  }
 }
 
 function tableColumn(holder: Holder, table: string, column: string): boolean {

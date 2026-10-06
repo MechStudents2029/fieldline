@@ -210,6 +210,8 @@ export const lineItems = sqliteTable("line_items", {
   aiConfidenceMilli: integer("ai_confidence_milli"),
   sourceNote: text("source_note"),
   sortOrder: integer("sort_order").notNull(),
+  /** included counts. allowance counts and is labeled. optional is shown, not counted. excluded is omitted. */
+  billing: text("billing").notNull().default("included"),
 });
 
 export const proposals = sqliteTable(
