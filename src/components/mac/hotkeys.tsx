@@ -42,8 +42,10 @@ export function Hotkeys() {
         }
         return;
       }
-      if (event.metaKey && event.key === "Enter") {
+      if ((event.metaKey || event.ctrlKey) && event.key === "Enter" && !event.shiftKey && !typingTarget(event.target)) {
+        event.preventDefault();
         const primary = [...document.querySelectorAll<HTMLElement>("[data-mac-primary]")].find((node) => node.offsetParent !== null);
+        if (primary instanceof HTMLButtonElement && primary.disabled) return;
         primary?.click();
         return;
       }

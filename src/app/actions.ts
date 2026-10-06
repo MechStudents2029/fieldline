@@ -18,18 +18,23 @@ import {
 } from "@/lib/services/logs";
 import {
   addManualTime,
+  approveEntries,
   approveTime,
   clockIn,
   clockOut,
   editTime,
   endBreak,
+  officeClockOut,
   reopenTime,
+  saveAndApprove,
   setHourlyCost,
   startBreak,
   switchJob,
+  undoTime,
   updateWorkCalendar,
   voidTime,
 } from "@/lib/services/time";
+import type { TimeUndo } from "@/lib/services/time";
 import { supabaseAuthConfigured } from "@/lib/supabase/env";
 import { supabasePasswordAuth } from "@/lib/supabase/password";
 import { ServiceError } from "@/lib/services/errors";
@@ -918,6 +923,50 @@ export async function approveTimeAction(entryId: string, _prev: ActionState, _fo
     approveTime(user, entryId);
     timeRefresh();
     return { ok: "Approved. Labor is on the job budget." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function approveEntriesAction(entryIds: string[]): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const result = approveEntries(user, entryIds);
+    timeRefresh();
+    return { ok: result.posted.length ? "Approved. Labor is on the job budget." : "Already approved." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function saveAndApproveAction(entryId: string, input: { projectId: string; costCode: string; clockInAt: string; clockOutAt: string; breakMinutes: number; note: string; reason: string }): Promise<ActionState> {
+  try {
+    const user = await actor();
+    saveAndApprove(user, entryId, input);
+    timeRefresh(input.projectId);
+    return { ok: "Approved. Labor is on the job budget." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function undoTimeAction(payload: TimeUndo): Promise<ActionState> {
+  try {
+    const user = await actor();
+    undoTime(user, payload);
+    timeRefresh();
+    return { ok: "Undone." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function officeClockOutAction(entryId: string, reason: string): Promise<ActionState> {
+  try {
+    const user = await actor();
+    officeClockOut(user, entryId, reason);
+    timeRefresh();
+    return { ok: "Clocked out. The punch is waiting for approval." };
   } catch (error) {
     return failure(error);
   }

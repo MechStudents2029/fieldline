@@ -8,6 +8,7 @@ import { activities, costItems, laborRates, organizations, timeApprovals, timeEn
 import { authenticate } from "@/lib/services/read";
 import {
   approvedHoursCsv,
+  approveEntries,
   approveTime,
   calendarForOrg,
   clockIn,
@@ -16,12 +17,15 @@ import {
   editTime,
   endBreak,
   laborCostCents,
+  officeClockOut,
   readableRates,
   reopenTime,
   setHourlyCost,
   startBreak,
   switchJob,
   timeBoard,
+  timeReview,
+  undoTime,
   updateWorkCalendar,
   voidTime,
   addManualTime,
@@ -132,6 +136,62 @@ describe("time tracking", () => {
     expect(source).toContain("current_user_id");
     expect(source).toContain("organizations_update");
     expect(source).toContain("can_manage_org");
+  });
+
+  it("approves a batch once, keeps the edit reason, and blocks field from the office review", () => {
+    const maya = actor("maya@rivera.demo");
+    const dana = actor("dana@rivera.demo");
+    const before = jobCost("proj_okonkwo");
+    const one = addManualTime(maya, {
+      userId: "user_maya",
+      projectId: "proj_okonkwo",
+      costCode: "GC-SUPER",
+      clockInAt: "2026-09-14T15:00:00.000Z",
+      clockOutAt: "2026-09-14T16:00:00.000Z",
+      reason: "Covered a walkthrough",
+    });
+    const two = addManualTime(maya, {
+      userId: "user_maya",
+      projectId: "proj_okonkwo",
+      costCode: "GC-SUPER",
+      clockInAt: "2026-09-14T17:00:00.000Z",
+      clockOutAt: "2026-09-14T18:00:00.000Z",
+      reason: "Stayed for the owner",
+    });
+    editTime(maya, one.entryId, {
+      projectId: "proj_okonkwo",
+      costCode: "GC-SUPER",
+      clockInAt: "2026-09-14T15:00:00.000Z",
+      clockOutAt: "2026-09-14T16:30:00.000Z",
+      breakMinutes: 0,
+      reason: "Moved the start",
+    });
+    const edited = getDb().select().from(timeEntryEvents).where(eq(timeEntryEvents.entryId, one.entryId)).all();
+    expect(edited.some((event) => event.type === "edited" && event.reason === "Moved the start" && event.beforeJson && event.afterJson)).toBe(true);
+    const first = approveEntries(maya, [one.entryId, two.entryId, one.entryId]);
+    expect(first.posted).toEqual([one.entryId, two.entryId]);
+    const mid = jobCost("proj_okonkwo");
+    expect(mid).toBe(before + 11_250);
+    expect(approveEntries(maya, [one.entryId, two.entryId]).posted).toEqual([]);
+    expect(jobCost("proj_okonkwo")).toBe(mid);
+    const active = getDb().select().from(timeApprovals).where(eq(timeApprovals.entryId, one.entryId)).all().filter((row) => row.status === "active");
+    expect(active).toHaveLength(1);
+    expect(() => approveEntries(dana, [one.entryId])).toThrow(/office can review/);
+    expect(() => timeReview(dana, {})).toThrow(/office can review/);
+    expect(() => officeClockOut(dana, "time_ok_open", "Field tried")).toThrow(/office can review/);
+    const shift = clockIn(maya, { projectId: "proj_okonkwo", costCode: "GC-SUPER" }, Date.UTC(2026, 8, 15, 15));
+    officeClockOut(maya, shift.entryId, "Office closed the shift", Date.UTC(2026, 8, 15, 18));
+    expect(getDb().select().from(timeEntries).where(eq(timeEntries.id, shift.entryId)).get()?.status).toBe("pending");
+    const closed = getDb().select().from(timeEntryEvents).where(eq(timeEntryEvents.entryId, shift.entryId)).all();
+    expect(closed.some((event) => event.type === "clocked_out" && event.reason === "Office closed the shift")).toBe(true);
+    undoTime(maya, { kind: "approve", ids: [two.entryId] });
+    expect(getDb().select().from(timeEntries).where(eq(timeEntries.id, two.entryId)).get()?.status).toBe("pending");
+    expect(jobCost("proj_okonkwo")).toBe(mid - 4_500);
+    const review = timeReview(maya, { view: "week" });
+    expect(review.overtimeHours).toBe(4);
+    expect(review.pendingIds).toHaveLength(3);
+    expect(JSON.stringify(review)).not.toContain("5200");
+    expect(review.onSite.some((row) => row.name === "Dana Cho")).toBe(true);
   });
 
   it("posts approved labor at the approval snapshot, then locks it until reopen", () => {

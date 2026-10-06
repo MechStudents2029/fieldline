@@ -19,13 +19,14 @@ import {
   DEFAULT_TIME_ZONE,
   DEFAULT_WEEK_START,
   isValidTimeZone,
-  addCalendarDays,
+  formatLocalInput,
   localDay,
   localWeek,
   weekdayName,
   zonedTimeToUtc,
   type WorkCalendar,
 } from "@/lib/time/calendar";
+import { aggregateWeek, dayHeading, rangeLabel, reviewDays, reviewView, shiftAnchor, type ReviewView } from "@/lib/time/grid";
 import { canAddFieldNotes, canManageMoney, canManageSettings, type Role } from "@/lib/permissions";
 import { ServiceError } from "@/lib/services/errors";
 import type { Actor } from "@/lib/services/read";
@@ -309,6 +310,23 @@ export function clockOut(
   });
 }
 
+export function officeClockOut(actor: Actor, entryId: string, reason: string, now = Date.now()) {
+  assertOffice(actor);
+  const why = requireReason(reason);
+  const db = officeOrThrow(actor);
+  const entry = requireEntry(db, actor.orgId, entryId);
+  if (entry.status !== "open" && entry.status !== "break") throw new ServiceError("That person is not clocked in.");
+  const stamp = new Date(now).toISOString();
+  const closed = finishOpen(entry, stamp, now);
+  db.transaction((tx) => {
+    tx.update(timeEntries)
+      .set({ ...closed, updatedAt: stamp })
+      .where(and(eq(timeEntries.id, entry.id), eq(timeEntries.orgId, actor.orgId)))
+      .run();
+    record(tx, actor, entry.id, "clocked_out", snapshot(entry), snapshot({ ...entry, ...closed }), why, stamp);
+  });
+}
+
 export function addManualTime(
   actor: Actor,
   input: { userId: string; projectId: string; costCode: string; clockInAt: string; clockOutAt: string; breakMinutes?: number; note?: string | null; reason: string },
@@ -456,6 +474,57 @@ export function approveTime(actor: Actor, entryId: string, now = Date.now()) {
     record(tx, actor, entry.id, "approved", snapshot(entry), { ...snapshot(entry), status: "approved" }, null, stamp);
   });
   return { costId, amountCents, rateCents: rate, minutes };
+}
+
+export function approveEntries(actor: Actor, entryIds: string[], now = Date.now()) {
+  assertOffice(actor);
+  const posted: string[] = [];
+  const seen = new Set<string>();
+  for (const entryId of entryIds) {
+    if (!entryId || seen.has(entryId)) continue;
+    seen.add(entryId);
+    const entry = requireEntry(officeOrThrow(actor), actor.orgId, entryId);
+    if (entry.status === "approved") continue;
+    if (entry.status !== "pending") throw new ServiceError("Only a finished entry can be approved.");
+    approveTime(actor, entryId, now);
+    posted.push(entryId);
+  }
+  return { posted };
+}
+
+export type TimeEditInput = {
+  projectId: string;
+  costCode: string;
+  clockInAt: string;
+  clockOutAt?: string | null;
+  breakMinutes?: number;
+  note?: string | null;
+  reason: string;
+};
+
+export function saveAndApprove(actor: Actor, entryId: string, input: TimeEditInput, now = Date.now()) {
+  editTime(actor, entryId, input);
+  return approveTime(actor, entryId, now);
+}
+
+export type TimeUndo =
+  | { kind: "approve"; ids: string[] }
+  | { kind: "edit"; entryId: string; before: TimeEditInput; reopen: boolean };
+
+export function undoTime(actor: Actor, payload: TimeUndo) {
+  assertOffice(actor);
+  if (payload.kind === "approve") {
+    for (const entryId of payload.ids) {
+      const entry = requireEntry(officeOrThrow(actor), actor.orgId, entryId);
+      if (entry.status === "approved") reopenTime(actor, entryId, "Undo approval");
+    }
+    return;
+  }
+  if (payload.reopen) {
+    const entry = requireEntry(officeOrThrow(actor), actor.orgId, payload.entryId);
+    if (entry.status === "approved") reopenTime(actor, payload.entryId, "Undo approval");
+  }
+  editTime(actor, payload.entryId, { ...payload.before, reason: "Undo edit" });
 }
 
 export function reopenTime(actor: Actor, entryId: string, reason: string) {
@@ -739,8 +808,7 @@ export type WeekGrid = {
 export function weekGrid(actor: Actor, now = Date.now()): WeekGrid {
   const db = officeOrThrow(actor);
   const calendar = calendarForOrg(actor.orgId);
-  const week = localWeek(now, calendar);
-  const days = Array.from({ length: 7 }, (_, index) => addCalendarDays(week.startDay, index));
+  const days = reviewDays("week", localDay(now, calendar.timeZone), calendar.weekStartsOn);
   const manage = canManageMoney(actor.role as Role);
   const entries = db
     .select()
@@ -756,36 +824,223 @@ export function weekGrid(actor: Actor, now = Date.now()): WeekGrid {
         .all()
         .sort((a, b) => a.name.localeCompare(b.name))
     : [{ userId: actor.userId, name: actor.name }];
-  const rates = db.select().from(laborRates).where(eq(laborRates.orgId, actor.orgId)).all();
-  const fallback = rates.find((rate) => rate.userId === DEFAULT_RATE_USER)?.hourlyCostCents ?? 0;
-  const rateFor = (userId: string) => rates.find((rate) => rate.userId === userId)?.hourlyCostCents ?? fallback;
-  let overtime = 0;
-  let labor = 0;
-  const rows = people.map((person) => {
-    const hours = days.map((day) => {
-      const minutes = entries
-        .filter((entry) => entry.userId === person.userId && entry.status !== "void" && localDay(Date.parse(entry.clockInAt), calendar.timeZone) === day)
-        .reduce((sum, entry) => sum + workedMinutes(entry, now), 0);
-      if (minutes > 8 * 60) overtime += minutes - 8 * 60;
-      const rate = rateFor(person.userId);
-      if (rate > 0) labor += Math.round((minutes * rate) / 60);
-      return minutes / 60;
-    });
-    const mine = entries.filter((entry) => entry.userId === person.userId && days.includes(localDay(Date.parse(entry.clockInAt), calendar.timeZone)));
-    const status = mine.some((entry) => entry.status === "pending") ? "Submitted" : mine.some((entry) => entry.status === "approved") ? "Approved" : "—";
-    return { userId: person.userId, name: person.name, hours, total: hours.reduce((sum, value) => sum + value, 0), status };
-  });
-  const pendingCount = entries.filter((entry) => entry.status === "pending" && days.includes(localDay(Date.parse(entry.clockInAt), calendar.timeZone))).length;
-  const fmt = (day: string) => new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "UTC" }).format(new Date(`${day}T12:00:00Z`));
+  const grid = aggregateWeek(entries, people, days, calendar, now);
+  const laborCents = manage ? approvedLaborCents(db, actor.orgId, entries, days, calendar.timeZone) : 0;
   return {
     days,
-    range: `${fmt(days[0] ?? week.startDay)} – ${fmt(days[6] ?? week.startDay)}`,
-    rows,
-    totalHours: rows.reduce((sum, row) => sum + row.total, 0),
-    overtimeHours: overtime / 60,
-    laborCents: labor,
-    pendingCount,
+    range: rangeLabel(days),
+    rows: grid.rows.map((row) => ({
+      userId: row.userId,
+      name: row.name,
+      hours: row.days.map((day) => day.hours),
+      total: row.totalHours,
+      status: row.status,
+    })),
+    totalHours: grid.totalHours,
+    overtimeHours: grid.overtimeHours,
+    laborCents,
+    pendingCount: new Set(grid.pendingIds).size,
   };
+}
+
+function approvedLaborCents(db: Writer, orgId: string, entries: Entry[], days: string[], timeZone: string) {
+  const inRange = new Set(entries.filter((entry) => days.includes(localDay(Date.parse(entry.clockInAt), timeZone))).map((entry) => entry.id));
+  return db
+    .select()
+    .from(timeApprovals)
+    .where(and(eq(timeApprovals.orgId, orgId), eq(timeApprovals.status, "active")))
+    .all()
+    .filter((row) => inRange.has(row.entryId))
+    .reduce((sum, row) => sum + row.amountCents, 0);
+}
+
+export type ReviewEntry = {
+  id: string;
+  userId: string;
+  projectId: string;
+  projectName: string;
+  costCode: string;
+  status: string;
+  clockInAt: string;
+  clockOutAt: string | null;
+  clockInLocal: string;
+  clockOutLocal: string;
+  breakMinutes: number;
+  note: string | null;
+  minutes: number;
+  hoursLabel: string;
+  day: string;
+  dayLabel: string;
+  inLabel: string;
+  outLabel: string;
+  flags: string[];
+  locked: boolean;
+};
+
+export type TimeReview = {
+  view: ReviewView;
+  range: string;
+  dayHeaders: { key: string; label: string }[];
+  prevHref: string;
+  nextHref: string;
+  dayHref: string;
+  weekHref: string;
+  periodHref: string;
+  stepLabel: string;
+  rows: {
+    userId: string;
+    name: string;
+    initials: string;
+    hours: { day: string; hours: number; tone: "danger" | null }[];
+    total: number;
+    totalTone: "warning" | null;
+    status: "Submitted" | "Approved" | "—";
+  }[];
+  totalHours: number;
+  overtimeHours: number;
+  laborCents: number;
+  pendingCount: number;
+  pendingIds: string[];
+  onSite: { entryId: string; userId: string; name: string; initials: string; projectName: string; costCode: string; inLabel: string; elapsed: string; forgotten: boolean }[];
+  entries: ReviewEntry[];
+  jobs: { id: string; name: string }[];
+  codes: string[];
+  timeZone: string;
+};
+
+export function timeReview(actor: Actor, input: { view?: string | null; on?: string | null } = {}, now = Date.now()): TimeReview {
+  assertOffice(actor);
+  const db = officeOrThrow(actor);
+  const calendar = calendarForOrg(actor.orgId);
+  const view = reviewView(input.view);
+  const today = localDay(now, calendar.timeZone);
+  const anchor = input.on && /^\d{4}-\d{2}-\d{2}$/.test(input.on) ? input.on : today;
+  const days = reviewDays(view, anchor, calendar.weekStartsOn);
+  const href = (nextView: ReviewView, day: string) => `/time?view=${nextView}&on=${day}`;
+  const entries = db.select().from(timeEntries).where(eq(timeEntries.orgId, actor.orgId)).all();
+  const people = db
+    .select({ userId: users.id, name: users.name })
+    .from(memberships)
+    .innerJoin(users, eq(users.id, memberships.userId))
+    .where(eq(memberships.orgId, actor.orgId))
+    .all()
+    .sort((a, b) => a.name.localeCompare(b.name));
+  const names = new Map(
+    db
+      .select({ id: projects.id, name: projects.name })
+      .from(projects)
+      .where(eq(projects.orgId, actor.orgId))
+      .all()
+      .map((job) => [job.id, job.name]),
+  );
+  const jobs = [...names.entries()].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
+  const codes = [
+    ...new Set(
+      db
+        .select({ code: priceBookItems.code })
+        .from(priceBookItems)
+        .where(eq(priceBookItems.orgId, actor.orgId))
+        .all()
+        .map((row) => row.code),
+    ),
+  ].sort();
+  const flags = detectTimeFlags(entries, now, calendar);
+  const danger = new Set(flags.filter((flag) => flag.kind === "overlap" || flag.kind === "open_long").flatMap((flag) => flag.entryIds));
+  const grid = aggregateWeek(entries, people, days, calendar, now);
+  const daySet = new Set(days);
+  const visible = entries.filter((entry) => entry.status !== "void" && daySet.has(localDay(Date.parse(entry.clockInAt), calendar.timeZone)));
+  const personName = new Map(people.map((person) => [person.userId, person.name]));
+  const clock = (iso: string) => new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit", timeZone: calendar.timeZone }).format(new Date(iso));
+  const rows = grid.rows
+    .filter((row) => row.totalMinutes > 0)
+    .map((row) => ({
+      userId: row.userId,
+      name: row.name,
+      initials: initials(row.name),
+      hours: row.days.map((day) => ({
+        day: day.day,
+        hours: day.hours,
+        tone: visible.some((entry) => entry.userId === row.userId && danger.has(entry.id) && localDay(Date.parse(entry.clockInAt), calendar.timeZone) === day.day)
+          ? ("danger" as const)
+          : null,
+      })),
+      total: row.totalHours,
+      totalTone: row.overtimeMinutes > 0 ? ("warning" as const) : null,
+      status: row.status,
+    }));
+  const reviewEntries: ReviewEntry[] = visible
+    .slice()
+    .sort((a, b) => a.clockInAt.localeCompare(b.clockInAt))
+    .map((entry) => {
+      const day = localDay(Date.parse(entry.clockInAt), calendar.timeZone);
+      const minutes = workedMinutes(entry, now);
+      return {
+        id: entry.id,
+        userId: entry.userId,
+        projectId: entry.projectId,
+        projectName: names.get(entry.projectId) || "Job",
+        costCode: entry.costCode,
+        status: entry.status,
+        clockInAt: entry.clockInAt,
+        clockOutAt: entry.clockOutAt,
+        clockInLocal: formatLocalInput(entry.clockInAt, calendar.timeZone),
+        clockOutLocal: entry.clockOutAt ? formatLocalInput(entry.clockOutAt, calendar.timeZone) : "",
+        breakMinutes: entry.breakMinutes,
+        note: entry.note,
+        minutes,
+        hoursLabel: (minutes / 60).toFixed(1),
+        day,
+        dayLabel: dayHeading(day),
+        inLabel: clock(entry.clockInAt),
+        outLabel: entry.clockOutAt ? clock(entry.clockOutAt) : "—",
+        flags: flags.filter((flag) => flag.entryIds.includes(entry.id)).map((flag) => flag.kind),
+        locked: entry.status === "approved" || entry.status === "open" || entry.status === "break",
+      };
+    });
+  return {
+    view,
+    range: rangeLabel(days),
+    dayHeaders: days.map((day) => ({ key: day, label: dayHeading(day) })),
+    prevHref: href(view, shiftAnchor(view, anchor, calendar.weekStartsOn, -1)),
+    nextHref: href(view, shiftAnchor(view, anchor, calendar.weekStartsOn, 1)),
+    dayHref: href("day", anchor),
+    weekHref: href("week", anchor),
+    periodHref: href("period", anchor),
+    stepLabel: view === "day" ? "day" : view === "period" ? "pay period" : "week",
+    rows,
+    totalHours: grid.totalHours,
+    overtimeHours: grid.overtimeHours,
+    laborCents: approvedLaborCents(db, actor.orgId, entries, days, calendar.timeZone),
+    pendingCount: new Set(grid.pendingIds).size,
+    pendingIds: [...new Set(grid.pendingIds)],
+    onSite: entries
+      .filter((entry) => entry.status === "open" || entry.status === "break")
+      .map((entry) => {
+        const minutes = Math.max(0, Math.round((now - Date.parse(entry.clockInAt)) / 60_000));
+        const hours = Math.floor(minutes / 60);
+        const forgotten = hours > 12;
+        return {
+          entryId: entry.id,
+          userId: entry.userId,
+          name: personName.get(entry.userId) || "Teammate",
+          initials: initials(personName.get(entry.userId) || "Teammate"),
+          projectName: names.get(entry.projectId) || "Job",
+          costCode: entry.costCode,
+          inLabel: clock(entry.clockInAt),
+          elapsed: forgotten ? `Open ${hours}h` : `${hours}h ${minutes % 60}m`,
+          forgotten,
+        };
+      }),
+    entries: reviewEntries,
+    jobs,
+    codes,
+    timeZone: calendar.timeZone,
+  };
+}
+
+function initials(name: string) {
+  const parts = name.split(" ").filter(Boolean);
+  return `${parts[0]?.[0] ?? ""}${parts[1]?.[0] ?? ""}`.toUpperCase();
 }
 
 function toPublic(entry: Entry, names: Map<string, string>, flags: TimeFlag[]): PublicEntry {

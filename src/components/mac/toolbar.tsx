@@ -9,6 +9,7 @@ export function Toolbar({
   center,
   primary,
   primaryHref,
+  primaryDisabled,
   onPrimary,
   trailing,
   search = true,
@@ -19,6 +20,7 @@ export function Toolbar({
   center?: React.ReactNode;
   primary?: React.ReactNode;
   primaryHref?: string;
+  primaryDisabled?: boolean;
   onPrimary?: () => void;
   trailing?: React.ReactNode;
   search?: boolean;
@@ -56,7 +58,7 @@ export function Toolbar({
           </a>
         ) : null}
         {primary ? (
-          <button type="button" data-mac-primary data-mac-new className="mac-primary" onClick={() => (onPrimary ? onPrimary() : primaryHref ? router.push(primaryHref) : undefined)}>
+          <button type="button" data-mac-primary data-mac-new disabled={primaryDisabled} className="mac-primary disabled:opacity-40" onClick={() => (onPrimary ? onPrimary() : primaryHref ? router.push(primaryHref) : undefined)}>
             {primary}
           </button>
         ) : null}
