@@ -22,6 +22,7 @@ test("changing the week start regroups unlocked hours and leaves approved labor"
   expect(day).toBeTruthy();
 
   await signInAs(page, "maya@rivera.demo");
+  await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/time");
   await expect(page.getByText("The week starts Monday")).toBeVisible();
   const panel = page.locator("section").filter({ has: page.getByRole("heading", { name: "Add time for someone" }) });
@@ -47,6 +48,6 @@ test("changing the week start regroups unlocked hours and leaves approved labor"
   const after = (await weekHours.textContent())?.trim();
   expect([before, after].sort()).toEqual(["0h 00m", "4h 00m"]);
   expect(before).not.toBe(after);
-  await expect(page.getByText("$390.00").first()).toBeVisible();
+  await expect(page.getByText("$390.00").filter({ visible: true }).first()).toBeVisible();
   await expect(page.getByText("5200")).toHaveCount(0);
 });

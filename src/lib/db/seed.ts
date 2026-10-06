@@ -1,7 +1,7 @@
 import type Database from "better-sqlite3";
 import { eq } from "drizzle-orm";
 import type { AppDatabase } from "@/lib/db/client";
-import { addCalendarDays, localDay, zonedTimeToUtc } from "@/lib/time/calendar";
+import { addCalendarDays, localDay, localWeek, zonedTimeToUtc } from "@/lib/time/calendar";
 import { northlineCatalog, riveraCatalog } from "@/lib/db/catalog";
 import {
   activities,
@@ -58,7 +58,7 @@ import { achFeeCents, qtyToMilli } from "@/lib/money";
 import { DEMO_PASSWORD } from "@/lib/product";
 import { proposalNudgeCopy } from "@/lib/ai/nurture";
 
-export const SEED_VERSION = "9";
+export const SEED_VERSION = "10";
 
 const ORG = "org_rivera";
 const NORTH = "org_northline";
@@ -1207,10 +1207,12 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
   const riveraZone = "America/New_York";
   const today = localDay(Date.now(), riveraZone);
   const yesterday = addCalendarDays(today, -1);
+  const weekStart = localWeek(Date.now(), { timeZone: riveraZone, weekStartsOn: 1 }).startDay;
   const riveraAt = (day: string, hour: number) => {
     const [year, month, date] = day.split("-").map(Number);
     return new Date(zonedTimeToUtc(year, month, date, hour, 0, 0, riveraZone)).toISOString();
   };
+  const luisIn = riveraAt(weekStart, 7);
   const approvedIn = hoursAgo(30);
   const approvedOut = hoursAgo(22);
   db.insert(laborRates)
@@ -1302,8 +1304,50 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
         clockOutLatE6: null,
         clockOutLngE6: null,
         source: "manual",
-        createdAt: daysAgo(1),
-        updatedAt: daysAgo(1),
+        createdAt: daysAgo(3),
+        updatedAt: daysAgo(3),
+        createdBy: "user_maya",
+      },
+      {
+        id: "time_dana_gap_a",
+        orgId: ORG,
+        userId: "user_dana",
+        projectId: "proj_okonkwo",
+        costCode: "TILE-SHOWER",
+        status: "pending",
+        clockInAt: hoursAgo(21.5),
+        clockOutAt: hoursAgo(19.5),
+        breakMinutes: 0,
+        breakStartedAt: null,
+        note: "Set the curb",
+        clockInLatE6: null,
+        clockInLngE6: null,
+        clockOutLatE6: null,
+        clockOutLngE6: null,
+        source: "clock",
+        createdAt: hoursAgo(21.5),
+        updatedAt: hoursAgo(19.5),
+        createdBy: "user_dana",
+      },
+      {
+        id: "time_luis_week",
+        orgId: ORG,
+        userId: "user_luis",
+        projectId: "proj_brooks",
+        costCode: "FRM-LABOR",
+        status: "approved",
+        clockInAt: luisIn,
+        clockOutAt: new Date(Date.parse(luisIn) + 44 * 3_600_000).toISOString(),
+        breakMinutes: 0,
+        breakStartedAt: null,
+        note: "Framed through midweek",
+        clockInLatE6: null,
+        clockInLngE6: null,
+        clockOutLatE6: null,
+        clockOutLngE6: null,
+        source: "manual",
+        createdAt: luisIn,
+        updatedAt: luisIn,
         createdBy: "user_maya",
       },
     ])

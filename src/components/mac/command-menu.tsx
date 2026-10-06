@@ -1,13 +1,14 @@
 "use client";
 
 import { Command } from "cmdk";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Dialog as DialogPrimitive } from "radix-ui";
 import type { OfficeChrome } from "@/lib/services/read";
 
 export function CommandMenu({ chrome, role }: { chrome: OfficeChrome; role: string }) {
   const router = useRouter();
+  const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [help, setHelp] = useState(false);
   useEffect(() => {
@@ -24,7 +25,12 @@ export function CommandMenu({ chrome, role }: { chrome: OfficeChrome; role: stri
     setOpen(false);
     router.push(href);
   };
+  const timeCommand = (action: string) => {
+    setOpen(false);
+    window.dispatchEvent(new CustomEvent("fieldline-time", { detail: action }));
+  };
   const field = role === "field";
+  const onTime = pathname === "/time";
   return (
     <>
       <DialogPrimitive.Root open={open} onOpenChange={setOpen}>
@@ -77,6 +83,17 @@ export function CommandMenu({ chrome, role }: { chrome: OfficeChrome; role: stri
             <Command.Item onSelect={() => go("/leads/new")}>New lead</Command.Item>
             {field ? null : <Command.Item onSelect={() => go("/bills/new")}>New bill</Command.Item>}
           </Command.Group>
+          {onTime && !field ? (
+            <Command.Group heading="Time">
+              <Command.Item onSelect={() => timeCommand("approve")}>Approve submitted</Command.Item>
+              <Command.Item onSelect={() => timeCommand("prev")}>Previous week</Command.Item>
+              <Command.Item onSelect={() => timeCommand("next")}>Next week</Command.Item>
+              <Command.Item onSelect={() => timeCommand("day")}>Day</Command.Item>
+              <Command.Item onSelect={() => timeCommand("week")}>Week</Command.Item>
+              <Command.Item onSelect={() => timeCommand("period")}>Pay period</Command.Item>
+              <Command.Item onSelect={() => timeCommand("clockout")}>Clock out on site</Command.Item>
+            </Command.Group>
+          ) : null}
         </Command.List>
             </Command>
           </DialogPrimitive.Content>

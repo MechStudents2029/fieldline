@@ -2,6 +2,12 @@
 
 ## 2026-10-06
 
+### Mac time review
+
+- On a laptop, Time is a week grid. The office steps through the company workweek, switches day, week, or pay period, and approves every submitted punch from one button. Hours over 40 show in amber. Labor cost is the approved snapshot only. Field logins do not see rates or cost.
+- Someone on site shows with the job, the clock-in, and a running duration. The office can clock them out with a reason. A selected person opens their entries. Check the ones to approve, or edit the times and save them approved in one step. Approved time stays locked. Command-Z reopens the last approval.
+- The phone clock is unchanged.
+
 ### Mac estimate builder
 
 - On a laptop, an estimate opens as a dense grid beside a live client preview. Tab, Enter, and Esc move through cells. Command-Enter or Control-Enter adds a line. Backspace on an empty row removes it, and Undo puts it back. Groups collapse, and lines move by drag or option-arrow. The totals bar shows cost, price, and margin. A target margin reprices the job, or one group, after a preview. Optional lines and allowances show on the preview and the proposal. Optional and excluded lines stay out of the total. The phone keeps the simple line list.

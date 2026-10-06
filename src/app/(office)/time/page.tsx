@@ -4,108 +4,37 @@ import { OfflineBridge } from "@/components/offline-bridge";
 import { PendingPunches } from "@/components/offline-clock";
 import { ShiftForms } from "@/components/shift-forms";
 import { ClockInForm, ClockOutForm } from "@/components/time-clock";
+import { TimeReview } from "@/components/mac/time-review";
 import { Button } from "@/components/ui/button";
 import { requireSession } from "@/lib/auth/session";
 import { formatDateTime } from "@/lib/format";
 import { formatMoney } from "@/lib/money";
 import { canAddFieldNotes, canManageMoney, canManageSettings } from "@/lib/permissions";
-import { formatHours, timeBoard, weekGrid } from "@/lib/services/time";
-import { Segmented, Toolbar } from "@/components/mac/toolbar";
+import { formatHours, timeBoard, timeReview } from "@/lib/services/time";
 import { formatLocalInput, weekdayName } from "@/lib/time/calendar";
-
-function elapsed(iso: string) {
-  const minutes = Math.max(0, Math.round((Date.now() - Date.parse(iso)) / 60000));
-  const hours = Math.floor(minutes / 60);
-  if (hours > 12) return { text: `Open ${hours}h`, forgotten: true };
-  return { text: `${hours}h ${minutes % 60}m`, forgotten: false };
-}
 
 function whenValue(iso: string | null, timeZone: string) {
   if (!iso) return "";
   return formatLocalInput(iso, timeZone);
 }
 
-export default async function TimePage() {
+export default async function TimePage({ searchParams }: { searchParams: Promise<{ view?: string; on?: string }> }) {
   const session = await requireSession();
+  const query = await searchParams;
   const board = timeBoard(session);
-  const grid = weekGrid(session);
   const open = board.open;
   const office = board.office;
-  const dayLabel = (day: string) => new Intl.DateTimeFormat("en-US", { weekday: "short", day: "numeric", timeZone: "UTC" }).format(new Date(`${day}T12:00:00Z`));
+  const review = office ? timeReview(session, { view: query.view, on: query.on }) : null;
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-col gap-5 md:max-w-none md:px-6 md:pb-8">
-      <div className="hidden md:block">
-        <Toolbar
-          title="Time"
-          subtitle={grid.range}
-          search={false}
-          center={<Segmented items={[{ href: "/time", label: "Day" }, { href: "/time", label: "Week", current: true }, { href: "/time", label: "Pay period" }]} />}
-          primary={grid.pendingCount > 0 ? `Approve ${grid.pendingCount}` : undefined}
-        />
-        {office && office.clockedIn.length > 0 ? (
-          <div className="mb-4 flex items-center gap-3 rounded-[10px] border border-[var(--mac-box-border)] bg-[var(--mac-box)] px-3 py-2">
-            <span className="mac-t11 text-[var(--mac-secondary)]">On site now {office.clockedIn.length}</span>
-            {office.clockedIn.map((row) => {
-              const punch = elapsed(row.since);
-              return (
-                <span key={row.entryId} className="mac-t13">
-                  {row.name}
-                  <span className="text-[var(--mac-secondary)]"> · {row.projectName} · {row.costCode}</span>
-                  <span className={`num ${punch.forgotten ? "font-semibold text-[var(--mac-warning)]" : ""}`}> · {punch.text}</span>
-                </span>
-              );
-            })}
-          </div>
-        ) : null}
-        <div className="mac-strip mb-4">
-          <div>
-            <p className="mac-t22 num">{grid.totalHours.toFixed(1)}</p>
-            <p className="mac-t11 text-[var(--mac-secondary)]">Hours</p>
-          </div>
-          <div>
-            <p className={`mac-t22 num ${grid.overtimeHours > 0 ? "text-[var(--mac-warning)]" : ""}`}>{grid.overtimeHours.toFixed(1)}</p>
-            <p className="mac-t11 text-[var(--mac-secondary)]">Overtime</p>
-          </div>
-          <div>
-            <p className="mac-t22 num">{office ? formatMoney(grid.laborCents) : "—"}</p>
-            <p className="mac-t11 text-[var(--mac-secondary)]">Labor cost</p>
-          </div>
-          <div>
-            <p className="mac-t22 num">{grid.pendingCount}</p>
-            <p className="mac-t11 text-[var(--mac-secondary)]">To approve</p>
-          </div>
+    <div className="mx-auto flex w-full max-w-2xl flex-col gap-5 md:max-w-none md:h-full md:gap-0">
+      {review ? (
+        <div className="hidden md:flex md:min-h-0 md:flex-1 md:flex-col">
+          <TimeReview review={review} />
         </div>
-        <div className="overflow-x-auto">
-          <table className="mac-table">
-            <thead>
-              <tr>
-                <th className="px-2">Person</th>
-                {grid.days.map((day) => (
-                  <th key={day} className="px-2 text-right">{dayLabel(day)}</th>
-                ))}
-                <th className="px-2 text-right">Total</th>
-                <th className="px-2">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {grid.rows.map((row) => (
-                <tr key={row.userId}>
-                  <td className="px-2">{row.name}</td>
-                  {row.hours.map((hours, index) => (
-                    <td key={grid.days[index]} className="px-2 text-right num">{hours > 0 ? hours.toFixed(1) : "—"}</td>
-                  ))}
-                  <td className="px-2 text-right num">{row.total.toFixed(1)}</td>
-                  <td className="px-2">{row.status === "Submitted" ? <span className="fl-pill">{row.status}</span> : row.status}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-      <div>
-        <h1 className="fl-large-title md:hidden">Time</h1>
+      ) : null}
+      <div className={review ? "flex flex-col gap-5 md:hidden" : "flex flex-col gap-5"}>
+        <h1 className={`fl-large-title ${review ? "md:hidden" : ""}`}>Time</h1>
         <p className="fl-footnote text-[var(--fl-secondary)]">The week starts {weekdayName(board.weekStartsOn)}</p>
-      </div>
       <section className="fl-strip cols-2">
         <div>
           <p className="fl-number" aria-label="Hours today">
@@ -410,6 +339,7 @@ export default async function TimePage() {
           ) : null}
         </>
       ) : null}
+      </div>
     </div>
   );
 }
