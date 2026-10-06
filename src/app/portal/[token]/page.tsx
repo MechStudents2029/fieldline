@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { approveCoAction, portalMessageAction } from "@/app/actions";
+import { approveCoAction, chooseSelectionAction, portalMessageAction } from "@/app/actions";
 import { ActionForm } from "@/components/action-form";
 import { PhotoLightbox } from "@/components/portal/photo-lightbox";
 import { formatDate } from "@/lib/format";
@@ -17,6 +17,7 @@ import {
   sentenceStatus,
 } from "@/lib/portal/summary";
 import { portalByToken } from "@/lib/services/read";
+import { portalSelections, type PortalSelection } from "@/lib/services/selections";
 
 export const dynamic = "force-dynamic";
 
@@ -50,6 +51,8 @@ export default async function PortalPage({ params }: { params: Promise<{ token: 
     logDates: data.logs.map((log) => log.logDate),
     finalInvoiceAt: finalInvoiceAt(data.invoices),
   });
+  const selections = portalSelections(token) ?? [];
+  const pendingSelections = selections.filter((selection) => selection.status === "released");
   const action = needsYouAction({ orders: data.orders, invoices: data.invoices });
   const featuredId = action?.kind === "change-order" ? action.id : null;
   const featured = featuredId ? orders.find((order) => order.id === featuredId) : null;
@@ -80,21 +83,28 @@ export default async function PortalPage({ params }: { params: Promise<{ token: 
         </div>
       </section>
 
-      {featured ? (
+      {featured || (!featured && payInvoice) || pendingSelections.length > 0 ? (
         <section className="home-needs" aria-label="Needs you">
           <h2>Needs you</h2>
-          <OrderCard order={featured} />
-        </section>
-      ) : null}
-      {!featured && payInvoice ? (
-        <section className="home-needs" aria-label="Needs you">
-          <h2>Needs you</h2>
-          <p className="home-sub">
-            {payInvoice.number} · Due {formatDate(payInvoice.dueDate)}
-          </p>
-          <Link className="home-btn" href={`/pay/${payInvoice.payToken}`}>
-            Pay {formatMoney(payInvoice.totalCents)}
-          </Link>
+          {featured ? <OrderCard order={featured} /> : null}
+          {!featured && payInvoice ? (
+            <>
+              <p className="home-sub">
+                {payInvoice.number} · Due {formatDate(payInvoice.dueDate)}
+              </p>
+              <Link className="home-btn" href={`/pay/${payInvoice.payToken}`}>
+                Pay {formatMoney(payInvoice.totalCents)}
+              </Link>
+            </>
+          ) : null}
+          {pendingSelections.map((selection) => (
+            <p key={selection.id} className="home-row">
+              <Link className="home-link" href={`#selection-${selection.id}`}>
+                {selection.title}
+              </Link>
+              {selection.area ? <span className="home-sub">{selection.area}</span> : null}
+            </p>
+          ))}
         </section>
       ) : null}
 
@@ -215,6 +225,17 @@ export default async function PortalPage({ params }: { params: Promise<{ token: 
             </section>
           ) : null}
 
+          {selections.length > 0 ? (
+            <section id="selections" aria-label="Selections">
+              <h2>Selections</h2>
+              <div className="home-stack">
+                {selections.map((selection) => (
+                  <SelectionCard key={selection.id} token={token} selection={selection} />
+                ))}
+              </div>
+            </section>
+          ) : null}
+
           <section aria-label="Messages">
             <h2>Messages</h2>
             {data.messages.length > 0 ? (
@@ -253,6 +274,54 @@ export default async function PortalPage({ params }: { params: Promise<{ token: 
         </div>
       </div>
     </main>
+  );
+}
+
+function SelectionCard({ token, selection }: { token: string; selection: PortalSelection }) {
+  const chosen = selection.choices.find((choice) => choice.id === selection.chosenChoiceId) ?? null;
+  return (
+    <article className="home-card" id={`selection-${selection.id}`}>
+      <div className="home-row">
+        <div>
+          <p className="home-strong">{selection.title}</p>
+          {selection.area ? <p className="home-sub">{selection.area}</p> : null}
+        </div>
+        {chosen ? <span className="home-money">{chosen.deltaLabel}</span> : null}
+        {selection.status === "locked" && !chosen ? <span className="home-sub">Locked</span> : null}
+      </div>
+      {selection.status === "released" ? (
+        <ActionForm action={chooseSelectionAction.bind(null, token)} className="home-form">
+          <input type="hidden" name="selectionId" value={selection.id} />
+          <div className="grid gap-3 sm:grid-cols-3">
+            {selection.choices.map((choice) => (
+              <label key={choice.id} className="home-card">
+                <input type="radio" name="choiceId" value={choice.id} aria-label={choice.name} required />
+                {choice.photoDocumentId ? (
+                  <img src={photoSrc(choice.photoDocumentId, token)} alt="" className="aspect-[4/3] w-full rounded-md object-cover" />
+                ) : (
+                  <span className="block aspect-[4/3] w-full rounded-md bg-[var(--fl-fill)]" />
+                )}
+                <span className="home-row">
+                  <span className="home-strong">{choice.name}</span>
+                  <span className="home-money">{choice.deltaLabel}</span>
+                </span>
+                {choice.vendor ? <span className="home-sub">{choice.vendor}</span> : null}
+              </label>
+            ))}
+          </div>
+          <input name="typedName" className="home-input" placeholder="Type your name" aria-label="Type your name" />
+          <label className="home-check">
+            <input type="checkbox" name="consent" />
+            <span>{CONSENT_TEXT}</span>
+          </label>
+          <button type="submit" className="home-btn">
+            Confirm {selection.title}
+          </button>
+        </ActionForm>
+      ) : chosen ? (
+        <p className="home-strong">{chosen.name}</p>
+      ) : null}
+    </article>
   );
 }
 

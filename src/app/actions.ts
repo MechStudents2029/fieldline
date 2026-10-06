@@ -7,7 +7,7 @@ import { resolveLogin } from "@/lib/auth/login";
 import { registerCompany } from "@/lib/auth/signup";
 import { clearSession, getSession, setSession } from "@/lib/auth/session";
 import { receiptAutoPostAllowed } from "@/lib/ai/receipt";
-import { parseMoneyToCents } from "@/lib/money";
+import { parseMoneyToCents, qtyToMilli } from "@/lib/money";
 import {
   linkLogPhoto,
   openDailyLog,
@@ -37,6 +37,15 @@ import {
 import type { TimeUndo } from "@/lib/services/time";
 import { moveScheduleItem, rotateCalendarFeed, saveScheduleItem, type ScheduleStatus } from "@/lib/services/schedule";
 import { commitImport, previewImport, undoImport } from "@/lib/services/import";
+import {
+  approveSelection,
+  chooseSelection,
+  draftSelectionChangeOrder,
+  lockSelection,
+  releaseSelection,
+  resetSelection,
+  saveSelection,
+} from "@/lib/services/selections";
 import { supabaseAuthConfigured } from "@/lib/supabase/env";
 import { supabasePasswordAuth } from "@/lib/supabase/password";
 import { ServiceError } from "@/lib/services/errors";
@@ -1429,6 +1438,141 @@ export async function undoImportAction(batchId: string) {
     if (error instanceof ServiceError) return { error: error.message };
     throw error;
   }
+}
+
+function selectionChoicesFromForm(formData: FormData) {
+  const count = Number(formData.get("choiceCount") || 0);
+  if (!Number.isInteger(count) || count < 2) return { error: "A selection needs two choices." } as const;
+  const choices = [];
+  for (let index = 0; index < count; index += 1) {
+    const name = String(formData.get(`choice_${index}_name`) || "").trim();
+    const price = parseMoneyToCents(String(formData.get(`choice_${index}_price`) || ""));
+    const cost = parseMoneyToCents(String(formData.get(`choice_${index}_cost`) || ""));
+    if (!name || price == null || cost == null) return { error: "Each choice needs a name, a price, and a cost." } as const;
+    choices.push({
+      name,
+      vendor: String(formData.get(`choice_${index}_vendor`) || ""),
+      sku: String(formData.get(`choice_${index}_sku`) || ""),
+      link: String(formData.get(`choice_${index}_link`) || ""),
+      note: String(formData.get(`choice_${index}_note`) || ""),
+      photoDocumentId: null,
+      unitPriceCents: price,
+      unitCostCents: cost,
+    });
+  }
+  return { choices };
+}
+
+function selectionInputFromForm(formData: FormData) {
+  const parsed = selectionChoicesFromForm(formData);
+  if ("error" in parsed) return parsed;
+  const due = String(formData.get("due") || "");
+  const qty = Number(formData.get("qty") || 1);
+  if (!Number.isFinite(qty) || qty <= 0) return { error: "Quantity must be greater than zero." } as const;
+  const allowance = String(formData.get("allowanceId") || "");
+  return {
+    input: {
+      title: String(formData.get("title") || ""),
+      area: String(formData.get("area") || ""),
+      dueDate: due || null,
+      qtyMilli: qtyToMilli(qty),
+      allowanceBudgetLineId: allowance || null,
+      choices: parsed.choices,
+    },
+  };
+}
+
+export async function saveSelectionAction(projectId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  const parsed = selectionInputFromForm(formData);
+  if ("error" in parsed && parsed.error) return { error: parsed.error };
+  if (!("input" in parsed)) return { error: "A selection needs two choices." };
+  try {
+    const user = await actor();
+    const existing = String(formData.get("selectionId") || "");
+    saveSelection(user, projectId, existing || null, parsed.input);
+  } catch (error) {
+    return failure(error);
+  }
+  revalidatePath(`/projects/${projectId}/selections`);
+  revalidatePath(`/projects/${projectId}`);
+  return { ok: "Saved" };
+}
+
+export async function releaseSelectionAction(projectId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    releaseSelection(user, String(formData.get("selectionId") || ""));
+  } catch (error) {
+    return failure(error);
+  }
+  revalidatePath(`/projects/${projectId}/selections`);
+  revalidatePath("/");
+  return { ok: "Released" };
+}
+
+export async function approveSelectionAction(projectId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    approveSelection(user, String(formData.get("selectionId") || ""), String(formData.get("choiceId") || ""), String(formData.get("note") || ""), await requestIp());
+  } catch (error) {
+    return failure(error);
+  }
+  revalidatePath(`/projects/${projectId}/selections`);
+  revalidatePath(`/projects/${projectId}`);
+  return { ok: "Chosen" };
+}
+
+export async function resetSelectionAction(projectId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    resetSelection(user, String(formData.get("selectionId") || ""), String(formData.get("reason") || ""));
+  } catch (error) {
+    return failure(error);
+  }
+  revalidatePath(`/projects/${projectId}/selections`);
+  revalidatePath(`/projects/${projectId}`);
+  return { ok: "Reset" };
+}
+
+export async function lockSelectionAction(projectId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    lockSelection(user, String(formData.get("selectionId") || ""));
+  } catch (error) {
+    return failure(error);
+  }
+  revalidatePath(`/projects/${projectId}/selections`);
+  return { ok: "Locked" };
+}
+
+export async function draftSelectionCoAction(projectId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    draftSelectionChangeOrder(user, String(formData.get("selectionId") || ""));
+  } catch (error) {
+    return failure(error);
+  }
+  revalidatePath(`/projects/${projectId}/selections`);
+  revalidatePath(`/projects/${projectId}`);
+  return { ok: "Draft saved" };
+}
+
+export async function chooseSelectionAction(token: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    chooseSelection({
+      token,
+      selectionId: String(formData.get("selectionId") || ""),
+      choiceId: String(formData.get("choiceId") || ""),
+      typedName: String(formData.get("typedName") || ""),
+      consent: formData.get("consent") === "on",
+      ip: await requestIp(),
+      userAgent: (await headers()).get("user-agent") || undefined,
+    });
+  } catch (error) {
+    return failure(error);
+  }
+  revalidatePath(`/portal/${token}`);
+  redirect(`/portal/${token}#selections`);
 }
 
 export async function rotateCalendarFeedAction(_prev: ActionState, _formData: FormData): Promise<ActionState> {

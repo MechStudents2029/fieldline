@@ -908,6 +908,68 @@ export const importRows = sqliteTable(
   (t) => [index("import_rows_batch").on(t.orgId, t.batchId)],
 );
 
+export const selections = sqliteTable(
+  "selections",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    projectId: text("project_id").notNull(),
+    title: text("title").notNull(),
+    area: text("area"),
+    dueDate: text("due_date"),
+    status: text("status").notNull(),
+    allowanceBudgetLineId: text("allowance_budget_line_id"),
+    qtyMilli: integer("qty_milli").notNull().default(1000),
+    chosenChoiceId: text("chosen_choice_id"),
+    costItemId: text("cost_item_id"),
+    changeOrderId: text("change_order_id"),
+    createdBy: text("created_by"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (t) => [index("selections_org").on(t.orgId, t.projectId)],
+);
+
+export const selectionChoices = sqliteTable(
+  "selection_choices",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    selectionId: text("selection_id").notNull(),
+    name: text("name").notNull(),
+    vendor: text("vendor"),
+    sku: text("sku"),
+    link: text("link"),
+    photoDocumentId: text("photo_document_id"),
+    unitPriceCents: integer("unit_price_cents").notNull(),
+    unitCostCents: integer("unit_cost_cents").notNull(),
+    note: text("note"),
+    sortOrder: integer("sort_order").notNull(),
+  },
+  (t) => [index("selection_choices_selection").on(t.orgId, t.selectionId)],
+);
+
+export const selectionEvents = sqliteTable(
+  "selection_events",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    selectionId: text("selection_id").notNull(),
+    actorId: text("actor_id"),
+    action: text("action").notNull(),
+    reason: text("reason"),
+    beforeJson: text("before_json"),
+    afterJson: text("after_json"),
+    signerName: text("signer_name"),
+    ip: text("ip"),
+    userAgent: text("user_agent"),
+    docHash: text("doc_hash"),
+    consentTextVersion: text("consent_text_version"),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [index("selection_events_selection").on(t.orgId, t.selectionId)],
+);
+
 export const appMeta = sqliteTable("app_meta", {
   key: text("key").primaryKey(),
   value: text("value").notNull(),

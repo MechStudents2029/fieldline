@@ -96,6 +96,7 @@ export function ensureReady(holder: Holder) {
   ensureLineBilling(holder);
   ensureSchedule(holder);
   ensureImport(holder);
+  ensureSelections(holder);
   const version = holder.sqlite.prepare("select value from app_meta where key = ?").get("seed_version") as
     | { value: string }
     | undefined;
@@ -748,6 +749,66 @@ function ensureImport(holder: Holder) {
   }
   holder.sqlite.exec("create index if not exists import_batches_org on import_batches (org_id, created_at)");
   holder.sqlite.exec("create index if not exists import_rows_batch on import_rows (org_id, batch_id)");
+}
+
+function ensureSelections(holder: Holder) {
+  const pk = holder.dialect === "postgres" ? "text primary key" : "text primary key not null";
+  if (!tableExists(holder.sqlite, "selections", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists selections (
+      id ${pk},
+      org_id text not null,
+      project_id text not null,
+      title text not null,
+      area text,
+      due_date text,
+      status text not null,
+      allowance_budget_line_id text,
+      qty_milli integer not null default 1000,
+      chosen_choice_id text,
+      cost_item_id text,
+      change_order_id text,
+      created_by text,
+      created_at text not null,
+      updated_at text not null
+    )`);
+  }
+  if (!tableExists(holder.sqlite, "selection_choices", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists selection_choices (
+      id ${pk},
+      org_id text not null,
+      selection_id text not null,
+      name text not null,
+      vendor text,
+      sku text,
+      link text,
+      photo_document_id text,
+      unit_price_cents integer not null,
+      unit_cost_cents integer not null,
+      note text,
+      sort_order integer not null
+    )`);
+  }
+  if (!tableExists(holder.sqlite, "selection_events", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists selection_events (
+      id ${pk},
+      org_id text not null,
+      selection_id text not null,
+      actor_id text,
+      action text not null,
+      reason text,
+      before_json text,
+      after_json text,
+      signer_name text,
+      ip text,
+      user_agent text,
+      doc_hash text,
+      consent_text_version text,
+      created_at text not null
+    )`);
+  }
+  holder.sqlite.exec("create index if not exists selections_org on selections (org_id, project_id)");
+  holder.sqlite.exec("create index if not exists selection_choices_selection on selection_choices (org_id, selection_id)");
+  holder.sqlite.exec("create index if not exists selection_events_selection on selection_events (org_id, selection_id)");
 }
 
 function ensureTesterFeedback(holder: Holder) {

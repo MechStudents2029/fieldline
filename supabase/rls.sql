@@ -134,7 +134,10 @@ begin
     'schedule_assignees',
     'calendar_feeds',
     'import_batches',
-    'import_rows'
+    'import_rows',
+    'selections',
+    'selection_choices',
+    'selection_events'
   ]
   loop
     execute format('alter table public.%I enable row level security', tbl);

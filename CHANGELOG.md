@@ -2,6 +2,12 @@
 
 ## 2026-10-06
 
+### Selections
+
+- A job can hold selections, each with two or more choices and an optional allowance from the signed budget. Release puts it on the client portal. The homeowner picks one and types their name. The office can approve on their behalf, reset it, or lock it.
+- The chosen cost posts to that allowance’s cost code. An overage can become a draft change order. A credit is shown and left alone. An unlinked choice becomes a draft change order only when the office asks for one. The contract does not move until a change order is approved.
+- Field sees the name and the chosen item. The client sees prices, not cost. Another company gets a 404. Release, choose, approve, reset, and lock are on the audit log.
+
 ### Import
 
 - An owner or admin can import contacts, subs and vendors, or price book items from a CSV or a pasted spreadsheet. Templates are on the import screen. Common headers map themselves, including a QuickBooks customer export and a contacts export with address columns. Each column can be remapped before anything is saved.
