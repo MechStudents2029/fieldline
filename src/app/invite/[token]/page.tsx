@@ -39,7 +39,7 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
         <p className="text-sm font-medium text-copper">Fieldline</p>
         <h1 className="font-heading mt-2 text-3xl">Join {preview.companyName}</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          {preview.inviterName} invited {preview.email} as {preview.roleLabel}. Nothing was emailed. This page does not use the link until you join.
+          {preview.inviterName} invited {preview.email} as {preview.roleLabel}.
         </p>
         <p className="mt-2 text-sm">Expires {formatDateTime(preview.expiresAt)}.</p>
       </div>

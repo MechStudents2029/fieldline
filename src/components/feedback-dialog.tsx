@@ -18,7 +18,7 @@ export function FeedbackDialog() {
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Send feedback</DialogTitle>
-          <DialogDescription>Saved on this company. Nothing is emailed, and there is no screenshot.</DialogDescription>
+          <DialogDescription>Saved on this company.</DialogDescription>
         </DialogHeader>
         <ActionForm action={feedbackAction} className="flex flex-col gap-3">
           <input type="hidden" name="path" value={pathname || "/"} />

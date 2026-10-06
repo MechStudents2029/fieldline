@@ -7,7 +7,7 @@ import { askCopilot, listInvoices, listProjects, pipelineBoard } from "@/lib/ser
 export default async function CopilotPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
   const session = await requireSession();
   if (!canSeeMoney(session.role)) {
-    return <p>Copilot reads receivables and margins, so it is hidden for the field role.</p>;
+    return <h1 className="fl-large-title">Copilot</h1>;
   }
   const question = (await searchParams).q?.trim() ?? "";
   const result = question ? askCopilot(session.orgId, question) : null;
@@ -24,7 +24,7 @@ export default async function CopilotPage({ searchParams }: { searchParams: Prom
       {sourcesEmpty ? (
         <EmptyState
           title="No business records yet"
-          why="Answers come from this company's leads, jobs, and invoices. The list is empty because those records do not exist yet."
+          why="No questions yet."
           href="/leads/new"
           action="Add a lead"
         />

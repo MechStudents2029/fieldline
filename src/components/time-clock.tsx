@@ -156,7 +156,7 @@ export function ClockOutForm({ compact = false, scope }: { compact?: boolean; sc
         </label>
       )}
       {compact ? null : <LocationFields locNote={punch.local.startsWith("Location") ? punch.local : ""} />}
-      <Button type="submit" className="h-14 w-full text-base">
+      <Button type="submit" className="fl-primary h-[50px] w-full">
         Clock out
       </Button>
       <Status state={punch.state} pending={punch.pending} local={punch.local.startsWith("Saved") ? punch.local : ""} />

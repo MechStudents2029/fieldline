@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
 
 export function EmptyState({
   title,
@@ -9,21 +8,21 @@ export function EmptyState({
   children,
 }: {
   title: string;
-  why: string;
+  why?: string;
   href?: string;
   action?: string;
   children?: React.ReactNode;
 }) {
   return (
-    <div className="rounded-xl bg-card p-5 ring-1 ring-foreground/10">
-      <h2 className="font-heading text-xl">{title}</h2>
-      <p className="mt-2 max-w-prose text-sm text-muted-foreground">{why}</p>
+    <div className="flex flex-col items-center px-6 py-16 text-center">
+      <h2 className="fl-headline">{title}</h2>
+      {why ? <p className="fl-secondary-text mt-1 max-w-[18rem] text-[var(--fl-secondary)]">{why}</p> : null}
       {href && action ? (
-        <Button asChild className="mt-4 h-11">
-          <Link href={href}>{action}</Link>
-        </Button>
+        <Link href={href} className="fl-primary fl-press mt-5 w-auto px-5">
+          {action}
+        </Link>
       ) : null}
-      {children ? <div className="mt-4">{children}</div> : null}
+      {children ? <div className="mt-4 w-full max-w-sm text-left">{children}</div> : null}
     </div>
   );
 }

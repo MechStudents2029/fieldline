@@ -34,7 +34,7 @@ export default async function ContactsPage({ searchParams }: { searchParams: Pro
       {rows.length === 0 && !filtered ? (
         <EmptyState
           title="No contacts yet"
-          why="Clients, subs, and vendors show up here. A contact is created when you add a lead. This company has none yet."
+          why="No contacts yet."
           href="/leads/new"
           action="Add a lead"
         />

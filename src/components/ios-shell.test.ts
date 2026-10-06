@@ -15,10 +15,10 @@ describe("iOS shell", () => {
     expect(css).toContain("--fl-accent: #0a7a6f");
     expect(css).toContain("--fl-bg: #f2f2f7");
     expect(css).toContain("--fl-label: #1c1c1e");
-    expect(css).toContain("--fl-secondary: #8e8e93");
-    expect(css).toContain("--fl-success: #34c759");
-    expect(css).toContain("--fl-warning: #ff9500");
-    expect(css).toContain("--fl-danger: #ff3b30");
+    expect(css).toContain("--fl-secondary: #6e6e73");
+    expect(css).not.toContain("--fl-system-blue");
+    expect(css).toContain("--fl-warning: #a35c00");
+    expect(css).toContain("--fl-danger: #c8372d");
     expect(css).toContain("--fl-radius: 12px");
     expect(css).toContain("--fl-touch: 44px");
     expect(css).toContain("SF Pro Text");

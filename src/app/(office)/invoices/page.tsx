@@ -10,8 +10,7 @@ export default async function InvoicesPage() {
   if (!canSeeMoney(session.role)) {
     return (
       <div>
-        <h1 className="font-heading text-3xl">Invoices</h1>
-        <p className="mt-2 text-sm text-muted-foreground">Invoices are hidden for the field role.</p>
+        <h1 className="fl-large-title">Invoices</h1>
       </div>
     );
   }
@@ -35,7 +34,7 @@ export default async function InvoicesPage() {
       {rows.length === 0 ? (
         <EmptyState
           title="No invoices yet"
-          why="Invoices appear after a client signs a proposal. The deposit invoice is created then. This company has none yet."
+          why="No invoices yet."
           href="/leads/new"
           action="Add a lead"
         />

@@ -14,8 +14,7 @@ export default async function PriceBookPage({ searchParams }: { searchParams: Pr
   if (!canSeeMoney(session.role)) {
     return (
       <div>
-        <h1 className="font-heading text-3xl">Price book</h1>
-        <p className="mt-2 text-sm text-muted-foreground">Pricing is hidden for the field role.</p>
+        <h1 className="fl-large-title">Price book</h1>
       </div>
     );
   }
@@ -37,7 +36,7 @@ export default async function PriceBookPage({ searchParams }: { searchParams: Pr
       {unfiltered.length === 0 ? (
         <EmptyState
           title="No prices yet"
-          why="Estimates price from this book. Unit costs are yours to edit. This company has no items yet, and nothing is copied from another company."
+          why="No prices yet."
         >
           {canManageSettings(session.role) ? (
             <ActionForm action={seedStarterAction} className="flex flex-col gap-3">

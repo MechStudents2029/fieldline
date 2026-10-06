@@ -5,6 +5,10 @@ import { breakAction, switchJobAction, type ActionState } from "@/app/actions";
 import { Button } from "@/components/ui/button";
 import { enqueuePunch, probeOrigin, type Scope } from "@/lib/offline/browser";
 
+export function BreakControl({ scope, onBreak }: { scope: Scope; onBreak: boolean }) {
+  return <BreakButton scope={scope} onBreak={onBreak} />;
+}
+
 export function ShiftForms({
   scope,
   onBreak,
@@ -54,8 +58,8 @@ function BreakButton({ scope, onBreak }: { scope: Scope; onBreak: boolean }) {
         });
       }}
     >
-      <Button type="submit" variant="outline" className="h-12 w-full">
-        {onBreak ? "End break" : "Start break"}
+      <Button type="submit" variant="secondary" className="h-[50px] w-full text-[17px]">
+        {onBreak ? "End break" : "Break"}
       </Button>
       <Line state={state} pending={pending} local={local} />
     </form>

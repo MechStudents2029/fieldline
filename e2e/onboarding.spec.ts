@@ -19,11 +19,13 @@ test("a new company starts empty and the checklist advances after a lead and est
   await page.getByRole("button", { name: "Create company" }).click();
 
   await expect(page.getByRole("heading", { name: "Today" })).toBeVisible();
+  await expect(page.getByRole("link", { name: /Finish setup/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "No jobs yet" })).toBeVisible();
+  await page.getByRole("link", { name: /Finish setup/ }).click();
   await expect(page.getByRole("heading", { name: "Setup" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Nothing on the board yet" })).toBeVisible();
-  await expect(page.getByRole("listitem").filter({ hasText: "Review the price book" }).getByText("Done")).toBeVisible();
-  await expect(page.getByRole("listitem").filter({ hasText: "Company license" }).getByRole("link", { name: "Add your license" })).toBeVisible();
-  await expect(page.getByRole("listitem").filter({ hasText: "Add your first lead" }).getByRole("link", { name: "Add a lead" })).toBeVisible();
+  await expect(page.getByRole("listitem").filter({ hasText: "Price book" })).toHaveAttribute("data-done", "true");
+  await expect(page.getByRole("listitem").filter({ hasText: "Company license" })).toHaveAttribute("data-done", "false");
+  await expect(page.getByRole("listitem").filter({ hasText: "First lead" })).toHaveAttribute("data-done", "false");
 
   await page.goto("/leads/new");
   await page.getByLabel("Scope").fill(
@@ -32,13 +34,13 @@ test("a new company starts empty and the checklist advances after a lead and est
   await page.getByRole("button", { name: "Create lead" }).click();
   await expect(page.getByRole("heading", { name: /Avery Cole/ })).toBeVisible();
   await page.getByRole("button", { name: "Draft estimate from price book" }).click();
-  await expect(page.getByText("Sell price")).toBeVisible();
+  await expect(page.getByText("Price", { exact: true })).toBeVisible();
   await expect(page.getByText("CAB-BASE")).toBeVisible();
 
-  await page.goto("/");
-  await expect(page.getByRole("listitem").filter({ hasText: "Add your first lead" }).getByText("Done")).toBeVisible();
-  await expect(page.getByRole("listitem").filter({ hasText: "Draft your first estimate" }).getByText("Done")).toBeVisible();
-  const proposal = page.getByRole("listitem").filter({ hasText: "Send a test proposal to yourself" });
-  await expect(proposal.getByRole("link", { name: "Open the estimate" })).toBeVisible();
-  await expect(proposal.getByText("Done")).toHaveCount(0);
+  await page.goto("/setup");
+  await expect(page.getByRole("listitem").filter({ hasText: "First lead" })).toHaveAttribute("data-done", "true");
+  await expect(page.getByRole("listitem").filter({ hasText: "First estimate" })).toHaveAttribute("data-done", "true");
+  const proposal = page.getByRole("listitem").filter({ hasText: "Test proposal" });
+  await expect(proposal).toHaveAttribute("data-done", "false");
+  await expect(proposal.getByRole("link")).toBeVisible();
 });

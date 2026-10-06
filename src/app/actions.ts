@@ -667,7 +667,7 @@ export async function feedbackAction(_prev: ActionState, formData: FormData): Pr
       userAgent: (await headers()).get("user-agent") || undefined,
     });
     revalidatePath("/feedback");
-    return { ok: "Saved. Nothing was emailed." };
+    return { ok: "Saved." };
   } catch (error) {
     return failure(error);
   }
@@ -1005,7 +1005,7 @@ export async function shareLogAction(logId: string, _prev: ActionState, formData
     setLogVisibility(user, logId, visibility);
     const log = getDb().select().from(dailyLogs).where(eq(dailyLogs.id, logId)).get();
     if (log) refreshLog(log.projectId, log.id);
-    return { ok: visibility === "client" ? "On the client portal. Nothing was emailed." : "Hidden from the client portal." };
+    return { ok: visibility === "client" ? "On the client portal." : "Hidden from the client portal." };
   } catch (error) {
     return failure(error);
   }
@@ -1192,7 +1192,7 @@ export async function payBillAction(billId: string, _prev: ActionState, formData
       reference: String(formData.get("reference") || ""),
     });
     refreshBill(String(formData.get("projectId") || ""), billId);
-    return { ok: "Marked paid. Nothing was sent to a bank." };
+    return { ok: "Marked paid." };
   } catch (error) {
     return failure(error);
   }
@@ -1238,7 +1238,7 @@ export async function issuePurchaseOrderAction(poId: string, _prev: ActionState,
     const user = await actor();
     const result = issuePurchaseOrder(user, poId);
     refreshPurchaseOrder(String(formData.get("projectId") || ""), poId);
-    return { ok: `Issued ${result.number}. It counts as committed. Nothing was sent.` };
+    return { ok: `Issued ${result.number}.` };
   } catch (error) {
     return failure(error);
   }

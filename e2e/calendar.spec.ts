@@ -7,7 +7,7 @@ async function signInAs(page: Page, email: string) {
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill("demo");
   await page.getByRole("button", { name: "Enter the office" }).click();
-  await expect(page.getByRole("heading", { name: /Today|My day/ })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: /Today|My day/ })).toBeVisible();
 }
 
 test("changing the week start regroups unlocked hours and leaves approved labor", async ({ page, request }) => {
@@ -37,7 +37,7 @@ test("changing the week start regroups unlocked hours and leaves approved labor"
   const before = (await weekHours.textContent())?.trim();
 
   await page.goto("/settings");
-  await expect(page.getByText("Unlocked week totals regroup when you change this.")).toBeVisible();
+  await expect(page.getByText("The week starts Monday")).toBeVisible();
   await page.getByLabel("Week starts").selectOption("0");
   await page.getByRole("button", { name: "Save", exact: true }).click();
   await expect(page.getByText("Settings saved.")).toBeVisible();

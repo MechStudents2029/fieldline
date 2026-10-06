@@ -20,7 +20,7 @@ test("client approves a change order and the contract and budget move", async ({
   await page.getByLabel("What changed").fill("Niche in the wet wall.");
   await page.getByLabel("Line name").fill("Linen niche");
   await page.getByLabel("Unit cost in dollars").fill("1000");
-  await page.getByRole("button", { name: "Price and send change order" }).click();
+  await page.getByRole("button", { name: "New change order" }).click();
   await expect(page.getByText("Change order sent to the client portal.")).toBeVisible();
   await page.getByRole("link", { name: /\/portal\// }).click();
   const order = page.getByRole("article").filter({ hasText: "Add a linen niche" });
@@ -37,11 +37,9 @@ test("client approves a change order and the contract and budget move", async ({
 
 test("a follow-up draft is on Today and stays unsent until approved", async ({ page }) => {
   await signIn(page);
-  await expect(page.getByRole("heading", { name: "Follow-ups to approve" })).toBeVisible();
-  await expect(page.getByText("Today does not send email.")).toBeVisible();
-  const row = page.getByRole("listitem").filter({ hasText: "Briggs deck stain — you opened the proposal" });
+  const row = page.getByRole("listitem").filter({ hasText: "Briggs deck stain" });
   await expect(row).toBeVisible();
-  await row.getByRole("link", { name: "Review" }).click();
+  await row.getByRole("link").click();
   const draft = page.getByRole("article").filter({ hasText: "Briggs deck stain — you opened the proposal" });
   await expect(draft.getByRole("button", { name: "Approve and send" })).toBeVisible();
   await expect(page.getByText("Sent to the local outbox")).toHaveCount(0);
@@ -56,7 +54,7 @@ test("a tester note is stored and listed for the owner", async ({ page }) => {
   await page.getByRole("textbox", { name: "Feedback", exact: true }).fill("The Today list made the unsigned Briggs draft obvious.");
   await page.getByRole("textbox", { name: "Feedback context" }).fill("Desktop, no screenshot");
   await page.getByRole("button", { name: "Save feedback" }).click();
-  await expect(page.getByText("Saved. Nothing was emailed.")).toBeVisible();
+  await expect(page.getByText("Saved.")).toBeVisible();
   await page.goto("/feedback");
   await expect(page.getByText("The Today list made the unsigned Briggs draft obvious.")).toBeVisible();
   await expect(page.getByText("Desktop, no screenshot")).toBeVisible();

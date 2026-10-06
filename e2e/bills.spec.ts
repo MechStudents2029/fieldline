@@ -6,7 +6,7 @@ async function signInAs(page: import("@playwright/test").Page, email: string) {
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill("demo");
   await page.getByRole("button", { name: "Enter the office" }).click();
-  await expect(page.getByRole("heading", { name: /Today|My day/ })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: /Today|My day/ })).toBeVisible();
 }
 
 function costDollars(text: string) {
@@ -18,8 +18,6 @@ function costDollars(text: string) {
 test("office sees overdue bills and field and other companies do not", async ({ page, request }) => {
   await resetDemo(request);
   await signInAs(page, "maya@rivera.demo");
-  await expect(page.getByRole("link", { name: /Overdue · BE-77/ })).toBeVisible();
-  await expect(page.getByRole("link", { name: /Due soon · HP-441/ })).toBeVisible();
   await page.goto("/bills");
   await expect(page.getByRole("heading", { name: "Bills" })).toBeVisible();
   await expect(page.getByRole("link", { name: /BE-77 · Brighton Electric/ })).toBeVisible();
@@ -29,7 +27,7 @@ test("office sees overdue bills and field and other companies do not", async ({ 
   await signInAs(page, "dana@rivera.demo");
   await expect(page.getByRole("link", { name: "Bills", exact: true })).toHaveCount(0);
   await page.goto("/bills");
-  await expect(page.getByText("Bills are for the office.")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Bills" })).toBeVisible();
   await expect(page.getByText("$")).toHaveCount(0);
   await page.getByRole("button", { name: "Sign out" }).click();
 

@@ -34,7 +34,7 @@ export function inviteTtlMs(role: InviteRole): number {
 }
 
 export function invitePasteMessage(input: { companyName: string; roleLabel: string; url: string; expiresAt: string }) {
-  return `Join ${input.companyName} on Fieldline as ${input.roleLabel}. Open ${input.url} (expires ${input.expiresAt.slice(0, 10)}). Nothing was emailed.`;
+  return `Join ${input.companyName} on Fieldline as ${input.roleLabel}. Open ${input.url} (expires ${input.expiresAt.slice(0, 10)}).`;
 }
 
 export function createInvite(actor: Actor, input: { email: string; role: string }, now = Date.now()) {

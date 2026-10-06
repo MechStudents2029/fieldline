@@ -19,6 +19,32 @@ export function formatBps(bps: number | null | undefined): string {
   return `${(bps / 100).toFixed(1)}%`;
 }
 
+/** Whole dollars for lists. `$46,200`. */
+export function formatWhole(cents: number | null | undefined): string {
+  if (cents == null || Number.isNaN(cents)) return "—";
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(cents / 100);
+}
+
+/** Compact summaries. `$359k`. */
+export function formatCompact(cents: number | null | undefined): string {
+  if (cents == null || Number.isNaN(cents)) return "—";
+  const dollars = cents / 100;
+  const sign = dollars < 0 ? "-" : "";
+  const abs = Math.abs(dollars);
+  if (abs >= 1000) {
+    const scaled = abs / 1000;
+    const digits = scaled >= 100 || Number.isInteger(scaled) ? 0 : 1;
+    return `${sign}$${scaled.toFixed(digits)}k`;
+  }
+  return formatWhole(cents);
+}
+
+/** Integer percent for lists. `76%`. */
+export function formatPercent(bps: number | null | undefined): string {
+  if (bps == null || Number.isNaN(bps)) return "—";
+  return `${Math.round(bps / 100)}%`;
+}
+
 export function dollarsToCents(value: number): number {
   return Math.round(value * 100);
 }

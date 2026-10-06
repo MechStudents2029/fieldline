@@ -6,7 +6,7 @@ async function signInAs(page: import("@playwright/test").Page, email: string) {
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill("demo");
   await page.getByRole("button", { name: "Enter the office" }).click();
-  await expect(page.getByRole("heading", { name: /Today|My day/ })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: /Today|My day/ })).toBeVisible();
 }
 
 test("issue a purchase order, link a bill, and watch committed fall as actual rises", async ({ page, request }) => {
@@ -66,7 +66,7 @@ test.describe("phone purchase orders", () => {
     await page.goto("/more");
     await expect(page.getByRole("link", { name: "Purchase orders", exact: true })).toHaveCount(0);
     await page.goto("/purchase-orders");
-    await expect(page.getByText("Purchase orders are for the office.")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Purchase orders" })).toBeVisible();
     await expect(page.getByText("$")).toHaveCount(0);
   });
 });
