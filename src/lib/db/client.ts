@@ -98,6 +98,7 @@ export function ensureReady(holder: Holder) {
   ensureImport(holder);
   ensureSelections(holder);
   ensureLeadForm(holder);
+  ensurePunch(holder);
   const version = holder.sqlite.prepare("select value from app_meta where key = ?").get("seed_version") as
     | { value: string }
     | undefined;
@@ -854,6 +855,96 @@ function ensureLeadForm(holder: Holder) {
   holder.sqlite.exec("create index if not exists lead_form_submissions_org on lead_form_submissions (org_id, seen_at)");
   holder.sqlite.exec("create index if not exists lead_form_submissions_lead on lead_form_submissions (org_id, lead_id)");
   holder.sqlite.exec("create index if not exists lead_form_attempts_org on lead_form_attempts (org_id, created_at)");
+}
+
+function columnExists(holder: Holder, table: string, column: string): boolean {
+  if (holder.dialect === "postgres") {
+    const row = holder.sqlite
+      .prepare(
+        "select column_name as name from information_schema.columns where table_schema = 'public' and table_name = ? and column_name = ?",
+      )
+      .get(table, column);
+    return Boolean(row);
+  }
+  return (holder.sqlite.prepare(`pragma table_info(${table})`).all() as { name: string }[]).some((entry) => entry.name === column);
+}
+
+function ensureColumn(holder: Holder, table: string, column: string, type: string) {
+  if (!tableExists(holder.sqlite, table, holder.dialect)) return;
+  if (!columnExists(holder, table, column)) holder.sqlite.exec(`alter table ${table} add column ${column} ${type}`);
+}
+
+function ensurePunch(holder: Holder) {
+  const pk = holder.dialect === "postgres" ? "text primary key" : "text primary key not null";
+  ensureColumn(holder, "organizations", "warranty_months", "integer not null default 12");
+  ensureColumn(holder, "projects", "substantial_at", "text");
+  ensureColumn(holder, "projects", "closed_at", "text");
+  ensureColumn(holder, "projects", "warranty_ends_on", "text");
+  ensureColumn(holder, "projects", "warranty_months", "integer");
+  ensureColumn(holder, "projects", "close_override_reason", "text");
+  if (!tableExists(holder.sqlite, "punch_items", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists punch_items (
+      id ${pk},
+      org_id text not null,
+      project_id text not null,
+      title text not null,
+      location text,
+      cost_code text,
+      assignee_user_id text,
+      assignee_contact_id text,
+      due_date text,
+      status text not null,
+      shared integer not null default 0,
+      before_document_id text,
+      after_document_id text,
+      done_at text,
+      verified_at text,
+      created_by text,
+      created_at text not null,
+      updated_at text not null
+    )`);
+  }
+  if (!tableExists(holder.sqlite, "warranty_requests", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists warranty_requests (
+      id ${pk},
+      org_id text not null,
+      project_id text not null,
+      title text not null,
+      description text,
+      urgency text not null,
+      status text not null,
+      visit_date text,
+      schedule_item_id text,
+      assignee_user_id text,
+      cost_code text,
+      cost_item_id text,
+      client_note text,
+      internal_note text,
+      created_at text not null,
+      updated_at text not null
+    )`);
+  }
+  if (!tableExists(holder.sqlite, "warranty_photos", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists warranty_photos (
+      id ${pk},
+      org_id text not null,
+      request_id text not null,
+      document_id text not null,
+      sort_order integer not null
+    )`);
+  }
+  if (!tableExists(holder.sqlite, "warranty_attempts", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists warranty_attempts (
+      id ${pk},
+      org_id text not null,
+      ip text not null,
+      created_at text not null
+    )`);
+  }
+  holder.sqlite.exec("create index if not exists punch_items_org on punch_items (org_id, project_id)");
+  holder.sqlite.exec("create index if not exists warranty_requests_org on warranty_requests (org_id, project_id, status)");
+  holder.sqlite.exec("create index if not exists warranty_photos_request on warranty_photos (org_id, request_id)");
+  holder.sqlite.exec("create index if not exists warranty_attempts_org on warranty_attempts (org_id, created_at)");
 }
 
 function ensureTesterFeedback(holder: Holder) {

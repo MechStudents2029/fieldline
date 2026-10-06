@@ -17,6 +17,8 @@ import { projectBills } from "@/lib/services/bills";
 import { projectPurchaseOrders } from "@/lib/services/purchase-orders";
 import { captionFromMetadata, listPriceBook, listProjects, pipelineBoard, projectDetail } from "@/lib/services/read";
 import { jobSchedule } from "@/lib/services/schedule";
+import { PunchSection } from "@/components/punch-section";
+import { punchBoard } from "@/lib/services/punch";
 import { selectionBoard } from "@/lib/services/selections";
 import { timeBoard } from "@/lib/services/time";
 import { localDay } from "@/lib/time/calendar";
@@ -45,6 +47,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
   const todayKey = officeToday(board.timeZone);
   const schedule = jobSchedule(session, detail.project.id);
   const picks = selectionBoard(session, detail.project.id, todayKey);
+  const punch = punchBoard(session, detail.project.id);
   const ranked = money ? [...money.byCode].sort((a, b) => (b.percentOfBudget ?? 0) - (a.percentOfBudget ?? 0)).slice(0, 2) : [];
   const paid = detail.invoices.reduce((sum, invoice) => sum + invoice.amountPaidCents, 0);
   const projectRows = listProjects(session.orgId);
@@ -79,6 +82,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
                 { href: `/projects/${detail.project.id}/logs`, label: "Logs" },
                 { href: "#photos", label: "Docs" },
                 { href: `/projects/${detail.project.id}/selections`, label: "Selections" },
+                { href: "#punch", label: "Punch" },
               ]}
             />
           }
@@ -135,6 +139,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
           </div>
         </div>
       ) : null}
+      {punch ? <PunchSection board={punch} /> : null}
       <nav aria-label="Job sections" className="grid grid-cols-5 rounded-[10px] bg-[var(--fl-fill)] p-1 md:hidden">
         <a href="#overview" className="rounded-lg bg-card py-1.5 text-center fl-footnote">
           Overview
@@ -450,7 +455,8 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
       <aside className="mac-inspector" aria-label="Inspector">
         <p className="mac-t11 font-semibold text-[var(--mac-secondary)]">Details</p>
         <dl className="mac-kv">
-          <div><dt>Status</dt><dd>{titleCase(detail.project.status)}</dd></div>
+          <div><dt>Status</dt><dd>{punch?.closeout.closed ? "Closed" : punch?.closeout.substantial ? "Substantial" : titleCase(detail.project.status)}</dd></div>
+          {punch?.closeout.endsOn ? <div><dt>Warranty</dt><dd>{formatCalendarDay(punch.closeout.endsOn)}</dd></div> : null}
           <div><dt>Start</dt><dd>{formatCalendarDay(detail.project.startDate)}</dd></div>
           <div><dt>Finish</dt><dd>{formatCalendarDay(detail.project.endDate)}</dd></div>
           <div><dt>Lead</dt><dd>{detail.ownerName || "—"}</dd></div>

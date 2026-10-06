@@ -119,6 +119,10 @@ export default async function SettingsPage() {
             </select>
           </label>
           <label className="text-sm">
+            Warranty months
+            <input name="warrantyMonths" type="number" min={1} max={120} defaultValue={org.warrantyMonths} className="field mt-1" />
+          </label>
+          <label className="text-sm">
             Week starts
             <select name="weekStartsOn" defaultValue={String(org.weekStartsOn)} className="field mt-1">
               {WEEKDAY_NAMES.map((name, index) => (

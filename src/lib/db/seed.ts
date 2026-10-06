@@ -1,6 +1,7 @@
 import type Database from "better-sqlite3";
 import { eq } from "drizzle-orm";
 import type { AppDatabase } from "@/lib/db/client";
+import { addMonths } from "@/lib/closeout/check";
 import { addCalendarDays, localDay, localWeek, zonedTimeToUtc } from "@/lib/time/calendar";
 import { northlineCatalog, riveraCatalog } from "@/lib/db/catalog";
 import {
@@ -46,6 +47,8 @@ import {
   pipelines,
   priceBookItems,
   projects,
+  punchItems,
+  warrantyRequests,
   proposals,
   signatures,
   tasks,
@@ -73,7 +76,7 @@ import {
   WEBSITE_FORM_SOURCE,
 } from "@/lib/lead-form/rules";
 
-export const SEED_VERSION = "14";
+export const SEED_VERSION = "15";
 
 const ORG = "org_rivera";
 const NORTH = "org_northline";
@@ -137,6 +140,7 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
         termsVersion: "2026-09-01",
         timeZone: "America/New_York",
         weekStartsOn: 1,
+        warrantyMonths: 12,
         createdAt: created,
         updatedAt: now,
       },
@@ -158,6 +162,7 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
         termsVersion: "2026-09-01",
         timeZone: "America/Los_Angeles",
         weekStartsOn: 1,
+        warrantyMonths: 12,
         createdAt: created,
         updatedAt: now,
       },
@@ -845,6 +850,19 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
         createdBy: "user_maya",
       })
       .run();
+    if (job.id === "proj_diaz") {
+      const closedOn = daysAgo(4).slice(0, 10);
+      db.update(projects)
+        .set({
+          substantialAt: daysAgo(6),
+          closedAt: daysAgo(4),
+          warrantyEndsOn: addMonths(closedOn, 12),
+          warrantyMonths: 12,
+          updatedAt: now,
+        })
+        .where(eq(projects.id, job.id))
+        .run();
+    }
     db.update(proposals).set({ projectId: job.id }).where(eq(proposals.id, proposalId)).run();
     db.insert(budgetLines)
       .values(
@@ -1999,6 +2017,40 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
       attribution: "source website",
       seenAt: null,
       createdAt: now,
+    })
+    .run();
+
+  const punchToday = localDay(Date.parse(now), "America/New_York");
+  db.insert(punchItems)
+    .values([
+      { id: "punch_ok_curb", orgId: ORG, projectId: "proj_okonkwo", title: "Caulk the curb", location: "Shower", costCode: "TILE-SHOWER", assigneeUserId: "user_dana", assigneeContactId: null, dueDate: punchToday, status: "open", shared: 1, beforeDocumentId: null, afterDocumentId: null, doneAt: null, verifiedAt: null, createdBy: "user_maya", createdAt: daysAgo(2), updatedAt: daysAgo(2) },
+      { id: "punch_ok_paint", orgId: ORG, projectId: "proj_okonkwo", title: "Touch up the ceiling", location: "Hall", costCode: "GC-SUPER", assigneeUserId: "user_dana", assigneeContactId: null, dueDate: addCalendarDays(punchToday, -1), status: "done", shared: 0, beforeDocumentId: null, afterDocumentId: null, doneAt: daysAgo(1), verifiedAt: null, createdBy: "user_dana", createdAt: daysAgo(3), updatedAt: daysAgo(1) },
+      { id: "punch_ok_vanity", orgId: ORG, projectId: "proj_okonkwo", title: "Align the vanity door", location: "Vanity", costCode: "BATH-VANITY", assigneeUserId: "user_dana", assigneeContactId: null, dueDate: addCalendarDays(punchToday, -3), status: "verified", shared: 1, beforeDocumentId: null, afterDocumentId: null, doneAt: daysAgo(3), verifiedAt: daysAgo(2), createdBy: "user_maya", createdAt: daysAgo(4), updatedAt: daysAgo(2) },
+      { id: "punch_ok_esc", orgId: ORG, projectId: "proj_okonkwo", title: "Replace the escutcheon", location: "Shower", costCode: "PLB-SHOWER", assigneeUserId: null, assigneeContactId: "c_harbor", dueDate: addCalendarDays(punchToday, 2), status: "open", shared: 0, beforeDocumentId: null, afterDocumentId: null, doneAt: null, verifiedAt: null, createdBy: "user_sam", createdAt: daysAgo(1), updatedAt: daysAgo(1) },
+      { id: "punch_ok_mirror", orgId: ORG, projectId: "proj_okonkwo", title: "Seal the mirror edge", location: "Vanity", costCode: null, assigneeUserId: null, assigneeContactId: null, dueDate: addCalendarDays(punchToday, 1), status: "open", shared: 1, beforeDocumentId: null, afterDocumentId: null, doneAt: null, verifiedAt: null, createdBy: "user_maya", createdAt: now, updatedAt: now },
+      { id: "punch_dz_rail", orgId: ORG, projectId: "proj_diaz", title: "Tighten the rail", location: "Deck", costCode: "DECK-RAIL", assigneeUserId: "user_dana", assigneeContactId: null, dueDate: addCalendarDays(punchToday, -10), status: "verified", shared: 1, beforeDocumentId: null, afterDocumentId: null, doneAt: daysAgo(8), verifiedAt: daysAgo(6), createdBy: "user_maya", createdAt: daysAgo(9), updatedAt: daysAgo(6) },
+      { id: "punch_dz_post", orgId: ORG, projectId: "proj_diaz", title: "Seal the post cap", location: "Stairs", costCode: "DECK-FOOT", assigneeUserId: "user_dana", assigneeContactId: null, dueDate: addCalendarDays(punchToday, -9), status: "verified", shared: 1, beforeDocumentId: null, afterDocumentId: null, doneAt: daysAgo(8), verifiedAt: daysAgo(6), createdBy: "user_maya", createdAt: daysAgo(9), updatedAt: daysAgo(6) },
+    ])
+    .run();
+
+  db.insert(warrantyRequests)
+    .values({
+      id: "wr_dz_board",
+      orgId: ORG,
+      projectId: "proj_diaz",
+      title: "Loose deck board",
+      description: "A board lifted at the stair.",
+      urgency: "soon",
+      status: "submitted",
+      visitDate: null,
+      scheduleItemId: null,
+      assigneeUserId: null,
+      costCode: null,
+      costItemId: null,
+      clientNote: null,
+      internalNote: "Check the ledger.",
+      createdAt: daysAgo(1),
+      updatedAt: daysAgo(1),
     })
     .run();
 
