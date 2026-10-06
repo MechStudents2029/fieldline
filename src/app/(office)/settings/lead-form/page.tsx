@@ -18,7 +18,7 @@ export default async function LeadFormSettingsPage() {
   const origin = appOrigin(process.env) ?? "";
   const url = `${origin}/f/${board.token}`;
   return (
-    <div className="mx-auto flex max-w-xl flex-col gap-4 px-6 pb-10">
+    <div className="mx-auto flex max-w-5xl flex-col gap-4 px-6 pb-10">
       <div>
         <h1 className="font-heading text-3xl">Lead form</h1>
         <p className="text-sm text-muted-foreground">{session.orgName}</p>

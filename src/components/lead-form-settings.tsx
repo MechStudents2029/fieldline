@@ -35,7 +35,7 @@ export function LeadFormSettings({ board, url, embed }: { board: LeadFormBoard; 
   const [saved, save, saving] = useActionState(saveLeadFormAction, null as ActionState);
   const [rotated, rotate, rotating] = useActionState(regenerateLeadFormAction, null as ActionState);
   return (
-    <div className="flex flex-col gap-6">
+    <div className="grid items-start gap-6 lg:grid-cols-2">
       <form action={save} className="flex flex-col gap-3 rounded-xl bg-card p-4 ring-1 ring-foreground/10">
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" name="enabled" defaultChecked={board.enabled} />
@@ -86,19 +86,21 @@ export function LeadFormSettings({ board, url, embed }: { board: LeadFormBoard; 
           Save
         </button>
       </form>
-      <CopyBlock label="Public link" value={url} rows={1} />
-      <CopyBlock label="Embed" value={embed} rows={4} />
-      <form action={rotate}>
-        <button type="submit" disabled={rotating} className="text-sm font-semibold text-[var(--fl-accent)] underline">
-          New link
-        </button>
-        {rotated?.ok ? <p className="mt-2 text-sm">{rotated.ok}</p> : null}
-        {rotated?.error ? (
-          <p role="alert" className="mt-2 text-sm text-destructive">
-            {rotated.error}
-          </p>
-        ) : null}
-      </form>
+      <div className="flex flex-col gap-6">
+        <CopyBlock label="Public link" value={url} rows={1} />
+        <CopyBlock label="Embed" value={embed} rows={4} />
+        <form action={rotate}>
+          <button type="submit" disabled={rotating} className="text-sm font-semibold text-[var(--fl-accent)] underline">
+            New link
+          </button>
+          {rotated?.ok ? <p className="mt-2 text-sm">{rotated.ok}</p> : null}
+          {rotated?.error ? (
+            <p role="alert" className="mt-2 text-sm text-destructive">
+              {rotated.error}
+            </p>
+          ) : null}
+        </form>
+      </div>
     </div>
   );
 }
