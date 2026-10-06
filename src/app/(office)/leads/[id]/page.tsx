@@ -7,7 +7,9 @@ import { Button } from "@/components/ui/button";
 import { requireSession } from "@/lib/auth/session";
 import { formatDateTime } from "@/lib/format";
 import { formatMoney } from "@/lib/money";
+import { WEBSITE_FORM_SOURCE } from "@/lib/lead-form/rules";
 import { canSeeMoney } from "@/lib/permissions";
+import { markWebLeadOpened, webLeadSubmission } from "@/lib/services/lead-form";
 import { captionFromMetadata, leadDetail, pipelineBoard } from "@/lib/services/read";
 
 export default async function LeadPage({ params }: { params: Promise<{ id: string }> }) {
@@ -17,11 +19,29 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
   if (!detail?.contact) return <MissingRecord orgName={session.orgName} kind="lead" />;
   const board = pipelineBoard(session.orgId);
   const money = canSeeMoney(session.role);
+  const web = detail.lead.source === WEBSITE_FORM_SOURCE ? webLeadSubmission(session.orgId, detail.lead.id) : null;
+  if (web) markWebLeadOpened(session.orgId, detail.lead.id);
+  const answers = web
+    ? (
+        [
+          ["Email", web.answers.email],
+          ["Phone", web.answers.phone],
+          ["Address", web.answers.address],
+          ["Project type", web.answers.projectType],
+          ["Budget", web.answers.budget],
+          ["Timeline", web.answers.timeline],
+          ["Description", web.answers.description],
+        ] as const
+      ).filter((row) => row[1])
+    : [];
   const latest = detail.estimates.find((estimate) => estimate.status !== "void");
   return (
     <div className="flex flex-col gap-5">
       <div>
-        <p className="text-xs uppercase tracking-wide text-muted-foreground">{detail.stage?.name} · {detail.lead.source}</p>
+        <p className="flex items-center gap-2 text-xs uppercase tracking-wide text-muted-foreground">
+          <span>{detail.stage?.name} · {detail.lead.source}</span>
+          {web ? <span className="fl-pill normal-case">Website form</span> : null}
+        </p>
         <h1 className="font-heading text-3xl">{detail.lead.title}</h1>
         <p className="text-sm">
           <Link href={`/contacts/${detail.contact.id}`} className="underline">
@@ -47,6 +67,20 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
           Update
         </Button>
       </ActionForm>
+      {web ? (
+        <section className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
+          <h2 className="font-semibold">Website form</h2>
+          <dl className="mt-2 flex flex-col gap-1 text-sm">
+            {answers.map(([label, value]) => (
+              <div key={label} className="flex gap-3">
+                <dt className="w-28 shrink-0 text-[var(--mac-secondary)]">{label}</dt>
+                <dd className="whitespace-pre-wrap">{value}</dd>
+              </div>
+            ))}
+          </dl>
+          {web.attribution ? <p className="mt-2 text-sm text-[var(--mac-secondary)]">{web.attribution}</p> : null}
+        </section>
+      ) : null}
       <section className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
         <h2 className="font-medium">Scope</h2>
         <p className="mt-2 whitespace-pre-wrap text-sm">{detail.lead.scopeText || "No scope yet."}</p>

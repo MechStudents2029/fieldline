@@ -11,6 +11,8 @@ import { canSeeMoney } from "@/lib/permissions";
 import { companyChecklist, firstProposal } from "@/lib/services/onboarding";
 import { dashboard, listInvoices, listProjects, pipelineBoard } from "@/lib/services/read";
 import { MyDay } from "@/components/my-day";
+import { WEBSITE_FORM_SOURCE } from "@/lib/lead-form/rules";
+import { unseenWebLeadCount } from "@/lib/services/lead-form";
 import { overdueSelections } from "@/lib/services/selections";
 import { timeBoard } from "@/lib/services/time";
 import { addCalendarDays, localDay } from "@/lib/time/calendar";
@@ -99,6 +101,8 @@ export default async function TodayPage() {
       trailing: money ? formatWhole(card.lead.valueEstCents) : "",
     });
   }
+  const webLeadCount = unseenWebLeadCount(session.orgId);
+  const webLeadHref = `/pipeline?source=${encodeURIComponent(WEBSITE_FORM_SOURCE)}`;
   const todayKey = officeDay(time.timeZone);
   const lateSelections = overdueSelections(session.orgId, todayKey).map((row) => ({
     key: `sel_${row.id}`,
@@ -143,6 +147,11 @@ export default async function TodayPage() {
         />
       ) : null}
       {quiet ? <EmptyState title="No jobs yet" why="Add a lead to start your pipeline." href="/leads/new" action="Add a lead" /> : null}
+      {webLeadCount > 0 ? (
+        <ul className="fl-group">
+          <GroupedRow href={webLeadHref} title="New web leads" trailing={<span className="num">{webLeadCount}</span>} />
+        </ul>
+      ) : null}
       {shown.length > 0 ? (
         <GroupedList label="Needs you">
           {shown.map((row) => (
@@ -227,6 +236,11 @@ export default async function TodayPage() {
         {quiet ? <EmptyState title="No jobs yet" why="Add a lead to start your pipeline." href="/leads/new" action="Add a lead" /> : null}
         <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_400px]">
           <div className="flex flex-col gap-6">
+            {webLeadCount > 0 ? (
+              <ul className="fl-group">
+                <GroupedRow href={webLeadHref} title="New web leads" trailing={<span className="num">{webLeadCount}</span>} />
+              </ul>
+            ) : null}
             {shown.length > 0 ? (
               <GroupedList label="Needs you">
                 {shown.map((row) => (

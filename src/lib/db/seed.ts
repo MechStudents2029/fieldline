@@ -41,6 +41,8 @@ import {
   selectionChoices,
   selectionEvents,
   selections,
+  leadFormSubmissions,
+  leadForms,
   pipelines,
   priceBookItems,
   projects,
@@ -64,8 +66,14 @@ import { daysAgo, daysFromNow, nowIso } from "@/lib/ids";
 import { achFeeCents, qtyToMilli } from "@/lib/money";
 import { CONSENT_VERSION, DEMO_PASSWORD } from "@/lib/product";
 import { proposalNudgeCopy } from "@/lib/ai/nurture";
+import {
+  defaultFields,
+  DEMO_NORTH_FORM_TOKEN,
+  DEMO_RIVERA_FORM_TOKEN,
+  WEBSITE_FORM_SOURCE,
+} from "@/lib/lead-form/rules";
 
-export const SEED_VERSION = "13";
+export const SEED_VERSION = "14";
 
 const ORG = "org_rivera";
 const NORTH = "org_northline";
@@ -246,6 +254,7 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
     { id: "c_summit", type: "vendor", name: "Gail Nguyen", company: "Summit Lumber", email: "gail@summit.example", phone: "(510) 555-0301" },
     { id: "c_slab", type: "vendor", name: "Owen Clarke", company: "Slab House", email: "owen@slabhouse.example", phone: "(510) 555-0302" },
     { id: "c_mill", type: "vendor", name: "Fran Doyle", company: "Mill & Co Cabinets", email: "fran@millco.example", phone: "(510) 555-0303" },
+    { id: "c_ellis", type: "client", name: "Nora Ellis", email: "nora.ellis@example.com", phone: "(510) 555-0194", address: "18 Maple St", city: "Oakland" },
   ];
 
   db.insert(contacts)
@@ -456,6 +465,27 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
       createdAt: daysAgo(4),
       updatedAt: daysAgo(1),
       createdBy: "user_jordan",
+    })
+    .run();
+
+  db.insert(leads)
+    .values({
+      id: "lead_web_ellis",
+      orgId: ORG,
+      contactId: "c_ellis",
+      stageId: "stage_new",
+      title: "Nora Ellis Bath remodel",
+      source: WEBSITE_FORM_SOURCE,
+      valueEstCents: null,
+      ownerUserId: null,
+      status: "open",
+      lostReason: null,
+      scopeText: "Bath remodel\n18 Maple St\nBudget $25–50k\nTimeline 1–3 months\nPrimary bath, about 80 sq ft, new tile.",
+      sqft: 80,
+      deletedAt: null,
+      createdAt: now,
+      updatedAt: now,
+      createdBy: null,
     })
     .run();
 
@@ -1888,6 +1918,7 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
       activity("act_p1", "lead", "lead_park", "note", "Lost. She took a lower bid that excluded the panel.", daysAgo(18), "user", "user_luis"),
       activity("act_br", "project", "proj_brooks", "alert", "Margin is under the 20% watch line after the lumber ticket posted.", daysAgo(6), "system", null),
       activity("act_ok", "project", "proj_okonkwo", "change_order", "Client approved two change orders.", daysAgo(7), "user", "user_luis"),
+      activity("act_web", "lead", "lead_web_ellis", "intake", "Website form from Nora Ellis.", now, "system", null),
     ])
     .run();
 
@@ -1916,6 +1947,59 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
       { id: "int_qbo", orgId: ORG, provider: "qbo", status: "not_connected", label: "CSV export stands in for QuickBooks until v1.1", createdAt: created, updatedAt: now },
       { id: "int_ai", orgId: ORG, provider: "ai", status: "stub", label: "Estimates use the price book. AI Gateway is used when AI_GATEWAY_API_KEY is set", createdAt: created, updatedAt: now },
     ])
+    .run();
+
+  const formFields = JSON.stringify(defaultFields(true));
+  db.insert(leadForms)
+    .values([
+      {
+        id: "form_rivera",
+        orgId: ORG,
+        enabled: 1,
+        token: DEMO_RIVERA_FORM_TOKEN,
+        intro: "Tell us about the project.",
+        thanks: "Thanks. We'll be in touch.",
+        fieldsJson: formFields,
+        projectTypesJson: JSON.stringify(["Kitchen remodel", "Bath remodel", "Addition", "Deck"]),
+        createdAt: created,
+        updatedAt: now,
+      },
+      {
+        id: "form_north",
+        orgId: NORTH,
+        enabled: 0,
+        token: DEMO_NORTH_FORM_TOKEN,
+        intro: "Tell us about the project.",
+        thanks: "Thanks. We'll be in touch.",
+        fieldsJson: formFields,
+        projectTypesJson: JSON.stringify(["Panel", "EV charger", "Lighting"]),
+        createdAt: created,
+        updatedAt: now,
+      },
+    ])
+    .run();
+
+  db.insert(leadFormSubmissions)
+    .values({
+      id: "sub_ellis",
+      orgId: ORG,
+      formId: "form_rivera",
+      leadId: "lead_web_ellis",
+      contactId: "c_ellis",
+      answersJson: JSON.stringify({
+        name: "Nora Ellis",
+        email: "nora.ellis@example.com",
+        phone: "(510) 555-0194",
+        address: "18 Maple St",
+        projectType: "Bath remodel",
+        budget: "$25–50k",
+        timeline: "1–3 months",
+        description: "Primary bath, about 80 sq ft, new tile.",
+      }),
+      attribution: "source website",
+      seenAt: null,
+      createdAt: now,
+    })
     .run();
 
   db.insert(auditLogs)

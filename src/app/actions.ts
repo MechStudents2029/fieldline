@@ -49,6 +49,8 @@ import {
 import { supabaseAuthConfigured } from "@/lib/supabase/env";
 import { supabasePasswordAuth } from "@/lib/supabase/password";
 import { ServiceError } from "@/lib/services/errors";
+import { regenerateLeadFormKey, saveLeadForm, submitLeadForm } from "@/lib/services/lead-form";
+import { MAX_PHOTOS } from "@/lib/lead-form/rules";
 import { addStarterPriceBook, setSetupDismissed } from "@/lib/services/onboarding";
 import { acceptExistingAccount, acceptNewAccount, changeMemberRole, createInvite, INVITE_EMAIL, previewInvite, removeMember, revokeInvite } from "@/lib/services/team";
 import { verifyPassword } from "@/lib/auth/password";
@@ -1573,6 +1575,89 @@ export async function chooseSelectionAction(token: string, _prev: ActionState, f
   }
   revalidatePath(`/portal/${token}`);
   redirect(`/portal/${token}#selections`);
+}
+
+async function leadFormPhotos(formData: FormData) {
+  const files = formData.getAll("photos").filter((file): file is File => file instanceof File && file.size > 0);
+  if (files.length > MAX_PHOTOS) throw new ServiceError("Three photos at most.");
+  const photos = [];
+  for (const file of files) {
+    photos.push({ filename: file.name || "photo.jpg", bytes: Buffer.from(await file.arrayBuffer()) });
+  }
+  return photos;
+}
+
+export async function saveLeadFormAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const types = String(formData.get("projectTypes") || "")
+      .split(/\n/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+    saveLeadForm(user, {
+      enabled: formData.get("enabled") === "on",
+      intro: String(formData.get("intro") || ""),
+      thanks: String(formData.get("thanks") || ""),
+      fields: {
+        address: formData.get("address") === "on",
+        projectType: formData.get("projectType") === "on",
+        budget: formData.get("budget") === "on",
+        timeline: formData.get("timeline") === "on",
+        description: formData.get("description") === "on",
+        photos: formData.get("photos") === "on",
+      },
+      projectTypes: types,
+    });
+    revalidatePath("/settings/lead-form");
+    return { ok: "Saved" };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function regenerateLeadFormAction(_prev: ActionState, _formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    regenerateLeadFormKey(user);
+    revalidatePath("/settings/lead-form");
+    return { ok: "New link" };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function submitPublicLeadAction(formToken: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const headerList = await headers();
+    const result = submitLeadForm({
+      token: formToken,
+      ip: headerList.get("x-forwarded-for")?.split(",")[0]?.trim() || "local",
+      referrer: headerList.get("referer"),
+      source: String(formData.get("source") || ""),
+      utmSource: String(formData.get("utm_source") || ""),
+      utmMedium: String(formData.get("utm_medium") || ""),
+      utmCampaign: String(formData.get("utm_campaign") || ""),
+      companyUrl: String(formData.get("hp_field") || ""),
+      startedAt: String(formData.get("startedAt") || ""),
+      name: String(formData.get("name") || ""),
+      email: String(formData.get("email") || ""),
+      phone: String(formData.get("phone") || ""),
+      address: String(formData.get("address") || ""),
+      projectType: String(formData.get("projectType") || ""),
+      budget: String(formData.get("budget") || ""),
+      timeline: String(formData.get("timeline") || ""),
+      description: String(formData.get("description") || ""),
+      photos: await leadFormPhotos(formData),
+    });
+    if ("leadId" in result) {
+      revalidatePath("/");
+      revalidatePath("/pipeline");
+      revalidatePath(`/leads/${result.leadId}`);
+    }
+    return { ok: "sent" };
+  } catch (error) {
+    return failure(error);
+  }
 }
 
 export async function rotateCalendarFeedAction(_prev: ActionState, _formData: FormData): Promise<ActionState> {

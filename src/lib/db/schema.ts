@@ -970,6 +970,50 @@ export const selectionEvents = sqliteTable(
   (t) => [index("selection_events_selection").on(t.orgId, t.selectionId)],
 );
 
+export const leadForms = sqliteTable(
+  "lead_forms",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    enabled: integer("enabled").notNull().default(0),
+    token: text("token").notNull(),
+    intro: text("intro").notNull().default(""),
+    thanks: text("thanks").notNull(),
+    fieldsJson: text("fields_json").notNull(),
+    projectTypesJson: text("project_types_json").notNull(),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (t) => [uniqueIndex("lead_forms_org").on(t.orgId), uniqueIndex("lead_forms_token").on(t.token)],
+);
+
+export const leadFormSubmissions = sqliteTable(
+  "lead_form_submissions",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    formId: text("form_id").notNull(),
+    leadId: text("lead_id").notNull(),
+    contactId: text("contact_id").notNull(),
+    answersJson: text("answers_json").notNull(),
+    attribution: text("attribution"),
+    seenAt: text("seen_at"),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [index("lead_form_submissions_org").on(t.orgId, t.seenAt), index("lead_form_submissions_lead").on(t.orgId, t.leadId)],
+);
+
+export const leadFormAttempts = sqliteTable(
+  "lead_form_attempts",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    ip: text("ip").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [index("lead_form_attempts_org").on(t.orgId, t.createdAt)],
+);
+
 export const appMeta = sqliteTable("app_meta", {
   key: text("key").primaryKey(),
   value: text("value").notNull(),
