@@ -12,7 +12,7 @@ import {
 } from "@/app/actions";
 import { ActionForm } from "@/components/action-form";
 import { CopyField } from "@/components/copy-field";
-import { formatCalendarDay } from "@/lib/format";
+import { formatCalendarDay, formatWarrantyDay } from "@/lib/format";
 import { formatMoney } from "@/lib/money";
 import type { PunchBoard } from "@/lib/services/punch";
 
@@ -153,7 +153,7 @@ export function PunchSection({ board }: { board: PunchBoard }) {
           <p className="mac-t11 font-semibold text-[var(--mac-secondary)]">Closeout</p>
           {closeout.substantial ? <Pill>Substantial</Pill> : null}
           {closeout.closed ? <Pill>Closed</Pill> : null}
-          {closeout.endsOn ? <span className="mac-t11 num text-[var(--mac-secondary)]">{formatCalendarDay(closeout.endsOn)}</span> : null}
+          {closeout.endsOn ? <span className="mac-t11 num text-[var(--mac-secondary)]">{formatWarrantyDay(closeout.endsOn)}</span> : null}
         </div>
         <dl className="mac-kv" aria-label="Closeout">
           {closeout.checklist.map((row) => (

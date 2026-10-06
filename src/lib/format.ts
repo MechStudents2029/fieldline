@@ -1,5 +1,17 @@
 const isoDate = /^(\d{4})-(\d{2})-(\d{2})/;
 
+/** Calendar day with a year. `Oct 7, 2027`. Used for a warranty end. */
+export function formatWarrantyDay(day: string | null | undefined): string {
+  const match = isoDate.exec(day?.trim() ?? "");
+  if (!match) return "—";
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]))));
+}
+
 /** Calendar day without a year. `Oct 7`. Never an ISO string. */
 export function formatCalendarDay(day: string | null | undefined): string {
   const match = isoDate.exec(day?.trim() ?? "");

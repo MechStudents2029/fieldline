@@ -1,6 +1,6 @@
 import { submitWarrantyAction } from "@/app/actions";
 import { ActionForm } from "@/components/action-form";
-import { formatDate } from "@/lib/format";
+import { formatDate, formatWarrantyDay } from "@/lib/format";
 import type { PortalWarranty } from "@/lib/services/punch";
 
 function photoSrc(id: string, token: string) {
@@ -29,7 +29,7 @@ export function PortalWarrantySection({ token, home, startedAt }: { token: strin
       <h2>Warranty</h2>
       {home.endsOn ? (
         <p className="home-sub">
-          Ends <span data-warranty-end={home.endsOn}>{formatDate(home.endsOn)}</span>
+          Ends <span data-warranty-end={home.endsOn}>{formatWarrantyDay(home.endsOn)}</span>
         </p>
       ) : null}
       {home.requests.length > 0 ? (

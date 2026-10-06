@@ -9,7 +9,7 @@ import { PhotoCapture } from "@/components/photo-capture";
 import { ReceiptCapture } from "@/components/receipt-capture";
 import { Button } from "@/components/ui/button";
 import { requireSession } from "@/lib/auth/session";
-import { formatCalendarDay, formatDateTime } from "@/lib/format";
+import { formatCalendarDay, formatDateTime, formatWarrantyDay } from "@/lib/format";
 import { overBudgetPercent } from "@/lib/margin/category";
 import { formatMoney, formatPercent, formatWhole } from "@/lib/money";
 import { canEditSchedule } from "@/lib/permissions";
@@ -455,7 +455,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
         <p className="mac-t11 font-semibold text-[var(--mac-secondary)]">Details</p>
         <dl className="mac-kv">
           <div><dt>Status</dt><dd>{punch?.closeout.closed ? "Closed" : punch?.closeout.substantial ? "Substantial" : titleCase(detail.project.status)}</dd></div>
-          {punch?.closeout.endsOn ? <div><dt>Warranty</dt><dd>{formatCalendarDay(punch.closeout.endsOn)}</dd></div> : null}
+          {punch?.closeout.endsOn ? <div><dt>Warranty</dt><dd>{formatWarrantyDay(punch.closeout.endsOn)}</dd></div> : null}
           <div><dt>Start</dt><dd>{formatCalendarDay(detail.project.startDate)}</dd></div>
           <div><dt>Finish</dt><dd>{formatCalendarDay(detail.project.endDate)}</dd></div>
           <div><dt>Lead</dt><dd>{detail.ownerName || "—"}</dd></div>
