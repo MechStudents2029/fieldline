@@ -57,7 +57,7 @@ import { achFeeCents, qtyToMilli } from "@/lib/money";
 import { DEMO_PASSWORD } from "@/lib/product";
 import { proposalNudgeCopy } from "@/lib/ai/nurture";
 
-export const SEED_VERSION = "7";
+export const SEED_VERSION = "8";
 
 const ORG = "org_rivera";
 const NORTH = "org_northline";
@@ -1205,7 +1205,7 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
         projectId: "proj_okonkwo",
         costCode: "GC-SUPER",
         status: "open",
-        clockInAt: hoursAgo(13),
+        clockInAt: hoursAgo(17),
         clockOutAt: null,
         breakMinutes: 0,
         breakStartedAt: null,
@@ -1215,8 +1215,8 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
         clockOutLatE6: null,
         clockOutLngE6: null,
         source: "clock",
-        createdAt: hoursAgo(13),
-        updatedAt: hoursAgo(13),
+        createdAt: hoursAgo(17),
+        updatedAt: hoursAgo(17),
         createdBy: "user_dana",
       },
       {
@@ -1300,7 +1300,7 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
         reason: null,
         beforeJson: null,
         afterJson: JSON.stringify({ status: "open", costCode: "GC-SUPER" }),
-        createdAt: hoursAgo(13),
+        createdAt: hoursAgo(17),
       },
     ])
     .run();

@@ -25,19 +25,16 @@ export function Toolbar({
 }) {
   const router = useRouter();
   return (
-    <div className="flex h-[52px] shrink-0 items-center gap-2.5 px-4">
-      <div className="flex min-w-0 items-center gap-2">
-        <button type="button" className="mac-glass-btn hidden w-8 justify-center px-0 max-[1023px]:inline-flex" aria-label="Show sidebar" onClick={() => window.dispatchEvent(new Event("fieldline-sidebar"))}>
-          ▤
-        </button>
+    <div className="flex h-[52px] shrink-0 items-center gap-3 px-4">
+      <div className="flex min-w-0 flex-1 items-center gap-2">
         {leading}
         <div className="min-w-0">
           <h1 className="truncate mac-t15">{title}</h1>
           {subtitle ? <p className="truncate mac-t11 text-[var(--mac-secondary)]">{subtitle}</p> : null}
         </div>
       </div>
-      <div className="flex flex-1 justify-center">{center}</div>
-      <div className="flex items-center gap-2">
+      {center ? <div className="flex shrink-0 justify-center">{center}</div> : null}
+      <div className="flex shrink-0 items-center gap-2">
         {search ? (
           <input
             data-mac-search

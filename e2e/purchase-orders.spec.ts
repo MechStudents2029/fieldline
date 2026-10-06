@@ -27,8 +27,8 @@ test("issue a purchase order, link a bill, and watch committed fall as actual ri
 
   await page.goto("/projects/proj_chen");
   const row = page.locator('[data-code="PLB-TOILET"]');
-  await expect(row.locator('[data-kind="committed"]')).toHaveText("$500.00");
-  await expect(row.locator('[data-kind="actual"]')).toHaveText("$0.00");
+  await expect(row.locator('[data-kind="committed"]')).toHaveText("$500");
+  await expect(row.locator('[data-kind="actual"]')).toHaveText("$0");
 
   await page.goto("/bills/new");
   await page.getByLabel("Job", { exact: true }).selectOption({ label: "Chen powder room" });
@@ -47,8 +47,8 @@ test("issue a purchase order, link a bill, and watch committed fall as actual ri
 
   await page.goto("/projects/proj_chen");
   const after = page.locator('[data-code="PLB-TOILET"]');
-  await expect(after.locator('[data-kind="committed"]')).toHaveText("$300.00");
-  await expect(after.locator('[data-kind="actual"]')).toHaveText("$200.00");
+  await expect(after.locator('[data-kind="committed"]')).toHaveText("$300");
+  await expect(after.locator('[data-kind="actual"]')).toHaveText("$200");
 });
 
 test.describe("phone purchase orders", () => {

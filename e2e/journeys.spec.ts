@@ -20,9 +20,9 @@ test("client approves a change order and the contract and budget move", async ({
   await page.getByLabel("What changed").fill("Niche in the wet wall.");
   await page.getByLabel("Line name").fill("Linen niche");
   await page.getByLabel("Unit cost in dollars").fill("1000");
-  await page.getByRole("button", { name: "New change order" }).click();
+  await page.getByRole("button", { name: "Change order" }).click();
   await expect(page.getByText("Change order sent to the client portal.")).toBeVisible();
-  await page.getByRole("link", { name: /\/portal\// }).click();
+  await page.getByRole("link", { name: "Copy portal link" }).click();
   const order = page.getByRole("article").filter({ hasText: "Add a linen niche" });
   await order.getByPlaceholder("Type your name").fill("Amara Okonkwo");
   await order.getByRole("checkbox", { name: /By signing/ }).check();

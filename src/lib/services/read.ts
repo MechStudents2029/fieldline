@@ -350,6 +350,8 @@ export function projectDetail(orgId: string, projectId: string, role: Role) {
     .where(and(eq(documents.projectId, projectId), isNull(documents.deletedAt)))
     .all();
   const proposal = project.proposalId ? db.select().from(proposals).where(eq(proposals.id, project.proposalId)).get() : null;
+  const lead = project.leadId ? db.select().from(leads).where(and(eq(leads.id, project.leadId), eq(leads.orgId, orgId))).get() : null;
+  const owner = lead?.ownerUserId ? db.select().from(users).where(eq(users.id, lead.ownerUserId)).get() : null;
   const timeline = db
     .select()
     .from(activities)
@@ -379,6 +381,7 @@ export function projectDetail(orgId: string, projectId: string, role: Role) {
     invoices: money ? invoiceRows : [],
     photos,
     proposal,
+    ownerName: owner?.name ?? null,
     timeline,
     financials: money
       ? {

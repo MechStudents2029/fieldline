@@ -5,6 +5,7 @@ import { GroupedList, GroupedRow, LargeTitle, NumberStrip, PlusLink } from "@/co
 import { Toolbar } from "@/components/mac/toolbar";
 import { SetupRow } from "@/components/setup-checklist";
 import { requireSession } from "@/lib/auth/session";
+import { formatCalendarDay } from "@/lib/format";
 import { formatCompact, formatPercent, formatWhole } from "@/lib/money";
 import { canSeeMoney } from "@/lib/permissions";
 import { companyChecklist } from "@/lib/services/onboarding";
@@ -35,7 +36,8 @@ function elapsed(iso: string) {
   const mins = Math.max(0, Math.floor((Date.now() - Date.parse(iso)) / 60000));
   const hours = Math.floor(mins / 60);
   const minutes = mins % 60;
-  return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
+  if (hours > 12) return { text: `Open ${hours}h`, forgotten: true };
+  return { text: hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`, forgotten: false };
 }
 
 function initials(name: string) {
@@ -102,7 +104,17 @@ export default async function TodayPage() {
   const avgMargin = active.length === 0 ? null : Math.round(active.reduce((sum, row) => sum + (row.marginBps ?? 0), 0) / active.length);
   const todayKey = officeDay(time.timeZone);
   const soon = addCalendarDays(todayKey, 14);
-  const cash = listInvoices(session.orgId).filter(({ invoice }) => invoice.status === "open" && invoice.dueDate.slice(0, 10) <= soon);
+  const invoices = listInvoices(session.orgId);
+  const cash = invoices.filter(({ invoice }) => invoice.status === "open" && invoice.dueDate.slice(0, 10) <= soon);
+  const milestone = (projectId: string) => {
+    const open = invoices
+      .filter(({ invoice }) => invoice.projectId === projectId && invoice.status === "open")
+      .sort((a, b) => a.invoice.dueDate.localeCompare(b.invoice.dueDate));
+    const next = open[0]?.invoice;
+    if (!next) return undefined;
+    const label = next.type.charAt(0).toUpperCase() + next.type.slice(1);
+    return next.dueDate.slice(0, 10) < todayKey ? `${label} late` : `${label} due ${formatCalendarDay(next.dueDate)}`;
+  };
   const weekJobs = projects.filter((row) => row.project.status === "active").slice(0, 4);
   const fresh = board.cards.filter((card) => card.stage.kind === "open" && card.stage.name !== "Estimate sent" && card.stage.name !== "Negotiation").slice(0, 3);
   return (
@@ -147,7 +159,7 @@ export default async function TodayPage() {
                     {person.projectName.split(" ")[0]} · {person.costCode}
                   </span>
                 </span>
-                <span className="fl-body tabular-nums text-[var(--fl-secondary)]">{elapsed(person.since)}</span>
+                <span className="fl-body tabular-nums text-[var(--fl-secondary)]">{elapsed(person.since).text}</span>
               </Link>
             </li>
           ))}
@@ -217,8 +229,15 @@ export default async function TodayPage() {
                     key={row.project.id}
                     href={`/projects/${row.project.id}`}
                     title={row.project.name}
-                    subtitle={row.project.status}
-                    trailing={money ? <span className={row.alert ? "text-[var(--mac-danger)]" : undefined}>{formatPercent(row.marginBps)} {formatWhole(row.project.contractValueCents)}</span> : undefined}
+                    subtitle={milestone(row.project.id)}
+                    trailing={
+                      money ? (
+                        <span className="inline-flex items-center gap-3">
+                          <span className={`w-10 text-right ${row.alert ? "text-[var(--mac-danger)]" : ""}`}>{formatPercent(row.marginBps)}</span>
+                          <span className="w-16 text-right">{formatWhole(row.project.contractValueCents)}</span>
+                        </span>
+                      ) : undefined
+                    }
                   />
                 ))}
               </GroupedList>
@@ -240,9 +259,18 @@ export default async function TodayPage() {
           <div className="flex flex-col gap-6">
             {crew.length > 0 ? (
               <GroupedList label="On site">
-                {crew.map((person) => (
-                  <GroupedRow key={person.entryId} href="/time" title={person.name} subtitle={`${person.projectName} · ${person.costCode}`} trailing={elapsed(person.since)} />
-                ))}
+                {crew.map((person) => {
+                  const punch = elapsed(person.since);
+                  return (
+                    <GroupedRow
+                      key={person.entryId}
+                      href="/time"
+                      title={person.name}
+                      subtitle={`${person.projectName} · ${person.costCode}`}
+                      trailing={<span className={punch.forgotten ? "font-semibold text-[var(--mac-warning)]" : undefined}>{punch.text}</span>}
+                    />
+                  );
+                })}
               </GroupedList>
             ) : null}
             {data.tasks.length > 0 ? (
@@ -255,12 +283,12 @@ export default async function TodayPage() {
                     return (
                       <li key={task.id} className="fl-cell" data-mac-row={task.title}>
                         <form action={completeTaskAction.bind(null, task.id)}>
-                          <button type="submit" aria-label="Done" className="fl-press inline-flex size-8 items-center justify-center">
-                            <span className="size-[18px] rounded-full border border-[var(--mac-separator)]" />
+                          <button type="submit" aria-label="Done" className="fl-press inline-flex size-5 items-center justify-center">
+                            <span className="size-3.5 rounded-full border border-[var(--mac-separator)]" />
                           </button>
                         </form>
-                        <span className="min-w-0 flex-1 truncate mac-t13">{task.title}</span>
-                        <span className={`num mac-t13 ${late ? "text-[var(--mac-danger)]" : "text-[var(--mac-secondary)]"}`}>{word}</span>
+                        <span className="fl-body min-w-0 flex-1 truncate">{task.title}</span>
+                        <span className={`fl-body num ${late ? "text-[var(--mac-danger)]" : "text-[var(--mac-secondary)]"}`}>{word}</span>
                       </li>
                     );
                   })}
@@ -274,7 +302,7 @@ export default async function TodayPage() {
                     key={invoice.id}
                     href={`/pay/${invoice.payToken}`}
                     title={project.name}
-                    subtitle={invoice.dueDate < todayKey ? "Late" : invoice.dueDate.slice(0, 10)}
+                    subtitle={invoice.dueDate.slice(0, 10) < todayKey ? "Late" : formatCalendarDay(invoice.dueDate)}
                     trailing={formatWhole(invoice.totalCents - invoice.amountPaidCents)}
                   />
                 ))}
