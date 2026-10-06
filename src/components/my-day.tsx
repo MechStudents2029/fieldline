@@ -66,6 +66,37 @@ export function MyDay({ actor }: { actor: Actor }) {
           ))}
         </ul>
       </section>
+      <OfflineBridge
+        scope={{ orgId: actor.orgId, userId: actor.userId }}
+        timeZone={day.timeZone}
+        weekStartsOn={day.weekStartsOn}
+        jobs={day.clockJobs}
+        codes={day.codes}
+        open={open ? { ...open, status: open.status === "break" ? "break" : "open" } : null}
+      />
+      <PendingPunches />
+      {open ? (
+        <section className="rounded-[var(--fl-radius)] bg-card px-4 py-5">
+          <p className="fl-footnote text-[var(--fl-secondary)]">On the clock</p>
+          <p className="fl-large-title tabular-nums">{clock(open.clockInAt)}</p>
+          <p className="fl-secondary-text mt-2 text-[var(--fl-secondary)]">
+            {open.projectName} · {open.costCode}
+          </p>
+          <div className="mt-4 grid grid-cols-2 gap-3">
+            <BreakControl scope={{ orgId: actor.orgId, userId: actor.userId }} onBreak={open.status === "break"} />
+            <ClockOutForm compact scope={{ orgId: actor.orgId, userId: actor.userId }} />
+          </div>
+          <form action={startLogAction.bind(null, open.projectId)} className="mt-3">
+            <Button type="submit" variant="outline" className="h-11 w-full">
+              {day.todayLogId ? "Continue today's log" : "Start today's log"}
+            </Button>
+          </form>
+        </section>
+      ) : (
+        <section className="rounded-[var(--fl-radius)] bg-card p-4">
+          <ClockInForm jobs={day.clockJobs} codes={day.codes} scope={{ orgId: actor.orgId, userId: actor.userId }} />
+        </section>
+      )}
       <section aria-label="Punch" className="flex flex-col gap-2">
         <h2 className="fl-section">Punch</h2>
         <ul className="flex flex-col gap-3">
@@ -111,37 +142,6 @@ export function MyDay({ actor }: { actor: Actor }) {
           </button>
         </ActionForm>
       </section>
-      <OfflineBridge
-        scope={{ orgId: actor.orgId, userId: actor.userId }}
-        timeZone={day.timeZone}
-        weekStartsOn={day.weekStartsOn}
-        jobs={day.clockJobs}
-        codes={day.codes}
-        open={open ? { ...open, status: open.status === "break" ? "break" : "open" } : null}
-      />
-      <PendingPunches />
-      {open ? (
-        <section className="rounded-[var(--fl-radius)] bg-card px-4 py-5">
-          <p className="fl-footnote text-[var(--fl-secondary)]">On the clock</p>
-          <p className="fl-large-title tabular-nums">{clock(open.clockInAt)}</p>
-          <p className="fl-secondary-text mt-2 text-[var(--fl-secondary)]">
-            {open.projectName} · {open.costCode}
-          </p>
-          <div className="mt-4 grid grid-cols-2 gap-3">
-            <BreakControl scope={{ orgId: actor.orgId, userId: actor.userId }} onBreak={open.status === "break"} />
-            <ClockOutForm compact scope={{ orgId: actor.orgId, userId: actor.userId }} />
-          </div>
-          <form action={startLogAction.bind(null, open.projectId)} className="mt-3">
-            <Button type="submit" variant="outline" className="h-11 w-full">
-              {day.todayLogId ? "Continue today's log" : "Start today's log"}
-            </Button>
-          </form>
-        </section>
-      ) : (
-        <section className="rounded-[var(--fl-radius)] bg-card p-4">
-          <ClockInForm jobs={day.clockJobs} codes={day.codes} scope={{ orgId: actor.orgId, userId: actor.userId }} />
-        </section>
-      )}
       <section className="flex flex-col gap-2">
         <h2 className="fl-section">Hours</h2>
         <ul className="fl-group">

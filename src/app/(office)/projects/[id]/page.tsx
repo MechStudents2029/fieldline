@@ -82,7 +82,6 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
                 { href: `/projects/${detail.project.id}/logs`, label: "Logs" },
                 { href: "#photos", label: "Docs" },
                 { href: `/projects/${detail.project.id}/selections`, label: "Selections" },
-                { href: "#punch", label: "Punch" },
               ]}
             />
           }

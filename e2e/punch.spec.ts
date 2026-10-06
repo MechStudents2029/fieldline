@@ -32,7 +32,7 @@ test("office punch, closeout, and warranty at 1440", async ({ page, request }) =
   await page.getByLabel("Item").fill("Reset the GFCI");
   await page.getByLabel("Room").fill("Bath");
   await page.getByRole("button", { name: "Add punch" }).click();
-  await expect(page.getByText("Reset the GFCI")).toBeVisible();
+  await expect(page.getByText("Reset the GFCI", { exact: true })).toBeVisible();
   await expect(page.locator("[data-count=open]")).toHaveText("4");
   await page.getByRole("button", { name: "Verify Touch up the ceiling" }).click();
   await expect(page.locator("[data-count=done]")).toHaveText("0");
@@ -42,18 +42,18 @@ test("office punch, closeout, and warranty at 1440", async ({ page, request }) =
   await page.getByRole("button", { name: "Substantial" }).click();
   await expect(page.getByText("Substantial", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Close job" }).click();
-  await expect(page.getByRole("alert")).toContainText("Clear the blockers");
+  await expect(page.getByText("Clear the blockers, or add a reason.")).toBeVisible();
 
   await page.goto("/projects/proj_diaz#warranty");
   await expect(page.getByRole("heading", { name: "Diaz deck replacement" })).toBeVisible();
-  await expect(page.getByText("Loose deck board")).toBeVisible();
+  await expect(page.getByText("Loose deck board", { exact: true })).toBeVisible();
   await expect(page.locator("[data-blocker=punch] dd")).toHaveText("0");
   const today = await page.locator("#punch").getAttribute("data-today");
   await page.getByLabel("Assign").selectOption({ label: "Dana Cho" });
   await page.getByLabel("Visit").fill(today || "");
   await page.getByRole("button", { name: "Schedule Loose deck board" }).click();
   await expect(page.getByLabel("Visit note Loose deck board")).toHaveValue(/Loose deck board/);
-  await page.getByLabel("Note Loose deck board").fill("Replaced the board.");
+  await page.getByRole("textbox", { name: "Note Loose deck board", exact: true }).fill("Replaced the board.");
   await page.getByRole("button", { name: "Resolve Loose deck board" }).click();
   await expect(page.getByText("Resolved", { exact: true })).toBeVisible();
   await expect(page.getByText("Replaced the board.")).toBeVisible();
