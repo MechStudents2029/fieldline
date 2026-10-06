@@ -23,10 +23,7 @@ export default async function FollowUpsPage({ searchParams }: { searchParams: Pr
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <h1 className="font-heading text-3xl">Follow-ups</h1>
-        <p className="text-sm text-muted-foreground">
-          Drafts wait here until someone approves them. Nothing sends on its own. SMS stays off until Twilio 10DLC is approved.
-        </p>
+        <h1 className="fl-large-title">Follow-ups</h1>
       </div>
       {sent === "stub" ? (
         <p role="status" className="rounded-lg bg-primary px-3 py-2 text-sm text-primary-foreground">
@@ -41,7 +38,7 @@ export default async function FollowUpsPage({ searchParams }: { searchParams: Pr
       {pending.length === 0 ? (
         <EmptyState
           title="No follow-ups waiting"
-          why="Drafts show up here after a proposal sits unopened or a lead goes quiet. A viewed proposal is drafted after 1 day, an unopened one after 3 days, and a quiet lead after 5 days. Nothing sends until you approve it. This company has no drafts yet."
+          why="No drafts yet."
           href="/leads/new"
           action="Add a lead"
         />

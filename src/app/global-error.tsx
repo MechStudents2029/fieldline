@@ -29,7 +29,7 @@ export default function GlobalError({
         <main role="alert" style={{ maxWidth: "32rem", margin: "4rem auto", padding: "0 1rem" }}>
           <h1 style={{ fontSize: "2rem", fontWeight: 500 }}>Fieldline hit a snag.</h1>
           <p style={{ fontFamily: "sans-serif", fontSize: "0.95rem" }}>
-            Try again. If it keeps happening, include this reference in Send feedback. Nothing was emailed.
+            Try again. Include the reference if you send feedback.
           </p>
           <p style={{ fontFamily: "sans-serif" }}>
             Reference <strong>{ref}</strong>

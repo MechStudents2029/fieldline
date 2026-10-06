@@ -57,7 +57,7 @@ describe("checklist derivation", () => {
     });
     expect(empty.find((step) => step.id === "license")?.done).toBe(false);
     expect(empty.find((step) => step.id === "lead")?.href).toBe("/leads/new");
-    expect(empty.find((step) => step.id === "proposal")?.detail).toMatch(/Nothing sends on its own/);
+    expect(empty.find((step) => step.id === "proposal")?.label).toBe("Test proposal");
     expect(empty.find((step) => step.id === "stripe")?.optional).toBe(true);
     expect(empty.find((step) => step.id === "team")?.optional).toBe(true);
     expect(empty.find((step) => step.id === "team")?.done).toBe(false);

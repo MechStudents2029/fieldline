@@ -25,28 +25,25 @@ export default async function TimePage() {
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-5">
       <div>
-        <h1 className="font-heading text-3xl">Time</h1>
-        <p className="text-sm text-muted-foreground">
-          Clock in on a job and cost code. Hours land on the budget only after the office approves them. Days follow {board.timeZone}. The week starts{" "}
-          {weekdayName(board.weekStartsOn)}.
-        </p>
+        <h1 className="fl-large-title">Time</h1>
+        <p className="fl-footnote text-[var(--fl-secondary)]">The week starts {weekdayName(board.weekStartsOn)}</p>
       </div>
-      <section className="grid grid-cols-2 gap-3">
-        <div className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
-          <p className="text-xs uppercase text-muted-foreground">Today</p>
-          <p className="font-heading text-3xl" aria-label="Hours today">
+      <section className="fl-strip cols-2">
+        <div>
+          <p className="fl-number" aria-label="Hours today">
             {formatHours(board.todayMinutes)}
           </p>
+          <p className="fl-footnote text-[var(--fl-secondary)]">Today</p>
         </div>
-        <div className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
-          <p className="text-xs uppercase text-muted-foreground">This week</p>
-          <p className="font-heading text-3xl" aria-label="Hours this week">
+        <div>
+          <p className="fl-number" aria-label="Hours this week">
             {formatHours(board.weekMinutes)}
           </p>
+          <p className="fl-footnote text-[var(--fl-secondary)]">This week</p>
         </div>
       </section>
       {canAddFieldNotes(session.role) ? (
-        <section className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
+        <section className="rounded-xl bg-card p-4 ">
           <OfflineBridge
             scope={{ orgId: session.orgId, userId: session.userId }}
             timeZone={board.timeZone}
@@ -88,7 +85,7 @@ export default async function TimePage() {
           )}
         </section>
       ) : (
-        <p className="text-sm text-muted-foreground">Viewers cannot clock in.</p>
+        <p className="fl-secondary-text text-[var(--fl-secondary)]">View only</p>
       )}
       {board.flags.length > 0 ? (
         <ul className="rounded-xl bg-accent/50 p-4 text-sm">
@@ -102,7 +99,7 @@ export default async function TimePage() {
         <ul className="mt-2 space-y-2 text-sm">
           {board.entries.length === 0 ? <li className="text-muted-foreground">No punches yet.</li> : null}
           {board.entries.map((entry) => (
-            <li key={entry.id} className="rounded-lg bg-card p-3 ring-1 ring-foreground/10">
+            <li key={entry.id} className="rounded-lg bg-card p-3 ">
               <p className="font-medium">
                 {entry.projectName} · {entry.costCode}
               </p>
@@ -133,7 +130,7 @@ export default async function TimePage() {
             <h2 className="font-medium">Waiting for approval</h2>
             {office.pending.length === 0 ? <p className="text-sm text-muted-foreground">No finished punches waiting.</p> : null}
             {office.pending.map((entry) => (
-              <article key={entry.id} className="rounded-xl bg-card p-4 text-sm ring-1 ring-foreground/10">
+              <article key={entry.id} className="rounded-xl bg-card p-4 text-sm ">
                 <p className="font-medium">
                   {entry.name} · {entry.projectName} · {entry.costCode}
                 </p>
@@ -142,7 +139,6 @@ export default async function TimePage() {
                   {entry.note ? ` · ${entry.note}` : ""}
                   {entry.flags.length > 0 ? ` · ${entry.flags.join(", ")}` : ""}
                 </p>
-                <p className="text-xs text-muted-foreground">Not on the job until you approve it.</p>
                 <ActionForm action={editTimeAction.bind(null, entry.id)} className="mt-3 grid gap-2">
                   <label className="text-sm">
                     Job
@@ -207,7 +203,7 @@ export default async function TimePage() {
           <section className="flex flex-col gap-3">
             <h2 className="font-medium">Approved</h2>
             {office.approved.map((entry) => (
-              <article key={entry.id} className="rounded-xl bg-card p-4 text-sm ring-1 ring-foreground/10">
+              <article key={entry.id} className="rounded-xl bg-card p-4 text-sm ">
                 <p className="font-medium">
                   {entry.name} · {entry.projectName} · {entry.costCode}
                 </p>
@@ -215,7 +211,6 @@ export default async function TimePage() {
                   {formatHours(entry.minutes)}
                   {entry.amountCents != null ? ` · ${formatMoney(entry.amountCents)}` : ""}
                 </p>
-                <p className="text-xs text-muted-foreground">Locked. Reopen with a reason to change it.</p>
                 <ActionForm action={reopenTimeAction.bind(null, entry.id)} className="mt-2 flex flex-col gap-2 sm:flex-row">
                   <input name="reason" aria-label={`Reopen reason for ${entry.name}`} placeholder="Reason to reopen" className="field" required />
                   <Button type="submit" variant="outline" className="h-11">
@@ -225,7 +220,7 @@ export default async function TimePage() {
               </article>
             ))}
           </section>
-          <section className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
+          <section className="rounded-xl bg-card p-4 ">
             <h2 className="font-medium">Add time for someone</h2>
             <ActionForm action={manualTimeAction} className="mt-3 grid gap-2">
               <label className="text-sm">
@@ -279,10 +274,10 @@ export default async function TimePage() {
               </Button>
             </ActionForm>
           </section>
-          <section className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
+          <section className="rounded-xl bg-card p-4 ">
             <h2 className="font-medium">Hourly cost</h2>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Company default {office.defaultHourlyCostCents == null ? "is not set" : formatMoney(office.defaultHourlyCostCents)} per hour. A personal rate replaces it. The snapshot is taken at approval.
+            <p className="fl-footnote text-[var(--fl-secondary)]">
+              Default {office.defaultHourlyCostCents == null ? "not set" : formatMoney(office.defaultHourlyCostCents)} / hour
             </p>
             <ActionForm action={laborRateAction.bind(null, "")} className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-end">
               <label className="text-sm">
@@ -319,9 +314,7 @@ export default async function TimePage() {
           {canManageSettings(session.role) ? (
             <section className="text-sm">
               <h2 className="font-medium">Payroll hours</h2>
-              <p className="mt-1 text-xs text-muted-foreground">
-                Approved hours per person per day in {board.timeZone}. The date is the clock-in day. No rates in the file.
-              </p>
+              <p className="fl-footnote text-[var(--fl-secondary)]">Approved hours · {board.timeZone}</p>
               <form action="/api/export/time" className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-end">
                 <label>
                   From

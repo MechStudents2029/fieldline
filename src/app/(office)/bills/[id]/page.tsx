@@ -13,7 +13,7 @@ export default async function BillPage({ params }: { params: Promise<{ id: strin
   const { id } = await params;
   const session = await requireSession();
   if (!canSeeMoney(session.role)) {
-    return <p className="rounded-xl bg-muted p-4 text-sm">Bills are for the office.</p>;
+    return <h1 className="fl-large-title">Bills</h1>;
   }
   const detail = billDetail(session.orgId, id, session.role);
   if (!detail) return <MissingRecord orgName={session.orgName} kind="bill" />;
@@ -49,7 +49,7 @@ export default async function BillPage({ params }: { params: Promise<{ id: strin
         {detail.voidReason ? <p className="mt-2 text-sm">Voided: {detail.voidReason}</p> : null}
         {bill.status === "paid" ? (
           <p className="mt-2 text-sm">
-            Paid {detail.paidAt ? formatCalendarDay(detail.paidAt) : ""} · {detail.payMethod} · {detail.payReference}. Nothing was sent to a bank.
+            Paid {detail.paidAt ? formatCalendarDay(detail.paidAt) : ""} · {detail.payMethod} · {detail.payReference}
           </p>
         ) : null}
       </div>

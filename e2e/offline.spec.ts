@@ -7,7 +7,7 @@ async function signInAs(page: import("@playwright/test").Page, email: string) {
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill("demo");
   await page.getByRole("button", { name: "Enter the office" }).click();
-  await expect(page.getByRole("heading", { name: /Today|My day/ })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: /Today|My day/ })).toBeVisible();
 }
 
 test.describe("offline clock", () => {

@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { EmptyState } from "@/components/empty-state";
-import { FeedbackDialog } from "@/components/feedback-dialog";
 import { requireSession } from "@/lib/auth/session";
 import { formatDateTime } from "@/lib/format";
 import { canManageSettings } from "@/lib/permissions";
@@ -13,21 +12,13 @@ export default async function FeedbackPage() {
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <h1 className="font-heading text-3xl">Feedback</h1>
-        <p className="text-sm text-muted-foreground">
-          Notes testers save from Send feedback. They stay in this company. Nothing is emailed.
-        </p>
+        <h1 className="fl-large-title">Feedback</h1>
       </div>
       {allowed ? null : (
         <p className="text-sm text-muted-foreground">An owner or admin can read these notes. You can still send one from the header.</p>
       )}
       {allowed && notes.length === 0 ? (
-        <EmptyState
-          title="No tester notes yet"
-          why="Notes you save with Send feedback show up here for an owner or admin. Nothing is emailed. This company has none yet."
-        >
-          <FeedbackDialog />
-        </EmptyState>
+        <EmptyState title="No notes yet" why="Send one from the header." />
       ) : null}
       <ul className="flex flex-col gap-3">
         {notes.map((note) => (

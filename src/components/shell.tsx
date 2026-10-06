@@ -108,12 +108,7 @@ export function Shell({
                 {userName} · {role}
               </p>
             </div>
-            <div className="flex flex-col items-end gap-2">
-              <FeedbackDialog />
-              <p className="max-w-48 text-right text-[11px] leading-snug text-muted-foreground">
-                Demo mode. Payments, email, SMS, and AI stay local until you add keys.
-              </p>
-            </div>
+            <FeedbackDialog />
           </div>
         </header>
         <OfflineBanner />

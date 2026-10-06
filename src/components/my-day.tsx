@@ -3,95 +3,111 @@ import { startLogAction } from "@/app/actions";
 import { LargeTitle } from "@/components/ios";
 import { OfflineBridge } from "@/components/offline-bridge";
 import { PendingPunches } from "@/components/offline-clock";
+import { BreakControl } from "@/components/shift-forms";
 import { ClockInForm, ClockOutForm } from "@/components/time-clock";
 import { Button } from "@/components/ui/button";
 import { formatDateTime } from "@/lib/format";
 import type { Actor } from "@/lib/services/read";
 import { myDay } from "@/lib/services/logs";
-import { weekdayName } from "@/lib/time/calendar";
+import { formatHours, timeBoard } from "@/lib/services/time";
+
+function clock(iso: string) {
+  const mins = Math.max(0, Math.floor((Date.now() - Date.parse(iso)) / 60000));
+  return `${Math.floor(mins / 60)}:${String(mins % 60).padStart(2, "0")}`;
+}
+
+function dayTitle(timeZone: string) {
+  return new Intl.DateTimeFormat("en-US", { weekday: "long", month: "long", day: "numeric", timeZone }).format(new Date());
+}
 
 export function MyDay({ actor }: { actor: Actor }) {
   const day = myDay(actor);
+  const board = timeBoard(actor);
+  const open = day.open;
   return (
-    <div className="mx-auto flex max-w-lg flex-col gap-4">
-      <LargeTitle
-        title="My day"
-        subtitle={`Where you are, the clock, and today’s log. ${day.timeZone}. Week starts ${weekdayName(day.weekStartsOn)}.`}
-      />
+    <div className="mx-auto flex max-w-lg flex-col gap-7">
+      <LargeTitle title="My day" subtitle={dayTitle(day.timeZone)} />
       <OfflineBridge
         scope={{ orgId: actor.orgId, userId: actor.userId }}
         timeZone={day.timeZone}
         weekStartsOn={day.weekStartsOn}
         jobs={day.clockJobs}
         codes={day.codes}
-        open={day.open ? { ...day.open, status: day.open.status === "break" ? "break" : "open" } : null}
+        open={open ? { ...open, status: open.status === "break" ? "break" : "open" } : null}
       />
       <PendingPunches />
-      <section className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
-        {day.open ? (
-          <div className="flex flex-col gap-3">
-            <p className="text-sm">
-              Clocked in on {day.open.projectName} · {day.open.costCode}
-              {day.open.status === "break" ? " · on break" : ""}
-            </p>
-            <p className="text-xs text-muted-foreground">Since {formatDateTime(day.open.clockInAt, day.timeZone)}</p>
+      {open ? (
+        <section className="rounded-[var(--fl-radius)] bg-card px-4 py-5">
+          <p className="fl-footnote text-[var(--fl-secondary)]">On the clock</p>
+          <p className="fl-large-title tabular-nums">{clock(open.clockInAt)}</p>
+          <p className="fl-secondary-text mt-2 text-[var(--fl-secondary)]">
+            {open.projectName} · {open.costCode}
+          </p>
+          <div className="mt-4 grid grid-cols-2 gap-3">
+            <BreakControl scope={{ orgId: actor.orgId, userId: actor.userId }} onBreak={open.status === "break"} />
             <ClockOutForm compact scope={{ orgId: actor.orgId, userId: actor.userId }} />
-            <form action={startLogAction.bind(null, day.open.projectId)}>
-              <Button type="submit" className="h-14 w-full text-base">
-                {day.todayLogId ? "Continue today's log" : "Start today's log"}
-              </Button>
-            </form>
-            <Link href="/time" className="text-center text-sm underline">
-              Switch job, break, or add a note
-            </Link>
           </div>
-        ) : (
-          <div className="flex flex-col gap-3">
-            <p className="text-sm">You are not clocked in.</p>
-            <ClockInForm jobs={day.clockJobs} codes={day.codes} scope={{ orgId: actor.orgId, userId: actor.userId }} />
-            <p className="text-sm text-muted-foreground">Clock in to start today’s log for that job.</p>
-          </div>
-        )}
-      </section>
-      {day.flags.length > 0 ? (
-        <ul className="rounded-xl bg-accent/50 p-4 text-sm">
-          {day.flags.map((flag) => (
-            <li key={flag}>{flag}</li>
-          ))}
-        </ul>
-      ) : null}
-      <section>
-        <h2 className="font-medium">Jobs</h2>
-        <ul className="mt-2 space-y-2">
-          {day.jobs.length === 0 ? <li className="text-sm text-muted-foreground">No job is on your list yet.</li> : null}
-          {day.jobs.map((job) => (
-            <li key={job.id} className="rounded-xl bg-card p-4 text-sm ring-1 ring-foreground/10">
-              <Link href={`/projects/${job.id}/logs`} className="font-medium">
-                {job.name}
-              </Link>
-              {job.address ? <p className="text-muted-foreground">{job.address}</p> : null}
-              {job.map ? (
-                <a href={job.map} className="mt-2 inline-flex h-11 items-center underline" target="_blank" rel="noreferrer">
-                  Open in maps
-                </a>
-              ) : null}
-            </li>
-          ))}
+          <form action={startLogAction.bind(null, open.projectId)} className="mt-3">
+            <Button type="submit" variant="outline" className="h-11 w-full">
+              {day.todayLogId ? "Continue today's log" : "Start today's log"}
+            </Button>
+          </form>
+        </section>
+      ) : (
+        <section className="rounded-[var(--fl-radius)] bg-card p-4">
+          <ClockInForm jobs={day.clockJobs} codes={day.codes} scope={{ orgId: actor.orgId, userId: actor.userId }} />
+        </section>
+      )}
+      <section className="flex flex-col gap-2">
+        <h2 className="fl-section">Today</h2>
+        <ul className="fl-group">
+          <li className="fl-cell">
+            <span className="fl-body flex-1">Clocked in</span>
+            <span className="fl-body tabular-nums text-[var(--fl-secondary)]">
+              {open ? formatDateTime(open.clockInAt, day.timeZone).split(",").pop()?.trim() : "—"}
+            </span>
+          </li>
+          <li className="fl-cell">
+            <span className="fl-body flex-1">Break</span>
+            <span className="fl-body tabular-nums text-[var(--fl-secondary)]">{board.open ? `${board.open.breakMinutes} min` : "0 min"}</span>
+          </li>
+          <li className="fl-cell">
+            <span className="fl-body flex-1">This week</span>
+            <span className="fl-body tabular-nums text-[var(--fl-secondary)]">{formatHours(board.weekMinutes)}</span>
+          </li>
         </ul>
       </section>
-      <section>
-        <h2 className="font-medium">Open tasks</h2>
-        <ul className="mt-2 space-y-2 text-sm">
-          {day.tasks.length === 0 ? <li className="text-muted-foreground">Nothing assigned.</li> : null}
+      <section className="flex flex-col gap-2">
+        <h2 className="fl-section">Tasks</h2>
+        <ul className="fl-group">
           {day.tasks.map((task) => (
-            <li key={task.id} className="rounded-lg bg-card p-3 ring-1 ring-foreground/10">
+            <li key={task.id} className="fl-cell">
+              <span className="size-[22px] shrink-0 rounded-full border border-[var(--fl-tertiary)]" />
               {task.relatedId ? (
-                <Link href={`/projects/${task.relatedId}`} className="font-medium">
+                <Link href={`/projects/${task.relatedId}`} className="fl-body min-w-0 flex-1 truncate">
                   {task.title}
                 </Link>
               ) : (
-                task.title
+                <span className="fl-body min-w-0 flex-1 truncate">{task.title}</span>
               )}
+            </li>
+          ))}
+          {open ? (
+            <li className="fl-cell">
+              <span className="fl-body flex-1">Daily log</span>
+              <span className="fl-body text-[var(--fl-secondary)]">{day.todayLogId ? "Started" : "Not started"}</span>
+            </li>
+          ) : null}
+          {day.jobs.map((job) => (
+            <li key={job.id} className="fl-cell">
+              <Link href={`/projects/${job.id}/logs`} className="fl-body min-w-0 flex-1 truncate">
+                {job.name}
+              </Link>
+              {job.map ? (
+                <a href={job.map} className="fl-footnote text-[var(--fl-accent)]" target="_blank" rel="noreferrer">
+                  Map
+                </a>
+              ) : null}
             </li>
           ))}
         </ul>

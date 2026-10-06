@@ -189,7 +189,7 @@ export function setLogVisibility(actor: Actor, logId: string, visibility: string
         actorId: actor.userId,
         summary:
           next === "client"
-            ? `Shared the ${log.logDate} daily log on the client portal. Nothing was emailed.`
+            ? `Shared the ${log.logDate} daily log on the client portal.`
             : `Removed the ${log.logDate} daily log from the client portal.`,
         payloadJson: null,
         createdAt: stamp,

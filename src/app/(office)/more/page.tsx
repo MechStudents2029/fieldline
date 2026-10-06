@@ -6,6 +6,7 @@ import { canManageSettings } from "@/lib/permissions";
 import { companyChecklist } from "@/lib/services/onboarding";
 
 const links = [
+  ["/setup", "Setup"],
   ["/pipeline", "Pipeline"],
   ["/time", "Time"],
   ["/follow-ups", "Follow-ups"],
@@ -28,7 +29,10 @@ export default async function MorePage() {
   const shown = session.role === "field" ? links.filter(([href]) => !fieldHidden.has(href)) : links;
   return (
     <div className="flex flex-col gap-3">
-      <h1 className="font-heading text-3xl">More</h1>
+      <div className="flex items-center gap-2">
+        <h1 className="fl-large-title">More</h1>
+        <span className="fl-pill">Demo</span>
+      </div>
       <ul className="overflow-hidden rounded-xl bg-card ring-1 ring-foreground/10">
         {shown.map(([href, label]) => (
           <li key={href} className="border-b border-border last:border-0">
@@ -46,7 +50,7 @@ export default async function MorePage() {
             </button>
           </form>
         ) : (
-          <p className="text-sm text-muted-foreground">The setup checklist is on Today.</p>
+          <p className="fl-footnote text-[var(--fl-secondary)]">Setup is on Today.</p>
         )
       ) : null}
       <SignOutButton scope={{ orgId: session.orgId, userId: session.userId }} className="text-sm text-muted-foreground underline" />

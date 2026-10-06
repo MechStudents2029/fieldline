@@ -1,49 +1,134 @@
 import Link from "next/link";
 import { dismissSetupAction } from "@/app/actions";
-import type { ChecklistStep } from "@/lib/onboarding/checklist";
-import { requiredChecklistRemaining } from "@/lib/onboarding/checklist";
+import { requiredChecklistRemaining, type ChecklistStep } from "@/lib/onboarding/checklist";
 
-export function SetupChecklist({ steps, canDismiss }: { steps: ChecklistStep[]; canDismiss: boolean }) {
+export function SetupRow({ steps }: { steps: ChecklistStep[] }) {
+  const required = steps.filter((step) => !step.optional);
+  const done = required.filter((step) => step.done).length;
   const remaining = requiredChecklistRemaining(steps);
-  const required = steps.filter((step) => !step.optional).length;
+  if (remaining === 0) return null;
   return (
-    <section aria-labelledby="setup-heading" className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
-      <div className="flex flex-wrap items-end justify-between gap-2">
-        <h2 id="setup-heading" className="font-heading text-xl">
-          Setup
-        </h2>
-        <p className="text-xs text-muted-foreground">
-          {required - remaining} of {required} done
+    <Link href="/setup" className="fl-cell fl-press fl-group">
+      <ProgressRing done={done} total={required.length} />
+      <span className="min-w-0 flex-1">
+        <span className="fl-body block">Finish setup</span>
+      </span>
+      <span className="fl-body tabular-nums text-[var(--fl-secondary)]">
+        {done} of {required.length}
+      </span>
+      <span className="text-[var(--fl-tertiary)]" aria-hidden>
+        ›
+      </span>
+    </Link>
+  );
+}
+
+export function SetupScreen({ steps, canDismiss }: { steps: ChecklistStep[]; canDismiss: boolean }) {
+  const required = steps.filter((step) => !step.optional);
+  const optional = steps.filter((step) => step.optional);
+  const done = required.filter((step) => step.done).length;
+  return (
+    <div className="flex flex-col gap-7">
+      <div className="fl-safe-top">
+        <Link href="/" className="fl-body text-[var(--fl-accent)]">
+          ‹ Today
+        </Link>
+        <h1 className="fl-large-title mt-2">Setup</h1>
+        <p className="fl-secondary-text text-[var(--fl-secondary)]">
+          {done} of {required.length} done
         </p>
       </div>
-      <p className="mt-1 text-sm text-muted-foreground">
-        This follows what is already in the company. Hide it when you do not need it. Settings and More can bring it back.
-      </p>
-      <ol className="mt-3 divide-y divide-border">
-        {steps.map((step) => (
-          <li key={step.id} className="flex flex-col gap-1 py-3 text-sm sm:flex-row sm:items-start sm:justify-between">
-            <span>
-              <span className="font-medium">{step.label}</span>
-              {step.optional ? <span className="ml-2 text-xs uppercase text-muted-foreground">Optional</span> : null}
-              <span className="mt-1 block text-xs text-muted-foreground">{step.detail}</span>
-            </span>
-            {step.done ? (
-              <span className="text-pine">Done</span>
-            ) : (
-              <Link href={step.href} className="text-pine underline">
-                {step.cta}
-              </Link>
-            )}
-          </li>
+      <ul className="fl-group">
+        {required.map((step) => (
+          <SetupItem key={step.id} step={step} />
         ))}
-      </ol>
+      </ul>
+      {optional.length > 0 ? (
+        <section className="flex flex-col gap-2">
+          <h2 className="fl-section">Optional</h2>
+          <ul className="fl-group">
+            {optional.map((step) => (
+              <SetupItem key={step.id} step={step} />
+            ))}
+          </ul>
+        </section>
+      ) : null}
       {canDismiss ? (
-        <form action={dismissSetupAction} className="mt-2">
-          <button type="submit" className="text-xs text-muted-foreground underline">
-            Hide setup checklist
+        <form action={dismissSetupAction} className="text-center">
+          <button type="submit" className="fl-body min-h-11 text-[var(--fl-accent)]">
+            Hide setup
           </button>
         </form>
       ) : null}
-    </section>
+    </div>
+  );
+}
+
+function SetupItem({ step }: { step: ChecklistStep }) {
+  const mark = step.done ? <FilledCheck /> : <EmptyCircle />;
+  const body = (
+    <>
+      {mark}
+      <span className="fl-body min-w-0 flex-1">{step.label}</span>
+      {step.done ? null : (
+        <span className="text-[var(--fl-tertiary)]" aria-hidden>
+          ›
+        </span>
+      )}
+    </>
+  );
+  if (step.done) {
+    return (
+      <li className="fl-cell" data-done="true">
+        {body}
+      </li>
+    );
+  }
+  return (
+    <li data-done="false">
+      <Link href={step.href} className="fl-cell fl-press">
+        {body}
+      </Link>
+    </li>
+  );
+}
+
+function ProgressRing({ done, total }: { done: number; total: number }) {
+  const r = 9;
+  const c = 2 * Math.PI * r;
+  const offset = c - (total === 0 ? 0 : (done / total) * c);
+  return (
+    <svg width="22" height="22" viewBox="0 0 22 22" aria-hidden className="shrink-0">
+      <circle cx="11" cy="11" r={r} fill="none" stroke="var(--fl-tertiary)" strokeWidth="2" />
+      <circle
+        cx="11"
+        cy="11"
+        r={r}
+        fill="none"
+        stroke="var(--fl-label)"
+        strokeWidth="2"
+        strokeDasharray={c}
+        strokeDashoffset={offset}
+        strokeLinecap="round"
+        transform="rotate(-90 11 11)"
+      />
+    </svg>
+  );
+}
+
+function FilledCheck() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 22 22" aria-hidden className="shrink-0">
+      <circle cx="11" cy="11" r="10" fill="var(--fl-label)" />
+      <path d="M6.5 11.2 9.4 14.2 15.5 8" fill="none" stroke="var(--fl-elevated)" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function EmptyCircle() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 22 22" aria-hidden className="shrink-0">
+      <circle cx="11" cy="11" r="9" fill="none" stroke="var(--fl-tertiary)" strokeWidth="1.6" />
+    </svg>
   );
 }

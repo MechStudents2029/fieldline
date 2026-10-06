@@ -33,7 +33,7 @@ export function ActionForm({
       {state?.inviteUrl ? (
         <div className="flex flex-col gap-2 rounded-lg bg-muted p-3">
           <p role="status" className="text-sm">
-            Nothing was emailed. Copy the link into a text. It is shown once.
+            Copy the link. Shown once.
           </p>
           <label className="text-sm">
             Invite link

@@ -13,7 +13,7 @@ export default async function PurchaseOrdersPage({
 }) {
   const session = await requireSession();
   if (!canSeeMoney(session.role)) {
-    return <p className="rounded-xl bg-muted p-4 text-sm">Purchase orders are for the office.</p>;
+    return <h1 className="fl-large-title">Purchase orders</h1>;
   }
   const query = await searchParams;
   const rows = listPurchaseOrders(session.orgId, session.role, {

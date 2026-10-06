@@ -381,7 +381,7 @@ export function issuePurchaseOrder(actor: Actor, poId: string) {
       .where(and(eq(purchaseOrders.id, po.id), eq(purchaseOrders.orgId, actor.orgId)))
       .run();
     writeEvent(tx, actor.orgId, po.id, actor.userId, "issued", null, JSON.stringify({ status: "draft" }), JSON.stringify({ status: "issued", lines: lineSnapshot(lines) }));
-    noteActivity(tx, actor.orgId, po.projectId, actor.userId, `Issued ${po.number}. Nothing was sent to the vendor.`);
+    noteActivity(tx, actor.orgId, po.projectId, actor.userId, `Issued ${po.number}.`);
   });
   return { id: po.id, number: po.number };
 }

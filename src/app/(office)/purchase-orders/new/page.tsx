@@ -7,7 +7,7 @@ import { listContacts, listPriceBook, listProjects } from "@/lib/services/read";
 export default async function NewPurchaseOrderPage() {
   const session = await requireSession();
   if (!canSeeMoney(session.role)) {
-    return <p className="rounded-xl bg-muted p-4 text-sm">Purchase orders are for the office.</p>;
+    return <h1 className="fl-large-title">Purchase orders</h1>;
   }
   if (!canManageMoney(session.role)) {
     return <p className="rounded-xl bg-muted p-4 text-sm">Your role can view purchase orders, not enter them.</p>;

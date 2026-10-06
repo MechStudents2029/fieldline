@@ -7,7 +7,7 @@ import { listContacts, listPriceBook, listProjects } from "@/lib/services/read";
 export default async function NewBillPage() {
   const session = await requireSession();
   if (!canSeeMoney(session.role)) {
-    return <p className="rounded-xl bg-muted p-4 text-sm">Bills are for the office.</p>;
+    return <h1 className="fl-large-title">Bills</h1>;
   }
   if (!canManageMoney(session.role)) {
     return <p className="rounded-xl bg-muted p-4 text-sm">Your role can view bills, not enter them.</p>;

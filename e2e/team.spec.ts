@@ -12,7 +12,7 @@ test("an owner invites a field teammate who sees the job without prices", async 
   await page.getByLabel("Teammate email").fill(email);
   await page.getByRole("combobox", { name: "Role", exact: true }).selectOption("field");
   await page.getByRole("button", { name: "Create invite link" }).click();
-  await expect(page.getByText("Nothing was emailed. Copy the link into a text. It is shown once.")).toBeVisible();
+  await expect(page.getByText("Copy the link. Shown once.")).toBeVisible();
   const link = await page.getByLabel("Invite link").inputValue();
   expect(link).toContain("/invite/");
 
@@ -29,12 +29,12 @@ test("an owner invites a field teammate who sees the job without prices", async 
   await invitee.goto("/projects");
   await invitee.getByRole("link", { name: /Okonkwo primary bath/ }).click();
   await expect(invitee.getByRole("heading", { name: "Okonkwo primary bath" })).toBeVisible();
-  await expect(invitee.getByText("Prices, costs, and margin are hidden for the field role.")).toBeVisible();
+  await expect(invitee.getByText("$")).toHaveCount(0);
   await expect(invitee.getByText("Live margin")).toHaveCount(0);
   await invitee.goto("/invoices");
-  await expect(invitee.getByText("Invoices are hidden for the field role.")).toBeVisible();
+  await expect(invitee.getByRole("heading", { name: "Invoices" })).toBeVisible();
   await expect(invitee.getByText("RR-1033")).toHaveCount(0);
   await invitee.goto("/price-book");
-  await expect(invitee.getByText("Pricing is hidden for the field role.")).toBeVisible();
+  await expect(invitee.getByRole("heading", { name: "Price book" })).toBeVisible();
   await context.close();
 });

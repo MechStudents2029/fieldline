@@ -6,7 +6,7 @@ async function signInAs(page: Page, email: string) {
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill("demo");
   await page.getByRole("button", { name: "Enter the office" }).click();
-  await expect(page.getByRole("heading", { name: /Today|My day/ })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: /Today|My day/ })).toBeVisible();
 }
 
 const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x00]);
@@ -39,7 +39,7 @@ test("a field log reaches the portal without hours or cost", async ({ page, requ
   await signIn(page);
   await page.goto(logUrl);
   await page.getByRole("button", { name: "Show on the client portal" }).click();
-  await expect(page.getByText("On the client portal. Nothing was emailed.")).toBeVisible();
+  await expect(page.getByText("On the client portal.")).toBeVisible();
   await page.goto("/portal/demo_portal_okonkwo");
   const entry = page.getByRole("article").filter({ hasText: "Niche tile is set and the curb is dry." });
   await expect(entry).toBeVisible();

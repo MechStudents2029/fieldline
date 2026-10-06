@@ -10,7 +10,7 @@ export default async function PurchaseOrderPrintPage({ params }: { params: Promi
   const { id } = await params;
   const session = await requireSession();
   if (!canSeeMoney(session.role)) {
-    return <p className="rounded-xl bg-muted p-4 text-sm">Purchase orders are for the office.</p>;
+    return <h1 className="fl-large-title">Purchase orders</h1>;
   }
   const detail = purchaseOrderDetail(session.orgId, id, session.role);
   if (!detail) return <MissingRecord orgName={session.orgName} kind="purchase order" />;

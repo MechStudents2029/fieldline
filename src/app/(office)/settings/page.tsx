@@ -70,7 +70,6 @@ export default async function SettingsPage() {
               className="field mt-1"
             />
           </label>
-          <p className="text-xs text-muted-foreground">Used when a teammate has no rate of their own. Crew never see this number.</p>
           <label className="text-sm">
             Time zone
             <select name="timeZone" defaultValue={org.timeZone} className="field mt-1">
@@ -91,9 +90,7 @@ export default async function SettingsPage() {
               ))}
             </select>
           </label>
-          <p className="text-xs text-muted-foreground">
-            Unlocked week totals regroup when you change this. Approved labor on the job stays as it was. Clock times are not rewritten.
-          </p>
+          <p className="fl-footnote text-[var(--fl-secondary)]">The week starts {WEEKDAY_NAMES[org.weekStartsOn]}</p>
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" name="cards" defaultChecked={org.cardEnabled === 1} />
             Allow card payments (ACH stays the default)
@@ -115,7 +112,7 @@ export default async function SettingsPage() {
               </button>
             </form>
           ) : (
-            <p className="mt-2 text-muted-foreground">The setup checklist is on Today. You can hide it there.</p>
+            <p className="mt-2 text-[var(--fl-secondary)]">Setup is on Today.</p>
           )}
         </section>
       ) : null}

@@ -33,7 +33,7 @@ test.describe("phone shell", () => {
     await expect(tabs.getByRole("link", { name: "Leads" })).toBeVisible();
     await expect(tabs.getByRole("link", { name: "Time" })).toBeVisible();
     await expect(tabs.getByRole("link", { name: "More" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Follow-ups to approve" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Needs you" })).toBeVisible();
     await tabs.getByRole("link", { name: "Jobs" }).click();
     await expect(page).toHaveURL(/\/projects$/);
     await expect(page.getByRole("heading", { level: 1, name: "Jobs" })).toBeVisible();

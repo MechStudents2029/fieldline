@@ -50,7 +50,7 @@ export default async function PipelinePage({
       {board.cards.length === 0 && !filtered ? (
         <EmptyState
           title="No leads in the pipeline"
-          why="Leads you add show up here by stage, from the first call through won or lost. This company has no leads yet."
+          why="No leads yet."
           href="/leads/new"
           action="New lead"
         />
