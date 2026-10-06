@@ -66,6 +66,13 @@ export default async function SettingsPage() {
               </Link>
             </li>
           ) : null}
+          {canManageSettings(session.role) ? (
+            <li>
+              <Link href="/settings/lead-form" className="block py-2 mac-t13 text-[var(--mac-accent)]">
+                Lead form
+              </Link>
+            </li>
+          ) : null}
         </ul>
         <div className="mt-2">
           <FeedbackDialog />

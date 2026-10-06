@@ -2,6 +2,16 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   serverExternalPackages: ["better-sqlite3", "pg"],
+  // Three photos at the 2.5 MB job-photo cap.
+  experimental: { serverActions: { bodySizeLimit: "8mb" } },
+  async headers() {
+    return [
+      {
+        source: "/f/:path*",
+        headers: [{ key: "Content-Security-Policy", value: "frame-ancestors *" }],
+      },
+    ];
+  },
   // The office is opened at 127.0.0.1. Without this, Next blocks dev JS and client
   // components (signature pad, copilot) never hydrate.
   allowedDevOrigins: ["127.0.0.1", "localhost", "*.trycloudflare.com"],

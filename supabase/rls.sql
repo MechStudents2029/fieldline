@@ -137,7 +137,10 @@ begin
     'import_rows',
     'selections',
     'selection_choices',
-    'selection_events'
+    'selection_events',
+    'lead_forms',
+    'lead_form_submissions',
+    'lead_form_attempts'
   ]
   loop
     execute format('alter table public.%I enable row level security', tbl);

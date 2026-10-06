@@ -97,6 +97,7 @@ export function ensureReady(holder: Holder) {
   ensureSchedule(holder);
   ensureImport(holder);
   ensureSelections(holder);
+  ensureLeadForm(holder);
   const version = holder.sqlite.prepare("select value from app_meta where key = ?").get("seed_version") as
     | { value: string }
     | undefined;
@@ -809,6 +810,50 @@ function ensureSelections(holder: Holder) {
   holder.sqlite.exec("create index if not exists selections_org on selections (org_id, project_id)");
   holder.sqlite.exec("create index if not exists selection_choices_selection on selection_choices (org_id, selection_id)");
   holder.sqlite.exec("create index if not exists selection_events_selection on selection_events (org_id, selection_id)");
+}
+
+function ensureLeadForm(holder: Holder) {
+  const pk = holder.dialect === "postgres" ? "text primary key" : "text primary key not null";
+  if (!tableExists(holder.sqlite, "lead_forms", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists lead_forms (
+      id ${pk},
+      org_id text not null,
+      enabled integer not null default 0,
+      token text not null,
+      intro text not null default '',
+      thanks text not null,
+      fields_json text not null,
+      project_types_json text not null,
+      created_at text not null,
+      updated_at text not null
+    )`);
+  }
+  if (!tableExists(holder.sqlite, "lead_form_submissions", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists lead_form_submissions (
+      id ${pk},
+      org_id text not null,
+      form_id text not null,
+      lead_id text not null,
+      contact_id text not null,
+      answers_json text not null,
+      attribution text,
+      seen_at text,
+      created_at text not null
+    )`);
+  }
+  if (!tableExists(holder.sqlite, "lead_form_attempts", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists lead_form_attempts (
+      id ${pk},
+      org_id text not null,
+      ip text not null,
+      created_at text not null
+    )`);
+  }
+  holder.sqlite.exec("create unique index if not exists lead_forms_org on lead_forms (org_id)");
+  holder.sqlite.exec("create unique index if not exists lead_forms_token on lead_forms (token)");
+  holder.sqlite.exec("create index if not exists lead_form_submissions_org on lead_form_submissions (org_id, seen_at)");
+  holder.sqlite.exec("create index if not exists lead_form_submissions_lead on lead_form_submissions (org_id, lead_id)");
+  holder.sqlite.exec("create index if not exists lead_form_attempts_org on lead_form_attempts (org_id, created_at)");
 }
 
 function ensureTesterFeedback(holder: Holder) {

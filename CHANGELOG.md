@@ -2,6 +2,12 @@
 
 ## 2026-10-06
 
+### Lead form
+
+- Settings has a lead form for an owner or admin. Turn it on, choose the fields, and set a short intro and thank-you line. Name is required, plus an email or a phone. Address, project type, budget, timeline, description, and up to three photos are optional. The page shows the public link and an embed snippet. A new link replaces the old one.
+- The public page uses the company name. A request creates a contact and a lead in the first stage, source Website form. An email or phone that already belongs to a contact in that company reuses the contact. The description is read for project type, size, and value hints. Photos follow the same rules as job photos. Today counts new web leads until someone opens them. The lead shows the answers. The pipeline can filter by source.
+- A hidden field, a short wait, and per-address and per-company limits sit on the form. A form that is off says it is not taking requests. One company's link cannot write into another company. No email or text goes out.
+
 ### Selections
 
 - A job can hold selections, each with two or more choices and an optional allowance from the signed budget. Release puts it on the client portal. The homeowner picks one and types their name. The office can approve on their behalf, reset it, or lock it.
