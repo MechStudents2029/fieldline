@@ -17,6 +17,7 @@ import { projectBills } from "@/lib/services/bills";
 import { projectPurchaseOrders } from "@/lib/services/purchase-orders";
 import { captionFromMetadata, listPriceBook, listProjects, pipelineBoard, projectDetail } from "@/lib/services/read";
 import { jobSchedule } from "@/lib/services/schedule";
+import { selectionBoard } from "@/lib/services/selections";
 import { timeBoard } from "@/lib/services/time";
 import { localDay } from "@/lib/time/calendar";
 
@@ -43,6 +44,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
   const crew = board.office?.clockedIn.filter((row) => row.projectName === detail.project.name) ?? [];
   const todayKey = officeToday(board.timeZone);
   const schedule = jobSchedule(session, detail.project.id);
+  const picks = selectionBoard(session, detail.project.id, todayKey);
   const ranked = money ? [...money.byCode].sort((a, b) => (b.percentOfBudget ?? 0) - (a.percentOfBudget ?? 0)).slice(0, 2) : [];
   const paid = detail.invoices.reduce((sum, invoice) => sum + invoice.amountPaidCents, 0);
   const projectRows = listProjects(session.orgId);
@@ -76,6 +78,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
                 { href: "#budget", label: "Budget" },
                 { href: `/projects/${detail.project.id}/logs`, label: "Logs" },
                 { href: "#photos", label: "Docs" },
+                { href: `/projects/${detail.project.id}/selections`, label: "Selections" },
               ]}
             />
           }
@@ -132,7 +135,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
           </div>
         </div>
       ) : null}
-      <nav aria-label="Job sections" className="grid grid-cols-4 rounded-[10px] bg-[var(--fl-fill)] p-1 md:hidden">
+      <nav aria-label="Job sections" className="grid grid-cols-5 rounded-[10px] bg-[var(--fl-fill)] p-1 md:hidden">
         <a href="#overview" className="rounded-lg bg-card py-1.5 text-center fl-footnote">
           Overview
         </a>
@@ -145,6 +148,9 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
         <a href="#photos" className="py-1.5 text-center fl-footnote text-[var(--fl-secondary)]">
           Photos
         </a>
+        <Link href={`/projects/${detail.project.id}/selections`} className="py-1.5 text-center fl-footnote text-[var(--fl-secondary)]">
+          Selections
+        </Link>
       </nav>
       {money ? (
         <div id="budget">
@@ -255,6 +261,19 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
             />
           ))}
         </GroupedList>
+        {picks && picks.rows.length > 0 ? (
+          <GroupedList label="Selections">
+            {picks.rows.map((row) => (
+              <GroupedRow
+                key={row.id}
+                href={`/projects/${detail.project.id}/selections`}
+                title={row.title}
+                subtitle={row.chosenName ? `${row.area} · ${row.chosenName}` : row.area || undefined}
+                trailing={<span className={row.overdue ? "fl-late" : undefined}>{row.statusLabel}</span>}
+              />
+            ))}
+          </GroupedList>
+        ) : null}
       </div>
       {session.role === "field" ? (
         <section className="flex flex-col gap-3">

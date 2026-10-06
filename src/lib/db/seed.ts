@@ -38,6 +38,9 @@ import {
   purchaseOrders,
   scheduleAssignees,
   scheduleItems,
+  selectionChoices,
+  selectionEvents,
+  selections,
   pipelines,
   priceBookItems,
   projects,
@@ -56,12 +59,13 @@ import { assembleSnapshot, defaultSchedule, type StoredSnapshot } from "@/lib/do
 import { vasquezLines, vasquezSections } from "@/lib/estimate/vasquez";
 import { hashPassword, newSalt } from "@/lib/auth/password";
 import { canonicalJson, sha256 } from "@/lib/esign/hash";
+import { publicSnapshot } from "@/lib/selections/money";
 import { daysAgo, daysFromNow, nowIso } from "@/lib/ids";
 import { achFeeCents, qtyToMilli } from "@/lib/money";
-import { DEMO_PASSWORD } from "@/lib/product";
+import { CONSENT_VERSION, DEMO_PASSWORD } from "@/lib/product";
 import { proposalNudgeCopy } from "@/lib/ai/nurture";
 
-export const SEED_VERSION = "12";
+export const SEED_VERSION = "13";
 
 const ORG = "org_rivera";
 const NORTH = "org_northline";
@@ -973,6 +977,21 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
     ])
     .run();
 
+  db.insert(budgetLines)
+    .values({
+      id: "bud_ok_floor",
+      orgId: ORG,
+      projectId: "proj_okonkwo",
+      changeOrderId: null,
+      name: "Floor tile allowance",
+      costCode: "TILE-FLR",
+      budgetCostCents: 120000,
+      budgetPriceCents: 180000,
+      sourceLineId: null,
+      createdAt: daysAgo(20),
+    })
+    .run();
+
   const okonkwo = jobs.find((job) => job.id === "proj_okonkwo")!;
   db.update(projects)
     .set({ contractValueCents: okonkwo.snap.public.totalCents + 180000 + 240000, updatedAt: now })
@@ -1730,6 +1749,135 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
         })),
       ),
     )
+    .run();
+
+  const floorDue = addCalendarDays(today, -1);
+  const vanitySnap = publicSnapshot({
+    selectionId: "sel_ok_vanity",
+    title: "Vanity",
+    qtyMilli: 1000,
+    allowancePriceCents: 620000,
+    choice: { id: "choc_ok_quartz", name: "Quartz vanity", priceCents: 620000, differenceCents: 0 },
+  });
+  db.insert(selections)
+    .values([
+      {
+        id: "sel_ok_floor",
+        orgId: ORG,
+        projectId: "proj_okonkwo",
+        title: "Floor tile",
+        area: "Bath",
+        dueDate: floorDue,
+        status: "released",
+        allowanceBudgetLineId: "bud_ok_floor",
+        qtyMilli: 1000,
+        chosenChoiceId: null,
+        costItemId: null,
+        changeOrderId: null,
+        createdBy: "user_maya",
+        createdAt: daysAgo(6),
+        updatedAt: daysAgo(2),
+      },
+      {
+        id: "sel_ok_vanity",
+        orgId: ORG,
+        projectId: "proj_okonkwo",
+        title: "Vanity",
+        area: "Bath",
+        dueDate: addCalendarDays(today, -3),
+        status: "chosen",
+        allowanceBudgetLineId: "bud_proj_okonkwo_2",
+        qtyMilli: 1000,
+        chosenChoiceId: "choc_ok_quartz",
+        costItemId: "cost_sel_vanity",
+        changeOrderId: null,
+        createdBy: "user_maya",
+        createdAt: daysAgo(12),
+        updatedAt: daysAgo(4),
+      },
+      {
+        id: "sel_chen_faucet",
+        orgId: ORG,
+        projectId: "proj_chen",
+        title: "Faucet",
+        area: "Powder",
+        dueDate: addCalendarDays(today, 21),
+        status: "draft",
+        allowanceBudgetLineId: null,
+        qtyMilli: 1000,
+        chosenChoiceId: null,
+        costItemId: null,
+        changeOrderId: null,
+        createdBy: "user_luis",
+        createdAt: daysAgo(1),
+        updatedAt: daysAgo(1),
+      },
+    ])
+    .run();
+  db.insert(selectionChoices)
+    .values([
+      { id: "choc_ok_linen", orgId: ORG, selectionId: "sel_ok_floor", name: "Linen mosaic", vendor: "Casa Tile", sku: "LINEN-12", link: null, photoDocumentId: null, unitPriceCents: 140000, unitCostCents: 90000, note: null, sortOrder: 0 },
+      { id: "choc_ok_porcelain", orgId: ORG, selectionId: "sel_ok_floor", name: "Standard porcelain", vendor: "Casa Tile", sku: "PORC-STD", link: null, photoDocumentId: null, unitPriceCents: 180000, unitCostCents: 120000, note: null, sortOrder: 1 },
+      { id: "choc_ok_marble", orgId: ORG, selectionId: "sel_ok_floor", name: "Honed marble", vendor: "Stone Yard", sku: "MARB-HON", link: null, photoDocumentId: "doc_o1", unitPriceCents: 240000, unitCostCents: 165000, note: null, sortOrder: 2 },
+      { id: "choc_ok_quartz", orgId: ORG, selectionId: "sel_ok_vanity", name: "Quartz vanity", vendor: "Bathworks", sku: "VAN-QZ", link: null, photoDocumentId: "doc_o2", unitPriceCents: 620000, unitCostCents: 280000, note: null, sortOrder: 0 },
+      { id: "choc_ok_maple", orgId: ORG, selectionId: "sel_ok_vanity", name: "Painted maple", vendor: "Bathworks", sku: "VAN-MP", link: null, photoDocumentId: null, unitPriceCents: 480000, unitCostCents: 220000, note: null, sortOrder: 1 },
+      { id: "choc_chen_chrome", orgId: ORG, selectionId: "sel_chen_faucet", name: "Chrome faucet", vendor: "Kohler", sku: "FAU-CH", link: null, photoDocumentId: null, unitPriceCents: 18000, unitCostCents: 9000, note: null, sortOrder: 0 },
+      { id: "choc_chen_matte", orgId: ORG, selectionId: "sel_chen_faucet", name: "Matte black faucet", vendor: "Kohler", sku: "FAU-MB", link: null, photoDocumentId: null, unitPriceCents: 24000, unitCostCents: 12000, note: null, sortOrder: 1 },
+    ])
+    .run();
+  db.insert(costItems)
+    .values({
+      id: "cost_sel_vanity",
+      orgId: ORG,
+      projectId: "proj_okonkwo",
+      budgetLineId: "bud_proj_okonkwo_2",
+      costCode: "BATH-VANITY",
+      amountCents: 280000,
+      vendorName: "Bathworks",
+      memo: "Quartz vanity",
+      source: "selection",
+      aiExtracted: 0,
+      documentId: null,
+      createdAt: daysAgo(4),
+      updatedAt: daysAgo(4),
+      createdBy: "user_maya",
+    })
+    .run();
+  db.insert(selectionEvents)
+    .values([
+      {
+        id: "slev_ok_floor",
+        orgId: ORG,
+        selectionId: "sel_ok_floor",
+        actorId: "user_maya",
+        action: "release",
+        reason: null,
+        beforeJson: JSON.stringify({ status: "draft", chosenChoiceId: null, costItemId: null, changeOrderId: null }),
+        afterJson: JSON.stringify({ status: "released", chosenChoiceId: null, costItemId: null, changeOrderId: null }),
+        signerName: null,
+        ip: null,
+        userAgent: null,
+        docHash: null,
+        consentTextVersion: null,
+        createdAt: daysAgo(2),
+      },
+      {
+        id: "slev_ok_vanity",
+        orgId: ORG,
+        selectionId: "sel_ok_vanity",
+        actorId: null,
+        action: "choose",
+        reason: null,
+        beforeJson: JSON.stringify({ status: "released", chosenChoiceId: null, costItemId: null, changeOrderId: null }),
+        afterJson: JSON.stringify({ status: "chosen", chosenChoiceId: "choc_ok_quartz", costItemId: "cost_sel_vanity", changeOrderId: null }),
+        signerName: "Amara Okonkwo",
+        ip: "127.0.0.1",
+        userAgent: "seed",
+        docHash: sha256(canonicalJson(vanitySnap)),
+        consentTextVersion: CONSENT_VERSION,
+        createdAt: daysAgo(4),
+      },
+    ])
     .run();
 
   db.insert(activities)

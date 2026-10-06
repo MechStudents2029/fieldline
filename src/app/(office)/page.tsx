@@ -11,6 +11,7 @@ import { canSeeMoney } from "@/lib/permissions";
 import { companyChecklist, firstProposal } from "@/lib/services/onboarding";
 import { dashboard, listInvoices, listProjects, pipelineBoard } from "@/lib/services/read";
 import { MyDay } from "@/components/my-day";
+import { overdueSelections } from "@/lib/services/selections";
 import { timeBoard } from "@/lib/services/time";
 import { addCalendarDays, localDay } from "@/lib/time/calendar";
 
@@ -98,12 +99,20 @@ export default async function TodayPage() {
       trailing: money ? formatWhole(card.lead.valueEstCents) : "",
     });
   }
-  const shown = needs.slice(0, 5);
+  const todayKey = officeDay(time.timeZone);
+  const lateSelections = overdueSelections(session.orgId, todayKey).map((row) => ({
+    key: `sel_${row.id}`,
+    href: `/projects/${row.projectId}/selections`,
+    title: row.title,
+    subtitle: shortJob(row.projectName),
+    trailing: "Past due",
+    late: true,
+  }));
+  const shown = [...lateSelections, ...needs].slice(0, 5);
   const quiet = shown.length === 0 && data.tasks.length === 0 && crew.length === 0;
   const projects = listProjects(session.orgId);
   const active = projects.filter((row) => row.project.status === "active" && row.marginBps != null);
   const avgMargin = active.length === 0 ? null : Math.round(active.reduce((sum, row) => sum + (row.marginBps ?? 0), 0) / active.length);
-  const todayKey = officeDay(time.timeZone);
   const soon = addCalendarDays(todayKey, 14);
   const invoices = listInvoices(session.orgId);
   const cash = invoices.filter(({ invoice }) => invoice.status === "open" && invoice.dueDate.slice(0, 10) <= soon);

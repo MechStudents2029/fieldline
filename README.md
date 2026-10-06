@@ -210,6 +210,7 @@ Score each scenario pass or fail, with a note and a screenshot.
 12. **Daily log.** Dana’s home is My day: the job, a map link, the clock, and today’s log. Publish a note and a photo. Maya opens the job’s Logs tab and shows it on the client portal. The portal copy has the note and not the hours, delays, or safety note. Ask Copilot what happened on Okonkwo yesterday. Nothing is emailed. Weather is typed, not looked up. Rivera’s days are America/New_York, and the week starts Monday. Change either in Settings. Approved labor does not move.
 13. **Bills.** Maya opens Bills. BE-77 is overdue and HP-441 is due soon. Open a new bill, upload a text file, review the vendor and lines, save the draft, and approve it. Okonkwo’s cost moves. Mark it paid with a check number. Dana’s Bills link is gone, and Jordan cannot open a Rivera bill.
 14. **Purchase orders.** Maya opens Purchase orders. PO-1044 is Harbor’s issued order on Okonkwo, partly billed by HP-441, so plumbing shows committed cost that is not actual yet. Issue another order, link a bill, and approve it. Committed drops and actual rises. Dana does not see the page.
+15. **Selections.** Maya opens Okonkwo and the Selections view. Floor tile is released against an $1,800 allowance, with one choice under, one at, and one over. Vanity is already chosen. Today lists Floor tile once, past due. Add a selection, release it, and approve a choice with a note. Draft the change order for an overage and leave it a draft. Sign in as Dana and confirm the names are there without prices. Open the Okonkwo portal, pick Honed marble, and type a name. The contract stays put.
 
 Feedback: file a GitHub issue with steps, expected, actual, screenshot, and device. A useful score is "would I send this proposal today?" from 1 to 5, plus minutes to a quote versus the current process.
 
@@ -230,6 +231,7 @@ Feedback: file a GitHub issue with steps, expected, actual, screenshot, and devi
 - A company time zone and workweek start. Days, logs, and week totals follow that clock. Approved labor is not rewritten.
 - Sub and vendor bills. Approve to post job cost by cost code. Void or unapprove reverses it. Paid is a note, not a payment.
 - Purchase orders commit cost before a bill arrives. An approved bill linked to an order reduces what is still open. The job shows budget, committed, actual, projected, cost to complete, and variance. Nothing is sent to the vendor.
+- Selections on a job, optionally tied to an allowance. The homeowner chooses on the portal. The chosen cost hits that cost code. Overages become a draft change order when the office asks. Credits stay on the screen.
 
 **Stubbed until keys exist**
 
