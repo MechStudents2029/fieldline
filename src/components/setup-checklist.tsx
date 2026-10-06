@@ -1,6 +1,36 @@
 import Link from "next/link";
 import { dismissSetupAction } from "@/app/actions";
-import { requiredChecklistRemaining, type ChecklistStep } from "@/lib/onboarding/checklist";
+import { requiredChecklistRemaining, type ChecklistStep, type ProposalStep } from "@/lib/onboarding/checklist";
+
+export function FirstProposal({ steps }: { steps: ProposalStep[] }) {
+  const done = steps.filter((step) => step.done).length;
+  return (
+    <section className="flex flex-col gap-2">
+      <div className="flex items-baseline justify-between">
+        <h2 className="fl-section">First proposal</h2>
+        <span className="fl-body tabular-nums text-[var(--fl-secondary)]">{done} of 4</span>
+      </div>
+      <ul className="fl-group">
+        {steps.map((step) =>
+          step.done ? (
+            <li key={step.id} className="fl-cell" data-done="true">
+              <span className="fl-body">{step.label}</span>
+            </li>
+          ) : (
+            <li key={step.id} data-done="false">
+              <Link href={step.href} className="fl-cell fl-press">
+                <span className="fl-body min-w-0 flex-1">{step.label}</span>
+                <span className="text-[var(--fl-tertiary)]" aria-hidden>
+                  ›
+                </span>
+              </Link>
+            </li>
+          ),
+        )}
+      </ul>
+    </section>
+  );
+}
 
 export function SetupRow({ steps }: { steps: ChecklistStep[] }) {
   const required = steps.filter((step) => !step.optional);

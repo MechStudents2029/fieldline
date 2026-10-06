@@ -36,6 +36,7 @@ import {
 } from "@/lib/services/time";
 import type { TimeUndo } from "@/lib/services/time";
 import { moveScheduleItem, rotateCalendarFeed, saveScheduleItem, type ScheduleStatus } from "@/lib/services/schedule";
+import { commitImport, previewImport, undoImport } from "@/lib/services/import";
 import { supabaseAuthConfigured } from "@/lib/supabase/env";
 import { supabasePasswordAuth } from "@/lib/supabase/password";
 import { ServiceError } from "@/lib/services/errors";
@@ -1387,6 +1388,46 @@ export async function moveScheduleAction(input: { id: string; startDate: string;
     return { ok: "Saved." };
   } catch (error) {
     return failure(error);
+  }
+}
+
+export async function previewImportAction(input: { kind: string; csv: string; mapping: string[] }) {
+  try {
+    const user = await actor();
+    return previewImport(user, input);
+  } catch (error) {
+    if (error instanceof ServiceError) return { error: error.message };
+    throw error;
+  }
+}
+
+export async function commitImportAction(input: { kind: string; csv: string; mapping: string[]; choices: { index: number; choice?: string; mapToCode?: string }[] }) {
+  try {
+    const user = await actor();
+    const result = commitImport(user, input);
+    revalidatePath("/import");
+    revalidatePath("/contacts");
+    revalidatePath("/price-book");
+    revalidatePath("/");
+    return result;
+  } catch (error) {
+    if (error instanceof ServiceError) return { error: error.message };
+    throw error;
+  }
+}
+
+export async function undoImportAction(batchId: string) {
+  try {
+    const user = await actor();
+    const result = undoImport(user, batchId);
+    revalidatePath("/import");
+    revalidatePath("/contacts");
+    revalidatePath("/price-book");
+    revalidatePath("/");
+    return result;
+  } catch (error) {
+    if (error instanceof ServiceError) return { error: error.message };
+    throw error;
   }
 }
 

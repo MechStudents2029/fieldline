@@ -57,6 +57,7 @@ export function CommandMenu({ chrome, role }: { chrome: OfficeChrome; role: stri
             {field ? null : <Command.Item onSelect={() => go("/invoices")}>Invoices</Command.Item>}
             {field ? null : <Command.Item onSelect={() => go("/bills")}>Bills</Command.Item>}
             <Command.Item onSelect={() => go("/contacts")}>Clients</Command.Item>
+            {role === "owner" || role === "admin" ? <Command.Item onSelect={() => go("/import")}>Import</Command.Item> : null}
             <Command.Item onSelect={() => go("/settings")}>Settings</Command.Item>
             <Command.Item onSelect={() => go("/purchase-orders")}>Purchase orders</Command.Item>
             <Command.Item onSelect={() => go("/price-book")}>Price book</Command.Item>
@@ -118,7 +119,7 @@ export function CommandMenu({ chrome, role }: { chrome: OfficeChrome; role: stri
         <button type="button" className="mac-command-overlay" aria-label="Close shortcuts" onClick={() => setHelp(false)}>
           <span className="mac-command block p-4 text-left" onClick={(event) => event.stopPropagation()}>
             <span className="mac-t15">Shortcuts</span>
-            <span className="mt-2 block mac-t13 text-[var(--mac-secondary)]">⌘K command menu · / search · G then T L J E H S B C · ⌃⌘S sidebar · ⌥⌘0 inspector · ⌘N new · ⌘↩ primary · ? this list</span>
+            <span className="mt-2 block mac-t13 text-[var(--mac-secondary)]">⌘K command menu · / search · G then T L J E H S B C I · ⌃⌘S sidebar · ⌥⌘0 inspector · ⌘N new · ⌘↩ primary · ? this list</span>
           </span>
         </button>
       ) : null}

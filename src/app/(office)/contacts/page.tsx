@@ -3,6 +3,7 @@ import { EmptyState } from "@/components/empty-state";
 import { Toolbar } from "@/components/mac/toolbar";
 import { Button } from "@/components/ui/button";
 import { requireSession } from "@/lib/auth/session";
+import { canManageSettings } from "@/lib/permissions";
 import { listContacts } from "@/lib/services/read";
 
 export default async function ContactsPage({ searchParams }: { searchParams: Promise<{ q?: string; type?: string }> }) {
@@ -13,9 +14,24 @@ export default async function ContactsPage({ searchParams }: { searchParams: Pro
   return (
     <div className="flex flex-col gap-4">
       <div className="hidden md:block">
-        <Toolbar title="Clients" search={false} />
+        <Toolbar
+          title="Clients"
+          search={false}
+          trailing={
+            canManageSettings(session.role) ? (
+              <a href="/import?kind=contacts" className="mac-glass-btn">
+                Import
+              </a>
+            ) : null
+          }
+        />
       </div>
       <h1 className="font-heading text-3xl md:hidden">Clients</h1>
+      {canManageSettings(session.role) ? (
+        <a href="/import?kind=contacts" className="mac-t13 text-[var(--mac-accent)] md:hidden">
+          Import
+        </a>
+      ) : null}
       <form className="grid gap-2 sm:grid-cols-[1fr_160px_auto]" aria-label="Search contacts">
         <label className="text-sm">
           Search

@@ -95,6 +95,7 @@ export function ensureReady(holder: Holder) {
   ensurePurchaseOrders(holder);
   ensureLineBilling(holder);
   ensureSchedule(holder);
+  ensureImport(holder);
   const version = holder.sqlite.prepare("select value from app_meta where key = ?").get("seed_version") as
     | { value: string }
     | undefined;
@@ -715,6 +716,38 @@ function ensureSchedule(holder: Holder) {
   holder.sqlite.exec("create index if not exists schedule_assignees_user on schedule_assignees (org_id, user_id)");
   holder.sqlite.exec("create unique index if not exists calendar_feeds_user on calendar_feeds (org_id, user_id)");
   holder.sqlite.exec("create unique index if not exists calendar_feeds_hash on calendar_feeds (token_hash)");
+}
+
+function ensureImport(holder: Holder) {
+  const pk = holder.dialect === "postgres" ? "text primary key" : "text primary key not null";
+  if (!tableExists(holder.sqlite, "import_batches", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists import_batches (
+      id ${pk},
+      org_id text not null,
+      kind text not null,
+      created_by text,
+      created_at text not null,
+      undone_at text,
+      summary_json text not null
+    )`);
+  }
+  if (!tableExists(holder.sqlite, "import_rows", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists import_rows (
+      id ${pk},
+      org_id text not null,
+      batch_id text not null,
+      row_index integer not null,
+      action text not null,
+      record_kind text not null,
+      record_id text,
+      before_json text,
+      after_json text,
+      undone_at text,
+      undo_block text
+    )`);
+  }
+  holder.sqlite.exec("create index if not exists import_batches_org on import_batches (org_id, created_at)");
+  holder.sqlite.exec("create index if not exists import_rows_batch on import_rows (org_id, batch_id)");
 }
 
 function ensureTesterFeedback(holder: Holder) {
