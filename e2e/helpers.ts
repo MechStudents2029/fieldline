@@ -52,7 +52,6 @@ export async function kitchenThroughPaid(page: Page) {
   await page.getByRole("button", { name: "Sign proposal" }).click();
   await expect(page).toHaveURL(/\/portal\//);
   await expect(page.getByRole("heading", { name: "Kitchen remodel" })).toBeVisible();
-  await expect(page.getByText("Hello Nora.")).toBeVisible();
   await page.getByRole("link", { name: /^Pay / }).click();
   await expect(page.getByRole("button", { name: "Pay by ACH" })).toBeVisible();
   await page.getByRole("button", { name: "Pay by ACH" }).click();

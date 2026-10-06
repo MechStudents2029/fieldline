@@ -48,7 +48,7 @@ function ConfirmPayment() {
         Pay
       </Button>
       <p className="text-xs text-muted-foreground">
-        Stripe test mode. Bank account (ACH) is listed first. A bank payment can stay processing, and this invoice is marked paid only after Stripe reports success. Test card 4242 4242 4242 4242.
+        Test mode
       </p>
     </form>
   );

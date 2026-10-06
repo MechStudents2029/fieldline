@@ -2,8 +2,10 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PayForm } from "@/components/pay-form";
 import { StripePayForm } from "@/components/stripe-pay-form";
+import { formatDate } from "@/lib/format";
 import { formatMoney } from "@/lib/money";
 import { ensureStripePaymentIntent } from "@/lib/payments/intent";
+import { invoiceTypeLabel } from "@/lib/portal/summary";
 import { ServiceError } from "@/lib/services/errors";
 import { invoiceByPayToken } from "@/lib/services/read";
 
@@ -23,25 +25,26 @@ export default async function PayPage({
   const paid = data.invoice.status === "paid";
   const stripeOn = Boolean(process.env.STRIPE_SECRET_KEY);
   return (
-    <main className="mx-auto min-h-screen max-w-lg px-4 py-8">
-      <p className="text-xs uppercase tracking-wide text-muted-foreground">{data.org.name}</p>
-      <h1 className="font-heading text-4xl">{formatMoney(data.invoice.totalCents)}</h1>
-      <p className="text-sm">
-        {data.invoice.number} · {data.invoice.type} · {data.project.name}
+    <main className="home home-proposal">
+      <p className="home-company">{data.org.name}</p>
+      <h1 className="home-price">{formatMoney(data.invoice.totalCents)}</h1>
+      <p className="home-strong">{data.invoice.number}</p>
+      <p className="home-sub">
+        {invoiceTypeLabel(data.invoice.type)} · {data.project.name}
       </p>
-      <p className="text-sm text-muted-foreground">Due {data.invoice.dueDate}</p>
-      <ul className="mt-4 text-sm">
+      <p className="home-sub">Due {formatDate(data.invoice.dueDate)}</p>
+      <ul className="home-scope">
         {data.lines.map((line) => (
-          <li key={line.id} className="flex justify-between py-1">
+          <li key={line.id}>
             <span>{line.description}</span>
-            <span>{formatMoney(line.amountCents)}</span>
+            <span className="home-money">{formatMoney(line.amountCents)}</span>
           </li>
         ))}
       </ul>
       {data.project.portalToken ? (
-        <p className="mt-3 text-sm">
-          <Link className="underline" href={`/portal/${data.project.portalToken}`}>
-            Back to the project
+        <p className="home-center">
+          <Link className="home-link" href={`/portal/${data.project.portalToken}`}>
+            Project
           </Link>
         </p>
       ) : null}
@@ -69,14 +72,9 @@ function PaidNote({
   payments: Array<{ method: string; amountCents: number; feeCents: number }>;
 }) {
   return (
-    <section className="mt-6 rounded-xl bg-primary p-4 text-primary-foreground">
-      <h2 className="font-heading text-2xl">Paid</h2>
-      <p className="text-sm">Thank you. The contractor has the receipt in Fieldline.</p>
-      {payments[0] ? (
-        <p className="mt-2 text-xs opacity-80">
-          {payments[0].method.toUpperCase()} · {formatMoney(payments[0].amountCents)} · fee {formatMoney(payments[0].feeCents)} kept by the processor, not added to your total.
-        </p>
-      ) : null}
+    <section className="home-note">
+      <h2 className="home-title">Paid</h2>
+      {payments[0] ? <p className="home-money">{formatMoney(payments[0].amountCents)}</p> : null}
     </section>
   );
 }
@@ -111,13 +109,8 @@ async function StripeCheckout({ token, redirectStatus }: { token: string; redire
           {error}
         </p>
       ) : waiting ? (
-        <div className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
-          <h2 className="font-heading text-2xl">{intent?.status === "processing" ? "Processing" : "Waiting on Stripe"}</h2>
-          <p className="text-sm text-muted-foreground">
-            {intent?.status === "processing"
-              ? "The bank payment is processing. This invoice stays open until Stripe reports success."
-              : "Stripe accepted the payment. This invoice is marked paid when the webhook arrives."}
-          </p>
+        <div className="home-note">
+          <h2 className="home-title">{intent?.status === "processing" ? "Processing" : "Waiting on Stripe"}</h2>
         </div>
       ) : intent?.clientSecret && publishable ? (
         <StripePayForm publishableKey={publishable} clientSecret={intent.clientSecret} />

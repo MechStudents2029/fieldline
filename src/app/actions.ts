@@ -452,13 +452,15 @@ export async function draftCoAction(projectId: string, _prev: ActionState, formD
 
 export async function approveCoAction(token: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
   try {
-    approveChangeOrder({
+    const approved = approveChangeOrder({
       token,
       typedName: String(formData.get("typedName") || ""),
       consent: formData.get("consent") === "on",
       ip: await requestIp(),
       userAgent: (await headers()).get("user-agent") || undefined,
     });
+    revalidatePath(`/portal/${approved.portalToken}`);
+    revalidatePath(`/projects/${approved.projectId}`);
     return { ok: "Change order approved. The contract and the next invoice are updated." };
   } catch (error) {
     return failure(error);
@@ -603,9 +605,9 @@ export async function dismissDraftAction(draftId: string, _prev: ActionState, _f
 
 export async function portalMessageAction(portalToken: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
   try {
-    addPortalMessage(portalToken, String(formData.get("body") || ""));
+    addPortalMessage(portalToken, String(formData.get("body") || ""), await photoUpload(formData));
     revalidatePath(`/portal/${portalToken}`);
-    return { ok: "Message sent to your contractor." };
+    return { ok: "Sent." };
   } catch (error) {
     return failure(error);
   }

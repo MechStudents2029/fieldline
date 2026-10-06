@@ -1216,7 +1216,7 @@ export function approveChangeOrder(input: { token: string; typedName: string; co
       .run();
     log(tx, order.orgId, "project", project.id, "change_order", `Approved CO ${order.number}. Contract and budget updated.`, "contact", null);
     audit(tx, order.orgId, null, "change_order.approve", "change_order", order.id, input.ip);
-    return { projectId: project.id, payToken, invoiceId };
+    return { projectId: project.id, payToken, invoiceId, portalToken: project.portalToken };
   });
 }
 
@@ -1622,9 +1622,18 @@ export function dismissDraft(actor: Actor, draftId: string) {
   db.update(followUpDrafts).set({ status: "dismissed", updatedAt: nowIso() }).where(eq(followUpDrafts.id, draftId)).run();
 }
 
-export function addPortalMessage(portalToken: string, body: string) {
+export function addPortalMessage(
+  portalToken: string,
+  body: string,
+  upload?: { filename: string; bytes: Buffer } | null,
+) {
   const text = body.trim();
   if (!text) throw new ServiceError("Write a message first.");
+  const photo = upload && upload.bytes.length > 0 ? upload : null;
+  if (photo) {
+    const error = photoUploadError(photo.filename, photo.bytes);
+    if (error) throw new ServiceError(error);
+  }
   const db = getDb();
   const project = db.select().from(projects).where(eq(projects.portalToken, portalToken)).get();
   if (!project) throw new ServiceError("Project link not found.");
@@ -1659,9 +1668,10 @@ export function addPortalMessage(portalToken: string, body: string) {
       .run();
     thread = db.select().from(messageThreads).where(eq(messageThreads.id, threadId)).get()!;
   }
+  const messageId = id("msg");
   db.insert(messages)
     .values({
-      id: id("msg"),
+      id: messageId,
       orgId: project.orgId,
       threadId: thread.id,
       channel: "email",
@@ -1673,6 +1683,27 @@ export function addPortalMessage(portalToken: string, body: string) {
       createdBy: null,
     })
     .run();
+  if (photo) {
+    const documentId = id("doc");
+    const stored = storedPhoto(project.orgId, documentId, "", project.name, photo);
+    const meta = JSON.parse(stored.metadataJson) as { caption?: string };
+    db.insert(documents)
+      .values({
+        id: documentId,
+        orgId: project.orgId,
+        projectId: project.id,
+        leadId: project.leadId,
+        contactId: null,
+        type: "photo",
+        filename: stored.filename,
+        storagePath: stored.storagePath,
+        metadataJson: JSON.stringify({ caption: meta.caption ?? "", messageId, portal: true }),
+        deletedAt: null,
+        createdAt: now,
+        createdBy: null,
+      })
+      .run();
+  }
   log(db, project.orgId, "contact", project.contactId, "email", "Client replied from the portal.", "contact", project.contactId);
   log(db, project.orgId, "project", project.id, "email", "Client reply is on the contact timeline.", "contact", project.contactId);
 }

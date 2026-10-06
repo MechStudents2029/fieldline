@@ -44,6 +44,7 @@ import { daysSince } from "@/lib/format";
 import { readReceiptMeta } from "@/lib/ai/receipt";
 import { needsProposalNudge } from "@/lib/ai/nurture";
 import { marginThresholdFromQuestion, routeCopilotQuestion, type CopilotTool } from "@/lib/ai/copilot";
+import { portalLogView } from "@/lib/portal/summary";
 import { clientDailyLogs, jobLogAnswer } from "@/lib/services/logs";
 import { qboCustomersCsv as renderQboCustomers, qboImportLimitWarning, qboInvoicesCsv as renderQboInvoices } from "@/lib/export/qbo";
 import type { StoredSnapshot } from "@/lib/domain/snapshot";
@@ -816,35 +817,122 @@ export function invoiceByPayToken(token: string) {
   return { invoice, project, contact, org, lines, payments: paymentRows };
 }
 
+function portalMessageId(metadataJson: string | null): string | null {
+  if (!metadataJson) return null;
+  try {
+    const parsed = JSON.parse(metadataJson) as { portal?: unknown; messageId?: unknown };
+    if (parsed.portal !== true || typeof parsed.messageId !== "string" || !parsed.messageId) return null;
+    return parsed.messageId;
+  } catch {
+    return null;
+  }
+}
+
 export function portalByToken(token: string) {
   const db = getDb();
   const project = db.select().from(projects).where(eq(projects.portalToken, token)).get();
   if (!project) return null;
-  const contact = db.select().from(contacts).where(eq(contacts.id, project.contactId)).get();
+  const contact = db
+    .select()
+    .from(contacts)
+    .where(and(eq(contacts.id, project.contactId), eq(contacts.orgId, project.orgId)))
+    .get();
   const org = db.select().from(organizations).where(eq(organizations.id, project.orgId)).get();
-  const proposal = project.proposalId ? db.select().from(proposals).where(eq(proposals.id, project.proposalId)).get() : null;
-  const orders = db.select().from(changeOrders).where(eq(changeOrders.projectId, project.id)).orderBy(asc(changeOrders.number)).all();
-  const invoiceRows = db.select().from(invoices).where(eq(invoices.projectId, project.id)).all();
+  const proposalRow = project.proposalId
+    ? db
+        .select()
+        .from(proposals)
+        .where(and(eq(proposals.id, project.proposalId), eq(proposals.orgId, project.orgId)))
+        .get()
+    : null;
+  const orders = db
+    .select()
+    .from(changeOrders)
+    .where(and(eq(changeOrders.projectId, project.id), eq(changeOrders.orgId, project.orgId)))
+    .orderBy(asc(changeOrders.number))
+    .all();
+  const invoiceRows = db
+    .select()
+    .from(invoices)
+    .where(and(eq(invoices.projectId, project.id), eq(invoices.orgId, project.orgId)))
+    .orderBy(asc(invoices.issueDate))
+    .all();
+  const invoiceIds = invoiceRows.map((invoice) => invoice.id);
+  const paymentRows = invoiceIds.length
+    ? db
+        .select()
+        .from(payments)
+        .where(and(eq(payments.orgId, project.orgId), inArray(payments.invoiceId, invoiceIds)))
+        .all()
+    : [];
   const photos = db
     .select()
     .from(documents)
-    .where(and(eq(documents.projectId, project.id), eq(documents.type, "photo"), isNull(documents.deletedAt)))
+    .where(
+      and(
+        eq(documents.projectId, project.id),
+        eq(documents.orgId, project.orgId),
+        eq(documents.type, "photo"),
+        isNull(documents.deletedAt),
+      ),
+    )
     .all();
-  const threads = db.select().from(messageThreads).where(eq(messageThreads.projectId, project.id)).all();
+  const threads = db
+    .select()
+    .from(messageThreads)
+    .where(and(eq(messageThreads.projectId, project.id), eq(messageThreads.orgId, project.orgId)))
+    .all();
   const threadMessages = threads.length
-    ? db.select().from(messages).where(inArray(messages.threadId, threads.map((thread) => thread.id))).orderBy(asc(messages.createdAt)).all()
+    ? db
+        .select()
+        .from(messages)
+        .where(and(eq(messages.orgId, project.orgId), inArray(messages.threadId, threads.map((thread) => thread.id))))
+        .orderBy(asc(messages.createdAt))
+        .all()
     : [];
   return {
     project,
     contact,
     org,
-    proposal,
-    snapshot: proposal ? (JSON.parse(proposal.snapshotJson) as StoredSnapshot) : null,
-    orders,
+    proposal: proposalRow
+      ? {
+          id: proposalRow.id,
+          orgId: proposalRow.orgId,
+          status: proposalRow.status,
+          publicToken: proposalRow.publicToken,
+          totalCents: proposalRow.totalCents,
+          signedAt: proposalRow.signedAt,
+          sentAt: proposalRow.sentAt,
+        }
+      : null,
+    orders: orders.map((order) => ({
+      id: order.id,
+      orgId: order.orgId,
+      projectId: order.projectId,
+      number: order.number,
+      title: order.title,
+      status: order.status,
+      description: order.description,
+      priceDeltaCents: order.priceDeltaCents,
+      publicToken: order.publicToken,
+      sentAt: order.sentAt,
+      approvedAt: order.approvedAt,
+    })),
     invoices: invoiceRows,
-    photos,
+    payments: paymentRows.map((payment) => ({
+      id: payment.id,
+      orgId: payment.orgId,
+      invoiceId: payment.invoiceId,
+      status: payment.status,
+      amountCents: payment.amountCents,
+      createdAt: payment.createdAt,
+    })),
+    messagePhotos: photos.flatMap((photo) => {
+      const messageId = portalMessageId(photo.metadataJson);
+      return messageId ? [{ id: photo.id, messageId }] : [];
+    }),
     messages: threadMessages,
-    logs: clientDailyLogs(project.id),
+    logs: clientDailyLogs(project.id).map(portalLogView),
   };
 }
 
