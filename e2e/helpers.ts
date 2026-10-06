@@ -30,10 +30,19 @@ export async function kitchenThroughPaid(page: Page) {
   await expect(page.getByRole("heading", { name: /Nora Cho/ })).toBeVisible();
   await page.getByRole("button", { name: "Draft estimate from price book" }).click();
   await expect(page.getByText("Price", { exact: true })).toBeVisible();
-  await page.locator("article input[name='name']").first().fill("E2E quartz edge");
-  await page.getByRole("button", { name: "Save line" }).first().click();
-  await expect(page.getByText("Line saved.")).toBeVisible();
-  await expect(page.locator("article input[name='name']").first()).toHaveValue("E2E quartz edge");
+  const width = page.viewportSize()?.width ?? 1280;
+  if (width >= 768) {
+    const item = page.getByRole("grid", { name: "Estimate lines" }).getByRole("textbox", { name: "Item" }).first();
+    await item.fill("E2E quartz edge");
+    await item.press("Tab");
+    await expect(page.getByText("Line saved.")).toBeVisible();
+    await expect(item).toHaveValue("E2E quartz edge");
+  } else {
+    await page.locator("article input[name='name']").first().fill("E2E quartz edge");
+    await page.getByRole("button", { name: "Save line" }).first().click();
+    await expect(page.getByText("Line saved.")).toBeVisible();
+    await expect(page.locator("article input[name='name']").first()).toHaveValue("E2E quartz edge");
+  }
   await page.getByRole("checkbox", { name: /Send even if margin/ }).check();
   await page.getByRole("button", { name: "Send proposal" }).click();
   await expect(page).toHaveURL(/\/p\//);

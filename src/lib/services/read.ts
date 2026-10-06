@@ -34,6 +34,7 @@ import {
   testerFeedback,
   users,
 } from "@/lib/db/schema";
+import { countsTowardTotal, type Billing } from "@/lib/estimate/pricing";
 import { marginBps, lineAmounts } from "@/lib/money";
 import { assessCategories, costCodeKey, rollupCostCodes, type CategoryAssessment, type CoveringLine } from "@/lib/margin/category";
 import { openCommitments } from "@/lib/services/purchase-orders";
@@ -249,18 +250,33 @@ export function estimateDetail(orgId: string, estimateId: string) {
   let price = 0;
   const priced = lines.map((line) => {
     const amounts = lineAmounts(line.qtyMilli, line.unitCostCents, line.markupBps);
-    cost += amounts.cost;
-    price += amounts.price;
-    return { ...line, costCents: amounts.cost, priceCents: amounts.price };
+    const billing = (line.billing || "included") as Billing;
+    if (countsTowardTotal(billing)) {
+      cost += amounts.cost;
+      price += amounts.price;
+    }
+    return { ...line, billing, costCents: amounts.cost, priceCents: amounts.price };
   });
   const proposalRows = db.select().from(proposals).where(eq(proposals.estimateId, estimateId)).all();
   const locked = proposalRows.some((row) => ["sent", "viewed", "signed", "declined"].includes(row.status));
+  const org = db.select().from(organizations).where(eq(organizations.id, orgId)).get();
+  const photos = lead
+    ? db
+        .select()
+        .from(documents)
+        .where(and(eq(documents.orgId, orgId), eq(documents.leadId, lead.id), eq(documents.type, "photo"), isNull(documents.deletedAt)))
+        .all()
+    : [];
   return {
     estimate,
     lead,
     contact,
     sections,
     lines: priced,
+    photos,
+    depositBps: org?.depositBps ?? 4000,
+    progressBps: org?.progressBps ?? 4000,
+    finalBps: org?.finalBps ?? 2000,
     costCents: cost,
     priceCents: price,
     marginBps: marginBps(price, cost),
@@ -414,7 +430,7 @@ export function listEstimates(orgId: string) {
     : [];
   return rows.map((row) => {
     const priceCents = lines
-      .filter((line) => line.estimateId === row.estimate.id)
+      .filter((line) => line.estimateId === row.estimate.id && countsTowardTotal((line.billing || "included") as Billing))
       .reduce((sum, line) => sum + lineAmounts(line.qtyMilli, line.unitCostCents, line.markupBps).price, 0);
     return { ...row, priceCents };
   });

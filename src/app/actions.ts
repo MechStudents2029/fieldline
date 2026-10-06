@@ -84,6 +84,7 @@ import {
   reviseEstimate,
   sendChangeOrder,
   sendProposal,
+  syncEstimateGrid,
   submitTesterFeedback,
   signProposal,
   updateLine,
@@ -256,6 +257,18 @@ export async function generateEstimateAction(leadId: string, _prev: ActionState,
     const result = await generateEstimate(user, leadId);
     revalidatePath(`/leads/${leadId}`);
     redirect(`/estimates/${result.estimateId}`);
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function syncEstimateGridAction(payload: unknown): Promise<ActionState> {
+  try {
+    const user = await actor();
+    syncEstimateGrid(user, payload);
+    const estimateId = typeof payload === "object" && payload && "estimateId" in payload ? String(payload.estimateId) : "";
+    if (estimateId) revalidatePath(`/estimates/${estimateId}`);
+    return { ok: "Line saved." };
   } catch (error) {
     return failure(error);
   }

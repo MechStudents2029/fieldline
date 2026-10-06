@@ -50,6 +50,7 @@ import {
   users,
 } from "@/lib/db/schema";
 import { assembleSnapshot, defaultSchedule, type StoredSnapshot } from "@/lib/domain/snapshot";
+import { vasquezLines, vasquezSections } from "@/lib/estimate/vasquez";
 import { hashPassword, newSalt } from "@/lib/auth/password";
 import { canonicalJson, sha256 } from "@/lib/esign/hash";
 import { daysAgo, daysFromNow, nowIso } from "@/lib/ids";
@@ -57,7 +58,7 @@ import { achFeeCents, qtyToMilli } from "@/lib/money";
 import { DEMO_PASSWORD } from "@/lib/product";
 import { proposalNudgeCopy } from "@/lib/ai/nurture";
 
-export const SEED_VERSION = "8";
+export const SEED_VERSION = "9";
 
 const ORG = "org_rivera";
 const NORTH = "org_northline";
@@ -564,6 +565,50 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
         aiConfidenceMilli: null,
         sourceNote: null,
         sortOrder: index,
+      })),
+    )
+    .run();
+
+  db.insert(estimates)
+    .values({
+      id: "est_vasquez",
+      orgId: ORG,
+      leadId: "lead_vasquez",
+      version: 2,
+      status: "draft",
+      title: "Vasquez gut kitchen",
+      markupBps: 4286,
+      taxBps: 0,
+      marginTargetBps: 3000,
+      notes: null,
+      createdAt: daysAgo(1),
+      updatedAt: now,
+      createdBy: "user_luis",
+    })
+    .run();
+  db.insert(estimateSections)
+    .values(vasquezSections.map((section) => ({ id: section.id, orgId: ORG, estimateId: "est_vasquez", name: section.name, sortOrder: section.sortOrder })))
+    .run();
+  db.insert(lineItems)
+    .values(
+      vasquezLines.map((line) => ({
+        id: line.id,
+        orgId: ORG,
+        sectionId: line.sectionId,
+        estimateId: "est_vasquez",
+        priceBookItemId: `pb_${line.code.toLowerCase()}`,
+        name: line.name,
+        description: null,
+        qtyMilli: qtyToMilli(line.qty),
+        unit: line.unit,
+        unitCostCents: line.unitCostCents,
+        markupBps: line.markupBps,
+        costCode: line.code,
+        source: line.confidenceMilli != null ? "ai" : "manual",
+        aiConfidenceMilli: line.confidenceMilli,
+        sourceNote: line.sourceNote,
+        sortOrder: line.sortOrder,
+        billing: line.billing,
       })),
     )
     .run();
