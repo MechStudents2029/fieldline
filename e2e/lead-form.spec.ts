@@ -61,8 +61,8 @@ test("office lead form at 1440", async ({ page, request }) => {
   await expect(page.getByLabel("Source").locator("option", { hasText: "Website form" })).toHaveCount(1);
   await page.getByRole("link", { name: "Casey Ng Kitchen remodel" }).click();
   await expect(page.getByText("Website form").first()).toBeVisible();
-  await expect(page.getByText("$25–50k")).toBeVisible();
-  await expect(page.getByText("120 sq ft")).toBeVisible();
+  await expect(page.getByText("$25–50k", { exact: true })).toBeVisible();
+  await expect(page.getByText("Kitchen, about 120 sq ft.", { exact: true })).toBeVisible();
   await expect(page.getByText("source yard-sign")).toBeVisible();
 });
 
