@@ -80,18 +80,16 @@ export default async function EstimatePage({ params }: { params: Promise<{ id: s
           const measure = /site measure/i.test(line.sourceNote ?? "");
           return (
             <li key={line.id} id={`line-${line.id}`}>
-              <article className="px-4 py-3 md:py-1">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="fl-body">{line.name}</p>
-                    <p className="fl-secondary-text text-[var(--fl-secondary)]">
-                      {formatQty(line.qtyMilli)} {line.unit}
-                      {line.costCode ? ` · ${line.costCode}` : ""}
-                      {measure ? <span className="fl-close"> · Measure on site</span> : null}
-                    </p>
-                  </div>
+              <article className="px-4 py-3 md:px-2 md:py-0.5">
+                <div className="flex items-start justify-between gap-3 md:hidden">
+                  <p className="fl-body min-w-0">{line.name}</p>
                   <p className="fl-body tabular-nums">{formatWhole(line.priceCents)}</p>
                 </div>
+                <p className="fl-secondary-text text-[var(--fl-secondary)] md:px-1">
+                  {formatQty(line.qtyMilli)} {line.unit}
+                  {line.costCode ? ` · ${line.costCode}` : ""}
+                  {measure ? <span className="fl-close"> · Measure on site</span> : null}
+                </p>
                 {detail.locked ? null : (
                   <ActionForm action={updateLineAction.bind(null, line.id, detail.estimate.id)} className="mt-3 grid gap-2 sm:grid-cols-4 md:mt-0 md:grid-cols-[28px_minmax(0,1.5fr)_88px_52px_40px_72px_52px_80px_auto] md:items-center md:gap-2">
                     <span className="hidden num text-[var(--mac-secondary)] md:inline">{index + 1}</span>

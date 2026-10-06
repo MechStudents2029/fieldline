@@ -46,13 +46,27 @@ export function Sidebar({
       {count ? <span className="num pr-2 text-[var(--mac-secondary)]">{count}</span> : null}
     </div>
   );
+  if (!open) {
+    return (
+      <div className="relative hidden w-9 shrink-0 md:block">
+        <button
+          type="button"
+          aria-label="Show sidebar"
+          className="absolute left-1.5 top-3 inline-flex size-7 items-center justify-center rounded-md text-[var(--mac-secondary)]"
+          onClick={() => window.dispatchEvent(new Event("fieldline-sidebar"))}
+        >
+          ▤
+        </button>
+      </div>
+    );
+  }
   return (
-    <div className={open ? "relative hidden w-[236px] shrink-0 md:block" : "hidden"}>
-      <nav aria-label="Office" className="mac-glass absolute inset-y-2 left-2 flex w-[220px] flex-col rounded-[14px] p-2">
-        <div className="flex h-11 items-center gap-2 px-1">
-          <span className="inline-flex size-6 items-center justify-center rounded-md bg-[var(--mac-accent)] text-[11px] font-semibold text-[var(--mac-on-accent)]">F</span>
-          <span className="min-w-0 flex-1 truncate mac-t13 font-semibold">{orgName}</span>
-          <button type="button" aria-label="Hide sidebar" className="text-[var(--mac-secondary)]" onClick={() => window.dispatchEvent(new Event("fieldline-sidebar"))}>
+    <div className="relative hidden w-[252px] shrink-0 md:block">
+      <nav aria-label="Office" className="mac-glass absolute inset-y-2 left-2 flex w-[236px] flex-col rounded-[14px] p-2">
+        <div className="flex h-11 items-center gap-1.5 px-1">
+          <span className="inline-flex size-6 shrink-0 items-center justify-center rounded-md bg-[var(--mac-accent)] text-[11px] font-semibold text-[var(--mac-on-accent)]">F</span>
+          <span className="min-w-0 flex-1 whitespace-nowrap text-[12px] font-semibold leading-4">{orgName}</span>
+          <button type="button" aria-label="Hide sidebar" className="shrink-0 text-[var(--mac-secondary)]" onClick={() => window.dispatchEvent(new Event("fieldline-sidebar"))}>
             ▤
           </button>
         </div>
@@ -62,7 +76,8 @@ export function Sidebar({
           <p className="px-2 pb-1 pt-3 mac-t11 font-semibold text-[var(--mac-secondary)]">Work</p>
           {item("/projects", "Jobs", <Briefcase size={16} strokeWidth={1.6} />, chrome.pins.length)}
           {chrome.pins.map((job) => (
-            <Link key={job.id} href={`/projects/${job.id}`} aria-label="Pin" className="mac-sidebar-row pl-8" aria-current={pathname === `/projects/${job.id}` ? "page" : undefined}>
+            <Link key={job.id} href={`/projects/${job.id}`} aria-label="Pin" className="mac-sidebar-row pl-7" aria-current={pathname === `/projects/${job.id}` ? "page" : undefined}>
+              <span aria-hidden className="size-1 shrink-0 rounded-full bg-[var(--mac-tertiary)]" />
               <span className="truncate" aria-hidden="true">{job.name}</span>
             </Link>
           ))}

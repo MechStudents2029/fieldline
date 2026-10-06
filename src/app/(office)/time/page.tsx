@@ -16,7 +16,8 @@ import { formatLocalInput, weekdayName } from "@/lib/time/calendar";
 function elapsed(iso: string) {
   const minutes = Math.max(0, Math.round((Date.now() - Date.parse(iso)) / 60000));
   const hours = Math.floor(minutes / 60);
-  return `${hours}h ${minutes % 60}m`;
+  if (hours > 12) return { text: `Open ${hours}h`, forgotten: true };
+  return { text: `${hours}h ${minutes % 60}m`, forgotten: false };
 }
 
 function whenValue(iso: string | null, timeZone: string) {
@@ -44,13 +45,16 @@ export default async function TimePage() {
         {office && office.clockedIn.length > 0 ? (
           <div className="mb-4 flex items-center gap-3 rounded-[10px] border border-[var(--mac-box-border)] bg-[var(--mac-box)] px-3 py-2">
             <span className="mac-t11 text-[var(--mac-secondary)]">On site now {office.clockedIn.length}</span>
-            {office.clockedIn.map((row) => (
-              <span key={row.entryId} className="mac-t13">
-                {row.name}
-                <span className="text-[var(--mac-secondary)]"> · {row.projectName} · {row.costCode}</span>
-                <span className="num"> · {elapsed(row.since)}</span>
-              </span>
-            ))}
+            {office.clockedIn.map((row) => {
+              const punch = elapsed(row.since);
+              return (
+                <span key={row.entryId} className="mac-t13">
+                  {row.name}
+                  <span className="text-[var(--mac-secondary)]"> · {row.projectName} · {row.costCode}</span>
+                  <span className={`num ${punch.forgotten ? "font-semibold text-[var(--mac-warning)]" : ""}`}> · {punch.text}</span>
+                </span>
+              );
+            })}
           </div>
         ) : null}
         <div className="mac-strip mb-4">

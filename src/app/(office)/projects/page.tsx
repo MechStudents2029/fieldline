@@ -4,9 +4,11 @@ import { JobsBrowser, type JobItem } from "@/components/jobs-browser";
 import { DataTable, type TableRow } from "@/components/mac/data-table";
 import { Toolbar } from "@/components/mac/toolbar";
 import { requireSession } from "@/lib/auth/session";
+import { formatCalendarDay } from "@/lib/format";
 import { formatPercent, formatWhole } from "@/lib/money";
 import { canSeeMoney } from "@/lib/permissions";
 import { listContacts, listProjects, pipelineBoard } from "@/lib/services/read";
+import { timeBoard } from "@/lib/services/time";
 
 function city(address: string | null | undefined) {
   if (!address) return "";
@@ -48,6 +50,12 @@ export default async function ProjectsPage() {
     .map((card) => leadItem(card, "Draft"));
   const empty = inProgress.length === 0 && completed.length === 0 && upNext.length === 0 && estimating.length === 0;
   const names = new Map(listContacts(session.orgId).map((contact) => [contact.id, contact.name]));
+  const onSite = new Map<string, string[]>();
+  for (const person of timeBoard(session).office?.clockedIn ?? []) {
+    const list = onSite.get(person.projectName) ?? [];
+    list.push(person.name);
+    onSite.set(person.projectName, list);
+  }
   const cell = (text: string, sort?: string | number, tone?: "late" | "pill"): TableRow["cells"][string] => ({ text, sort: sort ?? text, tone });
   const projectRow = (row: (typeof rows)[number], status: string): TableRow => ({
     id: row.project.id,
@@ -61,8 +69,8 @@ export default async function ProjectsPage() {
       contract: cell(money ? formatWhole(row.project.contractValueCents) : "—", row.project.contractValueCents),
       spent: cell(money ? formatWhole(row.actualCents) : "—", row.actualCents),
       margin: cell(money && row.marginBps != null ? formatPercent(row.marginBps) : "—", row.marginBps ?? -1, row.alert ? "late" : undefined),
-      start: cell(row.project.startDate ? row.project.startDate.slice(5) : "—", row.project.startDate || ""),
-      crew: cell("—"),
+      start: cell(formatCalendarDay(row.project.startDate), row.project.startDate || ""),
+      crew: cell(onSite.get(row.project.name)?.join(", ") || "—"),
     },
   });
   const leadRow = (card: (typeof leads)[number], status: string, tone?: "pill"): TableRow => ({

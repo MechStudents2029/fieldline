@@ -9,13 +9,18 @@ import { PhotoCapture } from "@/components/photo-capture";
 import { ReceiptCapture } from "@/components/receipt-capture";
 import { Button } from "@/components/ui/button";
 import { requireSession } from "@/lib/auth/session";
-import { formatDateTime } from "@/lib/format";
+import { formatCalendarDay, formatDateTime } from "@/lib/format";
 import { overBudgetPercent } from "@/lib/margin/category";
 import { formatMoney, formatPercent, formatWhole } from "@/lib/money";
 import { projectBills } from "@/lib/services/bills";
 import { projectPurchaseOrders } from "@/lib/services/purchase-orders";
 import { captionFromMetadata, listPriceBook, listProjects, pipelineBoard, projectDetail } from "@/lib/services/read";
 import { timeBoard } from "@/lib/services/time";
+import { localDay } from "@/lib/time/calendar";
+
+function officeToday(timeZone: string) {
+  return localDay(Date.now(), timeZone);
+}
 
 function codeTone(percent: number | null, level: string) {
   if (level === "over" || (percent != null && percent >= 100)) return "fl-late";
@@ -34,6 +39,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
   const money = detail.financials;
   const board = timeBoard(session);
   const crew = board.office?.clockedIn.filter((row) => row.projectName === detail.project.name) ?? [];
+  const todayKey = officeToday(board.timeZone);
   const ranked = money ? [...money.byCode].sort((a, b) => (b.percentOfBudget ?? 0) - (a.percentOfBudget ?? 0)).slice(0, 2) : [];
   const paid = detail.invoices.reduce((sum, invoice) => sum + invoice.amountPaidCents, 0);
   const projectRows = listProjects(session.orgId);
@@ -58,7 +64,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
       <div className="hidden md:block">
         <Toolbar
           title={detail.project.name}
-          subtitle={detail.contact.name}
+          subtitle={`${detail.contact.name}${detail.project.address ? ` · ${detail.project.address}` : ""}`}
           search={false}
           center={
             <Segmented
@@ -74,7 +80,8 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
             money ? (
               <span className="hidden md:inline">
                 <button type="submit" form="new-change-order" data-mac-primary className="mac-primary">
-                  New change order
+                  <span aria-hidden="true">+</span>
+                  Change order
                 </button>
               </span>
             ) : null
@@ -155,34 +162,36 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
           </div>
           <div id="codes" className="mt-4 overflow-x-auto md:mt-0">
             <p className="mb-2 hidden mac-t11 font-semibold text-[var(--mac-secondary)] md:block">Budget by cost code</p>
-            <table className="mac-table w-full min-w-[40rem] text-left">
+            <table className="mac-table mac-budget w-full text-left">
               <thead>
                 <tr>
                   <th className="px-2">Cost code</th>
+                  <th className="px-2">Code</th>
                   <th className="px-2 text-right">Budget</th>
-                  <th className="px-2 text-right">Committed</th>
+                  <th className="mac-budget-extra px-2 text-right">Committed</th>
                   <th className="px-2 text-right">Spent</th>
-                  <th className="px-2 text-right">Projected</th>
-                  <th className="px-2 text-right">To complete</th>
-                  <th className="px-2 text-right">Variance</th>
+                  <th className="mac-budget-extra px-2 text-right">Projected</th>
+                  <th className="mac-budget-extra px-2 text-right">To complete</th>
+                  <th className="mac-budget-extra px-2 text-right">Variance</th>
                   <th className="px-2">Used</th>
                 </tr>
               </thead>
               <tbody>
                 {money.byCode.map((row) => (
                   <tr key={row.code} id={`code-${row.code}`} data-code={row.code}>
-                    <th scope="row" className={`px-2 font-normal ${codeTone(row.percentOfBudget, row.level)}`}>
-                      {row.code}
+                    <th scope="row" className="mac-name px-2 font-normal" title={codeName(detail.budget, row.code)}>
+                      {codeName(detail.budget, row.code)}
                     </th>
-                    <td className="px-2 text-right num" data-kind="budget">{formatMoney(row.budgetCents)}</td>
-                    <td className="px-2 text-right num" data-kind="committed">{formatMoney(row.committedOpenCents)}</td>
-                    <td className="px-2 text-right num" data-kind="actual">{formatMoney(row.actualCents)}</td>
-                    <td className="px-2 text-right num" data-kind="projected">{formatMoney(row.projectedCents)}</td>
-                    <td className="px-2 text-right num" data-kind="remaining">{formatMoney(row.costToCompleteCents)}</td>
-                    <td className="px-2 text-right num" data-kind="variance">{formatMoney(row.varianceCents)}</td>
+                    <td className="px-2 text-[var(--mac-secondary)]" title={row.code}>{row.code}</td>
+                    <td className="px-2 text-right num" data-kind="budget">{formatWhole(row.budgetCents)}</td>
+                    <td className="mac-budget-extra px-2 text-right num" data-kind="committed">{formatWhole(row.committedOpenCents)}</td>
+                    <td className="px-2 text-right num" data-kind="actual">{formatWhole(row.actualCents)}</td>
+                    <td className="mac-budget-extra px-2 text-right num" data-kind="projected">{formatWhole(row.projectedCents)}</td>
+                    <td className="mac-budget-extra px-2 text-right num" data-kind="remaining">{formatWhole(row.costToCompleteCents)}</td>
+                    <td className="mac-budget-extra px-2 text-right num" data-kind="variance">{formatWhole(row.varianceCents)}</td>
                     <td className="px-2">
                       <span className="flex items-center gap-2">
-                        <span className="h-1.5 w-16 overflow-hidden rounded-full bg-[var(--mac-fill)]">
+                        <span className="h-1.5 w-12 overflow-hidden rounded-full bg-[var(--mac-fill)]">
                           <span
                             className="block h-full rounded-full"
                             style={{
@@ -199,7 +208,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
               </tbody>
             </table>
           </div>
-          <ul className="mt-3 flex flex-col gap-2">
+          <ul className="mt-3 flex flex-col gap-2 md:hidden">
             {money.byCode.map((row) => {
               const overPercent = overBudgetPercent(row);
               if (!row.suggestDraft || overPercent == null) return null;
@@ -237,14 +246,11 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
           {detail.orders.map((order) => (
             <GroupedRow
               key={order.id}
-              title={`Change order ${order.number}`}
-              subtitle={order.status}
+              title={`${order.title} · ${order.status}`}
               trailing={money ? formatWhole(order.priceDeltaCents) : undefined}
               chevron={false}
             />
           ))}
-          <GroupedRow href={`/contacts/${detail.contact.id}`} title={detail.contact.name} subtitle="Client" />
-          <GroupedRow href={`/portal/${detail.project.portalToken}`} title="Client portal" subtitle={`/portal/${detail.project.portalToken}`} />
         </GroupedList>
       </div>
       {session.role === "field" ? (
@@ -264,19 +270,19 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
           <ReceiptCapture projectId={detail.project.id} codes={listPriceBook(session.orgId).map((item) => item.code)} allowPost={false} />
         </section>
       ) : null}
-      <section className="flex flex-col gap-3">
+      <section className="flex flex-col gap-3 md:hidden">
         <h2 className="fl-section">Change orders</h2>
         <ul className="fl-group">
           {detail.orders.map((order) => (
             <li key={order.id} className="fl-cell">
-              <span className="fl-body flex-1">
-                {order.title} · {order.status}
-              </span>
+              <span className="fl-body flex-1">{order.title}</span>
               {money ? <span className="tabular-nums">{formatWhole(order.priceDeltaCents)}</span> : null}
             </li>
           ))}
         </ul>
-        {money ? (
+      </section>
+      {money ? (
+        <div className="md:sr-only">
           <ActionForm id="new-change-order" action={createCoAction.bind(null, detail.project.id)} className="grid gap-2">
             <input name="title" aria-label="Change order title" placeholder="Title" className="field" required />
             <textarea name="description" aria-label="What changed" placeholder="What changed" rows={2} className="field" />
@@ -292,8 +298,9 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
               </Button>
             </div>
           </ActionForm>
-        ) : null}
-      </section>
+        </div>
+      ) : null}
+      <div className="flex flex-col gap-7">
       {money ? (
         <GroupedList label="Invoices">
           {detail.invoices.map((invoice) => (
@@ -313,6 +320,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
           </li>
         </GroupedList>
       ) : null}
+      </div>
       {money ? (
         <GroupedList label="Costs">
           {jobOrders.map((order) => (
@@ -337,11 +345,12 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
               <span className="fl-body flex-1">
                 {cost.vendorName} · {cost.costCode}
               </span>
-              <span className="tabular-nums">{formatMoney(cost.amountCents)}</span>
+              <span className="tabular-nums">{formatWhole(cost.amountCents)}<span className="sr-only">{formatMoney(cost.amountCents)}</span></span>
             </li>
           ))}
         </GroupedList>
       ) : null}
+      <div className="flex flex-col gap-7 md:hidden">
       {money ? (
         <ActionForm action={addCostAction.bind(null, detail.project.id)} className="grid gap-2">
           <input name="vendor" placeholder="Vendor" className="field" />
@@ -360,7 +369,8 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
         </ActionForm>
       ) : null}
       {money ? <ReceiptCapture projectId={detail.project.id} codes={costCodes} /> : null}
-      <section id="photos" className="flex flex-col gap-3">
+      </div>
+      <section id="photos" className="mac-docs flex flex-col gap-3">
         <h2 className="fl-section">Photos</h2>
         <div className="grid grid-cols-3 gap-2">
           {detail.photos
@@ -376,6 +386,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
         </div>
         {session.role !== "viewer" ? <PhotoCapture action={photoAction.bind(null, detail.project.id)} label="Take a job photo" submitLabel="Save photo" /> : null}
       </section>
+      <div className="md:hidden">
       <GroupedList label="Activity">
         {detail.timeline.map((item) => (
           <li key={item.id} className="fl-cell">
@@ -388,34 +399,59 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
       </GroupedList>
       </div>
       </div>
+      </div>
       <aside className="mac-inspector" aria-label="Inspector">
         <p className="mac-t11 font-semibold text-[var(--mac-secondary)]">Details</p>
-        <p className="mac-t13">Status {detail.project.status}</p>
-        <p className="mac-t13">Start {detail.project.startDate || "—"}</p>
-        <p className="mac-t13">Finish {detail.project.endDate || "—"}</p>
+        <dl className="mac-kv">
+          <div><dt>Status</dt><dd>{titleCase(detail.project.status)}</dd></div>
+          <div><dt>Start</dt><dd>{formatCalendarDay(detail.project.startDate)}</dd></div>
+          <div><dt>Finish</dt><dd>{formatCalendarDay(detail.project.endDate)}</dd></div>
+          <div><dt>Lead</dt><dd>{detail.ownerName || "—"}</dd></div>
+          <div><dt>Crew</dt><dd>{crew.length > 0 ? crew.map((person) => person.name).join(", ") : "—"}</dd></div>
+        </dl>
         <p className="mac-t11 font-semibold text-[var(--mac-secondary)]">Client</p>
-        <p className="mac-t13">{detail.contact.name}</p>
-        <p className="mac-t13 text-[var(--mac-secondary)]">{detail.contact.email}</p>
-        <p className="mac-t13 text-[var(--mac-secondary)]">{detail.project.address}</p>
+        <dl className="mac-kv">
+          <div><dt>Name</dt><dd>{detail.contact.name}</dd></div>
+          {detail.contact.phone ? <div><dt>Phone</dt><dd>{detail.contact.phone}</dd></div> : null}
+          {detail.contact.email ? <div><dt>Email</dt><dd className="truncate">{detail.contact.email}</dd></div> : null}
+          {detail.project.address ? <div><dt>Address</dt><dd>{detail.project.address}</dd></div> : null}
+        </dl>
         {money ? (
           <>
             <p className="mac-t11 font-semibold text-[var(--mac-secondary)]">Contract</p>
-            <p className="mac-t13 num">Total {formatWhole(money.contractCents)}</p>
-            {detail.orders.map((order) => (
-              <p key={order.id} className="mac-t13 text-[var(--mac-secondary)]">
-                CO {order.number} {formatWhole(order.priceDeltaCents)}
-              </p>
-            ))}
+            <dl className="mac-kv">
+              <div><dt>Proposal</dt><dd className="num">{formatWhole(detail.project.originalContractCents)}</dd></div>
+              {detail.orders.map((order) => (
+                <div key={order.id}>
+                  <dt>CO {order.number}</dt>
+                  <dd className="num">+{formatWhole(order.priceDeltaCents)}</dd>
+                </div>
+              ))}
+              <div><dt>Total</dt><dd className="num font-semibold">{formatWhole(money.contractCents)}</dd></div>
+            </dl>
             <p className="mac-t11 font-semibold text-[var(--mac-secondary)]">Payments</p>
-            {detail.invoices.map((invoice) => (
-              <p key={invoice.id} className="mac-t13">
-                {invoice.type} {formatWhole(invoice.amountPaidCents || invoice.totalCents)} {invoice.status}
-              </p>
-            ))}
+            <dl className="mac-kv">
+              {detail.invoices.map((invoice) => {
+                const pending = invoice.status !== "paid";
+                return (
+                  <div key={invoice.id}>
+                    <dt>{titleCase(invoice.type)}</dt>
+                    <dd className="num">
+                      {formatWhole(pending ? invoice.totalCents - invoice.amountPaidCents : invoice.amountPaidCents)}
+                      {pending ? (
+                        <span className="mac-due">{invoice.dueDate < todayKey ? "Late" : `Due ${formatCalendarDay(invoice.dueDate)}`}</span>
+                      ) : (
+                        <span className="ml-1.5 text-[var(--mac-secondary)]">Paid</span>
+                      )}
+                    </dd>
+                  </div>
+                );
+              })}
+            </dl>
           </>
         ) : null}
         <a className="mac-glass-btn" href={`/portal/${detail.project.portalToken}`}>
-          Open portal
+          Copy portal link
         </a>
       </aside>
     </div>
@@ -425,4 +461,13 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
 function prettyCode(code: string) {
   const name = code.split("-")[0]?.toLowerCase() ?? code;
   return name.charAt(0).toUpperCase() + name.slice(1);
+}
+
+function codeName(budget: { name: string; costCode: string | null }[], code: string) {
+  return budget.find((line) => line.costCode === code)?.name || prettyCode(code);
+}
+
+function titleCase(value: string) {
+  if (!value) return "—";
+  return value.charAt(0).toUpperCase() + value.slice(1);
 }
