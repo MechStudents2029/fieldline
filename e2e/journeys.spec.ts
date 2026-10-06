@@ -27,7 +27,7 @@ test("client approves a change order and the contract and budget move", async ({
   await order.getByPlaceholder("Type your name").fill("Amara Okonkwo");
   await order.getByRole("checkbox", { name: /By signing/ }).check();
   await order.getByRole("button", { name: "Approve change order" }).click();
-  await expect(order.getByText(/Change order approved|Approved/)).toBeVisible();
+  await expect(order.getByText("Approved", { exact: true }).first()).toBeVisible();
   await page.goto("/projects/proj_okonkwo");
   expect(await contractDollars(page)).toBeCloseTo(before + 1350, 2);
   await expect(page.getByText(/Add a linen niche · approved/)).toBeVisible();
