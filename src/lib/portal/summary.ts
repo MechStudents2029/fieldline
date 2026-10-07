@@ -146,6 +146,10 @@ export function invoiceTypeLabel(type: string): string {
       return "Final";
     case "co":
       return "Change order";
+    case "pay_app":
+      return "Pay application";
+    case "retainage":
+      return "Retainage";
     default:
       return type ? type.charAt(0).toUpperCase() + type.slice(1) : "";
   }

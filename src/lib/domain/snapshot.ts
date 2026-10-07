@@ -1,5 +1,6 @@
 import { countsTowardTotal, type Billing } from "@/lib/estimate/pricing";
 import { CONSENT_VERSION, PROPOSAL_DISCLAIMER } from "@/lib/product";
+import { parseDefaultDraws } from "@/lib/draws/math";
 import { formatQty, lineAmounts, scheduleAmounts, taxCents } from "@/lib/money";
 
 export type SnapshotLineInput = {
@@ -117,7 +118,16 @@ export function defaultSchedule(org: {
   depositBps: number;
   progressBps: number;
   finalBps: number;
+  defaultDrawsJson?: string | null;
 }) {
+  const custom = parseDefaultDraws(org.defaultDrawsJson);
+  if (custom && custom.reduce((sum, row) => sum + row.bps, 0) === 10000) {
+    return custom.map((row, index) => ({
+      type: index === 0 ? "deposit" : index === custom.length - 1 ? "final" : "progress",
+      label: row.title,
+      bps: row.bps,
+    }));
+  }
   return [
     { type: "deposit", label: "Deposit to schedule the job", bps: org.depositBps },
     { type: "progress", label: "Progress at rough-in", bps: org.progressBps },

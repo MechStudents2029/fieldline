@@ -153,7 +153,9 @@ begin
     'bid_files',
     'bid_invites',
     'bid_prices',
-    'bid_awards'
+    'bid_awards',
+    'draws',
+    'pay_app_lines'
   ]
   loop
     execute format('alter table public.%I enable row level security', tbl);
@@ -213,7 +215,9 @@ begin
     'labor_rates',
     'time_approvals',
     'bid_prices',
-    'bid_awards'
+    'bid_awards',
+    'draws',
+    'pay_app_lines'
   ]
   loop
     execute format('drop policy if exists %I on public.%I', tbl || '_member', tbl);

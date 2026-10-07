@@ -7,6 +7,7 @@ import { requireSession } from "@/lib/auth/session";
 import { formatDateTime } from "@/lib/format";
 import { supabaseAuthConfigured } from "@/lib/supabase/env";
 import { canManageSettings, canSeeMoney, roleLabel } from "@/lib/permissions";
+import { defaultDrawForm } from "@/lib/services/draws";
 import { companyChecklist } from "@/lib/services/onboarding";
 import { getOrg, integrations, staff } from "@/lib/services/read";
 import { CalendarFeed } from "@/components/calendar-feed";
@@ -42,7 +43,8 @@ export default async function SettingsPage() {
   const people = staff(session.orgId);
   const board = canManageSettings(session.role) ? teamBoard(session.orgId) : null;
   const laborDefault = canManageSettings(session.role) ? defaultHourlyCost(session.orgId) : null;
-  if (!org) return null;
+  const billingDefaults = org ? defaultDrawForm(org) : null;
+  if (!org || !billingDefaults) return null;
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-5 md:max-w-none md:px-6">
       <div>
@@ -118,6 +120,27 @@ export default async function SettingsPage() {
                 </option>
               ))}
             </select>
+          </label>
+          <fieldset className="flex flex-col gap-2">
+            <legend className="text-sm">Billing default draws</legend>
+            {billingDefaults.draws.map((draw, index) => (
+              <div key={`${draw.title}-${index}`} className="flex gap-2">
+                <input name="drawTitle" defaultValue={draw.title} aria-label={`Draw title ${index + 1}`} className="field" />
+                <input name="drawPercent" defaultValue={(draw.bps / 100).toFixed(0)} aria-label={`Draw percent ${index + 1}`} className="field w-20" />
+              </div>
+            ))}
+            <div className="flex gap-2">
+              <input name="drawTitle" placeholder="Draw" aria-label="New draw title" className="field" />
+              <input name="drawPercent" placeholder="0" aria-label="New draw percent" className="field w-20" />
+            </div>
+          </fieldset>
+          <label className="text-sm">
+            Terms days
+            <input name="paymentTermsDays" type="number" min={0} max={90} defaultValue={billingDefaults.termsDays} className="field mt-1 w-24" />
+          </label>
+          <label className="text-sm">
+            Default retainage %
+            <input name="defaultRetainage" type="number" min={0} max={100} defaultValue={(billingDefaults.retainageBps / 100).toFixed(0)} className="field mt-1 w-24" />
           </label>
           <label className="text-sm">
             Warranty months

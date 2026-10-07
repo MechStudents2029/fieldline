@@ -57,6 +57,7 @@ import { decideAch, decideCard } from "@/lib/payments/decide";
 import { canAddFieldNotes, canEditCrm, canManageMoney, type Role } from "@/lib/permissions";
 import { CONSENT_VERSION } from "@/lib/product";
 import { photoExtension, photoUploadError, rasterImageType, receiptUploadError } from "@/lib/security";
+import { attachApprovedChange, attachSignedDraws, billNextDraw } from "@/lib/services/draws";
 import { ServiceError } from "@/lib/services/errors";
 import { leadPhotoCues, type Actor } from "@/lib/services/read";
 
@@ -906,6 +907,12 @@ export function signProposal(input: {
         sortOrder: 0,
       })
       .run();
+    attachSignedDraws(tx, {
+      orgId: proposal.orgId,
+      projectId,
+      contractCents: stored.public.totalCents,
+      depositInvoiceId: invoiceId,
+    });
     tx.update(proposals)
       .set({ status: "signed", signedAt: now, projectId, updatedAt: now })
       .where(eq(proposals.id, proposal.id))
@@ -1003,6 +1010,8 @@ export function payInvoice(input: {
 
 export function issueNextInvoice(actor: Actor, projectId: string) {
   assertMoney(actor);
+  const nextDraw = billNextDraw(actor, projectId);
+  if (nextDraw) return { invoiceId: nextDraw.invoiceId, payToken: nextDraw.payToken };
   const db = staffDb(actor);
   const project = db.select().from(projects).where(and(eq(projects.id, projectId), eq(projects.orgId, actor.orgId))).get();
   if (!project?.proposalId) throw new ServiceError("This job has no signed proposal.");
@@ -1214,6 +1223,15 @@ export function approveChangeOrder(input: { token: string; typedName: string; co
         sortOrder: 0,
       })
       .run();
+    attachApprovedChange(tx, {
+      orgId: order.orgId,
+      projectId: project.id,
+      changeOrderId: order.id,
+      number: order.number,
+      title: order.title,
+      amountCents: order.priceDeltaCents,
+      invoiceId,
+    });
     log(tx, order.orgId, "project", project.id, "change_order", `Approved CO ${order.number}. Contract and budget updated.`, "contact", null);
     audit(tx, order.orgId, null, "change_order.approve", "change_order", order.id, input.ip);
     return { projectId: project.id, payToken, invoiceId, portalToken: project.portalToken };

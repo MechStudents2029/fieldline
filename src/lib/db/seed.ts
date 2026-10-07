@@ -65,7 +65,10 @@ import {
   bidLines,
   bidPrices,
   bidRequests,
+  draws,
+  payAppLines,
 } from "@/lib/db/schema";
+import { retainageByLine } from "@/lib/draws/math";
 import { assembleSnapshot, defaultSchedule, type StoredSnapshot } from "@/lib/domain/snapshot";
 import { vasquezLines, vasquezSections } from "@/lib/estimate/vasquez";
 import { hashPassword, newSalt } from "@/lib/auth/password";
@@ -83,7 +86,7 @@ import {
   WEBSITE_FORM_SOURCE,
 } from "@/lib/lead-form/rules";
 
-export const SEED_VERSION = "17";
+export const SEED_VERSION = "18";
 
 const ORG = "org_rivera";
 const NORTH = "org_northline";
@@ -1772,6 +1775,7 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
     assignees: string[];
     vendorContactId?: string | null;
   }[] = [
+    { id: "sch_ok_demo", projectId: "proj_okonkwo", title: "Demo", start: addCalendarDays(today, -2), end: addCalendarDays(today, -1), time: null, status: "done", note: null, assignees: [] },
     { id: "sch_ok_tile", projectId: "proj_okonkwo", title: "Tile shower", start: today, end: tomorrow, time: "07:30", status: "confirmed", note: "Homeowner home after 3", assignees: ["user_dana"] },
     { id: "sch_ok_plumb", projectId: "proj_okonkwo", title: "Set the valve", start: today, end: today, time: "09:00", status: "confirmed", note: null, assignees: [], vendorContactId: "c_harbor" },
     { id: "sch_chen_conflict", projectId: "proj_chen", title: "Vanity set", start: today, end: today, time: null, status: "planned", note: null, assignees: ["user_dana"] },
@@ -1810,6 +1814,64 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
           userId,
         })),
       ),
+    )
+    .run();
+
+  db.update(projects).set({ billingMode: "progress", retainageBps: 1000, updatedAt: now }).where(eq(projects.id, "proj_brooks")).run();
+  db.update(invoices).set({ applicationNumber: 1, retainageCents: 344_000, updatedAt: now }).where(eq(invoices.id, "inv_br_prog")).run();
+  const okDraws = [
+    { id: "drw_ok_dep", title: "Deposit", amountCents: 1_680_000, invoiceId: "inv_ok_dep", scheduleItemId: null, dueOn: null, sortOrder: 0 },
+    { id: "drw_ok_rough", title: "Rough-in", amountCents: 1_680_000, invoiceId: "inv_ok_prog", scheduleItemId: null, dueOn: null, sortOrder: 1 },
+    { id: "drw_ok_tile", title: "Tile set", amountCents: 420_000, invoiceId: null, scheduleItemId: "sch_ok_demo", dueOn: null, sortOrder: 2 },
+    { id: "drw_ok_trim", title: "Trim", amountCents: 420_000, invoiceId: null, scheduleItemId: null, dueOn: addCalendarDays(today, 21), sortOrder: 3 },
+    { id: "drw_ok_final", title: "Final", amountCents: 420_000, invoiceId: null, scheduleItemId: null, dueOn: addCalendarDays(today, 45), sortOrder: 4 },
+  ];
+  db.insert(draws)
+    .values(
+      okDraws.map((draw) => ({
+        id: draw.id,
+        orgId: ORG,
+        projectId: "proj_okonkwo",
+        title: draw.title,
+        basis: "fixed",
+        bps: 0,
+        amountCents: draw.amountCents,
+        scheduleItemId: draw.scheduleItemId,
+        dueOn: draw.dueOn,
+        sortOrder: draw.sortOrder,
+        invoiceId: draw.invoiceId,
+        changeOrderId: null,
+        createdAt: now,
+        updatedAt: now,
+      })),
+    )
+    .run();
+  const brooksWork = [
+    { key: "bud_proj_brooks_0", name: "Demo and foundation patch", scheduledCents: 840_000 },
+    { key: "bud_proj_brooks_1", name: "Framing", scheduledCents: 2_860_000 },
+    { key: "bud_proj_brooks_2", name: "Windows and doors", scheduledCents: 1_220_000 },
+    { key: "bud_proj_brooks_3", name: "Roof tie-in", scheduledCents: 980_000 },
+    { key: "bud_proj_brooks_4", name: "Electrical and HVAC", scheduledCents: 1_140_000 },
+    { key: "bud_proj_brooks_5", name: "Drywall and paint", scheduledCents: 820_000 },
+    { key: "bud_proj_brooks_6", name: "Supervision", scheduledCents: 740_000 },
+  ];
+  const brooksThis = brooksWork.map((line) => Math.round(line.scheduledCents * 0.4));
+  const brooksHold = retainageByLine(brooksThis, 1000);
+  db.insert(payAppLines)
+    .values(
+      brooksWork.map((line, index) => ({
+        id: `pal_br_${index}`,
+        orgId: ORG,
+        invoiceId: "inv_br_prog",
+        sourceKey: line.key,
+        name: line.name,
+        scheduledCents: line.scheduledCents,
+        previousCents: 0,
+        thisCents: brooksThis[index] ?? 0,
+        percentBps: 4000,
+        retainageCents: brooksHold[index] ?? 0,
+        sortOrder: index,
+      })),
     )
     .run();
 

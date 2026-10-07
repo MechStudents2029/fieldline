@@ -2,6 +2,13 @@
 
 ## 2026-10-07
 
+### Draws and progress billing
+
+- A signed job gets a draw schedule from the company defaults in Settings. Each draw is a percent or a fixed amount, optionally tied to a schedule item. The due date is that item’s end plus the company terms, or a date. The rows have to equal the contract, including approved change orders, to the cent. An invoiced draw cannot be edited. When the linked item is done or its date has passed, the draw is Ready to bill. Today counts those draws and the dollars. Billing creates a draft invoice and a pay link. No email goes out.
+- An approved change order is its own draw, already invoiced, or it can be rolled into the next open draw. It is not billed twice.
+- A job can bill by percent complete instead. The schedule of values is the signed budget plus approved change orders. The office enters a percent or a dollar amount for this period. The columns are scheduled value, previous, this period, total to date, percent, balance, and retainage. A line cannot go past 100%. Each application freezes the previous column. Voiding the latest one restores it. Retainage defaults to 0, is set per job, and is released after closeout.
+- The client portal lists the draws and the pay application lines. It does not show cost or margin. The number strip adds Retained when retainage is held. The job summary shows billed to date, percent billed, percent complete, and an underbilled or overbilled amount. The jobs list has a Billed column. A pay application has a print page with those columns. The QuickBooks invoice CSV includes the draft draw and progress invoices.
+
 ### Bid requests
 
 - The office can ask two or more subs to price the same scope on a job. Lines come from the job budget, with a quantity and a unit. The vendor portal shows the request. No email or text goes out.
