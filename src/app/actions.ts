@@ -38,6 +38,7 @@ import type { TimeUndo } from "@/lib/services/time";
 import { moveScheduleItem, rotateCalendarFeed, saveScheduleItem, type ScheduleStatus } from "@/lib/services/schedule";
 import { previewScheduleShift, shiftScheduleDates } from "@/lib/services/schedule-shift";
 import { createJobFromTemplate, importTemplate, renameTemplate, saveJobAsTemplate, type TemplatePart } from "@/lib/services/templates";
+import { setWipOverride } from "@/lib/services/wip";
 import { commitImport, previewImport, undoImport } from "@/lib/services/import";
 import {
   approveSelection,
@@ -2598,6 +2599,23 @@ export async function renameTemplateAction(_prev: ActionState, formData: FormDat
     revalidatePath("/templates");
     revalidatePath(`/templates/${templateId}`);
     return { ok: "Saved." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function setWipOverrideAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const projectId = String(formData.get("projectId") || "");
+  const asof = String(formData.get("asof") || "");
+  try {
+    const user = await actor();
+    const amount = parseMoneyToCents(String(formData.get("amount") || ""));
+    if (amount == null) return { error: "That amount is not valid." };
+    setWipOverride(user, projectId, { amountCents: amount, note: String(formData.get("note") || "") });
+    revalidatePath("/");
+    revalidatePath("/reports/wip");
+    revalidatePath(`/reports/wip/${projectId}`);
+    redirect(`/reports/wip/${projectId}?asof=${encodeURIComponent(asof)}`);
   } catch (error) {
     return failure(error);
   }

@@ -107,6 +107,7 @@ export function ensureReady(holder: Holder) {
   ensureWorkdays(holder);
   ensureScheduleLinks(holder);
   ensureTemplates(holder);
+  ensureWip(holder);
   const version = holder.sqlite.prepare("select value from app_meta where key = ?").get("seed_version") as
     | { value: string }
     | undefined;
@@ -233,6 +234,31 @@ function ensureScheduleLinks(holder: Holder) {
   }
   holder.sqlite.exec("create unique index if not exists schedule_links_edge on schedule_links (org_id, item_id, predecessor_id)");
   holder.sqlite.exec("create index if not exists schedule_links_project on schedule_links (org_id, project_id)");
+}
+
+function ensureWip(holder: Holder) {
+  const pk = holder.dialect === "postgres" ? "text primary key" : "text primary key not null";
+  if (!tableExists(holder.sqlite, "wip_overrides", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists wip_overrides (
+      id ${pk},
+      org_id text not null,
+      project_id text not null,
+      amount_cents integer not null,
+      note text not null,
+      updated_at text not null,
+      updated_by text
+    )`);
+  }
+  holder.sqlite.exec("create unique index if not exists wip_overrides_project on wip_overrides (org_id, project_id)");
+  if (!tableExists(holder.sqlite, "wip_attempts", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists wip_attempts (
+      id ${pk},
+      org_id text not null,
+      user_id text not null,
+      created_at text not null
+    )`);
+  }
+  holder.sqlite.exec("create index if not exists wip_attempts_user on wip_attempts (org_id, user_id, created_at)");
 }
 
 function ensureTemplates(holder: Holder) {

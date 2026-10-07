@@ -192,7 +192,7 @@ Setup for a person walking the product: run it locally (or on a staging host) wi
 - 5 users (owner, estimator, field, viewer, admin) plus Jordan at Northline Electric
 - a price book of about 80 items (drywall, tile, framing, electrical, plumbing, paint, demo, permits)
 - 25 Rivera contacts (clients, 3 subs, 3 vendors) and 12 leads across every stage
-- 4 projects: Chen powder (fresh, deposit open), Okonkwo bath (mid-job, two approved change orders), Brooks addition (under the 20% margin alert), Diaz deck (complete, final invoice unpaid)
+- 5 projects: Chen powder (fresh, deposit open), Okonkwo bath (mid-job, two approved change orders), Brooks addition (under the 20% margin alert), Brooks powder room (underbilled on WIP), Diaz deck (complete, final invoice unpaid)
 - 10 sample photos in `public/demo/photos` and 3 sample receipts in `public/demo/receipts`
 - two scopes already on leads: Vasquez kitchen and Briggs deck stain
 
@@ -221,6 +221,7 @@ Score each scenario pass or fail, with a note and a screenshot.
 21. **RFIs.** Okonkwo has three. RFI-001 Valve height is open, assigned to Harbor Plumbing, past due, and linked to Set the valve. Today counts RFIs overdue. Harbor’s portal is `/v/demo_vendor_harbor_m3p8qx7k` and shows only that RFI. RFI-002 Vanity quartz is answered by Amara and linked to the vanity selection. The client portal shows only that one. RFI-003 Niche blocking is closed with a $1,800 cost impact and draft CO 4. The log prints at `/projects/proj_okonkwo/rfis/print` and the CSV is `/api/export/rfis?project=proj_okonkwo`. Dana can add an RFI and does not see the cost amount.
 22. **Comments and Inbox.** Okonkwo RFI-001 has a thread from Luis that mentions Maya. Dana left a photo comment on yesterday's Okonkwo daily log, also mentioning Maya. Inbox starts with those two mentions plus the Client walk assignment. Open a row to land on the comment. j and k move, Enter opens. Field does not see comments on bills or estimates. The vendor and client portals do not show the thread. Mention settings are on Inbox: Mentions, or My jobs.
 23. **Job from a template.** Templates lists Bathroom remodel and Kitchen remodel. New job, pick Bathroom remodel, leave the parts checked, set a start date and Maya as PM, and map Plumbing to Harbor Plumbing if you want. The job opens with a count of what was created and the subtitle Bathroom remodel v1. On the schedule, extend Demo. The sheet says how many items move before you save. Field does not see template prices. Editing the template afterward leaves this job as it was.
+24. **WIP.** Maya opens Reports, then WIP. Today has an Underbilled row that opens the same list, most underbilled first. Brooks powder room is underbilled. Okonkwo and Chen are overbilled. Brooks addition is under the margin line. Set the as-of date and Show. Open Brooks powder room, set a projected cost with a note, and save. CSV and Print use that date. Dana does not see WIP.
 
 Feedback: file a GitHub issue with steps, expected, actual, screenshot, and device. A useful score is "would I send this proposal today?" from 1 to 5, plus minutes to a quote versus the current process.
 
@@ -246,6 +247,7 @@ Feedback: file a GitHub issue with steps, expected, actual, screenshot, and devi
 - Punch lists on a job, a closeout count before the job is closed, and warranty requests on the client portal through the warranty end date. A visit lands on the crew schedule. No message is sent.
 - A vendor portal for issued purchase orders, schedule days, punch items, draft bills, and certificates. The link is a hash. Today counts portal drafts and certificates that are expiring or expired.
 - Bid requests on a job. Vendors price the lines on the same portal link. The office compares them and awards draft purchase orders, with an optional budget update. No message is sent.
+- A WIP report for owner, admin, and office. One row per open job, an as-of date, a cost-code breakdown, CSV, and a print page. Field does not see it.
 
 **Stubbed until keys exist**
 

@@ -1562,3 +1562,29 @@ export const templateAttempts = sqliteTable(
   },
   (t) => [index("template_attempts_user").on(t.orgId, t.userId, t.createdAt)],
 );
+
+/** One forecast per job. Null means the report uses the cost-code formula. */
+export const wipOverrides = sqliteTable(
+  "wip_overrides",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    projectId: text("project_id").notNull(),
+    amountCents: integer("amount_cents").notNull(),
+    note: text("note").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    updatedBy: text("updated_by"),
+  },
+  (t) => [uniqueIndex("wip_overrides_project").on(t.orgId, t.projectId)],
+);
+
+export const wipAttempts = sqliteTable(
+  "wip_attempts",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    userId: text("user_id").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [index("wip_attempts_user").on(t.orgId, t.userId, t.createdAt)],
+);

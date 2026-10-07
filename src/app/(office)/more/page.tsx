@@ -2,7 +2,7 @@ import Link from "next/link";
 import { restoreSetupAction } from "@/app/actions";
 import { SignOutButton } from "@/components/sign-out-button";
 import { requireSession } from "@/lib/auth/session";
-import { canManageSettings } from "@/lib/permissions";
+import { canEditCrm, canManageSettings } from "@/lib/permissions";
 import { companyChecklist } from "@/lib/services/onboarding";
 
 const links = [
@@ -16,6 +16,7 @@ const links = [
   ["/contacts", "Clients"],
   ["/invoices", "Invoices"],
   ["/bills", "Bills"],
+  ["/reports/wip", "WIP"],
   ["/purchase-orders", "Purchase orders"],
   ["/price-book", "Price book"],
   ["/copilot", "Copilot"],
@@ -29,7 +30,11 @@ const fieldHidden = new Set(["/invoices", "/bills", "/purchase-orders", "/price-
 export default async function MorePage() {
   const session = await requireSession();
   const dismissed = companyChecklist(session.orgId)?.facts.dismissed ?? false;
-  const shown = session.role === "field" ? links.filter(([href]) => !fieldHidden.has(href)) : links;
+  const shown = links.filter(([href]) => {
+    if (href === "/reports/wip" && !canEditCrm(session.role)) return false;
+    if (session.role === "field" && fieldHidden.has(href)) return false;
+    return true;
+  });
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center gap-2">

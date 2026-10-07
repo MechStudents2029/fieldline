@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 export type Cell = { text: string; sort?: string | number; tone?: "late" | "pill" };
-export type TableRow = { id: string; href?: string; hint?: string; cells: Record<string, Cell> };
+export type TableRow = { id: string; href?: string; hint?: string; badge?: string; cells: Record<string, Cell> };
 export type TableGroup = { label: string; rows: TableRow[]; subtotal?: string };
 
 export function DataTable({
@@ -12,14 +12,18 @@ export function DataTable({
   rows = [],
   groups,
   status,
+  initialSort = null,
+  footer,
 }: {
   columns: { key: string; header: string; align?: "right"; fit?: boolean }[];
   rows?: TableRow[];
   groups?: TableGroup[];
   status?: string;
+  initialSort?: { key: string; dir: "asc" | "desc" } | null;
+  footer?: TableRow;
 }) {
   const router = useRouter();
-  const [sort, setSort] = useState<{ key: string; dir: "asc" | "desc" } | null>(null);
+  const [sort, setSort] = useState<{ key: string; dir: "asc" | "desc" } | null>(initialSort);
   const [closed, setClosed] = useState<Record<string, boolean>>({});
   const [selected, setSelected] = useState(0);
   const [menu, setMenu] = useState<{ x: number; y: number; href?: string } | null>(null);
@@ -109,6 +113,21 @@ export function DataTable({
               />
             ))}
           </tbody>
+          {footer ? (
+            <tfoot>
+              <tr>
+                {columns.map((column) => {
+                  const cell = footer.cells[column.key];
+                  const className = `${column.align === "right" || column.fit ? "num" : ""} ${column.align === "right" ? "text-right" : ""} ${cell?.tone === "late" ? "text-[var(--mac-danger)]" : ""} font-semibold`;
+                  return (
+                    <td key={column.key} className={className}>
+                      {cell?.text ?? ""}
+                    </td>
+                  );
+                })}
+              </tr>
+            </tfoot>
+          ) : null}
         </table>
       </div>
       {status ? <div className="flex h-[30px] items-center border-t border-[var(--mac-separator)] px-4 mac-t11 text-[var(--mac-secondary)]">{status}</div> : null}
@@ -195,6 +214,7 @@ function GroupBlock({
                               {row.hint}
                             </a>
                           ) : null}
+                          {row.badge ? <span className="ml-2 inline-flex h-4 items-center rounded bg-[var(--mac-fill)] px-1.5 text-[11px] font-medium text-[var(--mac-secondary)]">{row.badge}</span> : null}
                         </>
                       ) : cell?.tone === "pill" ? (
                         <span className="fl-pill">{text}</span>
