@@ -14,6 +14,8 @@ import {
   scheduleItems,
   scheduleLinks,
   selections,
+  taskChecks,
+  tasks,
   templateAttempts,
   templateChecks,
   templateDraws,
@@ -21,6 +23,8 @@ import {
   templateSelections,
   templateTaskLinks,
   templateTasks,
+  templateTodoChecks,
+  templateTodos,
   users,
 } from "@/lib/db/schema";
 import { id, nowIso, token } from "@/lib/ids";
@@ -29,9 +33,10 @@ import { lineCents, percentsFromAmounts, rescalePercents } from "@/lib/templates
 import { dateFromOffset, endFromDuration, inclusiveWorkdays, workdayOffset } from "@/lib/schedule/workdays";
 import { ServiceError } from "@/lib/services/errors";
 import type { Actor } from "@/lib/services/read";
+import { applyTemplateTodos } from "@/lib/services/todos";
 import { workdaysForOrg } from "@/lib/services/time";
 
-export const TEMPLATE_PARTS = ["schedule", "estimate", "draws", "selections", "punch"] as const;
+export const TEMPLATE_PARTS = ["schedule", "estimate", "draws", "selections", "punch", "todos"] as const;
 export type TemplatePart = (typeof TEMPLATE_PARTS)[number];
 
 const LIMIT = 20;
@@ -47,6 +52,18 @@ export type TemplateTaskDraft = {
   predecessors: { key: string; lag: number }[];
 };
 
+export type TemplateTodoDraft = {
+  title: string;
+  notes: string;
+  priority: string;
+  tags: string;
+  remindDays: number | null;
+  scheduleKey: string | null;
+  deadlineEdge: string | null;
+  deadlineOffset: number | null;
+  checks: { title: string }[];
+};
+
 export type TemplateDraft = {
   name: string;
   jobType: string;
@@ -55,6 +72,7 @@ export type TemplateDraft = {
   draws: { title: string; bps: number }[];
   selections: { title: string; area: string | null; allowanceCents: number }[];
   checks: { title: string; kind: string }[];
+  todos?: TemplateTodoDraft[];
 };
 
 export type PartCounts = {
@@ -63,6 +81,7 @@ export type PartCounts = {
   draws: number | null;
   selections: number | null;
   punch: number;
+  todos: number;
 };
 
 function dbFor(actor: Actor) {
@@ -115,13 +134,14 @@ function audit(db: AppDatabase, actor: Actor, action: string, entityId: string, 
     .run();
 }
 
-function countsFor(schedule: number, estimate: number, drawCount: number, selectionCount: number, punch: number, showMoney: boolean): PartCounts {
+function countsFor(schedule: number, estimate: number, drawCount: number, selectionCount: number, punch: number, todos: number, showMoney: boolean): PartCounts {
   return {
     schedule,
     estimate: showMoney ? estimate : null,
     draws: showMoney ? drawCount : null,
     selections: showMoney ? selectionCount : null,
     punch,
+    todos,
   };
 }
 
@@ -167,7 +187,18 @@ function loadBundle(db: AppDatabase, orgId: string, templateId: string) {
     .where(and(eq(templateChecks.orgId, orgId), eq(templateChecks.templateId, templateId)))
     .all()
     .sort((a, b) => a.sortOrder - b.sortOrder);
-  return { template, tasks, links, lines, drawRows, selectionRows, checks };
+  const todos = db
+    .select()
+    .from(templateTodos)
+    .where(and(eq(templateTodos.orgId, orgId), eq(templateTodos.templateId, templateId)))
+    .all()
+    .sort((a, b) => a.sortOrder - b.sortOrder);
+  const todoChecks = db
+    .select()
+    .from(templateTodoChecks)
+    .where(and(eq(templateTodoChecks.orgId, orgId), eq(templateTodoChecks.templateId, templateId)))
+    .all();
+  return { template, tasks, links, lines, drawRows, selectionRows, checks, todos, todoChecks };
 }
 
 export function listTemplates(actor: Actor) {
@@ -187,6 +218,7 @@ export function listTemplates(actor: Actor) {
         bundle?.drawRows.length ?? 0,
         bundle?.selectionRows.length ?? 0,
         bundle?.checks.length ?? 0,
+        bundle?.todos.length ?? 0,
         showMoney,
       ),
       trades: [...new Set((bundle?.tasks ?? []).map((task) => task.trade).filter((trade): trade is string => Boolean(trade)))].sort(),
@@ -204,7 +236,7 @@ export function templateDetail(actor: Actor, templateId: string) {
     name: bundle.template.name,
     jobType: bundle.template.jobType,
     version: bundle.template.version,
-    counts: countsFor(bundle.tasks.length, bundle.lines.length, bundle.drawRows.length, bundle.selectionRows.length, bundle.checks.length, showMoney),
+    counts: countsFor(bundle.tasks.length, bundle.lines.length, bundle.drawRows.length, bundle.selectionRows.length, bundle.checks.length, bundle.todos.length, showMoney),
     tasks: bundle.tasks.map((task) => ({
       key: task.itemKey,
       title: task.title,
@@ -229,6 +261,20 @@ export function templateDetail(actor: Actor, templateId: string) {
       ? bundle.selectionRows.map((row) => ({ title: row.title, area: row.area, allowanceCents: row.allowanceCents }))
       : bundle.selectionRows.map((row) => ({ title: row.title, area: row.area, allowanceCents: null })),
     checks: bundle.checks.map((row) => ({ title: row.title, kind: row.kind })),
+    todos: bundle.todos.map((todo) => ({
+      title: todo.title,
+      notes: todo.notes,
+      priority: todo.priority,
+      tags: todo.tags,
+      remindDays: todo.remindDays,
+      scheduleKey: todo.scheduleKey,
+      deadlineEdge: todo.deadlineEdge,
+      deadlineOffset: todo.deadlineOffset,
+      checks: bundle.todoChecks
+        .filter((row) => row.todoId === todo.id)
+        .sort((a, b) => a.sortOrder - b.sortOrder)
+        .map((row) => ({ title: row.title })),
+    })),
     trades: [...new Set(bundle.tasks.map((task) => task.trade).filter((trade): trade is string => Boolean(trade)))].sort(),
   };
 }
@@ -315,6 +361,37 @@ function writeDraft(tx: AppDatabase, actor: Actor, templateId: string, draft: Te
       })
       .run();
   });
+  (draft.todos ?? []).forEach((todo, index) => {
+    const todoId = id("ttodo");
+    tx.insert(templateTodos)
+      .values({
+        id: todoId,
+        orgId: actor.orgId,
+        templateId,
+        title: cleanName(todo.title, "to-do"),
+        notes: (todo.notes || "").slice(0, 2000),
+        priority: todo.priority === "low" || todo.priority === "high" ? todo.priority : "normal",
+        tags: (todo.tags || "").slice(0, 120),
+        remindDays: todo.remindDays,
+        scheduleKey: todo.scheduleKey,
+        deadlineEdge: todo.deadlineEdge === "start" || todo.deadlineEdge === "finish" ? todo.deadlineEdge : null,
+        deadlineOffset: todo.deadlineOffset,
+        sortOrder: index,
+      })
+      .run();
+    todo.checks.forEach((check, checkIndex) => {
+      tx.insert(templateTodoChecks)
+        .values({
+          id: id("ttchk"),
+          orgId: actor.orgId,
+          templateId,
+          todoId,
+          title: cleanName(check.title, "checklist item"),
+          sortOrder: checkIndex,
+        })
+        .run();
+    });
+  });
 }
 
 function clearDraft(tx: AppDatabase, orgId: string, templateId: string) {
@@ -324,6 +401,8 @@ function clearDraft(tx: AppDatabase, orgId: string, templateId: string) {
   tx.delete(templateDraws).where(and(eq(templateDraws.orgId, orgId), eq(templateDraws.templateId, templateId))).run();
   tx.delete(templateSelections).where(and(eq(templateSelections.orgId, orgId), eq(templateSelections.templateId, templateId))).run();
   tx.delete(templateChecks).where(and(eq(templateChecks.orgId, orgId), eq(templateChecks.templateId, templateId))).run();
+  tx.delete(templateTodoChecks).where(and(eq(templateTodoChecks.orgId, orgId), eq(templateTodoChecks.templateId, templateId))).run();
+  tx.delete(templateTodos).where(and(eq(templateTodos.orgId, orgId), eq(templateTodos.templateId, templateId))).run();
 }
 
 export function createTemplate(actor: Actor, draft: TemplateDraft) {
@@ -394,6 +473,7 @@ export function renameTemplate(actor: Actor, templateId: string, name: string, j
     draws: detail.draws,
     selections: detail.selections.map((row) => ({ title: row.title, area: row.area, allowanceCents: row.allowanceCents ?? 0 })),
     checks: detail.checks,
+    todos: detail.todos,
   });
 }
 
@@ -423,7 +503,8 @@ export function jobPartCounts(actor: Actor, projectId: string): PartCounts | nul
   const drawCount = db.select().from(draws).where(and(eq(draws.orgId, actor.orgId), eq(draws.projectId, projectId))).all().filter((draw) => !draw.changeOrderId).length;
   const selectionCount = db.select().from(selections).where(and(eq(selections.orgId, actor.orgId), eq(selections.projectId, projectId))).all().length;
   const punch = db.select().from(punchItems).where(and(eq(punchItems.orgId, actor.orgId), eq(punchItems.projectId, projectId))).all().length;
-  return countsFor(schedule, estimate, drawCount, selectionCount, punch, money(actor));
+  const todoCount = db.select().from(tasks).where(and(eq(tasks.orgId, actor.orgId), eq(tasks.relatedId, projectId))).all().filter((row) => row.relatedType === "project").length;
+  return countsFor(schedule, estimate, drawCount, selectionCount, punch, todoCount, money(actor));
 }
 
 export function saveJobAsTemplate(actor: Actor, projectId: string, input: { name: string; jobType: string; parts: TemplatePart[] }) {
@@ -434,7 +515,8 @@ export function saveJobAsTemplate(actor: Actor, projectId: string, input: { name
   const parts = new Set(input.parts);
   if (parts.size === 0) throw new ServiceError("Pick at least one part.");
   const mask = workdaysForOrg(actor.orgId);
-  const draft: TemplateDraft = { name: input.name, jobType: input.jobType, tasks: [], lines: [], draws: [], selections: [], checks: [] };
+  const draft: TemplateDraft = { name: input.name, jobType: input.jobType, tasks: [], lines: [], draws: [], selections: [], checks: [], todos: [] };
+  let scheduleKeys = new Map<string, string>();
   if (parts.has("schedule")) {
     const items = db
       .select()
@@ -444,6 +526,7 @@ export function saveJobAsTemplate(actor: Actor, projectId: string, input: { name
       .sort((a, b) => a.startDate.localeCompare(b.startDate) || a.title.localeCompare(b.title));
     const anchor = items[0]?.startDate ?? project.startDate ?? "2026-01-05";
     const keys = new Map(items.map((item, index) => [item.id, `k${index}`]));
+    scheduleKeys = keys;
     const vendors = db.select().from(contacts).where(eq(contacts.orgId, actor.orgId)).all();
     const vendorName = new Map(vendors.map((row) => [row.id, row.company || null]));
     const links = db.select().from(scheduleLinks).where(and(eq(scheduleLinks.orgId, actor.orgId), eq(scheduleLinks.projectId, projectId))).all();
@@ -503,8 +586,31 @@ export function saveJobAsTemplate(actor: Actor, projectId: string, input: { name
       .all()
       .map((row) => ({ title: row.title, kind: "punch" }));
   }
+  if (parts.has("todos")) {
+    const rows = db
+      .select()
+      .from(tasks)
+      .where(and(eq(tasks.orgId, actor.orgId), eq(tasks.relatedId, projectId)))
+      .all()
+      .filter((row) => row.relatedType === "project");
+    const checks = db.select().from(taskChecks).where(eq(taskChecks.orgId, actor.orgId)).all();
+    draft.todos = rows.map((row) => ({
+      title: row.title,
+      notes: row.notes || "",
+      priority: row.priority || "normal",
+      tags: row.tags || "",
+      remindDays: row.remindDays,
+      scheduleKey: row.scheduleItemId ? scheduleKeys.get(row.scheduleItemId) ?? null : null,
+      deadlineEdge: row.scheduleItemId && scheduleKeys.has(row.scheduleItemId) ? row.deadlineEdge : null,
+      deadlineOffset: row.scheduleItemId && scheduleKeys.has(row.scheduleItemId) ? row.deadlineOffset : null,
+      checks: checks
+        .filter((check) => check.taskId === row.id)
+        .sort((a, b) => a.sortOrder - b.sortOrder)
+        .map((check) => ({ title: check.title })),
+    }));
+  }
   const total =
-    draft.tasks.length + draft.lines.length + draft.draws.length + draft.selections.length + draft.checks.length;
+    draft.tasks.length + draft.lines.length + draft.draws.length + draft.selections.length + draft.checks.length + (draft.todos?.length ?? 0);
   if (total === 0) throw new ServiceError("That template has nothing to copy.");
   return createTemplate(actor, draft);
 }
@@ -530,7 +636,7 @@ function vendorMap(db: AppDatabase, orgId: string, trades: Record<string, string
   return mapped;
 }
 
-type ApplyResult = { added: number; schedule: number; estimate: number; draws: number; selections: number; punch: number };
+type ApplyResult = { added: number; schedule: number; estimate: number; draws: number; selections: number; punch: number; todos: number };
 
 function applyParts(
   tx: AppDatabase,
@@ -552,6 +658,7 @@ function applyParts(
   let drawCount = 0;
   let selectionCount = 0;
   let punch = 0;
+  let todoCount = 0;
   const taskIds = new Map<string, string>();
   if (parts.has("schedule")) {
     for (const task of bundle.tasks) {
@@ -620,7 +727,8 @@ function applyParts(
         (parts.has("schedule") ? bundle.tasks.length : 0) +
         (parts.has("estimate") ? bundle.lines.length : 0) +
         (parts.has("selections") ? bundle.selectionRows.length : 0) +
-        (parts.has("punch") ? bundle.checks.length : 0);
+        (parts.has("punch") ? bundle.checks.length : 0) +
+        (parts.has("todos") ? bundle.todos.length : 0);
       if (others === 0) throw new ServiceError("Draws are already on this job.");
     } else {
     const amounts = rescalePercents(contractCents, bundle.drawRows.map((draw) => draw.bps));
@@ -713,9 +821,10 @@ function applyParts(
       punch += 1;
     }
   }
-  const added = schedule + estimate + drawCount + selectionCount + punch;
+  if (parts.has("todos")) todoCount = applyTemplateTodos(tx, actor, projectId, templateId, taskIds, anchor);
+  const added = schedule + estimate + drawCount + selectionCount + punch + todoCount;
   if (added === 0) throw new ServiceError("That template has nothing to copy.");
-  return { added, schedule, estimate, draws: drawCount, selections: selectionCount, punch };
+  return { added, schedule, estimate, draws: drawCount, selections: selectionCount, punch, todos: todoCount };
 }
 
 function contractFor(bundle: NonNullable<ReturnType<typeof loadBundle>>, parts: Set<TemplatePart>) {
@@ -760,7 +869,8 @@ export function createJobFromTemplate(
     (parts.has("estimate") ? bundle.lines.length : 0) +
     (parts.has("draws") ? bundle.drawRows.length : 0) +
     (parts.has("selections") ? bundle.selectionRows.length : 0) +
-    (parts.has("punch") ? bundle.checks.length : 0);
+    (parts.has("punch") ? bundle.checks.length : 0) +
+    (parts.has("todos") ? bundle.todos.length : 0);
   if (would === 0) throw new ServiceError("That template has nothing to copy.");
   const projectId = id("proj");
   const now = nowIso();
@@ -842,6 +952,7 @@ export function previewTemplateImport(actor: Actor, projectId: string, templateI
     draws: db.select().from(draws).where(and(eq(draws.orgId, actor.orgId), eq(draws.projectId, projectId))).all().length,
     selections: db.select().from(selections).where(and(eq(selections.orgId, actor.orgId), eq(selections.projectId, projectId))).all().length,
     punch: db.select().from(punchItems).where(and(eq(punchItems.orgId, actor.orgId), eq(punchItems.projectId, projectId))).all().length,
+    todos: db.select().from(tasks).where(and(eq(tasks.orgId, actor.orgId), eq(tasks.relatedId, projectId))).all().filter((row) => row.relatedType === "project").length,
   };
   const added = {
     schedule: chosen.has("schedule") ? bundle.tasks.length : 0,
@@ -849,6 +960,7 @@ export function previewTemplateImport(actor: Actor, projectId: string, templateI
     draws: chosen.has("draws") ? (before.draws > 0 ? 0 : bundle.drawRows.length) : 0,
     selections: chosen.has("selections") ? bundle.selectionRows.length : 0,
     punch: chosen.has("punch") ? bundle.checks.length : 0,
+    todos: chosen.has("todos") ? bundle.todos.length : 0,
   };
   const showMoney = money(actor);
   const hide = (value: number) => (showMoney ? value : null);
@@ -858,7 +970,8 @@ export function previewTemplateImport(actor: Actor, projectId: string, templateI
     draws: { before: hide(before.draws), after: hide(before.draws + added.draws) },
     selections: { before: hide(before.selections), after: hide(before.selections + added.selections) },
     punch: { before: before.punch, after: before.punch + added.punch },
-    added: added.schedule + added.estimate + added.draws + added.selections + added.punch,
+    todos: { before: before.todos, after: before.todos + added.todos },
+    added: added.schedule + added.estimate + added.draws + added.selections + added.punch + added.todos,
   };
 }
 

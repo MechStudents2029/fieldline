@@ -66,6 +66,10 @@ import {
   proposals,
   signatures,
   tasks,
+  taskAssignees,
+  taskChecks,
+  templateTodoChecks,
+  templateTodos,
   dailyLogEvents,
   dailyLogPhotos,
   dailyLogs,
@@ -91,6 +95,7 @@ import { publicSnapshot } from "@/lib/selections/money";
 import { daysAgo, daysFromNow, nowIso } from "@/lib/ids";
 import { achFeeCents, qtyToMilli } from "@/lib/money";
 import { CONSENT_VERSION, DEMO_PASSWORD } from "@/lib/product";
+import { linkedDeadline } from "@/lib/todos/deadline";
 import { hashVendorToken, DEMO_HARBOR_PORTAL_TOKEN } from "@/lib/vendor/token";
 import { proposalNudgeCopy } from "@/lib/ai/nurture";
 import {
@@ -100,7 +105,7 @@ import {
   WEBSITE_FORM_SOURCE,
 } from "@/lib/lead-form/rules";
 
-export const SEED_VERSION = "22";
+export const SEED_VERSION = "23";
 
 const ORG = "org_rivera";
 const NORTH = "org_northline";
@@ -1861,6 +1866,94 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
     )
     .run();
 
+  const walkDue = linkedDeadline(tomorrow, -1);
+  db.insert(tasks)
+    .values([
+      {
+        id: "task_walk",
+        orgId: ORG,
+        title: "Pre-drywall walk",
+        assigneeUserId: "user_dana",
+        dueAt: walkDue,
+        relatedType: "project",
+        relatedId: "proj_okonkwo",
+        status: "open",
+        notes: "Before drywall",
+        priority: "high",
+        tags: "inspection",
+        scheduleItemId: "sch_ok_tile",
+        deadlineEdge: "finish",
+        deadlineOffset: -1,
+        deadlineUnlinked: 0,
+        remindDays: 1,
+        remindedFor: null,
+        createdAt: daysAgo(1),
+        updatedAt: daysAgo(1),
+        createdBy: "user_maya",
+      },
+      {
+        id: "task_tile_time",
+        orgId: ORG,
+        title: "Confirm the tile delivery",
+        assigneeUserId: "user_maya",
+        dueAt: tomorrow,
+        relatedType: "project",
+        relatedId: "proj_okonkwo",
+        status: "open",
+        notes: "",
+        priority: "normal",
+        tags: "",
+        scheduleItemId: null,
+        deadlineEdge: null,
+        deadlineOffset: null,
+        deadlineUnlinked: 0,
+        remindDays: 1,
+        remindedFor: null,
+        createdAt: now,
+        updatedAt: now,
+        createdBy: "user_maya",
+      },
+      {
+        id: "task_done",
+        orgId: ORG,
+        title: "Photograph the Diaz punch",
+        assigneeUserId: "user_maya",
+        dueAt: daysAgo(2),
+        relatedType: "project",
+        relatedId: "proj_diaz",
+        status: "done",
+        notes: "",
+        priority: "low",
+        tags: "",
+        scheduleItemId: null,
+        deadlineEdge: null,
+        deadlineOffset: null,
+        deadlineUnlinked: 0,
+        remindDays: null,
+        remindedFor: null,
+        createdAt: daysAgo(4),
+        updatedAt: daysAgo(2),
+        createdBy: "user_maya",
+      },
+    ])
+    .run();
+  db.insert(taskAssignees)
+    .values([
+      { id: "tasn_walk_dana", orgId: ORG, taskId: "task_walk", userId: "user_dana", contactId: null },
+      { id: "tasn_walk_maya", orgId: ORG, taskId: "task_walk", userId: "user_maya", contactId: null },
+      { id: "tasn_tile_maya", orgId: ORG, taskId: "task_tile_time", userId: "user_maya", contactId: null },
+      { id: "tasn_done_maya", orgId: ORG, taskId: "task_done", userId: "user_maya", contactId: null },
+    ])
+    .run();
+  db.insert(taskChecks)
+    .values([
+      { id: "tchk_walk_water", orgId: ORG, taskId: "task_walk", title: "Water lines capped", sortOrder: 0, status: "open", assigneeUserId: "user_dana", assigneeContactId: null, dueAt: walkDue, completedAt: null, completedBy: null },
+      { id: "tchk_walk_block", orgId: ORG, taskId: "task_walk", title: "Blocking in place", sortOrder: 1, status: "open", assigneeUserId: null, assigneeContactId: "c_harbor", dueAt: walkDue, completedAt: null, completedBy: null },
+      { id: "tchk_walk_card", orgId: ORG, taskId: "task_walk", title: "Inspection card posted", sortOrder: 2, status: "open", assigneeUserId: null, assigneeContactId: null, dueAt: null, completedAt: null, completedBy: null },
+      { id: "tchk_done_photo", orgId: ORG, taskId: "task_done", title: "Photos filed", sortOrder: 0, status: "done", assigneeUserId: "user_maya", assigneeContactId: null, dueAt: daysAgo(2), completedAt: daysAgo(2), completedBy: "user_maya" },
+    ])
+    .run();
+
   db.update(projects).set({ billingMode: "progress", retainageBps: 1000, updatedAt: now }).where(eq(projects.id, "proj_brooks")).run();
   db.update(invoices).set({ applicationNumber: 1, retainageCents: 344_000, updatedAt: now }).where(eq(invoices.id, "inv_br_prog")).run();
   const okDraws = [
@@ -2783,6 +2876,35 @@ function seedTemplates(db: AppDatabase, now: string) {
           templateId: template.id,
           title,
           kind: "punch",
+          sortOrder: index,
+        })),
+      )
+      .run();
+    const todoId = `${template.id}_walk`;
+    db.insert(templateTodos)
+      .values({
+        id: todoId,
+        orgId: ORG,
+        templateId: template.id,
+        title: "Pre-drywall walk",
+        notes: "",
+        priority: "normal",
+        tags: "inspection",
+        remindDays: 1,
+        scheduleKey: "plumb",
+        deadlineEdge: "finish",
+        deadlineOffset: -1,
+        sortOrder: 0,
+      })
+      .run();
+    db.insert(templateTodoChecks)
+      .values(
+        ["Water lines capped", "Blocking in place", "Inspection card posted"].map((title, index) => ({
+          id: `${todoId}_${index}`,
+          orgId: ORG,
+          templateId: template.id,
+          todoId,
+          title,
           sortOrder: index,
         })),
       )

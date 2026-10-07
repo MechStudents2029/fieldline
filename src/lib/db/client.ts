@@ -108,6 +108,7 @@ export function ensureReady(holder: Holder) {
   ensureScheduleLinks(holder);
   ensureTemplates(holder);
   ensureWip(holder);
+  ensureTodos(holder);
   const version = holder.sqlite.prepare("select value from app_meta where key = ?").get("seed_version") as
     | { value: string }
     | undefined;
@@ -259,6 +260,52 @@ function ensureWip(holder: Holder) {
     )`);
   }
   holder.sqlite.exec("create index if not exists wip_attempts_user on wip_attempts (org_id, user_id, created_at)");
+}
+
+function ensureTodos(holder: Holder) {
+  const pk = holder.dialect === "postgres" ? "text primary key" : "text primary key not null";
+  const add = (column: string, ddl: string) => {
+    if (!tableColumn(holder, "tasks", column)) holder.sqlite.exec(`alter table tasks add column ${ddl}`);
+  };
+  add("notes", "notes text not null default ''");
+  add("priority", "priority text not null default 'normal'");
+  add("tags", "tags text not null default ''");
+  add("schedule_item_id", "schedule_item_id text");
+  add("deadline_edge", "deadline_edge text");
+  add("deadline_offset", "deadline_offset integer");
+  add("deadline_unlinked", "deadline_unlinked integer not null default 0");
+  add("remind_days", "remind_days integer");
+  add("reminded_for", "reminded_for text");
+  const table = (name: string, body: string, indexSql: string) => {
+    if (!tableExists(holder.sqlite, name, holder.dialect)) holder.sqlite.exec(`create table if not exists ${name} (id ${pk}, ${body})`);
+    holder.sqlite.exec(indexSql);
+  };
+  table("task_assignees", "org_id text not null, task_id text not null, user_id text, contact_id text", "create index if not exists task_assignees_task on task_assignees (org_id, task_id)");
+  table(
+    "task_checks",
+    "org_id text not null, task_id text not null, title text not null, sort_order integer not null, status text not null, assignee_user_id text, assignee_contact_id text, due_at text, completed_at text, completed_by text",
+    "create index if not exists task_checks_task on task_checks (org_id, task_id)",
+  );
+  table(
+    "task_files",
+    "org_id text not null, task_id text not null, check_id text, document_id text not null",
+    "create index if not exists task_files_task on task_files (org_id, task_id)",
+  );
+  table(
+    "todo_attempts",
+    "org_id text not null, user_id text not null, created_at text not null",
+    "create index if not exists todo_attempts_user on todo_attempts (org_id, user_id, created_at)",
+  );
+  table(
+    "template_todos",
+    "org_id text not null, template_id text not null, title text not null, notes text not null default '', priority text not null default 'normal', tags text not null default '', remind_days integer, schedule_key text, deadline_edge text, deadline_offset integer, sort_order integer not null",
+    "create index if not exists template_todos_template on template_todos (org_id, template_id)",
+  );
+  table(
+    "template_todo_checks",
+    "org_id text not null, template_id text not null, todo_id text not null, title text not null, sort_order integer not null",
+    "create index if not exists template_todo_checks_todo on template_todo_checks (org_id, todo_id)",
+  );
 }
 
 function ensureTemplates(holder: Holder) {

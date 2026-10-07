@@ -38,6 +38,19 @@ import type { TimeUndo } from "@/lib/services/time";
 import { moveScheduleItem, rotateCalendarFeed, saveScheduleItem, type ScheduleStatus } from "@/lib/services/schedule";
 import { previewScheduleShift, shiftScheduleDates } from "@/lib/services/schedule-shift";
 import { createJobFromTemplate, importTemplate, renameTemplate, saveJobAsTemplate, type TemplatePart } from "@/lib/services/templates";
+import {
+  addTodoCheck,
+  attachTodoFile,
+  completeTodos,
+  createTodo,
+  deleteTodoCheck,
+  reorderTodoChecks,
+  renameTodoCheck,
+  setTodoCheck,
+  todoDetail,
+  updateTodoCheck,
+  vendorTick,
+} from "@/lib/services/todos";
 import { setWipOverride } from "@/lib/services/wip";
 import { commitImport, previewImport, undoImport } from "@/lib/services/import";
 import {
@@ -2521,7 +2534,7 @@ export async function saveNotifyModeAction(_prev: ActionState, formData: FormDat
 }
 
 function templateParts(formData: FormData): TemplatePart[] {
-  return formData.getAll("part").map(String).filter((part): part is TemplatePart => ["schedule", "estimate", "draws", "selections", "punch"].includes(part));
+  return formData.getAll("part").map(String).filter((part): part is TemplatePart => ["schedule", "estimate", "draws", "selections", "punch", "todos"].includes(part));
 }
 
 function tradeMap(formData: FormData): Record<string, string | null> {
@@ -2616,6 +2629,158 @@ export async function setWipOverrideAction(_prev: ActionState, formData: FormDat
     revalidatePath("/reports/wip");
     revalidatePath(`/reports/wip/${projectId}`);
     redirect(`/reports/wip/${projectId}?asof=${encodeURIComponent(asof)}`);
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+function refreshTodos() {
+  revalidatePath("/todos");
+  revalidatePath("/");
+  revalidatePath("/inbox");
+}
+
+function linesOf(value: string) {
+  return value
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((title) => ({ title }));
+}
+
+export async function createTodoAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+  const user = await actor();
+  const remind = String(formData.get("remindDays") || "");
+  const offset = String(formData.get("deadlineOffset") || "");
+  const taskId = createTodo(user, {
+    title: String(formData.get("title") || ""),
+    projectId: String(formData.get("projectId") || ""),
+    notes: String(formData.get("notes") || ""),
+    priority: String(formData.get("priority") || "normal"),
+    tags: String(formData.get("tags") || ""),
+    dueAt: String(formData.get("dueAt") || ""),
+    scheduleItemId: String(formData.get("scheduleItemId") || "") || null,
+    deadlineEdge: String(formData.get("deadlineEdge") || "") || null,
+    deadlineOffset: offset.trim() ? Number(offset) : null,
+    remindDays: remind.trim() ? Number(remind) : null,
+    userIds: formData.getAll("userId").map(String).filter(Boolean),
+    contactIds: formData.getAll("contactId").map(String).filter(Boolean),
+    checks: linesOf(String(formData.get("checks") || "")),
+  });
+  refreshTodos();
+  redirect(`/todos?task=${taskId}`);
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function addTodoCheckAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    addTodoCheck(user, String(formData.get("taskId") || ""), String(formData.get("title") || ""));
+    refreshTodos();
+    return { ok: "Added." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function renameTodoCheckAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    renameTodoCheck(user, String(formData.get("checkId") || ""), String(formData.get("title") || ""));
+    refreshTodos();
+    return { ok: "Saved." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function deleteTodoCheckAction(checkId: string) {
+  const user = await actor();
+  deleteTodoCheck(user, checkId);
+  refreshTodos();
+}
+
+export async function moveTodoCheckAction(taskId: string, checkId: string, direction: "up" | "down") {
+  const user = await actor();
+  const detail = todoDetail(user, taskId);
+  if (!detail) return;
+  const ids = detail.checks.map((row) => row.id);
+  const index = ids.indexOf(checkId);
+  const next = direction === "up" ? index - 1 : index + 1;
+  if (index < 0 || next < 0 || next >= ids.length) return;
+  const swapped = [...ids];
+  const current = swapped[index];
+  const neighbor = swapped[next];
+  if (!current || !neighbor) return;
+  swapped[index] = neighbor;
+  swapped[next] = current;
+  reorderTodoChecks(user, taskId, swapped);
+  refreshTodos();
+}
+
+export async function reorderTodoChecksAction(taskId: string, orderedIds: string[]) {
+  const user = await actor();
+  reorderTodoChecks(user, taskId, orderedIds);
+  refreshTodos();
+}
+
+export async function setTodoCheckAction(checkId: string, done: boolean) {
+  const user = await actor();
+  setTodoCheck(user, checkId, done);
+  refreshTodos();
+}
+
+export async function updateTodoCheckAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const who = String(formData.get("assignee") || "");
+    updateTodoCheck(user, String(formData.get("checkId") || ""), {
+      assigneeUserId: who.startsWith("user:") ? who.slice(5) : null,
+      assigneeContactId: who.startsWith("vendor:") ? who.slice(7) : null,
+      dueAt: String(formData.get("dueAt") || ""),
+    });
+    refreshTodos();
+    return { ok: "Saved." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function completeTodosAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const ids = formData.getAll("taskId").map(String).filter(Boolean);
+    if (ids.length === 0) return { error: "Pick a to-do." };
+    completeTodos(user, ids);
+    refreshTodos();
+    return { ok: "Done." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function attachTodoFileAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const upload = await namedUpload(formData, "photo");
+    if (!upload) return { error: "Choose a photo." };
+    attachTodoFile(user, String(formData.get("taskId") || ""), upload, String(formData.get("checkId") || "") || null);
+    refreshTodos();
+    return { ok: "Attached." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function vendorTickAction(token: string, checkId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const done = String(formData.get("done") || "1") !== "0";
+    vendorTick(token, checkId, done, await namedUpload(formData, "photo"));
+    refreshVendor(token);
+    return { ok: done ? "Done." : "Open." };
   } catch (error) {
     return failure(error);
   }

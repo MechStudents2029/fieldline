@@ -1,13 +1,15 @@
 import { and, eq } from "drizzle-orm";
 import type { AppDatabase } from "@/lib/db/client";
 import { officeDb } from "@/lib/db/office";
-import { auditLogs, scheduleItems, scheduleLinks } from "@/lib/db/schema";
+import { auditLogs, scheduleItems, scheduleLinks, tasks } from "@/lib/db/schema";
 import { id, nowIso } from "@/lib/ids";
 import { canEditSchedule, type Role } from "@/lib/permissions";
 import { cascadeShift, hasCycle, movesLabel, type ScheduleShift } from "@/lib/schedule/deps";
 import { addWorkdays, endFromDuration, inclusiveWorkdays } from "@/lib/schedule/workdays";
 import { ServiceError } from "@/lib/services/errors";
 import type { Actor } from "@/lib/services/read";
+import { linkedDeadline } from "@/lib/todos/deadline";
+import { refreshLinkedTodos } from "@/lib/services/todos";
 import { calendarForOrg, workdaysForOrg } from "@/lib/services/time";
 
 export type ScheduleLinkInput = { predecessorId: string; lag: number };
@@ -57,9 +59,29 @@ export function buildSchedulePlan(actor: Actor, itemId: string, startDate: strin
   }
 }
 
+function todoMoves(db: ReturnType<typeof dbFor>, orgId: string, shifts: ScheduleShift[]): number {
+  if (shifts.length === 0) return 0;
+  const mask = workdaysForOrg(orgId);
+  const moved = new Map(shifts.map((shift) => [shift.id, shift]));
+  return db
+    .select()
+    .from(tasks)
+    .where(eq(tasks.orgId, orgId))
+    .all()
+    .filter((row) => {
+      if (!row.scheduleItemId || row.deadlineOffset == null) return false;
+      if (row.deadlineEdge !== "start" && row.deadlineEdge !== "finish") return false;
+      const shift = moved.get(row.scheduleItemId);
+      if (!shift) return false;
+      const anchor = row.deadlineEdge === "start" ? shift.start : shift.end;
+      return (row.dueAt || "").slice(0, 10) !== linkedDeadline(anchor, row.deadlineOffset, mask);
+    }).length;
+}
+
 export function previewScheduleShift(actor: Actor, itemId: string, startDate: string, endDate: string) {
   const shifts = buildSchedulePlan(actor, itemId, startDate, endDate);
-  return { count: shifts.length, label: movesLabel(shifts.length), shifts };
+  const count = shifts.length + todoMoves(dbFor(actor), actor.orgId, shifts);
+  return { count, label: movesLabel(count), shifts };
 }
 
 export function writeScheduleShifts(db: AppDatabase, actor: Actor, shifts: ScheduleShift[]) {
@@ -71,6 +93,8 @@ export function writeScheduleShifts(db: AppDatabase, actor: Actor, shifts: Sched
       .where(and(eq(scheduleItems.orgId, actor.orgId), eq(scheduleItems.id, shift.id)))
       .run();
   }
+  const todos = refreshLinkedTodos(db, actor.orgId, shifts, workdaysForOrg(actor.orgId));
+  const count = shifts.length + todos;
   db.insert(auditLogs)
     .values({
       id: id("audit"),
@@ -79,7 +103,7 @@ export function writeScheduleShifts(db: AppDatabase, actor: Actor, shifts: Sched
       action: "schedule.shift",
       entityType: "schedule_item",
       entityId: shifts[0]?.id ?? null,
-      payloadJson: JSON.stringify({ count: shifts.length, label: movesLabel(shifts.length), shifts }),
+      payloadJson: JSON.stringify({ count, label: movesLabel(count), shifts, todos }),
       ip: null,
       createdAt: now,
     })
@@ -89,10 +113,11 @@ export function writeScheduleShifts(db: AppDatabase, actor: Actor, shifts: Sched
 export function shiftScheduleDates(actor: Actor, itemId: string, startDate: string, endDate: string) {
   const db = dbFor(actor);
   const shifts = buildSchedulePlan(actor, itemId, startDate, endDate);
+  const count = shifts.length + todoMoves(db, actor.orgId, shifts);
   db.transaction((tx) => {
     writeScheduleShifts(tx as unknown as AppDatabase, actor, shifts);
   });
-  return { count: shifts.length, label: movesLabel(shifts.length), shifts };
+  return { count, label: movesLabel(count), shifts };
 }
 
 export function replaceScheduleLinks(actor: Actor, itemId: string, links: ScheduleLinkInput[]) {

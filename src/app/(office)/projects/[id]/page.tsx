@@ -115,13 +115,16 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
         </p>
       ) : null}
       {createdCount ? <p role="status">Created {createdCount} items</p> : null}
-      {canEditCrm(session.role) ? (
-        <p className="mb-3">
+      <p className="mb-3 flex gap-3">
+        <Link href={`/todos?job=${detail.project.id}`} className="text-sm text-[var(--fl-accent)]">
+          To-dos
+        </Link>
+        {canEditCrm(session.role) ? (
           <Link href={`/projects/${detail.project.id}/template`} className="text-sm text-[var(--fl-accent)]">
             Template
           </Link>
-        </p>
-      ) : null}
+        ) : null}
+      </p>
       <div className="fl-safe-top md:hidden">
         <Link href="/projects" className="fl-body text-[var(--fl-accent)]">
           ‹ Jobs

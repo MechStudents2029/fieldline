@@ -20,6 +20,7 @@ import { readyToBill } from "@/lib/services/draws";
 import { mentionUnread } from "@/lib/services/comments";
 import { rfiQueue } from "@/lib/services/rfis";
 import { underbilledSummary } from "@/lib/services/wip";
+import { overdueTodoCount } from "@/lib/services/todos";
 import { overdueSelections } from "@/lib/services/selections";
 import { timeBoard } from "@/lib/services/time";
 import { addCalendarDays, localDay } from "@/lib/time/calendar";
@@ -118,6 +119,7 @@ export default async function TodayPage() {
   const rfis = rfiQueue(session);
   const mentions = mentionUnread(session);
   const under = canEditCrm(session.role) ? underbilledSummary(session) : { count: 0, cents: 0 };
+  const overdueTodos = overdueTodoCount(session);
   const todayKey = officeDay(time.timeZone);
   const lateSelections = overdueSelections(session.orgId, todayKey).map((row) => ({
     key: `sel_${row.id}`,
@@ -162,8 +164,9 @@ export default async function TodayPage() {
         />
       ) : null}
       {quiet ? <EmptyState title="No jobs yet" why="Add a lead to start your pipeline." href="/leads/new" action="Add a lead" /> : null}
-      {under.count > 0 || webLeadCount > 0 || warranty.count > 0 || vendorBills.count > 0 || vendorCerts.count > 0 || bids.due.count > 0 || bids.award.count > 0 || ready.count > 0 || rfis.overdue.count > 0 || rfis.awaiting.count > 0 || mentions > 0 ? (
+      {under.count > 0 || overdueTodos > 0 || webLeadCount > 0 || warranty.count > 0 || vendorBills.count > 0 || vendorCerts.count > 0 || bids.due.count > 0 || bids.award.count > 0 || ready.count > 0 || rfis.overdue.count > 0 || rfis.awaiting.count > 0 || mentions > 0 ? (
         <ul className="fl-group">
+          {overdueTodos > 0 ? <GroupedRow href="/todos?due=overdue" title="Overdue to-dos" trailing={<span className="num">{overdueTodos}</span>} /> : null}
           {under.count > 0 ? <GroupedRow href="/reports/wip?sort=under&dir=asc" title="Underbilled" trailing={<span className="num fl-late">{under.count} · {formatWhole(Math.abs(under.cents))}</span>} /> : null}
           {mentions > 0 ? <GroupedRow href="/inbox" title="Mentions" trailing={<span className="num">{mentions}</span>} /> : null}
           {webLeadCount > 0 ? <GroupedRow href={webLeadHref} title="New web leads" trailing={<span className="num">{webLeadCount}</span>} /> : null}
@@ -261,8 +264,9 @@ export default async function TodayPage() {
         {quiet ? <EmptyState title="No jobs yet" why="Add a lead to start your pipeline." href="/leads/new" action="Add a lead" /> : null}
         <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_400px]">
           <div className="flex flex-col gap-6">
-            {under.count > 0 || webLeadCount > 0 || warranty.count > 0 || vendorBills.count > 0 || vendorCerts.count > 0 || bids.due.count > 0 || bids.award.count > 0 || ready.count > 0 || rfis.overdue.count > 0 || rfis.awaiting.count > 0 || mentions > 0 ? (
+            {under.count > 0 || overdueTodos > 0 || webLeadCount > 0 || warranty.count > 0 || vendorBills.count > 0 || vendorCerts.count > 0 || bids.due.count > 0 || bids.award.count > 0 || ready.count > 0 || rfis.overdue.count > 0 || rfis.awaiting.count > 0 || mentions > 0 ? (
               <ul className="fl-group">
+                {overdueTodos > 0 ? <GroupedRow href="/todos?due=overdue" title="Overdue to-dos" trailing={<span className="num">{overdueTodos}</span>} /> : null}
                 {under.count > 0 ? <GroupedRow href="/reports/wip?sort=under&dir=asc" title="Underbilled" trailing={<span className="num text-[var(--mac-danger)]">{under.count} · {formatWhole(Math.abs(under.cents))}</span>} /> : null}
                 {mentions > 0 ? <GroupedRow href="/inbox" title="Mentions" trailing={<span className="num">{mentions}</span>} /> : null}
                 {webLeadCount > 0 ? <GroupedRow href={webLeadHref} title="New web leads" trailing={<span className="num">{webLeadCount}</span>} /> : null}

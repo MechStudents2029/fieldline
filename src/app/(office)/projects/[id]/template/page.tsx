@@ -14,6 +14,7 @@ const PARTS: { key: TemplatePart; label: string }[] = [
   { key: "draws", label: "Draws" },
   { key: "selections", label: "Selections" },
   { key: "punch", label: "Punch" },
+  { key: "todos", label: "To-dos" },
 ];
 
 export default async function JobTemplatePage({
@@ -137,6 +138,7 @@ export default async function JobTemplatePage({
                     ["Draws", preview.draws],
                     ["Selections", preview.selections],
                     ["Punch", preview.punch],
+                    ["To-dos", preview.todos],
                   ] as const
                 ).map(([label, row]) =>
                   row.before == null ? null : (

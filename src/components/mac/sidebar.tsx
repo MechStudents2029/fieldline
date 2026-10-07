@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, Briefcase, Calendar, Clock, Copy, FileText, Inbox, MessageSquare, Receipt, Sun, Users, Wallet } from "lucide-react";
+import { BarChart3, Briefcase, Calendar, Clock, Copy, FileText, Inbox, ListTodo, MessageSquare, Receipt, Sun, Users, Wallet } from "lucide-react";
 import { SignOutButton } from "@/components/sign-out-button";
 import type { OfficeChrome } from "@/lib/services/read";
 
@@ -78,6 +78,7 @@ export function Sidebar({
           {item("/pipeline", "Leads", <Users size={16} strokeWidth={1.6} />, chrome.leadCount)}
           <p className="px-2 pb-1 pt-3 mac-t11 font-semibold text-[var(--mac-secondary)]">Work</p>
           {item("/projects", "Jobs", <Briefcase size={16} strokeWidth={1.6} />, chrome.pins.length)}
+          {item("/todos", "To-dos", <ListTodo size={16} strokeWidth={1.6} />)}
           {item("/templates", "Templates", <Copy size={16} strokeWidth={1.6} />)}
           {chrome.pins.map((job) => (
             <Link key={job.id} href={`/projects/${job.id}`} aria-label="Pin" className="mac-sidebar-row pl-7" aria-current={pathname === `/projects/${job.id}` ? "page" : undefined}>

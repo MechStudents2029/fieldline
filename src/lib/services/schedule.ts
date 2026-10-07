@@ -11,6 +11,7 @@ import { inclusiveDays, scheduleWindow, type ScheduleSpan } from "@/lib/schedule
 import { feedTokenMatches, hashFeedToken, newFeedSecret } from "@/lib/schedule/token";
 import { notifyAssignment } from "@/lib/services/comments";
 import { ServiceError } from "@/lib/services/errors";
+import { unlinkScheduleTodos } from "@/lib/services/todos";
 import { buildSchedulePlan, replaceScheduleLinks, writeScheduleShifts, type ScheduleLinkInput } from "@/lib/services/schedule-shift";
 import type { Actor } from "@/lib/services/read";
 import { calendarForOrg } from "@/lib/services/time";
@@ -493,6 +494,25 @@ export function moveScheduleItem(actor: Actor, itemId: string, input: { startDat
   if (input.assigneeId && !previous.includes(input.assigneeId)) {
     notifyAssignment(actor, { entityType: "schedule_item", entityId: itemId, userIds: [input.assigneeId] });
   }
+}
+
+export function removeScheduleItem(actor: Actor, itemId: string) {
+  assertEditor(actor);
+  const db = officeOrThrow(actor);
+  const existing = db
+    .select()
+    .from(scheduleItems)
+    .where(and(eq(scheduleItems.orgId, actor.orgId), eq(scheduleItems.id, itemId)))
+    .get();
+  if (!existing) throw new ServiceError("That schedule item is not in your company.");
+  db.transaction((tx) => {
+    const writer = tx as unknown as ReturnType<typeof officeOrThrow>;
+    unlinkScheduleTodos(writer, actor.orgId, itemId, actor.userId);
+    tx.delete(scheduleLinks).where(and(eq(scheduleLinks.orgId, actor.orgId), eq(scheduleLinks.itemId, itemId))).run();
+    tx.delete(scheduleLinks).where(and(eq(scheduleLinks.orgId, actor.orgId), eq(scheduleLinks.predecessorId, itemId))).run();
+    tx.delete(scheduleAssignees).where(and(eq(scheduleAssignees.orgId, actor.orgId), eq(scheduleAssignees.itemId, itemId))).run();
+    tx.delete(scheduleItems).where(and(eq(scheduleItems.orgId, actor.orgId), eq(scheduleItems.id, itemId))).run();
+  });
 }
 
 export function rotateCalendarFeed(actor: Actor): string {

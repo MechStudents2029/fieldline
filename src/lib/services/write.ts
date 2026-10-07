@@ -192,7 +192,9 @@ export function completeTask(actor: Actor, taskId: string) {
   const db = staffDb(actor);
   const task = db.select().from(tasks).where(and(eq(tasks.id, taskId), eq(tasks.orgId, actor.orgId))).get();
   if (!task) throw new ServiceError("Task not found.");
-  db.update(tasks).set({ status: "done", updatedAt: nowIso() }).where(eq(tasks.id, taskId)).run();
+  const now = nowIso();
+  db.update(tasks).set({ status: "done", updatedAt: now }).where(and(eq(tasks.id, taskId), eq(tasks.orgId, actor.orgId))).run();
+  audit(db, actor.orgId, actor.userId, "todo.complete", "task", taskId);
 }
 
 export function createLeadFromText(actor: Actor, text: string, source = "manual") {

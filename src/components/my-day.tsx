@@ -15,6 +15,7 @@ import { fieldPunch } from "@/lib/services/punch";
 import { mentionUnread } from "@/lib/services/comments";
 import { rfiQueue } from "@/lib/services/rfis";
 import { memberAssignments } from "@/lib/services/schedule";
+import { overdueTodoCount } from "@/lib/services/todos";
 import { formatHours, timeBoard } from "@/lib/services/time";
 
 function clock(iso: string) {
@@ -37,6 +38,7 @@ export function MyDay({ actor }: { actor: Actor }) {
   const punch = fieldPunch(actor);
   const rfis = rfiQueue(actor);
   const mentions = mentionUnread(actor);
+  const overdueTodos = overdueTodoCount(actor);
   const open = day.open;
   return (
     <div className="mx-auto flex max-w-lg flex-col gap-7 md:max-w-none md:px-6">
@@ -195,6 +197,16 @@ export function MyDay({ actor }: { actor: Actor }) {
       </section>
       <section className="flex flex-col gap-2">
         <h2 className="fl-section">Tasks</h2>
+        {overdueTodos > 0 ? (
+          <ul className="fl-group">
+            <li>
+              <Link href="/todos?due=overdue" className="fl-cell fl-press">
+                <span className="fl-body flex-1">Overdue to-dos</span>
+                <span className="num">{overdueTodos}</span>
+              </Link>
+            </li>
+          </ul>
+        ) : null}
         <ul className="fl-group">
           {day.tasks.map((task) => (
             <li key={task.id} className="fl-cell">

@@ -2,10 +2,18 @@
 
 ## 2026-10-07
 
+### To-dos
+
+- A to-do has a title, notes, priority, tags, assignees, photos, and a checklist. Each checklist item can have its own person and date. The row shows progress, such as 3/7. Checking the last item offers Mark to-do done. Unchecking an item on a done to-do opens it again. Every completion is on the audit log.
+- The deadline is a date, or a number of workdays before or after a schedule item’s start or finish. Moving that item, including a cascade, moves the to-do. The Moves count includes those to-dos. Deleting the schedule item keeps the last date and shows it unlinked.
+- A reminder of N days before the deadline lands in Inbox for the assigned people. Nothing is emailed or texted. Today shows one Overdue to-dos row with the count.
+- Field sees and ticks only items assigned to them. A vendor portal shows only that vendor’s items, and they can tick one and attach a photo. They do not see money or another job. Office filters the list by assignee, job, priority, due, and status, sorts by due date, and can complete several at once.
+- Bathroom remodel and Kitchen remodel include a Pre-drywall walk checklist tied to rough plumbing. A new job can copy those to-dos with the schedule.
+
 ### Work in progress
 
 - Reports holds a WIP page for the owner, an admin, and office. Field does not see it. One row per open job, plus a total. The as-of date rebuilds the month from records dated on or before that day. Filter by PM or status. A row opens that job’s cost codes. A projected-cost override needs a note and shows on the row.
-- CSV downloads the rows on screen. The filename carries the as-of date. Print is a landscape page. Today lists Underbilled with the count and the dollars.
+- CSV downloads the rows on screen. The filename carries the as-of date. Print is a landscape page. Today lists Underbilled with the count and the dollars. A selected row uses a light teal tint so a red underbilled amount stays readable.
 
 ### Job templates
 

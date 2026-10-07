@@ -8,7 +8,7 @@ type TemplateOption = {
   id: string;
   name: string;
   jobType: string;
-  counts: { schedule: number; estimate: number | null; draws: number | null; selections: number | null; punch: number };
+  counts: { schedule: number; estimate: number | null; draws: number | null; selections: number | null; punch: number; todos: number };
   trades: string[];
 };
 
@@ -18,6 +18,7 @@ const PARTS = [
   ["draws", "Draws"],
   ["selections", "Selections"],
   ["punch", "Punch"],
+  ["todos", "To-dos"],
 ] as const;
 
 export function NewJobSheet({
