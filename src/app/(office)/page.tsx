@@ -13,6 +13,7 @@ import { dashboard, listInvoices, listProjects, pipelineBoard } from "@/lib/serv
 import { MyDay } from "@/components/my-day";
 import { WEBSITE_FORM_SOURCE } from "@/lib/lead-form/rules";
 import { unseenWebLeadCount } from "@/lib/services/lead-form";
+import { warrantyQueue } from "@/lib/services/punch";
 import { overdueSelections } from "@/lib/services/selections";
 import { timeBoard } from "@/lib/services/time";
 import { addCalendarDays, localDay } from "@/lib/time/calendar";
@@ -103,6 +104,7 @@ export default async function TodayPage() {
   }
   const webLeadCount = unseenWebLeadCount(session.orgId);
   const webLeadHref = `/pipeline?source=${encodeURIComponent(WEBSITE_FORM_SOURCE)}`;
+  const warranty = warrantyQueue(session.orgId);
   const todayKey = officeDay(time.timeZone);
   const lateSelections = overdueSelections(session.orgId, todayKey).map((row) => ({
     key: `sel_${row.id}`,
@@ -147,9 +149,10 @@ export default async function TodayPage() {
         />
       ) : null}
       {quiet ? <EmptyState title="No jobs yet" why="Add a lead to start your pipeline." href="/leads/new" action="Add a lead" /> : null}
-      {webLeadCount > 0 ? (
+      {webLeadCount > 0 || warranty.count > 0 ? (
         <ul className="fl-group">
-          <GroupedRow href={webLeadHref} title="New web leads" trailing={<span className="num">{webLeadCount}</span>} />
+          {webLeadCount > 0 ? <GroupedRow href={webLeadHref} title="New web leads" trailing={<span className="num">{webLeadCount}</span>} /> : null}
+          {warranty.count > 0 && warranty.href ? <GroupedRow href={warranty.href} title="Warranty requests" trailing={<span className="num">{warranty.count}</span>} /> : null}
         </ul>
       ) : null}
       {shown.length > 0 ? (
@@ -236,9 +239,10 @@ export default async function TodayPage() {
         {quiet ? <EmptyState title="No jobs yet" why="Add a lead to start your pipeline." href="/leads/new" action="Add a lead" /> : null}
         <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_400px]">
           <div className="flex flex-col gap-6">
-            {webLeadCount > 0 ? (
+            {webLeadCount > 0 || warranty.count > 0 ? (
               <ul className="fl-group">
-                <GroupedRow href={webLeadHref} title="New web leads" trailing={<span className="num">{webLeadCount}</span>} />
+                {webLeadCount > 0 ? <GroupedRow href={webLeadHref} title="New web leads" trailing={<span className="num">{webLeadCount}</span>} /> : null}
+                {warranty.count > 0 && warranty.href ? <GroupedRow href={warranty.href} title="Warranty requests" trailing={<span className="num">{warranty.count}</span>} /> : null}
               </ul>
             ) : null}
             {shown.length > 0 ? (

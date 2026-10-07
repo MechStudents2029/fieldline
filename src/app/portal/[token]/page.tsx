@@ -16,10 +16,16 @@ import {
   portalTimeline,
   sentenceStatus,
 } from "@/lib/portal/summary";
+import { PortalWarrantySection } from "@/components/portal-warranty";
 import { portalByToken } from "@/lib/services/read";
+import { portalWarranty } from "@/lib/services/punch";
 import { portalSelections, type PortalSelection } from "@/lib/services/selections";
 
 export const dynamic = "force-dynamic";
+
+function portalStarted() {
+  return Date.now();
+}
 
 function formatDelta(cents: number): string {
   const amount = formatMoney(Math.abs(cents));
@@ -52,6 +58,7 @@ export default async function PortalPage({ params }: { params: Promise<{ token: 
     finalInvoiceAt: finalInvoiceAt(data.invoices),
   });
   const selections = portalSelections(token) ?? [];
+  const warranty = portalWarranty(token);
   const pendingSelections = selections.filter((selection) => selection.status === "released");
   const action = needsYouAction({ orders: data.orders, invoices: data.invoices });
   const featuredId = action?.kind === "change-order" ? action.id : null;
@@ -124,6 +131,9 @@ export default async function PortalPage({ params }: { params: Promise<{ token: 
         ) : null}
 
         <div className="home-main">
+          {warranty && (warranty.closed || warranty.punch.length > 0) ? (
+            <PortalWarrantySection token={token} home={warranty} startedAt={portalStarted()} />
+          ) : null}
           {listed.length > 0 ? (
             <section aria-label="Change orders">
               <h2>Change orders</h2>

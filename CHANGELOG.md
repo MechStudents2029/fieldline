@@ -2,6 +2,12 @@
 
 ## 2026-10-06
 
+### Punch list and warranty
+
+- A job has a punch list. Each item has a title, a room, an optional cost code, a crew member or a vendor, a due date, and a status of open, done, or verified. Before and after photos use the same rules as job photos. The office can verify an item and share it with the homeowner. The job page shows open, done, and verified counts.
+- Field can add an item and mark one done with a photo from My day. That stays online. The office marks a job substantially complete, then sees a closeout count for punch still open, a missing or draft final invoice, draft change orders, draft bills, issued purchase orders, and unapproved time. Close is allowed when those counts are zero, or with a reason that is stored on the audit log. Closing sets the warranty end from the company default, and that default is editable per job. Reopen is on the audit log too.
+- A closed job inside the warranty window accepts a request on the client portal: title, description, urgency, and up to three photos. The homeowner sees status and the end date. Outside the window the form is hidden and the end date stays. The office assigns a visit, which shows on the crew schedule, then resolves or declines with a note the client can read. An optional cost code posts job cost. Today counts open warranty requests. No email or text goes out. A visit note is there to copy.
+
 ### Lead form
 
 - Settings has a lead form for an owner or admin. Turn it on, choose the fields, and set a short intro and thank-you line. Name is required, plus an email or a phone. Address, project type, budget, timeline, description, and up to three photos are optional. The page shows the public link and an embed snippet. A new link replaces the old one.

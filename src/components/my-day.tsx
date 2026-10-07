@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { startLogAction } from "@/app/actions";
+import { addFieldPunchAction, markPunchDoneAction, startLogAction } from "@/app/actions";
+import { ActionForm } from "@/components/action-form";
 import { LargeTitle } from "@/components/ios";
 import { Toolbar } from "@/components/mac/toolbar";
 import { OfflineBridge } from "@/components/offline-bridge";
@@ -10,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { formatDateTime } from "@/lib/format";
 import type { Actor } from "@/lib/services/read";
 import { myDay } from "@/lib/services/logs";
+import { fieldPunch } from "@/lib/services/punch";
 import { memberAssignments } from "@/lib/services/schedule";
 import { formatHours, timeBoard } from "@/lib/services/time";
 
@@ -30,6 +32,7 @@ export function MyDay({ actor }: { actor: Actor }) {
   const day = myDay(actor);
   const board = timeBoard(actor);
   const plan = memberAssignments(actor);
+  const punch = fieldPunch(actor);
   const open = day.open;
   return (
     <div className="mx-auto flex max-w-lg flex-col gap-7 md:max-w-none md:px-6">
@@ -94,6 +97,51 @@ export function MyDay({ actor }: { actor: Actor }) {
           <ClockInForm jobs={day.clockJobs} codes={day.codes} scope={{ orgId: actor.orgId, userId: actor.userId }} />
         </section>
       )}
+      <section aria-label="Punch" className="flex flex-col gap-2">
+        <h2 className="fl-section">Punch</h2>
+        <ul className="flex flex-col gap-3">
+          {punch.items.map((item) => (
+            <li key={item.id} className="fl-group px-4 py-3">
+              <p className="fl-body">{item.title}</p>
+              <p className="fl-footnote text-[var(--fl-secondary)]">
+                {[item.projectName, item.location, item.statusLabel].filter(Boolean).join(" · ")}
+              </p>
+              <ActionForm action={markPunchDoneAction.bind(null, item.id)} className="mt-2 flex flex-col gap-2">
+                <label className="text-sm">
+                  After photo
+                  <input className="mt-1 block w-full text-sm" type="file" name="photo" accept="image/jpeg,image/png,image/webp" aria-label={`After photo ${item.title}`} />
+                </label>
+                <button type="submit" className="h-11 rounded-lg bg-[var(--fl-accent)] text-sm font-semibold text-white">
+                  Mark {item.title} done
+                </button>
+              </ActionForm>
+            </li>
+          ))}
+        </ul>
+        <ActionForm action={addFieldPunchAction} className="fl-group flex flex-col gap-2 px-4 py-3">
+          <label className="text-sm">
+            Job
+            <select name="projectId" className="field mt-1" defaultValue={punch.jobs[0]?.id ?? ""}>
+              {punch.jobs.map((job) => (
+                <option key={job.id} value={job.id}>
+                  {job.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="text-sm">
+            Item
+            <input name="title" className="field mt-1" />
+          </label>
+          <label className="text-sm">
+            Room
+            <input name="location" className="field mt-1" />
+          </label>
+          <button type="submit" className="h-11 rounded-lg bg-[var(--fl-accent)] text-sm font-semibold text-white">
+            Add punch
+          </button>
+        </ActionForm>
+      </section>
       <section className="flex flex-col gap-2">
         <h2 className="fl-section">Hours</h2>
         <ul className="fl-group">

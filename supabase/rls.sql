@@ -140,7 +140,11 @@ begin
     'selection_events',
     'lead_forms',
     'lead_form_submissions',
-    'lead_form_attempts'
+    'lead_form_attempts',
+    'punch_items',
+    'warranty_requests',
+    'warranty_photos',
+    'warranty_attempts'
   ]
   loop
     execute format('alter table public.%I enable row level security', tbl);

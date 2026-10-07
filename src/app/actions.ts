@@ -50,6 +50,20 @@ import { supabaseAuthConfigured } from "@/lib/supabase/env";
 import { supabasePasswordAuth } from "@/lib/supabase/password";
 import { ServiceError } from "@/lib/services/errors";
 import { regenerateLeadFormKey, saveLeadForm, submitLeadForm } from "@/lib/services/lead-form";
+import {
+  addPunchItem,
+  closeJob,
+  declineWarranty,
+  markPunchDone,
+  markSubstantial,
+  reopenJob,
+  resolveWarranty,
+  scheduleWarranty,
+  setPunchShared,
+  setWarrantyMonths,
+  submitWarranty,
+  verifyPunch,
+} from "@/lib/services/punch";
 import { MAX_PHOTOS } from "@/lib/lead-form/rules";
 import { addStarterPriceBook, setSetupDismissed } from "@/lib/services/onboarding";
 import { acceptExistingAccount, acceptNewAccount, changeMemberRole, createInvite, INVITE_EMAIL, previewInvite, removeMember, revokeInvite } from "@/lib/services/team";
@@ -648,6 +662,8 @@ export async function settingsAction(_prev: ActionState, formData: FormData): Pr
     if (timeZone != null && weekStartsOn != null) {
       updateWorkCalendar(user, { timeZone: String(timeZone), weekStartsOn: Number(weekStartsOn) });
     }
+    const warrantyMonths = formData.get("warrantyMonths");
+    if (warrantyMonths != null && String(warrantyMonths).trim()) setWarrantyMonths(user, Number(warrantyMonths));
     revalidatePath("/settings");
     revalidatePath("/time");
     revalidatePath("/");
@@ -1655,6 +1671,214 @@ export async function submitPublicLeadAction(formToken: string, _prev: ActionSta
       revalidatePath(`/leads/${result.leadId}`);
     }
     return { ok: "sent" };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+async function onePhoto(formData: FormData) {
+  const file = formData.get("photo");
+  if (!(file instanceof File) || file.size === 0) return null;
+  return { filename: file.name || "photo.jpg", bytes: Buffer.from(await file.arrayBuffer()) };
+}
+
+async function manyPhotos(formData: FormData) {
+  const files = formData.getAll("photo").filter((file): file is File => file instanceof File && file.size > 0);
+  const photos = [];
+  for (const file of files) photos.push({ filename: file.name || "photo.jpg", bytes: Buffer.from(await file.arrayBuffer()) });
+  return photos;
+}
+
+function refreshJob(projectId: string) {
+  revalidatePath(`/projects/${projectId}`);
+  revalidatePath("/");
+  revalidatePath("/schedule");
+}
+
+export async function addPunchAction(projectId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    addPunchItem(
+      user,
+      projectId,
+      {
+        title: String(formData.get("title") || ""),
+        location: String(formData.get("location") || ""),
+        dueDate: String(formData.get("due") || ""),
+        costCode: String(formData.get("costCode") || ""),
+        assigneeUserId: String(formData.get("assigneeUser") || "") || null,
+        assigneeContactId: String(formData.get("assigneeContact") || "") || null,
+        shared: formData.get("shared") === "on",
+      },
+      await onePhoto(formData),
+    );
+    refreshJob(projectId);
+    return { ok: "Added." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function addFieldPunchAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const projectId = String(formData.get("projectId") || "");
+    addPunchItem(user, projectId, {
+      title: String(formData.get("title") || ""),
+      location: String(formData.get("location") || ""),
+      dueDate: null,
+      costCode: null,
+      assigneeUserId: null,
+      assigneeContactId: null,
+      shared: false,
+    });
+    refreshJob(projectId);
+    return { ok: "Added." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function markPunchDoneAction(itemId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    markPunchDone(user, itemId, await onePhoto(formData));
+    revalidatePath("/");
+    revalidatePath("/projects");
+    return { ok: "Done." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function verifyPunchAction(itemId: string, _prev: ActionState, _formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    verifyPunch(user, itemId);
+    revalidatePath("/projects");
+    return { ok: "Verified." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function setPunchSharedAction(itemId: string, shared: string, _prev: ActionState, _formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    setPunchShared(user, itemId, shared === "1");
+    revalidatePath("/projects");
+    return { ok: shared === "1" ? "Shared." : "Hidden." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function markSubstantialAction(projectId: string, _prev: ActionState, _formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    markSubstantial(user, projectId);
+    refreshJob(projectId);
+    return { ok: "Substantial." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function closeJobAction(projectId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const raw = String(formData.get("months") || "").trim();
+    const months = raw ? Number(raw) : null;
+    closeJob(user, projectId, { months: raw ? months : null, reason: String(formData.get("reason") || "") });
+    refreshJob(projectId);
+    return { ok: "Closed." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function reopenJobAction(projectId: string, _prev: ActionState, _formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    reopenJob(user, projectId);
+    refreshJob(projectId);
+    return { ok: "Reopened." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function scheduleWarrantyAction(requestId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const note = scheduleWarranty(user, requestId, {
+      assigneeUserId: String(formData.get("assignee") || ""),
+      visitDate: String(formData.get("visit") || ""),
+    });
+    revalidatePath("/");
+    revalidatePath("/schedule");
+    revalidatePath("/projects");
+    return { ok: note ?? "Scheduled." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function resolveWarrantyAction(requestId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const raw = String(formData.get("amount") || "").trim();
+    let amountCents: number | null = null;
+    if (raw) {
+      const cents = parseMoneyToCents(raw);
+      if (cents == null) return { error: "That amount is not valid." };
+      amountCents = cents;
+    }
+    resolveWarranty(user, requestId, {
+      clientNote: String(formData.get("note") || ""),
+      internalNote: String(formData.get("internal") || ""),
+      costCode: String(formData.get("costCode") || "") || null,
+      amountCents,
+    });
+    revalidatePath("/");
+    revalidatePath("/projects");
+    return { ok: "Resolved." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function declineWarrantyAction(requestId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    declineWarranty(user, requestId, {
+      clientNote: String(formData.get("note") || ""),
+      internalNote: String(formData.get("internal") || ""),
+    });
+    revalidatePath("/");
+    revalidatePath("/projects");
+    return { ok: "Declined." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function submitWarrantyAction(token: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const photos = await manyPhotos(formData);
+    if (photos.length > MAX_PHOTOS) return { error: "Three photos at most." };
+    const result = submitWarranty({
+      token,
+      ip: await requestIp(),
+      honeypot: String(formData.get("hp_field") || ""),
+      startedAt: String(formData.get("startedAt") || ""),
+      title: String(formData.get("title") || ""),
+      description: String(formData.get("description") || ""),
+      urgency: String(formData.get("urgency") || ""),
+      photos,
+    });
+    if ("id" in result) revalidatePath(`/portal/${token}`);
+    return { ok: "Sent." };
   } catch (error) {
     return failure(error);
   }

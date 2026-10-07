@@ -20,6 +20,7 @@ export const organizations = sqliteTable("organizations", {
   setupDismissedAt: text("setup_dismissed_at"),
   timeZone: text("time_zone").notNull().default("America/New_York"),
   weekStartsOn: integer("week_starts_on").notNull().default(1),
+  warrantyMonths: integer("warranty_months").notNull().default(12),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });
@@ -273,6 +274,11 @@ export const projects = sqliteTable(
     startDate: text("start_date"),
     endDate: text("end_date"),
     portalToken: text("portal_token").notNull().unique(),
+    substantialAt: text("substantial_at"),
+    closedAt: text("closed_at"),
+    warrantyEndsOn: text("warranty_ends_on"),
+    warrantyMonths: integer("warranty_months"),
+    closeOverrideReason: text("close_override_reason"),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
     createdBy: text("created_by"),
@@ -1012,6 +1018,77 @@ export const leadFormAttempts = sqliteTable(
     createdAt: text("created_at").notNull(),
   },
   (t) => [index("lead_form_attempts_org").on(t.orgId, t.createdAt)],
+);
+
+export const punchItems = sqliteTable(
+  "punch_items",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    projectId: text("project_id").notNull(),
+    title: text("title").notNull(),
+    location: text("location"),
+    costCode: text("cost_code"),
+    assigneeUserId: text("assignee_user_id"),
+    assigneeContactId: text("assignee_contact_id"),
+    dueDate: text("due_date"),
+    status: text("status").notNull(),
+    shared: integer("shared").notNull().default(0),
+    beforeDocumentId: text("before_document_id"),
+    afterDocumentId: text("after_document_id"),
+    doneAt: text("done_at"),
+    verifiedAt: text("verified_at"),
+    createdBy: text("created_by"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (t) => [index("punch_items_org").on(t.orgId, t.projectId)],
+);
+
+export const warrantyRequests = sqliteTable(
+  "warranty_requests",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    projectId: text("project_id").notNull(),
+    title: text("title").notNull(),
+    description: text("description"),
+    urgency: text("urgency").notNull(),
+    status: text("status").notNull(),
+    visitDate: text("visit_date"),
+    scheduleItemId: text("schedule_item_id"),
+    assigneeUserId: text("assignee_user_id"),
+    costCode: text("cost_code"),
+    costItemId: text("cost_item_id"),
+    clientNote: text("client_note"),
+    internalNote: text("internal_note"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (t) => [index("warranty_requests_org").on(t.orgId, t.projectId, t.status)],
+);
+
+export const warrantyPhotos = sqliteTable(
+  "warranty_photos",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    requestId: text("request_id").notNull(),
+    documentId: text("document_id").notNull(),
+    sortOrder: integer("sort_order").notNull(),
+  },
+  (t) => [index("warranty_photos_request").on(t.orgId, t.requestId)],
+);
+
+export const warrantyAttempts = sqliteTable(
+  "warranty_attempts",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    ip: text("ip").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [index("warranty_attempts_org").on(t.orgId, t.createdAt)],
 );
 
 export const appMeta = sqliteTable("app_meta", {
