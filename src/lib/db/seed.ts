@@ -59,6 +59,8 @@ import {
   timeEntries,
   timeEntryEvents,
   users,
+  vendorCertificates,
+  vendorPortals,
 } from "@/lib/db/schema";
 import { assembleSnapshot, defaultSchedule, type StoredSnapshot } from "@/lib/domain/snapshot";
 import { vasquezLines, vasquezSections } from "@/lib/estimate/vasquez";
@@ -68,6 +70,7 @@ import { publicSnapshot } from "@/lib/selections/money";
 import { daysAgo, daysFromNow, nowIso } from "@/lib/ids";
 import { achFeeCents, qtyToMilli } from "@/lib/money";
 import { CONSENT_VERSION, DEMO_PASSWORD } from "@/lib/product";
+import { hashVendorToken, DEMO_HARBOR_PORTAL_TOKEN } from "@/lib/vendor/token";
 import { proposalNudgeCopy } from "@/lib/ai/nurture";
 import {
   defaultFields,
@@ -76,7 +79,7 @@ import {
   WEBSITE_FORM_SOURCE,
 } from "@/lib/lead-form/rules";
 
-export const SEED_VERSION = "15";
+export const SEED_VERSION = "16";
 
 const ORG = "org_rivera";
 const NORTH = "org_northline";
@@ -141,6 +144,8 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
         timeZone: "America/New_York",
         weekStartsOn: 1,
         warrantyMonths: 12,
+        vendorComplianceMode: "warn",
+        vendorRequiredTypes: "general_liability,workers_comp",
         createdAt: created,
         updatedAt: now,
       },
@@ -163,6 +168,8 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
         timeZone: "America/Los_Angeles",
         weekStartsOn: 1,
         warrantyMonths: 12,
+        vendorComplianceMode: "warn",
+        vendorRequiredTypes: "general_liability,workers_comp",
         createdAt: created,
         updatedAt: now,
       },
@@ -1759,8 +1766,10 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
     status: string;
     note: string | null;
     assignees: string[];
+    vendorContactId?: string | null;
   }[] = [
     { id: "sch_ok_tile", projectId: "proj_okonkwo", title: "Tile shower", start: today, end: tomorrow, time: "07:30", status: "confirmed", note: "Homeowner home after 3", assignees: ["user_dana"] },
+    { id: "sch_ok_plumb", projectId: "proj_okonkwo", title: "Set the valve", start: today, end: today, time: "09:00", status: "confirmed", note: null, assignees: [], vendorContactId: "c_harbor" },
     { id: "sch_chen_conflict", projectId: "proj_chen", title: "Vanity set", start: today, end: today, time: null, status: "planned", note: null, assignees: ["user_dana"] },
     { id: "sch_br_frame", projectId: "proj_brooks", title: "Framing walk", start: scheduleDay(0), end: scheduleDay(1), time: "08:00", status: "confirmed", note: null, assignees: ["user_luis"] },
     { id: "sch_ok_walk", projectId: "proj_okonkwo", title: "Client walk", start: scheduleDay(4), end: scheduleDay(4), time: null, status: "planned", note: null, assignees: ["user_maya"] },
@@ -1780,6 +1789,7 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
         startTime: item.time,
         status: item.status,
         note: item.note,
+        vendorContactId: item.vendorContactId ?? null,
         createdAt: now,
         updatedAt: now,
         createdBy: "user_maya",
@@ -2031,6 +2041,46 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
       { id: "punch_dz_rail", orgId: ORG, projectId: "proj_diaz", title: "Tighten the rail", location: "Deck", costCode: "DECK-RAIL", assigneeUserId: "user_dana", assigneeContactId: null, dueDate: addCalendarDays(punchToday, -10), status: "verified", shared: 1, beforeDocumentId: null, afterDocumentId: null, doneAt: daysAgo(8), verifiedAt: daysAgo(6), createdBy: "user_maya", createdAt: daysAgo(9), updatedAt: daysAgo(6) },
       { id: "punch_dz_post", orgId: ORG, projectId: "proj_diaz", title: "Seal the post cap", location: "Stairs", costCode: "DECK-FOOT", assigneeUserId: "user_dana", assigneeContactId: null, dueDate: addCalendarDays(punchToday, -9), status: "verified", shared: 1, beforeDocumentId: null, afterDocumentId: null, doneAt: daysAgo(8), verifiedAt: daysAgo(6), createdBy: "user_maya", createdAt: daysAgo(9), updatedAt: daysAgo(6) },
     ])
+    .run();
+
+  const certExpires = addCalendarDays(punchToday, 18);
+  db.insert(documents)
+    .values({
+      id: "doc_cert_harbor_gl",
+      orgId: ORG,
+      projectId: null,
+      leadId: null,
+      contactId: "c_harbor",
+      type: "certificate",
+      filename: "harbor-gl.png",
+      storagePath: "/demo/photos/okonkwo-shower.svg",
+      metadataJson: null,
+      deletedAt: null,
+      createdAt: daysAgo(20),
+      createdBy: "user_sam",
+    })
+    .run();
+  db.insert(vendorCertificates)
+    .values({
+      id: "vcert_harbor_gl",
+      orgId: ORG,
+      contactId: "c_harbor",
+      type: "general_liability",
+      expiresOn: certExpires,
+      documentId: "doc_cert_harbor_gl",
+      createdAt: daysAgo(20),
+      updatedAt: daysAgo(20),
+    })
+    .run();
+  db.insert(vendorPortals)
+    .values({
+      id: "vport_harbor",
+      orgId: ORG,
+      contactId: "c_harbor",
+      tokenHash: hashVendorToken(DEMO_HARBOR_PORTAL_TOKEN),
+      createdAt: daysAgo(6),
+      rotatedAt: null,
+    })
     .run();
 
   db.insert(warrantyRequests)

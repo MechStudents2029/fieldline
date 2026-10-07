@@ -5,19 +5,22 @@ import { dataDir, getDb } from "@/lib/db/client";
 import { officeDb } from "@/lib/db/office";
 import { documents, projects } from "@/lib/db/schema";
 import { demoAssetPath, fileResponseHeaders, fileVisible, resolveInside } from "@/lib/security";
+import { vendorFileAllowed } from "@/lib/services/vendor-portal";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request, context: { params: Promise<{ id: string }> }) {
   const session = await getSession();
   const { id } = await context.params;
-  const portal = new URL(request.url).searchParams.get("portal");
-  const db = portal ? getDb() : session ? officeDb(session.orgId) : null;
+  const url = new URL(request.url);
+  const portal = url.searchParams.get("portal");
+  const vendor = url.searchParams.get("vendor");
+  const db = portal || vendor ? getDb() : session ? officeDb(session.orgId) : null;
   if (!db) return new Response("Not found", { status: 404 });
   const document = db
     .select()
     .from(documents)
-    .where(portal ? eq(documents.id, id) : and(eq(documents.id, id), eq(documents.orgId, session!.orgId)))
+    .where(portal || vendor ? eq(documents.id, id) : and(eq(documents.id, id), eq(documents.orgId, session!.orgId)))
     .get();
   if (!document || document.deletedAt) return new Response("Not found", { status: 404 });
   const portalMatch = Boolean(
@@ -29,7 +32,8 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
         .where(and(eq(projects.id, document.projectId), eq(projects.orgId, document.orgId), eq(projects.portalToken, portal)))
         .get(),
   );
-  if (!fileVisible({ sessionOrgId: session?.orgId ?? null, documentOrgId: document.orgId, portalMatch })) {
+  const vendorMatch = Boolean(vendor && vendorFileAllowed(vendor, document.id));
+  if (!vendorMatch && !fileVisible({ sessionOrgId: session?.orgId ?? null, documentOrgId: document.orgId, portalMatch })) {
     return new Response("Not found", { status: 404 });
   }
   const demo = demoAssetPath(document.storagePath);
