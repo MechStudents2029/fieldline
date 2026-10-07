@@ -150,10 +150,72 @@ export const tasks = sqliteTable("tasks", {
   relatedType: text("related_type"),
   relatedId: text("related_id"),
   status: text("status").notNull(),
+  notes: text("notes").notNull().default(""),
+  priority: text("priority").notNull().default("normal"),
+  tags: text("tags").notNull().default(""),
+  scheduleItemId: text("schedule_item_id"),
+  deadlineEdge: text("deadline_edge"),
+  deadlineOffset: integer("deadline_offset"),
+  deadlineUnlinked: integer("deadline_unlinked").notNull().default(0),
+  remindDays: integer("remind_days"),
+  remindedFor: text("reminded_for"),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
   createdBy: text("created_by"),
 });
+
+export const taskAssignees = sqliteTable(
+  "task_assignees",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    taskId: text("task_id").notNull(),
+    userId: text("user_id"),
+    contactId: text("contact_id"),
+  },
+  (t) => [index("task_assignees_task").on(t.orgId, t.taskId)],
+);
+
+export const taskChecks = sqliteTable(
+  "task_checks",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    taskId: text("task_id").notNull(),
+    title: text("title").notNull(),
+    sortOrder: integer("sort_order").notNull(),
+    status: text("status").notNull(),
+    assigneeUserId: text("assignee_user_id"),
+    assigneeContactId: text("assignee_contact_id"),
+    dueAt: text("due_at"),
+    completedAt: text("completed_at"),
+    completedBy: text("completed_by"),
+  },
+  (t) => [index("task_checks_task").on(t.orgId, t.taskId)],
+);
+
+export const taskFiles = sqliteTable(
+  "task_files",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    taskId: text("task_id").notNull(),
+    checkId: text("check_id"),
+    documentId: text("document_id").notNull(),
+  },
+  (t) => [index("task_files_task").on(t.orgId, t.taskId)],
+);
+
+export const todoAttempts = sqliteTable(
+  "todo_attempts",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    userId: text("user_id").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [index("todo_attempts_user").on(t.orgId, t.userId, t.createdAt)],
+);
 
 export const priceBookItems = sqliteTable(
   "price_book_items",
@@ -1480,6 +1542,38 @@ export const templateTasks = sqliteTable(
     sortOrder: integer("sort_order").notNull(),
   },
   (t) => [index("template_tasks_template").on(t.orgId, t.templateId)],
+);
+
+export const templateTodos = sqliteTable(
+  "template_todos",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    templateId: text("template_id").notNull(),
+    title: text("title").notNull(),
+    notes: text("notes").notNull().default(""),
+    priority: text("priority").notNull().default("normal"),
+    tags: text("tags").notNull().default(""),
+    remindDays: integer("remind_days"),
+    scheduleKey: text("schedule_key"),
+    deadlineEdge: text("deadline_edge"),
+    deadlineOffset: integer("deadline_offset"),
+    sortOrder: integer("sort_order").notNull(),
+  },
+  (t) => [index("template_todos_template").on(t.orgId, t.templateId)],
+);
+
+export const templateTodoChecks = sqliteTable(
+  "template_todo_checks",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    templateId: text("template_id").notNull(),
+    todoId: text("todo_id").notNull(),
+    title: text("title").notNull(),
+    sortOrder: integer("sort_order").notNull(),
+  },
+  (t) => [index("template_todo_checks_todo").on(t.orgId, t.todoId)],
 );
 
 export const templateTaskLinks = sqliteTable(

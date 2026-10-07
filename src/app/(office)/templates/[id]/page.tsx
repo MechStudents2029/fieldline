@@ -59,7 +59,21 @@ export default async function TemplatePage({ params }: { params: Promise<{ id: s
           <dt className="text-[var(--mac-secondary)]">Punch</dt>
           <dd className="num">{detail.counts.punch}</dd>
         </div>
+        <div>
+          <dt className="text-[var(--mac-secondary)]">To-dos</dt>
+          <dd className="num">{detail.counts.todos}</dd>
+        </div>
       </dl>
+      {detail.todos.length ? (
+        <ul className="fl-group">
+          {detail.todos.map((todo) => (
+            <li key={todo.title} className="fl-cell">
+              <span className="flex-1">{todo.title}</span>
+              <span className="num">{todo.checks.length}</span>
+            </li>
+          ))}
+        </ul>
+      ) : null}
       <ul className="fl-group">
         {detail.tasks.map((task) => (
           <li key={task.key} className="fl-cell">

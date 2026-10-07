@@ -23,11 +23,13 @@ import {
   purchaseOrders,
   rfis,
   scheduleItems,
+  tasks,
   users,
 } from "@/lib/db/schema";
 import { id, nowIso } from "@/lib/ids";
 import { canAddFieldNotes, canSeeMoney, type Role } from "@/lib/permissions";
 import { rfiLabel } from "@/lib/rfis/format";
+import { sweepTodoReminders } from "@/lib/services/todos";
 import { photoExtension, photoUploadError, rasterImageType } from "@/lib/security";
 import { ServiceError } from "@/lib/services/errors";
 import type { Actor } from "@/lib/services/read";
@@ -171,6 +173,12 @@ function jobName(db: AppDatabase, orgId: string, projectId: string | null): stri
     .where(and(eq(projects.orgId, orgId), eq(projects.id, projectId)))
     .get();
   return row?.name ?? "";
+}
+
+function taskNotice(db: AppDatabase, orgId: string, entityId: string): { record: string; href: string } | null {
+  const row = db.select().from(tasks).where(and(eq(tasks.orgId, orgId), eq(tasks.id, entityId))).get();
+  if (!row) return null;
+  return { record: row.title, href: `/todos?task=${row.id}` };
 }
 
 function resolveEntity(db: AppDatabase, orgId: string, type: string, entityId: string): EntityRef | null {
@@ -678,6 +686,7 @@ export function deleteComment(actor: Actor, commentId: string) {
 export function listInbox(actor: Actor, filter: "unread" | "mentions" | "all"): InboxItem[] {
   const db = officeDb(actor.orgId);
   if (!db) return [];
+  sweepTodoReminders(db, actor.orgId);
   const members = membersOf(db, actor.orgId);
   const names = new Map(members.map((member) => [member.id, member.name]));
   const rows = db
@@ -688,6 +697,7 @@ export function listInbox(actor: Actor, filter: "unread" | "mentions" | "all"): 
     .filter((row) => {
       if (filter === "unread" && row.readAt) return false;
       if (filter === "mentions" && row.kind !== "mention") return false;
+      if (row.entityType === "task") return Boolean(taskNotice(db, actor.orgId, row.entityId));
       const entity = resolveEntity(db, actor.orgId, row.entityType, row.entityId);
       if (!entity) return false;
       if (financial(entity.type) && !canSeeMoney(roleOf(actor))) return false;
@@ -695,12 +705,13 @@ export function listInbox(actor: Actor, filter: "unread" | "mentions" | "all"): 
     })
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   return rows.map((row) => {
-    const entity = resolveEntity(db, actor.orgId, row.entityType, row.entityId);
+    const task = row.entityType === "task" ? taskNotice(db, actor.orgId, row.entityId) : null;
+    const entity = task ? null : resolveEntity(db, actor.orgId, row.entityType, row.entityId);
     return {
       id: row.id,
       kind: row.kind,
       who: (row.actorId && names.get(row.actorId)) || row.actorName,
-      record: entity ? recordLine(entity) : row.entityType,
+      record: task?.record ?? (entity ? recordLine(entity) : row.entityType),
       snippet: row.snippet,
       age: shortAge(row.createdAt),
       unread: !row.readAt,
@@ -725,6 +736,17 @@ export function openNotification(actor: Actor, noticeId: string): string | null 
     .where(and(eq(notifications.orgId, actor.orgId), eq(notifications.userId, actor.userId), eq(notifications.id, noticeId)))
     .get();
   if (!row) return null;
+  if (row.entityType === "task") {
+    const task = taskNotice(db, actor.orgId, row.entityId);
+    if (!task) return null;
+    if (!row.readAt) {
+      db.update(notifications)
+        .set({ readAt: nowIso() })
+        .where(and(eq(notifications.orgId, actor.orgId), eq(notifications.id, row.id)))
+        .run();
+    }
+    return task.href;
+  }
   const entity = resolveEntity(db, actor.orgId, row.entityType, row.entityId);
   if (!entity) return null;
   if (financial(entity.type) && !canSeeMoney(roleOf(actor))) return null;

@@ -41,6 +41,7 @@ export default async function TemplatesPage({ searchParams }: { searchParams: Pr
                 {money ? <th>Draws</th> : null}
                 {money ? <th>Selections</th> : null}
                 <th>Punch</th>
+                <th>To-dos</th>
               </tr>
             </thead>
             <tbody>
@@ -55,6 +56,7 @@ export default async function TemplatesPage({ searchParams }: { searchParams: Pr
                   {money ? <td className="num">{row.counts.draws}</td> : null}
                   {money ? <td className="num">{row.counts.selections}</td> : null}
                   <td className="num">{row.counts.punch}</td>
+                  <td className="num">{row.counts.todos}</td>
                 </tr>
               ))}
             </tbody>

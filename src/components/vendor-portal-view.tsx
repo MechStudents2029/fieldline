@@ -14,7 +14,8 @@ import { RfiPortal } from "@/components/rfi-portal";
 import type { VendorBidCard } from "@/lib/services/bids";
 import type { PortalRfi } from "@/lib/services/rfis";
 import type { VendorPortalHome } from "@/lib/services/vendor-portal";
-import { submitVendorBidAction, declineVendorBidAction } from "@/app/actions";
+import { submitVendorBidAction, declineVendorBidAction, vendorTickAction } from "@/app/actions";
+import type { VendorTodo } from "@/lib/services/todos";
 
 function when(row: { startDate: string; endDate: string; startTime: string | null }) {
   const days = row.startDate === row.endDate ? formatCalendarDay(row.startDate) : `${formatCalendarDay(row.startDate)} – ${formatCalendarDay(row.endDate)}`;
@@ -26,7 +27,7 @@ function dollars(cents: number | null) {
   return (cents / 100).toFixed(2);
 }
 
-export function VendorPortalView({ token, home, bids, rfis = [] }: { token: string; home: VendorPortalHome; bids: VendorBidCard[]; rfis?: PortalRfi[] }) {
+export function VendorPortalView({ token, home, bids, rfis = [], todos = [] }: { token: string; home: VendorPortalHome; bids: VendorBidCard[]; rfis?: PortalRfi[]; todos?: VendorTodo[] }) {
   return (
     <main className="home mx-auto min-h-screen w-full max-w-5xl px-4 py-8 lg:px-8" data-today={home.today}>
       <header>
@@ -64,6 +65,28 @@ export function VendorPortalView({ token, home, bids, rfis = [] }: { token: stri
             {bids.filter((bid) => bid.editable).length}
           </p>
         </div>
+      </section>
+      <section className="mt-7" aria-label="To-dos">
+        <h2>To-dos</h2>
+        {todos.length === 0 ? <p className="home-sub">No to-dos</p> : null}
+        <ul className="home-stack">
+          {todos.map((todo) => (
+            <li key={todo.id} className="home-card" data-todo={todo.title}>
+              <p className="home-copy">{todo.title}</p>
+              <p className="home-sub">{[todo.job, todo.dueAt].filter(Boolean).join(" · ")}</p>
+              <ActionForm action={vendorTickAction.bind(null, token, todo.id)} className="mt-2 flex flex-col gap-2">
+                <input type="hidden" name="done" value={todo.status === "done" ? "0" : "1"} />
+                <button type="submit" role="checkbox" aria-checked={todo.status === "done"} aria-label={todo.title} className="h-11 rounded-lg bg-[var(--fl-accent)] text-sm font-semibold text-white">
+                  {todo.status === "done" ? "Reopen" : "Done"}
+                </button>
+                <label className="text-sm">
+                  Photo
+                  <input className="mt-1 block w-full text-sm" type="file" name="photo" accept="image/jpeg,image/png,image/webp" aria-label={`Photo ${todo.title}`} />
+                </label>
+              </ActionForm>
+            </li>
+          ))}
+        </ul>
       </section>
       <div className="home-main mt-7">
         <section aria-label="Bids">

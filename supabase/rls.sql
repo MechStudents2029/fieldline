@@ -524,6 +524,48 @@ create policy wip_overrides_scope on public.wip_overrides
   using (org_id in (select public.current_org_ids()) and public.can_see_money(org_id))
   with check (org_id in (select public.current_org_ids()) and public.can_see_money(org_id));
 
+alter table public.task_assignees enable row level security;
+drop policy if exists task_assignees_scope on public.task_assignees;
+create policy task_assignees_scope on public.task_assignees
+  for all to authenticated
+  using (org_id in (select public.current_org_ids()))
+  with check (org_id in (select public.current_org_ids()));
+
+alter table public.task_checks enable row level security;
+drop policy if exists task_checks_scope on public.task_checks;
+create policy task_checks_scope on public.task_checks
+  for all to authenticated
+  using (org_id in (select public.current_org_ids()))
+  with check (org_id in (select public.current_org_ids()));
+
+alter table public.task_files enable row level security;
+drop policy if exists task_files_scope on public.task_files;
+create policy task_files_scope on public.task_files
+  for all to authenticated
+  using (org_id in (select public.current_org_ids()))
+  with check (org_id in (select public.current_org_ids()));
+
+alter table public.template_todos enable row level security;
+drop policy if exists template_todos_scope on public.template_todos;
+create policy template_todos_scope on public.template_todos
+  for all to authenticated
+  using (org_id in (select public.current_org_ids()))
+  with check (org_id in (select public.current_org_ids()));
+
+alter table public.template_todo_checks enable row level security;
+drop policy if exists template_todo_checks_scope on public.template_todo_checks;
+create policy template_todo_checks_scope on public.template_todo_checks
+  for all to authenticated
+  using (org_id in (select public.current_org_ids()))
+  with check (org_id in (select public.current_org_ids()));
+
+alter table public.todo_attempts enable row level security;
+drop policy if exists todo_attempts_scope on public.todo_attempts;
+create policy todo_attempts_scope on public.todo_attempts
+  for all to authenticated
+  using (org_id in (select public.current_org_ids()) and user_id = public.current_user_id())
+  with check (org_id in (select public.current_org_ids()) and user_id = public.current_user_id());
+
 alter table public.wip_attempts enable row level security;
 drop policy if exists wip_attempts_scope on public.wip_attempts;
 create policy wip_attempts_scope on public.wip_attempts
