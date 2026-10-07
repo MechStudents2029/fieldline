@@ -1139,6 +1139,97 @@ export const vendorPortalAttempts = sqliteTable(
   (t) => [index("vendor_portal_attempts_org").on(t.orgId, t.createdAt)],
 );
 
+export const bidRequests = sqliteTable(
+  "bid_requests",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    projectId: text("project_id").notNull(),
+    title: text("title").notNull(),
+    scope: text("scope"),
+    dueOn: text("due_on").notNull(),
+    status: text("status").notNull(),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    createdBy: text("created_by"),
+    awardedAt: text("awarded_at"),
+    closedAt: text("closed_at"),
+  },
+  (t) => [index("bid_requests_org").on(t.orgId, t.projectId)],
+);
+
+export const bidLines = sqliteTable(
+  "bid_lines",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    bidId: text("bid_id").notNull(),
+    costCode: text("cost_code").notNull(),
+    description: text("description").notNull(),
+    qtyMilli: integer("qty_milli").notNull(),
+    unit: text("unit").notNull(),
+    budgetLineId: text("budget_line_id"),
+    sortOrder: integer("sort_order").notNull().default(0),
+  },
+  (t) => [index("bid_lines_bid").on(t.orgId, t.bidId)],
+);
+
+export const bidFiles = sqliteTable(
+  "bid_files",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    bidId: text("bid_id").notNull(),
+    documentId: text("document_id").notNull(),
+  },
+  (t) => [index("bid_files_bid").on(t.orgId, t.bidId)],
+);
+
+export const bidInvites = sqliteTable(
+  "bid_invites",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    bidId: text("bid_id").notNull(),
+    contactId: text("contact_id").notNull(),
+    status: text("status").notNull(),
+    note: text("note"),
+    submittedName: text("submitted_name"),
+    submittedAt: text("submitted_at"),
+    declinedAt: text("declined_at"),
+    declineReason: text("decline_reason"),
+    documentId: text("document_id"),
+  },
+  (t) => [uniqueIndex("bid_invites_vendor").on(t.orgId, t.bidId, t.contactId), index("bid_invites_contact").on(t.orgId, t.contactId)],
+);
+
+export const bidPrices = sqliteTable(
+  "bid_prices",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    inviteId: text("invite_id").notNull(),
+    bidLineId: text("bid_line_id").notNull(),
+    unitPriceCents: integer("unit_price_cents"),
+    noBid: integer("no_bid").notNull().default(0),
+  },
+  (t) => [uniqueIndex("bid_prices_line").on(t.orgId, t.inviteId, t.bidLineId)],
+);
+
+export const bidAwards = sqliteTable(
+  "bid_awards",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    bidId: text("bid_id").notNull(),
+    bidLineId: text("bid_line_id").notNull(),
+    inviteId: text("invite_id").notNull(),
+    purchaseOrderId: text("purchase_order_id"),
+    amountCents: integer("amount_cents").notNull(),
+  },
+  (t) => [uniqueIndex("bid_awards_line").on(t.orgId, t.bidLineId), index("bid_awards_bid").on(t.orgId, t.bidId)],
+);
+
 export const appMeta = sqliteTable("app_meta", {
   key: text("key").primaryKey(),
   value: text("value").notNull(),

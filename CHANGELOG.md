@@ -2,6 +2,12 @@
 
 ## 2026-10-07
 
+### Bid requests
+
+- The office can ask two or more subs to price the same scope on a job. Lines come from the job budget, with a quantity and a unit. The vendor portal shows the request. No email or text goes out.
+- A vendor enters a unit price or marks a line no bid, types a name, and can attach a photo. They can change it until the due date or until the office awards the work. After that the request is read-only. They can decline the whole request. They do not see another vendor's price, the budget, or the client price.
+- The comparison is a table: lines down, vendors across, the low price marked, and a variance against the budget. Award one vendor or split lines. Award writes a draft purchase order for each winner and can update those budget lines. The others are marked lost. Changing the lines after a price comes in asks the vendors to bid again. Today counts bids due in the next three days and bids waiting on an award. A company set to block cannot award a vendor whose required certificate is expired or missing.
+
 ### Sub and vendor portal
 
 - A sub or vendor has one portal link. The office creates it from the vendor record, and a new link replaces the old one. The secret is stored as a hash. The link is shown to copy. No email or text goes out.

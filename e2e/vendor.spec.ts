@@ -22,7 +22,7 @@ async function acceptAndBill(page: Page, billNumber: string) {
   await expect(page.getByRole("heading", { name: "Harbor Plumbing" })).toBeVisible();
   await expect(page.locator("[data-open-pos]")).toHaveText("1");
   await expect(page.getByText("Set the valve")).toBeVisible();
-  await expect(page.getByText("901 Mandana Blvd, Oakland, CA")).toBeVisible();
+  await expect(page.getByText("901 Mandana Blvd, Oakland, CA").first()).toBeVisible();
   await expect(page.getByText("Replace the escutcheon", { exact: true })).toBeVisible();
   await expect(page.getByText("Amara")).toHaveCount(0);
   await expect(page.getByText("Dana Cho")).toHaveCount(0);

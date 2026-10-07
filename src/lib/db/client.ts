@@ -100,6 +100,7 @@ export function ensureReady(holder: Holder) {
   ensureLeadForm(holder);
   ensurePunch(holder);
   ensureVendorPortal(holder);
+  ensureBids(holder);
   const version = holder.sqlite.prepare("select value from app_meta where key = ?").get("seed_version") as
     | { value: string }
     | undefined;
@@ -993,6 +994,91 @@ function ensureVendorPortal(holder: Holder) {
   holder.sqlite.exec("create unique index if not exists vendor_certificates_type on vendor_certificates (org_id, contact_id, type)");
   holder.sqlite.exec("create index if not exists vendor_certificates_org on vendor_certificates (org_id, contact_id)");
   holder.sqlite.exec("create index if not exists vendor_portal_attempts_org on vendor_portal_attempts (org_id, created_at)");
+}
+
+function ensureBids(holder: Holder) {
+  const pk = holder.dialect === "postgres" ? "text primary key" : "text primary key not null";
+  if (!tableExists(holder.sqlite, "bid_requests", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists bid_requests (
+      id ${pk},
+      org_id text not null,
+      project_id text not null,
+      title text not null,
+      scope text,
+      due_on text not null,
+      status text not null,
+      created_at text not null,
+      updated_at text not null,
+      created_by text,
+      awarded_at text,
+      closed_at text
+    )`);
+  }
+  if (!tableExists(holder.sqlite, "bid_lines", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists bid_lines (
+      id ${pk},
+      org_id text not null,
+      bid_id text not null,
+      cost_code text not null,
+      description text not null,
+      qty_milli integer not null,
+      unit text not null,
+      budget_line_id text,
+      sort_order integer not null default 0
+    )`);
+  }
+  if (!tableExists(holder.sqlite, "bid_files", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists bid_files (
+      id ${pk},
+      org_id text not null,
+      bid_id text not null,
+      document_id text not null
+    )`);
+  }
+  if (!tableExists(holder.sqlite, "bid_invites", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists bid_invites (
+      id ${pk},
+      org_id text not null,
+      bid_id text not null,
+      contact_id text not null,
+      status text not null,
+      note text,
+      submitted_name text,
+      submitted_at text,
+      declined_at text,
+      decline_reason text,
+      document_id text
+    )`);
+  }
+  if (!tableExists(holder.sqlite, "bid_prices", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists bid_prices (
+      id ${pk},
+      org_id text not null,
+      invite_id text not null,
+      bid_line_id text not null,
+      unit_price_cents integer,
+      no_bid integer not null default 0
+    )`);
+  }
+  if (!tableExists(holder.sqlite, "bid_awards", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists bid_awards (
+      id ${pk},
+      org_id text not null,
+      bid_id text not null,
+      bid_line_id text not null,
+      invite_id text not null,
+      purchase_order_id text,
+      amount_cents integer not null
+    )`);
+  }
+  holder.sqlite.exec("create index if not exists bid_requests_org on bid_requests (org_id, project_id)");
+  holder.sqlite.exec("create index if not exists bid_lines_bid on bid_lines (org_id, bid_id)");
+  holder.sqlite.exec("create index if not exists bid_files_bid on bid_files (org_id, bid_id)");
+  holder.sqlite.exec("create unique index if not exists bid_invites_vendor on bid_invites (org_id, bid_id, contact_id)");
+  holder.sqlite.exec("create index if not exists bid_invites_contact on bid_invites (org_id, contact_id)");
+  holder.sqlite.exec("create unique index if not exists bid_prices_line on bid_prices (org_id, invite_id, bid_line_id)");
+  holder.sqlite.exec("create unique index if not exists bid_awards_line on bid_awards (org_id, bid_line_id)");
+  holder.sqlite.exec("create index if not exists bid_awards_bid on bid_awards (org_id, bid_id)");
 }
 
 function ensureTesterFeedback(holder: Holder) {

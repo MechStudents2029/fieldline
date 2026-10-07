@@ -147,7 +147,13 @@ begin
     'warranty_attempts',
     'vendor_portals',
     'vendor_certificates',
-    'vendor_portal_attempts'
+    'vendor_portal_attempts',
+    'bid_requests',
+    'bid_lines',
+    'bid_files',
+    'bid_invites',
+    'bid_prices',
+    'bid_awards'
   ]
   loop
     execute format('alter table public.%I enable row level security', tbl);
@@ -205,7 +211,9 @@ begin
     'budget_lines',
     'cost_items',
     'labor_rates',
-    'time_approvals'
+    'time_approvals',
+    'bid_prices',
+    'bid_awards'
   ]
   loop
     execute format('drop policy if exists %I on public.%I', tbl || '_member', tbl);

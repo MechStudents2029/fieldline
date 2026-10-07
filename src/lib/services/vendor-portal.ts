@@ -7,6 +7,8 @@ import {
   auditLogs,
   billEvents,
   billLines,
+  bidFiles,
+  bidInvites,
   bills,
   contacts,
   documents,
@@ -791,7 +793,20 @@ export function vendorFileAllowed(token: string, documentId: string): boolean {
     .from(bills)
     .where(and(eq(bills.orgId, ctx.orgId), eq(bills.vendorContactId, ctx.contactId), eq(bills.documentId, document.id)))
     .get();
-  return Boolean(bill);
+  if (bill) return true;
+  const invited = ctx.db
+    .select()
+    .from(bidInvites)
+    .where(and(eq(bidInvites.orgId, ctx.orgId), eq(bidInvites.contactId, ctx.contactId)))
+    .all();
+  if (invited.some((row) => row.documentId === document.id)) return true;
+  const bidIds = new Set(invited.map((row) => row.bidId));
+  const attachment = ctx.db
+    .select()
+    .from(bidFiles)
+    .where(and(eq(bidFiles.orgId, ctx.orgId), eq(bidFiles.documentId, document.id)))
+    .get();
+  return Boolean(attachment && bidIds.has(attachment.bidId));
 }
 
 export function vendorMoneyHiddenFrom(role: Role) {

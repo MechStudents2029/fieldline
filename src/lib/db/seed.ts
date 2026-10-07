@@ -61,6 +61,10 @@ import {
   users,
   vendorCertificates,
   vendorPortals,
+  bidInvites,
+  bidLines,
+  bidPrices,
+  bidRequests,
 } from "@/lib/db/schema";
 import { assembleSnapshot, defaultSchedule, type StoredSnapshot } from "@/lib/domain/snapshot";
 import { vasquezLines, vasquezSections } from "@/lib/estimate/vasquez";
@@ -79,7 +83,7 @@ import {
   WEBSITE_FORM_SOURCE,
 } from "@/lib/lead-form/rules";
 
-export const SEED_VERSION = "16";
+export const SEED_VERSION = "17";
 
 const ORG = "org_rivera";
 const NORTH = "org_northline";
@@ -2081,6 +2085,45 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
       createdAt: daysAgo(6),
       rotatedAt: null,
     })
+    .run();
+
+  const bidDue = addCalendarDays(punchToday, 2);
+  db.insert(bidRequests)
+    .values({
+      id: "bid_ok_valve",
+      orgId: ORG,
+      projectId: "proj_okonkwo",
+      title: "Shower plumbing and glass",
+      scope: "Valve, trim, and glass",
+      dueOn: bidDue,
+      status: "out",
+      createdAt: daysAgo(2),
+      updatedAt: daysAgo(1),
+      createdBy: "user_maya",
+      awardedAt: null,
+      closedAt: null,
+    })
+    .run();
+  db.insert(bidLines)
+    .values([
+      { id: "bln_ok_plb", orgId: ORG, bidId: "bid_ok_valve", costCode: "PLB-SHOWER", description: "Valve and trim", qtyMilli: 1000, unit: "ea", budgetLineId: "bud_proj_okonkwo_3", sortOrder: 0 },
+      { id: "bln_ok_glass", orgId: ORG, bidId: "bid_ok_valve", costCode: "BATH-GLASS", description: "Shower glass", qtyMilli: 1000, unit: "ea", budgetLineId: "bud_proj_okonkwo_4", sortOrder: 1 },
+    ])
+    .run();
+  db.insert(bidInvites)
+    .values([
+      { id: "binv_harbor", orgId: ORG, bidId: "bid_ok_valve", contactId: "c_harbor", status: "submitted", note: null, submittedName: "Pete Alvarez", submittedAt: daysAgo(1), declinedAt: null, declineReason: null, documentId: null },
+      { id: "binv_casa", orgId: ORG, bidId: "bid_ok_valve", contactId: "c_casa", status: "submitted", note: null, submittedName: "Imani Brooks", submittedAt: daysAgo(1), declinedAt: null, declineReason: null, documentId: null },
+      { id: "binv_brighton", orgId: ORG, bidId: "bid_ok_valve", contactId: "c_brighton", status: "invited", note: null, submittedName: null, submittedAt: null, declinedAt: null, declineReason: null, documentId: null },
+    ])
+    .run();
+  db.insert(bidPrices)
+    .values([
+      { id: "bpr_h_plb", orgId: ORG, inviteId: "binv_harbor", bidLineId: "bln_ok_plb", unitPriceCents: 480000, noBid: 0 },
+      { id: "bpr_h_glass", orgId: ORG, inviteId: "binv_harbor", bidLineId: "bln_ok_glass", unitPriceCents: 340000, noBid: 0 },
+      { id: "bpr_c_plb", orgId: ORG, inviteId: "binv_casa", bidLineId: "bln_ok_plb", unitPriceCents: 610000, noBid: 0 },
+      { id: "bpr_c_glass", orgId: ORG, inviteId: "binv_casa", bidLineId: "bln_ok_glass", unitPriceCents: 290000, noBid: 0 },
+    ])
     .run();
 
   db.insert(warrantyRequests)

@@ -19,6 +19,7 @@ import { captionFromMetadata, listPriceBook, listProjects, pipelineBoard, projec
 import { jobSchedule } from "@/lib/services/schedule";
 import { PunchSection } from "@/components/punch-section";
 import { punchBoard } from "@/lib/services/punch";
+import { bidComposer } from "@/lib/services/bids";
 import { selectionBoard } from "@/lib/services/selections";
 import { timeBoard } from "@/lib/services/time";
 import { localDay } from "@/lib/time/calendar";
@@ -48,6 +49,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
   const schedule = jobSchedule(session, detail.project.id);
   const picks = selectionBoard(session, detail.project.id, todayKey);
   const punch = punchBoard(session, detail.project.id);
+  const bidCount = detail.money ? (bidComposer(session, detail.project.id)?.bids.length ?? 0) : 0;
   const ranked = money ? [...money.byCode].sort((a, b) => (b.percentOfBudget ?? 0) - (a.percentOfBudget ?? 0)).slice(0, 2) : [];
   const paid = detail.invoices.reduce((sum, invoice) => sum + invoice.amountPaidCents, 0);
   const projectRows = listProjects(session.orgId);
@@ -347,6 +349,11 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
         </GroupedList>
       ) : null}
       </div>
+      {money ? (
+        <GroupedList label="Bids">
+          <GroupedRow href={`/projects/${detail.project.id}/bids`} title="Bid requests" trailing={String(bidCount)} />
+        </GroupedList>
+      ) : null}
       {money ? (
         <GroupedList label="Costs">
           {jobOrders.map((order) => (

@@ -9,14 +9,21 @@ import { ActionForm } from "@/components/action-form";
 import { formatCalendarDay } from "@/lib/format";
 import { formatMoney, formatWhole } from "@/lib/money";
 import { CERT_TYPES } from "@/lib/vendor/compliance";
+import type { VendorBidCard } from "@/lib/services/bids";
 import type { VendorPortalHome } from "@/lib/services/vendor-portal";
+import { submitVendorBidAction, declineVendorBidAction } from "@/app/actions";
 
 function when(row: { startDate: string; endDate: string; startTime: string | null }) {
   const days = row.startDate === row.endDate ? formatCalendarDay(row.startDate) : `${formatCalendarDay(row.startDate)} – ${formatCalendarDay(row.endDate)}`;
   return row.startTime ? `${days} · ${row.startTime}` : days;
 }
 
-export function VendorPortalView({ token, home }: { token: string; home: VendorPortalHome }) {
+function dollars(cents: number | null) {
+  if (cents == null) return "";
+  return (cents / 100).toFixed(2);
+}
+
+export function VendorPortalView({ token, home, bids }: { token: string; home: VendorPortalHome; bids: VendorBidCard[] }) {
   return (
     <main className="home mx-auto min-h-screen w-full max-w-5xl px-4 py-8 lg:px-8" data-today={home.today}>
       <header>
@@ -48,8 +55,89 @@ export function VendorPortalView({ token, home }: { token: string; home: VendorP
             {formatWhole(home.paidCents)}
           </p>
         </div>
+        <div>
+          <p>Bids</p>
+          <p className="home-figure" data-bids={bids.filter((bid) => bid.editable).length}>
+            {bids.filter((bid) => bid.editable).length}
+          </p>
+        </div>
       </section>
       <div className="home-main mt-7">
+        <section aria-label="Bids">
+          <h2>Bids</h2>
+          {bids.length === 0 ? <p className="home-sub">No bids</p> : null}
+          <ul className="home-stack">
+            {bids.map((bid) => (
+              <li key={bid.id} className="home-card" data-bid-title={bid.title}>
+                <div className="home-row">
+                  <div>
+                    <p className="home-copy">{bid.title}</p>
+                    <p className="home-sub">
+                      {bid.job}
+                      {bid.address ? ` · ${bid.address}` : ""} · {formatCalendarDay(bid.dueOn)}
+                    </p>
+                  </div>
+                  <span className="home-pill">{bid.responseLabel}</span>
+                </div>
+                {bid.scope ? <p className="home-sub mt-2">{bid.scope}</p> : null}
+                {bid.editable ? (
+                  <div className="mt-3 flex flex-col gap-3">
+                    <ActionForm action={submitVendorBidAction.bind(null, token, bid.id)} className="home-form">
+                      {bid.lines.map((line) => (
+                        <div key={line.id}>
+                          <p className="home-sub">
+                            {line.costCode}
+                            {line.description ? ` · ${line.description}` : ""} · {line.qtyMilli / 1000} {line.unit}
+                          </p>
+                          <input type="hidden" name="lineId" value={line.id} />
+                          <label className="text-sm">
+                            Unit price
+                            <input name="unitPrice" inputMode="decimal" defaultValue={dollars(line.unitPriceCents)} aria-label={`Price ${line.costCode} ${bid.title}`} className="home-input" />
+                          </label>
+                          <label className="home-sub">
+                            <input type="checkbox" name="noBid" value={line.id} defaultChecked={line.noBid} aria-label={`No bid ${line.costCode} ${bid.title}`} /> No bid
+                          </label>
+                        </div>
+                      ))}
+                      <label className="text-sm">
+                        Note
+                        <input name="note" defaultValue={bid.note} aria-label={`Note ${bid.title}`} className="home-input" />
+                      </label>
+                      <label className="text-sm">
+                        Name
+                        <input name="name" required defaultValue={bid.name} aria-label={`Name ${bid.title}`} className="home-input" />
+                      </label>
+                      <label className="home-sub">
+                        File
+                        <input className="home-file" type="file" name="file" accept="image/jpeg,image/png,image/webp" aria-label={`File ${bid.title}`} />
+                      </label>
+                      <button type="submit" className="home-btn">
+                        Send {bid.title}
+                      </button>
+                    </ActionForm>
+                    <ActionForm action={declineVendorBidAction.bind(null, token, bid.id)} className="home-form">
+                      <label className="text-sm">
+                        Reason
+                        <input name="reason" required aria-label={`Decline reason ${bid.title}`} className="home-input" />
+                      </label>
+                      <button type="submit" className="home-btn-quiet">
+                        Decline {bid.title}
+                      </button>
+                    </ActionForm>
+                  </div>
+                ) : (
+                  <ul className="mt-2">
+                    {bid.lines.map((line) => (
+                      <li key={line.id} className="home-sub">
+                        {line.costCode} · {line.noBid ? "No bid" : line.unitPriceCents == null ? "—" : formatMoney(line.unitPriceCents)}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </li>
+            ))}
+          </ul>
+        </section>
         <section aria-label="Purchase orders">
           <h2>Purchase orders</h2>
           {home.orders.length === 0 ? <p className="home-sub">No open orders</p> : null}
