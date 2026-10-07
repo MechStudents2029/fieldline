@@ -11,6 +11,7 @@ const links = [
   ["/pipeline", "Leads"],
   ["/time", "Time"],
   ["/rfis", "RFIs"],
+  ["/templates", "Templates"],
   ["/follow-ups", "Follow-ups"],
   ["/contacts", "Clients"],
   ["/invoices", "Invoices"],

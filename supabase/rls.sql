@@ -453,3 +453,66 @@ create policy comment_attempts_scope on public.comment_attempts
   to authenticated
   using (org_id in (select public.current_org_ids()) and user_id = public.current_user_id())
   with check (org_id in (select public.current_org_ids()) and user_id = public.current_user_id());
+
+alter table public.schedule_links enable row level security;
+drop policy if exists schedule_links_scope on public.schedule_links;
+create policy schedule_links_scope on public.schedule_links
+  for all to authenticated
+  using (org_id in (select public.current_org_ids()))
+  with check (org_id in (select public.current_org_ids()));
+
+alter table public.job_templates enable row level security;
+drop policy if exists job_templates_scope on public.job_templates;
+create policy job_templates_scope on public.job_templates
+  for all to authenticated
+  using (org_id in (select public.current_org_ids()))
+  with check (org_id in (select public.current_org_ids()));
+
+alter table public.template_tasks enable row level security;
+drop policy if exists template_tasks_scope on public.template_tasks;
+create policy template_tasks_scope on public.template_tasks
+  for all to authenticated
+  using (org_id in (select public.current_org_ids()))
+  with check (org_id in (select public.current_org_ids()));
+
+alter table public.template_task_links enable row level security;
+drop policy if exists template_task_links_scope on public.template_task_links;
+create policy template_task_links_scope on public.template_task_links
+  for all to authenticated
+  using (org_id in (select public.current_org_ids()))
+  with check (org_id in (select public.current_org_ids()));
+
+alter table public.template_checks enable row level security;
+drop policy if exists template_checks_scope on public.template_checks;
+create policy template_checks_scope on public.template_checks
+  for all to authenticated
+  using (org_id in (select public.current_org_ids()))
+  with check (org_id in (select public.current_org_ids()));
+
+alter table public.template_lines enable row level security;
+drop policy if exists template_lines_scope on public.template_lines;
+create policy template_lines_scope on public.template_lines
+  for all to authenticated
+  using (org_id in (select public.current_org_ids()) and public.can_see_money(org_id))
+  with check (org_id in (select public.current_org_ids()) and public.can_see_money(org_id));
+
+alter table public.template_draws enable row level security;
+drop policy if exists template_draws_scope on public.template_draws;
+create policy template_draws_scope on public.template_draws
+  for all to authenticated
+  using (org_id in (select public.current_org_ids()) and public.can_see_money(org_id))
+  with check (org_id in (select public.current_org_ids()) and public.can_see_money(org_id));
+
+alter table public.template_selections enable row level security;
+drop policy if exists template_selections_scope on public.template_selections;
+create policy template_selections_scope on public.template_selections
+  for all to authenticated
+  using (org_id in (select public.current_org_ids()) and public.can_see_money(org_id))
+  with check (org_id in (select public.current_org_ids()) and public.can_see_money(org_id));
+
+alter table public.template_attempts enable row level security;
+drop policy if exists template_attempts_scope on public.template_attempts;
+create policy template_attempts_scope on public.template_attempts
+  for all to authenticated
+  using (org_id in (select public.current_org_ids()) and user_id = public.current_user_id())
+  with check (org_id in (select public.current_org_ids()) and user_id = public.current_user_id());

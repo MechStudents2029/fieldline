@@ -37,7 +37,15 @@ import {
   purchaseOrderEvents,
   purchaseOrderLines,
   purchaseOrders,
+  jobTemplates,
   scheduleAssignees,
+  scheduleLinks,
+  templateChecks,
+  templateDraws,
+  templateLines,
+  templateSelections,
+  templateTaskLinks,
+  templateTasks,
   scheduleItems,
   selectionChoices,
   selectionEvents,
@@ -92,7 +100,7 @@ import {
   WEBSITE_FORM_SOURCE,
 } from "@/lib/lead-form/rules";
 
-export const SEED_VERSION = "20";
+export const SEED_VERSION = "21";
 
 const ORG = "org_rivera";
 const NORTH = "org_northline";
@@ -2481,6 +2489,8 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
     ])
     .run();
 
+  seedTemplates(db, now);
+
   db.insert(auditLogs)
     .values({
       id: "audit_seed",
@@ -2496,4 +2506,172 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
     .run();
 
   db.insert(appMeta).values({ key: "seed_version", value: SEED_VERSION }).run();
+}
+
+function seedTemplates(db: AppDatabase, now: string) {
+  const bathTasks = [
+    { key: "demo", title: "Demo", offset: 0, duration: 2, trade: "Demo", preds: [] as { key: string; lag: number }[] },
+    { key: "plumb", title: "Rough plumbing", offset: 2, duration: 2, trade: "Plumbing", preds: [{ key: "demo", lag: 0 }] },
+    { key: "tile", title: "Tile shower", offset: 4, duration: 3, trade: "Tile", preds: [{ key: "plumb", lag: 0 }] },
+    { key: "vanity", title: "Set vanity", offset: 7, duration: 1, trade: "Crew", preds: [{ key: "tile", lag: 0 }] },
+    { key: "walk", title: "Client walk", offset: 8, duration: 1, trade: "Crew", preds: [{ key: "vanity", lag: 0 }] },
+  ];
+  const kitchenTasks = [
+    { key: "demo", title: "Demo", offset: 0, duration: 2, trade: "Demo", preds: [] as { key: string; lag: number }[] },
+    { key: "plumb", title: "Rough plumbing", offset: 2, duration: 2, trade: "Plumbing", preds: [{ key: "demo", lag: 0 }] },
+    { key: "elec", title: "Rough electrical", offset: 2, duration: 2, trade: "Electrical", preds: [{ key: "demo", lag: 0 }] },
+    { key: "cabs", title: "Cabinets", offset: 4, duration: 3, trade: "Cabinets", preds: [{ key: "plumb", lag: 0 }, { key: "elec", lag: 0 }] },
+    { key: "tops", title: "Counters", offset: 7, duration: 2, trade: "Stone", preds: [{ key: "cabs", lag: 0 }] },
+    { key: "apps", title: "Appliances", offset: 7, duration: 1, trade: "Appliance", preds: [{ key: "cabs", lag: 0 }] },
+    { key: "splash", title: "Backsplash", offset: 9, duration: 2, trade: "Tile", preds: [{ key: "tops", lag: 0 }] },
+  ];
+  const templates = [
+    {
+      id: "tpl_bath",
+      name: "Bathroom remodel",
+      jobType: "Bath",
+      tasks: bathTasks,
+      lines: [
+        ["Bath demolition", "DEMO-GUT", 210000, 320000],
+        ["Shower tile", "TILE-SHOWER", 980000, 1480000],
+        ["Vanity and top", "BATH-VANITY", 410000, 620000],
+        ["Plumbing", "PLB-SHOWER", 520000, 740000],
+        ["Shower glass", "BATH-GLASS", 320000, 460000],
+        ["Paint and supervision", "GC-SUPER", 300000, 580000],
+      ],
+      draws: [
+        ["Deposit", 3000],
+        ["Rough-in", 3000],
+        ["Tile set", 2000],
+        ["Final", 2000],
+      ],
+      selections: [
+        ["Vanity", "Bath", 620000],
+        ["Floor tile", "Bath", 180000],
+      ],
+      checks: ["Reset the GFCI", "Caulk the niche", "Walk the punch list"],
+    },
+    {
+      id: "tpl_kitchen",
+      name: "Kitchen remodel",
+      jobType: "Kitchen",
+      tasks: kitchenTasks,
+      lines: [
+        ["Kitchen demolition", "DEMO-GUT", 180000, 280000],
+        ["Rough plumbing", "PLB-KITCH", 640000, 920000],
+        ["Rough electrical", "ELE-KITCH", 480000, 700000],
+        ["Base cabinets", "CAB-BASE", 2200000, 3400000],
+        ["Countertop", "STN-TOP", 980000, 1540000],
+        ["Appliances", "APP-PKG", 1400000, 1680000],
+        ["Backsplash", "TILE-BACK", 420000, 640000],
+      ],
+      draws: [
+        ["Deposit", 2500],
+        ["Rough", 2500],
+        ["Cabinets", 2500],
+        ["Final", 2500],
+      ],
+      selections: [
+        ["Cabinet pulls", "Kitchen", 48000],
+        ["Sink", "Kitchen", 62000],
+      ],
+      checks: ["Adjust the doors", "Seal the sink", "Test the dishwasher"],
+    },
+  ] as const;
+  db.insert(jobTemplates)
+    .values(
+      templates.map((template) => ({
+        id: template.id,
+        orgId: ORG,
+        name: template.name,
+        jobType: template.jobType,
+        version: 1,
+        createdAt: now,
+        updatedAt: now,
+        createdBy: "user_maya",
+      })),
+    )
+    .run();
+  for (const template of templates) {
+    db.insert(templateTasks)
+      .values(
+        template.tasks.map((task, index) => ({
+          id: `${template.id}_${task.key}`,
+          orgId: ORG,
+          templateId: template.id,
+          itemKey: task.key,
+          title: task.title,
+          phase: null,
+          startOffset: task.offset,
+          durationWorkdays: task.duration,
+          trade: task.trade,
+          sortOrder: index,
+        })),
+      )
+      .run();
+    const links = template.tasks.flatMap((task) =>
+      task.preds.map((pred, index) => ({
+        id: `${template.id}_${task.key}_${pred.key}`,
+        orgId: ORG,
+        templateId: template.id,
+        itemKey: task.key,
+        predecessorKey: pred.key,
+        lagWorkdays: pred.lag || index * 0,
+      })),
+    );
+    if (links.length) db.insert(templateTaskLinks).values(links).run();
+    db.insert(templateLines)
+      .values(
+        template.lines.map((line, index) => ({
+          id: `${template.id}_line_${index}`,
+          orgId: ORG,
+          templateId: template.id,
+          name: line[0],
+          costCode: line[1],
+          qtyMilli: 1000,
+          unit: "ea",
+          unitCostCents: line[2],
+          unitPriceCents: line[3],
+          sortOrder: index,
+        })),
+      )
+      .run();
+    db.insert(templateDraws)
+      .values(
+        template.draws.map((draw, index) => ({
+          id: `${template.id}_draw_${index}`,
+          orgId: ORG,
+          templateId: template.id,
+          title: draw[0],
+          bps: draw[1],
+          sortOrder: index,
+        })),
+      )
+      .run();
+    db.insert(templateSelections)
+      .values(
+        template.selections.map((row, index) => ({
+          id: `${template.id}_sel_${index}`,
+          orgId: ORG,
+          templateId: template.id,
+          title: row[0],
+          area: row[1],
+          allowanceCents: row[2],
+          sortOrder: index,
+        })),
+      )
+      .run();
+    db.insert(templateChecks)
+      .values(
+        template.checks.map((title, index) => ({
+          id: `${template.id}_chk_${index}`,
+          orgId: ORG,
+          templateId: template.id,
+          title,
+          kind: "punch",
+          sortOrder: index,
+        })),
+      )
+      .run();
+  }
 }

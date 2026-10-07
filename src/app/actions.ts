@@ -36,6 +36,8 @@ import {
 } from "@/lib/services/time";
 import type { TimeUndo } from "@/lib/services/time";
 import { moveScheduleItem, rotateCalendarFeed, saveScheduleItem, type ScheduleStatus } from "@/lib/services/schedule";
+import { previewScheduleShift, shiftScheduleDates } from "@/lib/services/schedule-shift";
+import { createJobFromTemplate, importTemplate, renameTemplate, saveJobAsTemplate, type TemplatePart } from "@/lib/services/templates";
 import { commitImport, previewImport, undoImport } from "@/lib/services/import";
 import {
   approveSelection,
@@ -169,6 +171,7 @@ export type ActionState = {
   bill?: BillDraftState;
   feedUrl?: string;
   vendorUrl?: string;
+  confirm?: string;
 } | null;
 
 export type BillDraftState = {
@@ -800,7 +803,12 @@ export async function settingsAction(_prev: ActionState, formData: FormData): Pr
     const timeZone = formData.get("timeZone");
     const weekStartsOn = formData.get("weekStartsOn");
     if (timeZone != null && weekStartsOn != null) {
-      updateWorkCalendar(user, { timeZone: String(timeZone), weekStartsOn: Number(weekStartsOn) });
+      const workdays = formData.getAll("workday").map((day) => Number(day)).filter((day) => Number.isInteger(day));
+      updateWorkCalendar(user, {
+        timeZone: String(timeZone),
+        weekStartsOn: Number(weekStartsOn),
+        ...(workdays.length ? { workdays } : {}),
+      });
     }
     const warrantyMonths = formData.get("warrantyMonths");
     if (warrantyMonths != null && String(warrantyMonths).trim()) setWarrantyMonths(user, Number(warrantyMonths));
@@ -1547,14 +1555,56 @@ function refreshSchedule(projectId: string) {
   if (projectId) revalidatePath(`/projects/${projectId}`);
 }
 
+function scheduleLinks(formData: FormData) {
+  if (formData.get("linksForm") !== "1") return undefined;
+  return formData
+    .getAll("pred")
+    .map(String)
+    .filter(Boolean)
+    .map((predecessorId) => ({ predecessorId, lag: Number(formData.get(`lag-${predecessorId}`) || 0) }));
+}
+
 export async function saveScheduleAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
   try {
     const user = await actor();
     const input = scheduleInput(formData);
     const existing = String(formData.get("itemId") || "");
-    saveScheduleItem(user, input, existing || undefined);
+    if (existing && formData.get("confirmShift") !== "1") {
+      const preview = previewScheduleShift(user, existing, input.startDate, input.endDate);
+      if (preview.count > 1) return { confirm: preview.label };
+    }
+    saveScheduleItem(user, { ...input, links: scheduleLinks(formData) }, existing || undefined);
     refreshSchedule(input.projectId);
     return { ok: "Saved." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function previewScheduleShiftAction(input: { id: string; startDate: string; endDate: string }): Promise<{ count: number; label: string; error?: string }> {
+  try {
+    const user = await actor();
+    const preview = previewScheduleShift(user, input.id, input.startDate, input.endDate);
+    return { count: preview.count, label: preview.label };
+  } catch (error) {
+    if (error instanceof ServiceError) return { count: 0, label: "", error: error.message };
+    throw error;
+  }
+}
+
+export async function shiftScheduleDatesAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const itemId = String(formData.get("itemId") || "");
+    const startDate = String(formData.get("startDate") || "");
+    const endDate = String(formData.get("endDate") || "");
+    if (formData.get("confirmShift") !== "1") {
+      const preview = previewScheduleShift(user, itemId, startDate, endDate);
+      if (preview.count > 1) return { confirm: preview.label };
+    }
+    const result = shiftScheduleDates(user, itemId, startDate, endDate);
+    refreshSchedule("");
+    return { ok: result.count > 1 ? result.label : "Saved." };
   } catch (error) {
     return failure(error);
   }
@@ -2463,6 +2513,90 @@ export async function saveNotifyModeAction(_prev: ActionState, formData: FormDat
     const user = await actor();
     setNotifyPreference(user, String(formData.get("mode") || ""));
     revalidatePath("/inbox");
+    return { ok: "Saved." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+function templateParts(formData: FormData): TemplatePart[] {
+  return formData.getAll("part").map(String).filter((part): part is TemplatePart => ["schedule", "estimate", "draws", "selections", "punch"].includes(part));
+}
+
+function tradeMap(formData: FormData): Record<string, string | null> {
+  const trades: Record<string, string | null> = {};
+  for (const [key, value] of formData.entries()) {
+    if (!key.startsWith("trade:")) continue;
+    const trade = key.slice("trade:".length);
+    const vendor = String(value || "");
+    trades[trade] = vendor || null;
+  }
+  return trades;
+}
+
+export async function createJobFromTemplateAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const result = createJobFromTemplate(user, {
+      templateId: String(formData.get("templateId") || ""),
+      name: String(formData.get("name") || ""),
+      contactId: String(formData.get("contactId") || ""),
+      address: String(formData.get("address") || ""),
+      startDate: String(formData.get("startDate") || ""),
+      pmUserId: String(formData.get("pmUserId") || ""),
+      parts: templateParts(formData),
+      trades: tradeMap(formData),
+    });
+    revalidatePath("/projects");
+    revalidatePath("/templates");
+    redirect(`/projects/${result.projectId}?created=${result.created}`);
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function saveJobAsTemplateAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const projectId = String(formData.get("projectId") || "");
+    const templateId = saveJobAsTemplate(user, projectId, {
+      name: String(formData.get("name") || ""),
+      jobType: String(formData.get("jobType") || ""),
+      parts: templateParts(formData),
+    });
+    revalidatePath("/templates");
+    redirect(`/templates/${templateId}`);
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function importTemplateAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const projectId = String(formData.get("projectId") || "");
+    const result = importTemplate(user, {
+      projectId,
+      templateId: String(formData.get("templateId") || ""),
+      parts: templateParts(formData),
+      anchor: String(formData.get("anchor") || ""),
+      trades: tradeMap(formData),
+    });
+    revalidatePath(`/projects/${projectId}`);
+    revalidatePath("/schedule");
+    return { ok: `Added ${result.created} items` };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function renameTemplateAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const templateId = String(formData.get("templateId") || "");
+    renameTemplate(user, templateId, String(formData.get("name") || ""), String(formData.get("jobType") || ""));
+    revalidatePath("/templates");
+    revalidatePath(`/templates/${templateId}`);
     return { ok: "Saved." };
   } catch (error) {
     return failure(error);

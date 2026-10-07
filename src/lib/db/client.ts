@@ -104,6 +104,9 @@ export function ensureReady(holder: Holder) {
   ensureDraws(holder);
   ensureRfis(holder);
   ensureComments(holder);
+  ensureWorkdays(holder);
+  ensureScheduleLinks(holder);
+  ensureTemplates(holder);
   const version = holder.sqlite.prepare("select value from app_meta where key = ?").get("seed_version") as
     | { value: string }
     | undefined;
@@ -202,6 +205,135 @@ function ensureOrgCalendar(holder: Holder) {
   if (!orgColumn(holder, "week_starts_on")) {
     holder.sqlite.exec("alter table organizations add column week_starts_on integer not null default 1");
   }
+}
+
+function ensureWorkdays(holder: Holder) {
+  if (!tableExists(holder.sqlite, "organizations", holder.dialect)) return;
+  if (!orgColumn(holder, "workdays_mask")) {
+    holder.sqlite.exec("alter table organizations add column workdays_mask integer not null default 62");
+  }
+  if (!tableExists(holder.sqlite, "projects", holder.dialect)) return;
+  for (const column of ["template_id", "template_name", "pm_user_id"]) {
+    if (!tableColumn(holder, "projects", column)) holder.sqlite.exec(`alter table projects add column ${column} text`);
+  }
+  if (!tableColumn(holder, "projects", "template_version")) holder.sqlite.exec("alter table projects add column template_version integer");
+}
+
+function ensureScheduleLinks(holder: Holder) {
+  const pk = holder.dialect === "postgres" ? "text primary key" : "text primary key not null";
+  if (!tableExists(holder.sqlite, "schedule_links", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists schedule_links (
+      id ${pk},
+      org_id text not null,
+      project_id text not null,
+      item_id text not null,
+      predecessor_id text not null,
+      lag_workdays integer not null default 0
+    )`);
+  }
+  holder.sqlite.exec("create unique index if not exists schedule_links_edge on schedule_links (org_id, item_id, predecessor_id)");
+  holder.sqlite.exec("create index if not exists schedule_links_project on schedule_links (org_id, project_id)");
+}
+
+function ensureTemplates(holder: Holder) {
+  const pk = holder.dialect === "postgres" ? "text primary key" : "text primary key not null";
+  if (!tableExists(holder.sqlite, "job_templates", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists job_templates (
+      id ${pk},
+      org_id text not null,
+      name text not null,
+      job_type text not null,
+      version integer not null,
+      created_at text not null,
+      updated_at text not null,
+      created_by text
+    )`);
+  }
+  if (!tableExists(holder.sqlite, "template_tasks", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists template_tasks (
+      id ${pk},
+      org_id text not null,
+      template_id text not null,
+      item_key text not null,
+      title text not null,
+      phase text,
+      start_offset integer not null,
+      duration_workdays integer not null,
+      trade text,
+      sort_order integer not null
+    )`);
+  }
+  if (!tableExists(holder.sqlite, "template_task_links", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists template_task_links (
+      id ${pk},
+      org_id text not null,
+      template_id text not null,
+      item_key text not null,
+      predecessor_key text not null,
+      lag_workdays integer not null default 0
+    )`);
+  }
+  if (!tableExists(holder.sqlite, "template_lines", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists template_lines (
+      id ${pk},
+      org_id text not null,
+      template_id text not null,
+      name text not null,
+      cost_code text,
+      qty_milli integer not null,
+      unit text not null,
+      unit_cost_cents integer not null,
+      unit_price_cents integer not null,
+      sort_order integer not null
+    )`);
+  }
+  if (!tableExists(holder.sqlite, "template_draws", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists template_draws (
+      id ${pk},
+      org_id text not null,
+      template_id text not null,
+      title text not null,
+      bps integer not null,
+      sort_order integer not null
+    )`);
+  }
+  if (!tableExists(holder.sqlite, "template_selections", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists template_selections (
+      id ${pk},
+      org_id text not null,
+      template_id text not null,
+      title text not null,
+      area text,
+      allowance_cents integer not null,
+      sort_order integer not null
+    )`);
+  }
+  if (!tableExists(holder.sqlite, "template_checks", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists template_checks (
+      id ${pk},
+      org_id text not null,
+      template_id text not null,
+      title text not null,
+      kind text not null,
+      sort_order integer not null
+    )`);
+  }
+  if (!tableExists(holder.sqlite, "template_attempts", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists template_attempts (
+      id ${pk},
+      org_id text not null,
+      user_id text not null,
+      created_at text not null
+    )`);
+  }
+  holder.sqlite.exec("create index if not exists job_templates_org on job_templates (org_id, name)");
+  holder.sqlite.exec("create index if not exists template_tasks_template on template_tasks (org_id, template_id)");
+  holder.sqlite.exec("create index if not exists template_task_links_template on template_task_links (org_id, template_id)");
+  holder.sqlite.exec("create index if not exists template_lines_template on template_lines (org_id, template_id)");
+  holder.sqlite.exec("create index if not exists template_draws_template on template_draws (org_id, template_id)");
+  holder.sqlite.exec("create index if not exists template_selections_template on template_selections (org_id, template_id)");
+  holder.sqlite.exec("create index if not exists template_checks_template on template_checks (org_id, template_id)");
+  holder.sqlite.exec("create index if not exists template_attempts_user on template_attempts (org_id, user_id, created_at)");
 }
 
 function orgColumn(holder: Holder, column: string): boolean {

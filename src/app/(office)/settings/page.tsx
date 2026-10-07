@@ -172,6 +172,15 @@ export default async function SettingsPage() {
               ))}
             </select>
           </label>
+          <fieldset className="flex flex-col gap-1">
+            <legend className="text-sm">Workdays</legend>
+            {WEEKDAY_NAMES.map((name, index) => (
+              <label key={name} className="flex items-center gap-2 text-sm">
+                <input type="checkbox" name="workday" value={index} defaultChecked={(org.workdaysMask & (1 << index)) !== 0} />
+                {name}
+              </label>
+            ))}
+          </fieldset>
           <p className="fl-footnote text-[var(--fl-secondary)]">The week starts {WEEKDAY_NAMES[org.weekStartsOn]}</p>
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" name="cards" defaultChecked={org.cardEnabled === 1} />
