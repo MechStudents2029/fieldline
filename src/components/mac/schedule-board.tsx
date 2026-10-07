@@ -360,6 +360,11 @@ export function ScheduleBoard({ board, openJobId }: { board: Board; openJobId: s
                 {error}
               </p>
             ) : null}
+            {draft.id ? (
+              <a href={`/schedule/items/${draft.id}#comments`} className="mac-t13 text-[var(--mac-accent)]">
+                Comments
+              </a>
+            ) : null}
             {board.canEdit ? (
               <button type="submit" data-mac-primary className="mac-primary" disabled={busy}>
                 Save

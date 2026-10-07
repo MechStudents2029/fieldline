@@ -101,7 +101,7 @@ export default async function ProjectsPage() {
     { key: "spent", header: "Spent", align: "right" as const },
     { key: "margin", header: "Margin", align: "right" as const },
     { key: "billed", header: "Billed", align: "right" as const },
-    { key: "start", header: "Start" },
+    { key: "start", header: "Start", fit: true },
     { key: "crew", header: "Crew" },
   ];
   const contractTotal = rows.reduce((sum, row) => sum + row.project.contractValueCents, 0);

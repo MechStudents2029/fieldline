@@ -18,6 +18,7 @@ import { projectPurchaseOrders } from "@/lib/services/purchase-orders";
 import { captionFromMetadata, listPriceBook, listProjects, pipelineBoard, projectDetail } from "@/lib/services/read";
 import { jobSchedule } from "@/lib/services/schedule";
 import { LinkedRfis } from "@/components/linked-rfis";
+import { CommentThread } from "@/components/comment-thread";
 import { PunchSection } from "@/components/punch-section";
 import { RfiSection } from "@/components/rfi-section";
 import { punchBoard } from "@/lib/services/punch";
@@ -146,6 +147,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
           </div>
         </div>
       ) : null}
+      <CommentThread entityType="project" entityId={detail.project.id} />
       {punch ? (
         <PunchSection
           board={punch}
@@ -275,9 +277,10 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
           {detail.orders.map((order) => (
             <GroupedRow
               key={order.id}
-              title={`${order.title} · ${order.status}`}
+              href={money ? `/projects/${detail.project.id}/orders/${order.id}` : undefined}
+              title={`CO-${order.number} · ${order.title} · ${order.status}`}
               trailing={money ? formatWhole(order.priceDeltaCents) : undefined}
-              chevron={false}
+              chevron={Boolean(money)}
             />
           ))}
         </GroupedList>

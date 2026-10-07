@@ -10,6 +10,7 @@ import {
   setPunchSharedAction,
   verifyPunchAction,
 } from "@/app/actions";
+import Link from "next/link";
 import { ActionForm } from "@/components/action-form";
 import { CopyField } from "@/components/copy-field";
 import { formatCalendarDay, formatWarrantyDay } from "@/lib/format";
@@ -51,10 +52,12 @@ export function PunchSection({ board, rfis = {} }: { board: PunchBoard; rfis?: R
           <li key={item.id} className="flex flex-wrap items-center gap-2 border-b border-[var(--mac-separator)] py-2">
             <div className="min-w-0 flex-1">
               <p className="mac-t13 font-semibold">{item.title}</p>
+              <Link href={`/projects/${board.projectId}/punch/${item.id}`} className="mac-t13 text-[var(--mac-accent)]">
+                Comments
+              </Link>
               <p className="mac-t11 text-[var(--mac-secondary)]">
-                {[item.location, item.assigneeName, item.dueDate ? formatCalendarDay(item.dueDate) : "", board.showMoney ? item.costCode : ""]
-                  .filter(Boolean)
-                  .join(" · ")}
+                {[item.location, item.assigneeName, board.showMoney ? item.costCode : ""].filter(Boolean).join(" · ")}
+                {item.dueDate ? <span className="num"> · {formatCalendarDay(item.dueDate)}</span> : null}
               </p>
             </div>
             <Pill>{item.statusLabel}</Pill>

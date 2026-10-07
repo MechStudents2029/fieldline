@@ -30,6 +30,7 @@ import { id, nowIso } from "@/lib/ids";
 import { MAX_MONEY_CENTS } from "@/lib/money";
 import { canAddFieldNotes, canEditCrm, canManageMoney, canManageSettings, canSeeMoney, type Role } from "@/lib/permissions";
 import { photoExtension, photoUploadError, rasterImageType } from "@/lib/security";
+import { notifyAssignment } from "@/lib/services/comments";
 import { ServiceError } from "@/lib/services/errors";
 import type { Actor } from "@/lib/services/read";
 import {
@@ -519,6 +520,7 @@ export function addPunchItem(actor: Actor, projectId: string, input: PunchInput,
       .run();
     writeAudit(tx, actor.orgId, actor.userId, "punch.create", "punch_item", itemId, { status: "open", shared: shared === 1 });
   });
+  if (assigneeUserId) notifyAssignment(actor, { entityType: "punch_item", entityId: itemId, userIds: [assigneeUserId] });
   return itemId;
 }
 

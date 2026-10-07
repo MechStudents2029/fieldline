@@ -49,6 +49,7 @@ export function CommandMenu({ chrome, role }: { chrome: OfficeChrome; role: stri
           <Command.Empty>No matches</Command.Empty>
           <Command.Group heading="Go to">
             <Command.Item onSelect={() => go("/")}>Today</Command.Item>
+            <Command.Item onSelect={() => go("/inbox")}>Inbox</Command.Item>
             <Command.Item onSelect={() => go("/pipeline")}>Leads</Command.Item>
             <Command.Item onSelect={() => go("/projects")}>Jobs</Command.Item>
             {field ? null : <Command.Item onSelect={() => go("/estimates")}>Estimates</Command.Item>}

@@ -1352,3 +1352,81 @@ export const appMeta = sqliteTable("app_meta", {
   key: text("key").primaryKey(),
   value: text("value").notNull(),
 });
+
+export const comments = sqliteTable(
+  "comments",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    entityType: text("entity_type").notNull(),
+    entityId: text("entity_id").notNull(),
+    projectId: text("project_id"),
+    authorId: text("author_id").notNull(),
+    body: text("body").notNull(),
+    createdAt: text("created_at").notNull(),
+    editedAt: text("edited_at"),
+    deletedAt: text("deleted_at"),
+  },
+  (t) => [index("comments_entity").on(t.orgId, t.entityType, t.entityId)],
+);
+
+export const commentMentions = sqliteTable(
+  "comment_mentions",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    commentId: text("comment_id").notNull(),
+    kind: text("kind").notNull(),
+    userId: text("user_id"),
+    role: text("role"),
+  },
+  (t) => [index("comment_mentions_comment").on(t.orgId, t.commentId)],
+);
+
+export const commentFiles = sqliteTable(
+  "comment_files",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    commentId: text("comment_id").notNull(),
+    documentId: text("document_id").notNull(),
+  },
+  (t) => [index("comment_files_comment").on(t.orgId, t.commentId)],
+);
+
+export const notifications = sqliteTable(
+  "notifications",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    userId: text("user_id").notNull(),
+    kind: text("kind").notNull(),
+    commentId: text("comment_id"),
+    entityType: text("entity_type").notNull(),
+    entityId: text("entity_id").notNull(),
+    projectId: text("project_id"),
+    actorId: text("actor_id"),
+    actorName: text("actor_name").notNull(),
+    snippet: text("snippet").notNull(),
+    readAt: text("read_at"),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [index("notifications_user").on(t.orgId, t.userId, t.createdAt)],
+);
+
+export const notificationSettings = sqliteTable("notification_settings", {
+  userId: text("user_id").primaryKey(),
+  orgId: text("org_id").notNull(),
+  mode: text("mode").notNull(),
+});
+
+export const commentAttempts = sqliteTable(
+  "comment_attempts",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    userId: text("user_id").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [index("comment_attempts_user").on(t.orgId, t.userId, t.createdAt)],
+);

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { answerRfiAction, closeRfiAction, draftRfiChangeAction, shiftRfiAction, voidRfiAction } from "@/app/actions";
 import { ActionForm } from "@/components/action-form";
+import { CommentThread } from "@/components/comment-thread";
 import { requireSession } from "@/lib/auth/session";
 import { formatCalendarDay, formatDateTime } from "@/lib/format";
 import { rfiDetail } from "@/lib/services/rfis";
@@ -97,6 +98,7 @@ export default async function RfiPage({ params }: { params: Promise<{ id: string
           <button type="submit">Void</button>
         </ActionForm>
       ) : null}
+      <CommentThread entityType="rfi" entityId={rfi.id} />
     </div>
   );
 }

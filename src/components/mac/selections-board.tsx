@@ -214,7 +214,7 @@ export function SelectionsBoard({ board }: { board: SelectionBoard }) {
                     {row.title}
                   </th>
                   <td className="px-2 text-[var(--mac-secondary)]">{row.area || "—"}</td>
-                  <td className={`px-2 ${row.overdue ? "text-[var(--mac-danger)]" : ""}`}>{formatCalendarDay(row.dueDate)}</td>
+                  <td className={`num px-2 ${row.overdue ? "text-[var(--mac-danger)]" : ""}`}>{formatCalendarDay(row.dueDate)}</td>
                   {board.showMoney ? <td className="px-2 text-right num">{row.allowanceLabel ?? "—"}</td> : null}
                   <td className="px-2">{row.chosenName ?? "—"}</td>
                   {board.showMoney ? <td className="px-2 text-right num">{row.differenceLabel ?? "—"}</td> : null}

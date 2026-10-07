@@ -58,6 +58,7 @@ export default async function RfisPage({
           </button>
         </form>
         <p className="sr-only">{assignees.join(", ")}</p>
+        <div className="overflow-x-auto">
         <table className="mac-table" aria-label="RFIs">
           <thead>
             <tr>
@@ -78,16 +79,17 @@ export default async function RfisPage({
                   <Link href={item.href}>{item.title}</Link>
                 </td>
                 <td>{item.assigneeName}</td>
-                <td>{item.dueOn ? formatCalendarDay(item.dueOn) : "—"}</td>
+                <td className="num">{item.dueOn ? formatCalendarDay(item.dueOn) : "—"}</td>
                 <td className="num">{item.ageDays}</td>
                 <td>
                   <span className="fl-pill">{item.statusLabel}</span>
                 </td>
-                <td>{item.impact}</td>
+                <td className="num">{item.impact}</td>
               </tr>
             ))}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   );

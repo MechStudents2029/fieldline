@@ -9,6 +9,7 @@ import { scheduleConflicts } from "@/lib/schedule/conflicts";
 import { buildScheduleIcs } from "@/lib/schedule/ics";
 import { inclusiveDays, scheduleWindow, type ScheduleSpan } from "@/lib/schedule/range";
 import { feedTokenMatches, hashFeedToken, newFeedSecret } from "@/lib/schedule/token";
+import { notifyAssignment } from "@/lib/services/comments";
 import { ServiceError } from "@/lib/services/errors";
 import type { Actor } from "@/lib/services/read";
 import { calendarForOrg } from "@/lib/services/time";
@@ -413,7 +414,17 @@ export function saveScheduleItem(actor: Actor, input: ScheduleInput, itemId?: st
       })
       .run();
   }
+  const previous = existing
+    ? db
+        .select()
+        .from(scheduleAssignees)
+        .where(and(eq(scheduleAssignees.orgId, actor.orgId), eq(scheduleAssignees.itemId, savedId)))
+        .all()
+        .map((row) => row.userId)
+    : [];
   replaceAssignees(db, actor, savedId, input.assigneeIds);
+  const added = [...new Set(input.assigneeIds)].filter((userId) => !previous.includes(userId));
+  if (added.length) notifyAssignment(actor, { entityType: "schedule_item", entityId: savedId, userIds: added });
   return savedId;
 }
 
@@ -433,7 +444,16 @@ export function moveScheduleItem(actor: Actor, itemId: string, input: { startDat
     .set({ startDate, endDate, updatedAt: nowIso() })
     .where(and(eq(scheduleItems.orgId, actor.orgId), eq(scheduleItems.id, itemId)))
     .run();
+  const previous = db
+    .select()
+    .from(scheduleAssignees)
+    .where(and(eq(scheduleAssignees.orgId, actor.orgId), eq(scheduleAssignees.itemId, itemId)))
+    .all()
+    .map((row) => row.userId);
   replaceAssignees(db, actor, itemId, input.assigneeId ? [input.assigneeId] : []);
+  if (input.assigneeId && !previous.includes(input.assigneeId)) {
+    notifyAssignment(actor, { entityType: "schedule_item", entityId: itemId, userIds: [input.assigneeId] });
+  }
 }
 
 export function rotateCalendarFeed(actor: Actor): string {

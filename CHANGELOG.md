@@ -2,6 +2,13 @@
 
 ## 2026-10-07
 
+### Comments and Inbox
+
+- A job, estimate, change order, purchase order, bill, RFI, punch item, daily log, or schedule item can hold an internal comment thread. Text keeps line breaks. A photo uses the same upload check as the rest of the app. The author can edit for 15 minutes and can delete their own comment. Both are on the audit log. Posting is rate limited. Client and vendor portals do not show these comments. Field can comment on jobs they can see, and cannot see comments on estimates, change orders, purchase orders, or bills.
+- Typing @ opens the people who can see that record, plus Office, Field, and Admins. A mention is stored as a person or a role, and it shows as a neutral pill. Mentioning someone who cannot see the record is refused. A person named and included by role gets one notice. The author is not notified.
+- Inbox sits in the sidebar with the unread count. A row shows who, the job and record (RFI-001, CO-3), a one-line snippet, and the age. Notices are created for a mention, a reply in a thread you joined, an assignment on an RFI, punch item, or schedule item, and a vendor or client answer on an RFI you asked. Opening a row marks it read. Mark all read, and filter Unread, Mentions, or All. j and k move, Enter opens the record at the comment. Today has one Mentions count that opens Inbox. Each person can take mentions only, or all activity on their jobs. Nothing is emailed or texted.
+- Number, date, age, and money columns stay on one line with tabular figures. Portal photo and file controls are a button that shows the chosen file name and a remove control.
+
 ### Requests for information
 
 - A job can hold an RFI: a short title, the question, a due date, and an assignee. The assignee is a teammate, a vendor already on the job, or the client. It can point at a schedule item, selection, purchase order, bid, punch item, or change order, and it can carry a photo. Numbers run RFI-001, RFI-002, and so on for that job. A voided number is not reused. Status is Open, Answered, Closed, or Void. Field can add one from the job on a phone.

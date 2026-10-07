@@ -13,7 +13,7 @@ export function DataTable({
   groups,
   status,
 }: {
-  columns: { key: string; header: string; align?: "right" }[];
+  columns: { key: string; header: string; align?: "right"; fit?: boolean }[];
   rows?: TableRow[];
   groups?: TableGroup[];
   status?: string;
@@ -144,7 +144,7 @@ function GroupBlock({
   onMenu,
 }: {
   group: TableGroup;
-  columns: { key: string; header: string; align?: "right" }[];
+  columns: { key: string; header: string; align?: "right"; fit?: boolean }[];
   closed: boolean;
   sorted: TableRow[];
   flat: TableRow[];
@@ -182,7 +182,7 @@ function GroupBlock({
                 {columns.map((column, columnIndex) => {
                   const cell = row.cells[column.key];
                   const text = cell?.text ?? "";
-                  const className = `${column.align === "right" ? "text-right num" : ""} ${cell?.tone === "late" ? "text-[var(--mac-danger)]" : ""}`;
+                  const className = `${column.align === "right" || column.fit ? "num" : ""} ${column.align === "right" ? "text-right" : ""} ${cell?.tone === "late" ? "text-[var(--mac-danger)]" : ""}`;
                   return (
                     <td key={column.key} className={className}>
                       {columnIndex === 0 && row.href ? (

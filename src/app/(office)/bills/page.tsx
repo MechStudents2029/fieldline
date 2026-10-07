@@ -101,14 +101,14 @@ export default async function BillsPage({
               <tr key={bill.id}>
                 <td className="px-2">
                   <Link href={`/bills/${bill.id}`} className="font-medium">
-                    {bill.billNumber} · {bill.vendorName}
+                    <span className="num">{bill.billNumber}</span> · {bill.vendorName}
                   </Link>
                   {bill.timing === "overdue" ? " · Overdue" : ""}
                   {bill.timing === "upcoming" ? " · Due soon" : ""}
                 </td>
                 <td className="px-2">
                   {bill.projectName}
-                  {bill.dueDate ? ` · due ${formatCalendarDay(bill.dueDate)}` : ""}
+                  {bill.dueDate ? <span className="num"> · {formatCalendarDay(bill.dueDate)}</span> : ""}
                 </td>
                 <td className="px-2">{bill.status === "draft" ? <span className="fl-pill">{bill.status}</span> : bill.status}</td>
                 <td className="px-2 text-right num">{formatMoney(bill.amountCents)}</td>

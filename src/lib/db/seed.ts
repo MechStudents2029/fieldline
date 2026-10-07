@@ -50,6 +50,10 @@ import {
   punchItems,
   rfiMessages,
   rfis,
+  commentFiles,
+  commentMentions,
+  comments,
+  notifications,
   warrantyRequests,
   proposals,
   signatures,
@@ -88,7 +92,7 @@ import {
   WEBSITE_FORM_SOURCE,
 } from "@/lib/lead-form/rules";
 
-export const SEED_VERSION = "19";
+export const SEED_VERSION = "20";
 
 const ORG = "org_rivera";
 const NORTH = "org_northline";
@@ -2349,6 +2353,132 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
       createdAt: daysAgo(1),
       updatedAt: daysAgo(1),
     })
+    .run();
+
+  const commentAt = (hours: number) => new Date(Date.now() - hours * 3600 * 1000).toISOString();
+  db.insert(comments)
+    .values([
+      {
+        id: "cmt_rfi_valve",
+        orgId: ORG,
+        entityType: "rfi",
+        entityId: "rfi_ok_valve",
+        projectId: "proj_okonkwo",
+        authorId: "user_luis",
+        body: "Valve center is 48 inches, confirm before tile @[user:user_maya]",
+        createdAt: commentAt(3),
+        editedAt: null,
+        deletedAt: null,
+      },
+      {
+        id: "cmt_rfi_valve_sam",
+        orgId: ORG,
+        entityType: "rfi",
+        entityId: "rfi_ok_valve",
+        projectId: "proj_okonkwo",
+        authorId: "user_sam",
+        body: "I'll confirm the spec",
+        createdAt: commentAt(2),
+        editedAt: null,
+        deletedAt: null,
+      },
+      {
+        id: "cmt_log_tile",
+        orgId: ORG,
+        entityType: "daily_log",
+        entityId: "log_ok_yday",
+        projectId: "proj_okonkwo",
+        authorId: "user_dana",
+        body: "Niche tile is on site. @[user:user_maya]",
+        createdAt: commentAt(1),
+        editedAt: null,
+        deletedAt: null,
+      },
+    ])
+    .run();
+  db.insert(commentMentions)
+    .values([
+      { id: "cmn_valve_maya", orgId: ORG, commentId: "cmt_rfi_valve", kind: "user", userId: "user_maya", role: null },
+      { id: "cmn_log_maya", orgId: ORG, commentId: "cmt_log_tile", kind: "user", userId: "user_maya", role: null },
+    ])
+    .run();
+  db.insert(commentFiles)
+    .values({ id: "cfile_log_tile", orgId: ORG, commentId: "cmt_log_tile", documentId: "doc_o1" })
+    .run();
+  db.insert(notifications)
+    .values([
+      {
+        id: "note_valve_maya",
+        orgId: ORG,
+        userId: "user_maya",
+        kind: "mention",
+        commentId: "cmt_rfi_valve",
+        entityType: "rfi",
+        entityId: "rfi_ok_valve",
+        projectId: "proj_okonkwo",
+        actorId: "user_luis",
+        actorName: "Luis Ortega",
+        snippet: "Valve center is 48 inches, confirm before tile @Maya Rivera",
+        readAt: null,
+        createdAt: commentAt(3),
+      },
+      {
+        id: "note_log_maya",
+        orgId: ORG,
+        userId: "user_maya",
+        kind: "mention",
+        commentId: "cmt_log_tile",
+        entityType: "daily_log",
+        entityId: "log_ok_yday",
+        projectId: "proj_okonkwo",
+        actorId: "user_dana",
+        actorName: "Dana Cho",
+        snippet: "Niche tile is on site. @Maya Rivera",
+        readAt: null,
+        createdAt: commentAt(1),
+      },
+      {
+        id: "note_walk_maya",
+        orgId: ORG,
+        userId: "user_maya",
+        kind: "assignment",
+        commentId: null,
+        entityType: "schedule_item",
+        entityId: "sch_ok_walk",
+        projectId: "proj_okonkwo",
+        actorId: "user_luis",
+        actorName: "Luis Ortega",
+        snippet: "Assigned",
+        readAt: null,
+        createdAt: commentAt(4),
+      },
+    ])
+    .run();
+  db.insert(auditLogs)
+    .values([
+      {
+        id: "audit_cmt_valve",
+        orgId: ORG,
+        actorId: "user_luis",
+        action: "comment.create",
+        entityType: "comment",
+        entityId: "cmt_rfi_valve",
+        payloadJson: JSON.stringify({ entityType: "rfi", entityId: "rfi_ok_valve" }),
+        ip: null,
+        createdAt: commentAt(3),
+      },
+      {
+        id: "audit_cmt_log",
+        orgId: ORG,
+        actorId: "user_dana",
+        action: "comment.create",
+        entityType: "comment",
+        entityId: "cmt_log_tile",
+        payloadJson: JSON.stringify({ entityType: "daily_log", entityId: "log_ok_yday" }),
+        ip: null,
+        createdAt: commentAt(1),
+      },
+    ])
     .run();
 
   db.insert(auditLogs)

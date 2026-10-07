@@ -2,6 +2,7 @@ import Link from "next/link";
 import { addLineAction, leadPhotoAction, removeLineAction, reviseAction, sendProposalAction, updateLineAction } from "@/app/actions";
 import { ActionForm } from "@/components/action-form";
 import { GroupedList, StatusPill } from "@/components/ios";
+import { CommentThread } from "@/components/comment-thread";
 import { EstimateWorkspace, type WorkspaceLine } from "@/components/mac/estimate-workspace";
 import { MissingRecord } from "@/components/missing-record";
 import { PhotoCapture } from "@/components/photo-capture";
@@ -152,6 +153,7 @@ export default async function EstimatePage({ params }: { params: Promise<{ id: s
           </GroupedList>
         </div>
       </EstimateWorkspace>
+      <CommentThread entityType="estimate" entityId={detail.estimate.id} />
     </div>
   );
 }

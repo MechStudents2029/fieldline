@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { approveBillAction, confirmBillAction, payBillAction, unapproveBillAction, voidBillAction } from "@/app/actions";
 import { ActionForm } from "@/components/action-form";
+import { CommentThread } from "@/components/comment-thread";
 import { MissingRecord } from "@/components/missing-record";
 import { Button } from "@/components/ui/button";
 import { requireSession } from "@/lib/auth/session";
@@ -150,6 +151,7 @@ export default async function BillPage({ params }: { params: Promise<{ id: strin
           ))}
         </ul>
       </section>
+      <CommentThread entityType="bill" entityId={bill.id} />
     </div>
   );
 }

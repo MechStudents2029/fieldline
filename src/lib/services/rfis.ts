@@ -31,6 +31,7 @@ import { canAddFieldNotes, canEditCrm, canEditSchedule, canManageMoney, canSeeMo
 import { ageDays, impactText, isOverdueRfi, nextRfiNumber, RFI_STATUS_LABEL, rfiLabel } from "@/lib/rfis/format";
 import { shiftSpan } from "@/lib/schedule/range";
 import { photoExtension, photoUploadError, rasterImageType } from "@/lib/security";
+import { notifyAssignment, notifyRfiAnswer } from "@/lib/services/comments";
 import { ServiceError } from "@/lib/services/errors";
 import type { Actor } from "@/lib/services/read";
 import { createChangeOrder } from "@/lib/services/write";
@@ -449,6 +450,7 @@ export function createRfi(actor: Actor, projectId: string, input: RfiCreateInput
     attachFiles(tx as unknown as AppDatabase, actor.orgId, projectId, rfiId, null, files, actor.userId, assignee.contactId);
     writeAudit(tx as unknown as AppDatabase, actor.orgId, actor.userId, "rfi.create", rfiId, { number, title, assignee: assignee.kind });
   });
+  if (assignee.userId) notifyAssignment(actor, { entityType: "rfi", entityId: rfiId, userIds: [assignee.userId] });
   return rfiId;
 }
 
@@ -915,6 +917,7 @@ export function answerVendorRfi(input: { token: string; rfiId: string; body: str
     .get();
   if (!row) throw new ServiceError("RFI not found.");
   postPortalAnswer(ctx.db, ctx.orgId, row, input.body, "vendor", ctx.name, input.files ?? [], ctx.contactId);
+  notifyRfiAnswer(ctx.db, ctx.orgId, row, ctx.name);
 }
 
 function clientContext(token: string) {
@@ -952,4 +955,5 @@ export function answerClientRfi(input: { token: string; rfiId: string; body: str
     .get();
   if (!row) throw new ServiceError("RFI not found.");
   postPortalAnswer(ctx.db, ctx.orgId, row, input.body, "client", ctx.name, input.files ?? [], null);
+  notifyRfiAnswer(ctx.db, ctx.orgId, row, ctx.name);
 }

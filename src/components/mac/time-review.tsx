@@ -401,7 +401,7 @@ function EntryRow({
       <td className="px-2">
         <input type="checkbox" aria-label={`Select ${label}`} disabled={entry.status !== "pending" || busy} checked={checked} onChange={onToggle} />
       </td>
-      <td className="px-2">{entry.dayLabel}</td>
+      <td className="num px-2">{entry.dayLabel}</td>
       <td className="px-2">
         {entry.locked ? (
           entry.projectName
