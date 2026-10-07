@@ -23,6 +23,9 @@ export const organizations = sqliteTable("organizations", {
   warrantyMonths: integer("warranty_months").notNull().default(12),
   vendorComplianceMode: text("vendor_compliance_mode").notNull().default("warn"),
   vendorRequiredTypes: text("vendor_required_types").notNull().default("general_liability,workers_comp"),
+  paymentTermsDays: integer("payment_terms_days").notNull().default(7),
+  defaultRetainageBps: integer("default_retainage_bps").notNull().default(0),
+  defaultDrawsJson: text("default_draws_json"),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });
@@ -281,6 +284,8 @@ export const projects = sqliteTable(
     warrantyEndsOn: text("warranty_ends_on"),
     warrantyMonths: integer("warranty_months"),
     closeOverrideReason: text("close_override_reason"),
+    billingMode: text("billing_mode").notNull().default("draws"),
+    retainageBps: integer("retainage_bps").notNull().default(0),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
     createdBy: text("created_by"),
@@ -351,11 +356,52 @@ export const invoices = sqliteTable(
     totalCents: integer("total_cents").notNull(),
     amountPaidCents: integer("amount_paid_cents").notNull().default(0),
     payToken: text("pay_token").notNull().unique(),
+    applicationNumber: integer("application_number"),
+    retainageCents: integer("retainage_cents").notNull().default(0),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
     createdBy: text("created_by"),
   },
   (t) => [index("invoices_org").on(t.orgId)],
+);
+
+export const draws = sqliteTable(
+  "draws",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    projectId: text("project_id").notNull(),
+    title: text("title").notNull(),
+    basis: text("basis").notNull(),
+    bps: integer("bps").notNull().default(0),
+    amountCents: integer("amount_cents").notNull(),
+    scheduleItemId: text("schedule_item_id"),
+    dueOn: text("due_on"),
+    sortOrder: integer("sort_order").notNull().default(0),
+    invoiceId: text("invoice_id"),
+    changeOrderId: text("change_order_id"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (t) => [index("draws_project").on(t.orgId, t.projectId)],
+);
+
+export const payAppLines = sqliteTable(
+  "pay_app_lines",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    invoiceId: text("invoice_id").notNull(),
+    sourceKey: text("source_key").notNull(),
+    name: text("name").notNull(),
+    scheduledCents: integer("scheduled_cents").notNull(),
+    previousCents: integer("previous_cents").notNull(),
+    thisCents: integer("this_cents").notNull(),
+    percentBps: integer("percent_bps").notNull(),
+    retainageCents: integer("retainage_cents").notNull(),
+    sortOrder: integer("sort_order").notNull().default(0),
+  },
+  (t) => [index("pay_app_lines_invoice").on(t.orgId, t.invoiceId)],
 );
 
 export const invoiceLines = sqliteTable("invoice_lines", {

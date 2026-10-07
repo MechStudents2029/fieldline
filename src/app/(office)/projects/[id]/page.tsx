@@ -20,6 +20,7 @@ import { jobSchedule } from "@/lib/services/schedule";
 import { PunchSection } from "@/components/punch-section";
 import { punchBoard } from "@/lib/services/punch";
 import { bidComposer } from "@/lib/services/bids";
+import { drawSchedule } from "@/lib/services/draws";
 import { selectionBoard } from "@/lib/services/selections";
 import { timeBoard } from "@/lib/services/time";
 import { localDay } from "@/lib/time/calendar";
@@ -50,6 +51,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
   const picks = selectionBoard(session, detail.project.id, todayKey);
   const punch = punchBoard(session, detail.project.id);
   const bidCount = detail.money ? (bidComposer(session, detail.project.id)?.bids.length ?? 0) : 0;
+  const billing = detail.money ? drawSchedule(session, detail.project.id)?.billing : null;
   const ranked = money ? [...money.byCode].sort((a, b) => (b.percentOfBudget ?? 0) - (a.percentOfBudget ?? 0)).slice(0, 2) : [];
   const paid = detail.invoices.reduce((sum, invoice) => sum + invoice.amountPaidCents, 0);
   const projectRows = listProjects(session.orgId);
@@ -350,9 +352,18 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
       ) : null}
       </div>
       {money ? (
-        <GroupedList label="Bids">
-          <GroupedRow href={`/projects/${detail.project.id}/bids`} title="Bid requests" trailing={String(bidCount)} />
-        </GroupedList>
+        <>
+          <GroupedList label="Bids">
+            <GroupedRow href={`/projects/${detail.project.id}/bids`} title="Bid requests" trailing={String(bidCount)} />
+          </GroupedList>
+          <GroupedList label="Draws">
+            <GroupedRow
+              href={`/projects/${detail.project.id}/draws`}
+              title="Draw schedule"
+              trailing={billing ? <span className="num">{formatPercent(billing.billedBps)}</span> : undefined}
+            />
+          </GroupedList>
+        </>
       ) : null}
       {money ? (
         <GroupedList label="Costs">
@@ -488,6 +499,20 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
               ))}
               <div><dt>Total</dt><dd className="num font-semibold">{formatWhole(money.contractCents)}</dd></div>
             </dl>
+            {billing ? (
+              <>
+                <p className="mac-t11 font-semibold text-[var(--mac-secondary)]">Billing</p>
+                <dl className="mac-kv">
+                  <div><dt>Billed</dt><dd className="num">{formatWhole(billing.billedCents)}</dd></div>
+                  <div><dt>Billed</dt><dd className="num">{formatPercent(billing.billedBps)}</dd></div>
+                  <div><dt>Complete</dt><dd className="num">{formatPercent(billing.completeBps)}</dd></div>
+                  <div>
+                    <dt>{billing.label}</dt>
+                    <dd className={billing.state === "even" ? "num" : "num text-[var(--mac-danger)]"}>{formatWhole(Math.abs(billing.gapCents))}</dd>
+                  </div>
+                </dl>
+              </>
+            ) : null}
             <p className="mac-t11 font-semibold text-[var(--mac-secondary)]">Payments</p>
             <dl className="mac-kv">
               {detail.invoices.map((invoice) => {

@@ -7,6 +7,7 @@ import { requireSession } from "@/lib/auth/session";
 import { formatCalendarDay } from "@/lib/format";
 import { formatPercent, formatWhole } from "@/lib/money";
 import { canSeeMoney } from "@/lib/permissions";
+import { billingForProjects } from "@/lib/services/draws";
 import { listContacts, listProjects, pipelineBoard } from "@/lib/services/read";
 import { timeBoard } from "@/lib/services/time";
 
@@ -27,6 +28,7 @@ export default async function ProjectsPage() {
   const session = await requireSession();
   const rows = listProjects(session.orgId);
   const money = canSeeMoney(session.role);
+  const billed = money ? billingForProjects(session.orgId) : new Map<string, { billedBps: number }>();
   const leads = pipelineBoard(session.orgId).cards.filter((card) => card.stage.kind === "open");
   const job = (row: (typeof rows)[number]): JobItem => ({
     href: `/projects/${row.project.id}`,
@@ -69,6 +71,7 @@ export default async function ProjectsPage() {
       contract: cell(money ? formatWhole(row.project.contractValueCents) : "—", row.project.contractValueCents),
       spent: cell(money ? formatWhole(row.actualCents) : "—", row.actualCents),
       margin: cell(money && row.marginBps != null ? formatPercent(row.marginBps) : "—", row.marginBps ?? -1, row.alert ? "late" : undefined),
+      billed: cell(money ? formatPercent(billed.get(row.project.id)?.billedBps ?? 0) : "—", billed.get(row.project.id)?.billedBps ?? -1),
       start: cell(formatCalendarDay(row.project.startDate), row.project.startDate || ""),
       crew: cell(onSite.get(row.project.name)?.join(", ") || "—"),
     },
@@ -84,6 +87,7 @@ export default async function ProjectsPage() {
       contract: cell(money && card.lead.valueEstCents ? formatWhole(card.lead.valueEstCents) : "—", card.lead.valueEstCents ?? 0),
       spent: cell("—", 0),
       margin: cell("—", -1),
+      billed: cell("—", -1),
       start: cell("—", ""),
       crew: cell("—"),
     },
@@ -96,6 +100,7 @@ export default async function ProjectsPage() {
     { key: "contract", header: "Contract", align: "right" as const },
     { key: "spent", header: "Spent", align: "right" as const },
     { key: "margin", header: "Margin", align: "right" as const },
+    { key: "billed", header: "Billed", align: "right" as const },
     { key: "start", header: "Start" },
     { key: "crew", header: "Crew" },
   ];

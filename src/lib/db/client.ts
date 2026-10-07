@@ -101,6 +101,7 @@ export function ensureReady(holder: Holder) {
   ensurePunch(holder);
   ensureVendorPortal(holder);
   ensureBids(holder);
+  ensureDraws(holder);
   const version = holder.sqlite.prepare("select value from app_meta where key = ?").get("seed_version") as
     | { value: string }
     | undefined;
@@ -1108,6 +1109,52 @@ function ensureTesterFeedback(holder: Holder) {
         );
         create index if not exists tester_feedback_org on tester_feedback (org_id);`;
   holder.sqlite.exec(ddl);
+}
+
+function ensureDraws(holder: Holder) {
+  const pk = holder.dialect === "postgres" ? "text primary key" : "text primary key not null";
+  ensureColumn(holder, "organizations", "payment_terms_days", "integer not null default 7");
+  ensureColumn(holder, "organizations", "default_retainage_bps", "integer not null default 0");
+  ensureColumn(holder, "organizations", "default_draws_json", "text");
+  ensureColumn(holder, "projects", "billing_mode", "text not null default 'draws'");
+  ensureColumn(holder, "projects", "retainage_bps", "integer not null default 0");
+  ensureColumn(holder, "invoices", "application_number", "integer");
+  ensureColumn(holder, "invoices", "retainage_cents", "integer not null default 0");
+  if (!tableExists(holder.sqlite, "draws", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists draws (
+      id ${pk},
+      org_id text not null,
+      project_id text not null,
+      title text not null,
+      basis text not null,
+      bps integer not null default 0,
+      amount_cents integer not null,
+      schedule_item_id text,
+      due_on text,
+      sort_order integer not null default 0,
+      invoice_id text,
+      change_order_id text,
+      created_at text not null,
+      updated_at text not null
+    )`);
+  }
+  if (!tableExists(holder.sqlite, "pay_app_lines", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists pay_app_lines (
+      id ${pk},
+      org_id text not null,
+      invoice_id text not null,
+      source_key text not null,
+      name text not null,
+      scheduled_cents integer not null,
+      previous_cents integer not null,
+      this_cents integer not null,
+      percent_bps integer not null,
+      retainage_cents integer not null,
+      sort_order integer not null default 0
+    )`);
+  }
+  holder.sqlite.exec("create index if not exists draws_project on draws (org_id, project_id)");
+  holder.sqlite.exec("create index if not exists pay_app_lines_invoice on pay_app_lines (org_id, invoice_id)");
 }
 
 export function resetDatabase(): AppDatabase {

@@ -102,6 +102,16 @@ import { getDb } from "@/lib/db/client";
 import { dailyLogs, users } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import {
+  billDraw,
+  createPayApp,
+  releaseRetainage,
+  rollChangeOrder,
+  saveBillingDefaults,
+  saveDrawSchedule,
+  setBillingMode,
+  voidBilling,
+} from "@/lib/services/draws";
+import {
   addCost,
   addPortalMessage,
   approveChangeOrder,
@@ -609,6 +619,122 @@ export async function previewOnlyAction(_prev: ActionState, formData: FormData):
   return { ok: `${extracted.vendor ?? "Vendor"} · $${(extracted.amountCents / 100).toFixed(2)}` };
 }
 
+export async function saveDrawsAction(projectId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const ids = formData.getAll("drawId").map(String);
+    const titles = formData.getAll("title").map(String);
+    const basis = formData.getAll("basis").map(String);
+    const percents = formData.getAll("percent").map(String);
+    const amounts = formData.getAll("amount").map(String);
+    const schedules = formData.getAll("scheduleItemId").map(String);
+    const dues = formData.getAll("dueOn").map(String);
+    saveDrawSchedule(
+      user,
+      projectId,
+      ids.map((drawId, index) => ({
+        id: drawId || undefined,
+        title: titles[index] || "Draw",
+        basis: basis[index] === "percent" ? "percent" : "fixed",
+        bps: Math.round(Number(percents[index] || 0) * 100),
+        amountCents: parseMoneyToCents(amounts[index] || "0") ?? 0,
+        scheduleItemId: schedules[index] || null,
+        dueOn: dues[index] || null,
+      })),
+    );
+    revalidatePath(`/projects/${projectId}/draws`);
+    revalidatePath(`/projects/${projectId}`);
+    return { ok: "Saved." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function billDrawAction(drawId: string, projectId: string, _prev: ActionState, _formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const issued = billDraw(user, drawId);
+    revalidatePath(`/projects/${projectId}/draws`);
+    revalidatePath("/");
+    redirect(`/pay/${issued.payToken}`);
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function createPayAppAction(projectId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const keys = formData.getAll("lineKey").map(String);
+    const amounts = formData.getAll("thisAmount").map(String);
+    const percents = formData.getAll("percent").map(String);
+    const issued = createPayApp(
+      user,
+      projectId,
+      keys.map((key, index) => {
+        const dollars = amounts[index]?.trim();
+        const percent = percents[index]?.trim();
+        return {
+          key,
+          thisCents: dollars ? parseMoneyToCents(dollars) : null,
+          percentBps: !dollars && percent ? Math.round(Number(percent) * 100) : null,
+        };
+      }),
+    );
+    revalidatePath(`/projects/${projectId}/draws`);
+    revalidatePath("/");
+    redirect(`/applications/${issued.invoiceId}`);
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function setBillingModeAction(projectId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const mode = String(formData.get("mode") || "draws") === "progress" ? "progress" : "draws";
+    const retainage = Math.round(Number(formData.get("retainage") || 0) * 100);
+    setBillingMode(user, projectId, mode, retainage);
+    revalidatePath(`/projects/${projectId}/draws`);
+    return { ok: "Saved." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function voidBillingAction(invoiceId: string, projectId: string, _prev: ActionState, _formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    voidBilling(user, invoiceId);
+    revalidatePath(`/projects/${projectId}/draws`);
+    return { ok: "Void." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function releaseRetainageAction(projectId: string, _prev: ActionState, _formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const issued = releaseRetainage(user, projectId);
+    revalidatePath(`/projects/${projectId}/draws`);
+    redirect(`/pay/${issued.payToken}`);
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function rollChangeOrderAction(changeOrderId: string, projectId: string, _prev: ActionState, _formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    rollChangeOrder(user, changeOrderId);
+    revalidatePath(`/projects/${projectId}/draws`);
+    return { ok: "Rolled into the next draw." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
 export async function issueInvoiceAction(projectId: string, _prev: ActionState, _formData: FormData): Promise<ActionState> {
   try {
     const user = await actor();
@@ -678,6 +804,17 @@ export async function settingsAction(_prev: ActionState, formData: FormData): Pr
     if (warrantyMonths != null && String(warrantyMonths).trim()) setWarrantyMonths(user, Number(warrantyMonths));
     const vendorMode = formData.get("vendorComplianceMode");
     if (vendorMode != null) setVendorCompliance(user, String(vendorMode), formData.getAll("requiredType").map(String));
+    const drawTitles = formData.getAll("drawTitle").map(String);
+    if (drawTitles.length > 0) {
+      const drawPercents = formData.getAll("drawPercent").map(String);
+      saveBillingDefaults(user, {
+        draws: drawTitles
+          .map((title, index) => ({ title: title.trim(), bps: Math.round(Number(drawPercents[index] || 0) * 100) }))
+          .filter((draw) => draw.title && draw.bps > 0),
+        termsDays: Math.round(Number(formData.get("paymentTermsDays") || 7)),
+        retainageBps: Math.round(Number(formData.get("defaultRetainage") || 0) * 100),
+      });
+    }
     revalidatePath("/settings");
     revalidatePath("/time");
     revalidatePath("/");

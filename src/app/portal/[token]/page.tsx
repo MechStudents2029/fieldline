@@ -17,6 +17,7 @@ import {
   sentenceStatus,
 } from "@/lib/portal/summary";
 import { PortalWarrantySection } from "@/components/portal-warranty";
+import { portalBilling } from "@/lib/services/draws";
 import { portalByToken } from "@/lib/services/read";
 import { portalWarranty } from "@/lib/services/punch";
 import { portalSelections, type PortalSelection } from "@/lib/services/selections";
@@ -57,6 +58,7 @@ export default async function PortalPage({ params }: { params: Promise<{ token: 
     logDates: data.logs.map((log) => log.logDate),
     finalInvoiceAt: finalInvoiceAt(data.invoices),
   });
+  const billing = portalBilling(token);
   const selections = portalSelections(token) ?? [];
   const warranty = portalWarranty(token);
   const pendingSelections = selections.filter((selection) => selection.status === "released");
@@ -88,6 +90,12 @@ export default async function PortalPage({ params }: { params: Promise<{ token: 
           <p>Balance</p>
           <p className="home-figure">{formatMoney(money.balanceCents)}</p>
         </div>
+        {billing && billing.retainedCents > 0 ? (
+          <div>
+            <p>Retained</p>
+            <p className="home-figure">{formatMoney(billing.retainedCents)}</p>
+          </div>
+        ) : null}
       </section>
 
       {featured || (!featured && payInvoice) || pendingSelections.length > 0 ? (
@@ -145,6 +153,61 @@ export default async function PortalPage({ params }: { params: Promise<{ token: 
             </section>
           ) : null}
 
+          {billing && billing.draws.length > 0 ? (
+            <section aria-label="Draws">
+              <h2>Draws</h2>
+              <div className="home-stack">
+                {billing.draws.map((draw) => (
+                  <article key={draw.id} className="home-card" data-draw={draw.title}>
+                    <div className="home-row">
+                      <div>
+                        <p className="home-strong">{draw.title}</p>
+                        <p className="home-sub">{draw.dueOn ? formatDate(draw.dueOn) : "—"}</p>
+                      </div>
+                      <div className="home-row-end">
+                        <span className="home-pill">{draw.label}</span>
+                        <span className="home-money">{formatMoney(draw.amountCents)}</span>
+                      </div>
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </section>
+          ) : null}
+          {billing && billing.applications.some((invoice) => invoice.lines.length > 0) ? (
+            <section aria-label="Pay applications">
+              <h2>Pay applications</h2>
+              <div className="home-stack">
+                {billing.applications
+                  .filter((invoice) => invoice.lines.length > 0)
+                  .map((invoice) => (
+                    <article key={invoice.id} className="home-card">
+                      <div className="home-row">
+                        <p className="home-strong">
+                          {invoice.number} · {invoice.applicationNumber}
+                        </p>
+                        <span className="home-money">{formatMoney(invoice.totalCents)}</span>
+                      </div>
+                      <table className="mt-2 w-full text-left">
+                        <tbody>
+                          {invoice.lines.map((line) => (
+                            <tr key={line.name}>
+                              <th scope="row" className="home-sub py-1 text-left font-normal">
+                                {line.name}
+                              </th>
+                              <td className="home-sub num py-1 text-right">{formatMoney(line.scheduledCents)}</td>
+                              <td className="home-sub num py-1 text-right">{formatMoney(line.thisCents)}</td>
+                              <td className="home-sub num py-1 text-right">{formatMoney(line.balanceCents)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </article>
+                  ))}
+              </div>
+            </section>
+          ) : null}
+
           {data.invoices.length > 0 ? (
             <section aria-label="Invoices">
               <h2>Invoices</h2>
@@ -161,7 +224,7 @@ export default async function PortalPage({ params }: { params: Promise<{ token: 
                       <div className="home-row-end">
                         <span className="home-pill">{sentenceStatus(invoice.status)}</span>
                         <span className="home-money">{formatMoney(invoice.totalCents)}</span>
-                        {invoice.status === "open" ? (
+                        {invoice.status === "open" || invoice.status === "draft" ? (
                           <Link className="home-link" href={`/pay/${invoice.payToken}`}>
                             Pay
                           </Link>
