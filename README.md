@@ -125,6 +125,7 @@ Stable seeded links (after `npm run dev`):
 - Proposal already out: [/p/demo_proposal_briggs](http://127.0.0.1:3847/p/demo_proposal_briggs)
 - Client portals: [/portal/demo_portal_chen](http://127.0.0.1:3847/portal/demo_portal_chen), [/portal/demo_portal_okonkwo](http://127.0.0.1:3847/portal/demo_portal_okonkwo), [/portal/demo_portal_brooks](http://127.0.0.1:3847/portal/demo_portal_brooks), [/portal/demo_portal_diaz](http://127.0.0.1:3847/portal/demo_portal_diaz)
 - Harbor Plumbing vendor portal: [/v/demo_vendor_harbor_m3p8qx7k](http://127.0.0.1:3847/v/demo_vendor_harbor_m3p8qx7k)
+- Okonkwo bid comparison: [/bids/bid_ok_valve](http://127.0.0.1:3847/bids/bid_ok_valve)
 - Pay links: [/pay/demo_pay_chen_deposit](http://127.0.0.1:3847/pay/demo_pay_chen_deposit), [/pay/demo_pay_okonkwo_progress](http://127.0.0.1:3847/pay/demo_pay_okonkwo_progress), [/pay/demo_pay_brooks_progress](http://127.0.0.1:3847/pay/demo_pay_brooks_progress), [/pay/demo_pay_diaz_final](http://127.0.0.1:3847/pay/demo_pay_diaz_final)
 
 Payment test numbers (local mirror of Stripe test values; nothing is charged):
@@ -215,6 +216,7 @@ Score each scenario pass or fail, with a note and a screenshot.
 16. **Lead form.** Maya opens Settings, then Lead form. Rivera is accepting requests. Turn it off, open the public link, and confirm the page is not taking requests. Turn it on, send a name and an email from that page, and come back to Today. New web leads shows a count. Filter Leads by Website form and open the lead. The answers are on the lead. Northline’s form is off.
 17. **Punch list and warranty.** Maya opens Okonkwo. The punch strip shows open, done, and verified. Add an item, verify a done one, and mark the job substantial. Close stays blocked while punch, the final invoice, bills, purchase orders, or time are still open, unless a reason is entered. Diaz is already closed with a 12-month warranty and one request, Loose deck board. Assign it, set a visit, and resolve it with a note. Today counts warranty requests until they are resolved or declined. On a phone, Dana marks Caulk the curb done with a photo from My day. Open the Diaz portal and send a warranty request. The end date is on the page. Settings holds the company warranty months.
 18. **Sub and vendor portal.** Maya opens Harbor Plumbing (Pete Alvarez). The compliance pill is Missing, general liability expires within 30 days, and workers comp is missing. Today counts that vendor under Vendor certificates. The portal is `/v/demo_vendor_harbor_m3p8qx7k`. It shows PO-1044 waiting to accept, Set the valve on the Okonkwo address, and Replace the escutcheon. Accept with a name, send a bill, and confirm it stays Draft. Today then counts Vendor bills. Upload the missing certificate from the portal or the vendor record. A new portal link on the vendor record replaces the old one. Settings can warn or block the next purchase order. Dana does not see the link or the amounts.
+19. **Bid requests.** Maya opens Okonkwo, then Bids. Shower plumbing and glass is out to Harbor Plumbing, Casa Tile, and Brighton Electric, due within three days. Today counts Bids due and Bids to award. The comparison is `/bids/bid_ok_valve`. Harbor is low on plumbing and Casa is low on glass. Brighton has not priced it. Awarding a line writes a draft purchase order. The vendor portal lists the same request for Harbor only, with no other vendor's price. Dana does not see the amounts.
 
 Feedback: file a GitHub issue with steps, expected, actual, screenshot, and device. A useful score is "would I send this proposal today?" from 1 to 5, plus minutes to a quote versus the current process.
 
@@ -239,6 +241,7 @@ Feedback: file a GitHub issue with steps, expected, actual, screenshot, and devi
 - A website lead form. An owner or admin turns it on in Settings and copies a link or an embed snippet. A request becomes a lead in the first stage. No message is sent.
 - Punch lists on a job, a closeout count before the job is closed, and warranty requests on the client portal through the warranty end date. A visit lands on the crew schedule. No message is sent.
 - A vendor portal for issued purchase orders, schedule days, punch items, draft bills, and certificates. The link is a hash. Today counts portal drafts and certificates that are expiring or expired.
+- Bid requests on a job. Vendors price the lines on the same portal link. The office compares them and awards draft purchase orders, with an optional budget update. No message is sent.
 
 **Stubbed until keys exist**
 

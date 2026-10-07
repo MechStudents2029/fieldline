@@ -1131,8 +1131,9 @@ html.mac-inspector-off .mac-inspector { display: none; }
 }
 .vendor-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 @media (min-width: 768px) {
-  .vendor-strip { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .vendor-strip { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 }
+.bid-low { font-weight: 600; box-shadow: inset 0 0 0 1px var(--separator); }
 .home-strip p:first-child { color: var(--fl-secondary); font-size: 13px; }
 .home-needs { margin-top: 24px; }
 .home-needs > h2, .home-progress > h2, .home-main > section > h2, .home-scope h2, .home-steps h2, .home-sign h2 {

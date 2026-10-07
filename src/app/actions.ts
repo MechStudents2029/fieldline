@@ -75,6 +75,7 @@ import {
   setVendorCompliance,
   submitVendorBill,
 } from "@/lib/services/vendor-portal";
+import { awardBid, createBid, declineVendorBid, saveBidLines, submitVendorBid } from "@/lib/services/bids";
 import { addStarterPriceBook, setSetupDismissed } from "@/lib/services/onboarding";
 import { acceptExistingAccount, acceptNewAccount, changeMemberRole, createInvite, INVITE_EMAIL, previewInvite, removeMember, revokeInvite } from "@/lib/services/team";
 import { verifyPassword } from "@/lib/auth/password";
@@ -2020,6 +2021,132 @@ export async function saveVendorCertificateAction(token: string, _prev: ActionSt
     });
     refreshVendor(token);
     return { ok: "Saved." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+function qtyMilliFrom(value: string) {
+  const qty = Number(value);
+  if (!Number.isFinite(qty) || qty <= 0) throw new ServiceError("Enter a quantity.");
+  return qtyToMilli(qty);
+}
+
+export async function createBidAction(projectId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const lines = formData.getAll("budgetLine").map((value) => {
+      const budgetLineId = String(value);
+      return {
+        budgetLineId,
+        costCode: "",
+        description: "",
+        qtyMilli: qtyMilliFrom(String(formData.get(`qty_${budgetLineId}`) || "1")),
+        unit: String(formData.get(`unit_${budgetLineId}`) || "ea"),
+      };
+    });
+    const extraCode = String(formData.get("extraCode") || "").trim();
+    if (extraCode) {
+      lines.push({
+        budgetLineId: "",
+        costCode: extraCode,
+        description: String(formData.get("extraName") || ""),
+        qtyMilli: qtyMilliFrom(String(formData.get("extraQty") || "1")),
+        unit: String(formData.get("extraUnit") || "ea"),
+      });
+    }
+    createBid(user, {
+      projectId,
+      title: String(formData.get("title") || ""),
+      scope: String(formData.get("scope") || ""),
+      dueOn: String(formData.get("dueOn") || ""),
+      lines,
+      vendorContactIds: formData.getAll("vendor").map(String),
+      file: await namedUpload(formData, "file"),
+    });
+    revalidatePath(`/projects/${projectId}/bids`);
+    revalidatePath("/");
+    return { ok: "Requested." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function saveBidLinesAction(bidId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const lines = formData.getAll("lineId").map((value) => {
+      const lineId = String(value);
+      return {
+        costCode: String(formData.get(`code_${lineId}`) || ""),
+        description: String(formData.get(`name_${lineId}`) || ""),
+        qtyMilli: qtyMilliFrom(String(formData.get(`qty_${lineId}`) || "1")),
+        unit: String(formData.get(`unit_${lineId}`) || "ea"),
+        budgetLineId: String(formData.get(`budget_${lineId}`) || "") || null,
+      };
+    });
+    const result = saveBidLines(user, bidId, lines);
+    revalidatePath(`/bids/${bidId}`);
+    return { ok: result.warning ? `Saved. ${result.warning}` : "Saved." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function awardBidAction(bidId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const assignments = formData.getAll("lineId").map((value) => {
+      const bidLineId = String(value);
+      return { bidLineId, contactId: String(formData.get(`award_${bidLineId}`) || "") };
+    });
+    const result = awardBid(user, {
+      bidId,
+      assignments,
+      createPurchaseOrders: formData.get("createPo") != null,
+      updateBudget: formData.get("updateBudget") != null,
+    });
+    revalidatePath(`/bids/${bidId}`);
+    revalidatePath("/purchase-orders");
+    revalidatePath("/");
+    return { ok: result.warning ? `Awarded. ${result.warning}` : "Awarded." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function submitVendorBidAction(token: string, bidId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const noBid = new Set(formData.getAll("noBid").map(String));
+    const lineIds = formData.getAll("lineId").map(String);
+    const amounts = formData.getAll("unitPrice").map(String);
+    const prices = lineIds.map((bidLineId, index) => {
+      const skipped = noBid.has(bidLineId);
+      return { bidLineId, noBid: skipped, unitPriceCents: skipped ? null : parseMoneyToCents(amounts[index] || "") };
+    });
+    submitVendorBid({
+      token,
+      ip: await requestIp(),
+      bidId,
+      name: String(formData.get("name") || ""),
+      note: String(formData.get("note") || ""),
+      prices,
+      file: await namedUpload(formData, "file"),
+    });
+    refreshVendor(token);
+    revalidatePath(`/bids/${bidId}`);
+    return { ok: "Sent." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function declineVendorBidAction(token: string, bidId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    declineVendorBid({ token, ip: await requestIp(), bidId, reason: String(formData.get("reason") || "") });
+    refreshVendor(token);
+    revalidatePath(`/bids/${bidId}`);
+    return { ok: "Declined." };
   } catch (error) {
     return failure(error);
   }
