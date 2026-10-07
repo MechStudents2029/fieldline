@@ -12,6 +12,7 @@ import { formatDateTime } from "@/lib/format";
 import type { Actor } from "@/lib/services/read";
 import { myDay } from "@/lib/services/logs";
 import { fieldPunch } from "@/lib/services/punch";
+import { rfiQueue } from "@/lib/services/rfis";
 import { memberAssignments } from "@/lib/services/schedule";
 import { formatHours, timeBoard } from "@/lib/services/time";
 
@@ -33,6 +34,7 @@ export function MyDay({ actor }: { actor: Actor }) {
   const board = timeBoard(actor);
   const plan = memberAssignments(actor);
   const punch = fieldPunch(actor);
+  const rfis = rfiQueue(actor);
   const open = day.open;
   return (
     <div className="mx-auto flex max-w-lg flex-col gap-7 md:max-w-none md:px-6">
@@ -40,6 +42,26 @@ export function MyDay({ actor }: { actor: Actor }) {
         <Toolbar title="My day" subtitle={dayTitle(day.timeZone)} search={false} />
       </div>
       <LargeTitle title="My day" subtitle={dayTitle(day.timeZone)} />
+      {rfis.overdue.count > 0 || rfis.awaiting.count > 0 ? (
+        <ul className="fl-group">
+          {rfis.overdue.count > 0 && rfis.overdue.href ? (
+            <li>
+              <Link href={rfis.overdue.href} className="fl-cell">
+                <span className="fl-body flex-1">RFIs overdue</span>
+                <span className="num">{rfis.overdue.count}</span>
+              </Link>
+            </li>
+          ) : null}
+          {rfis.awaiting.count > 0 && rfis.awaiting.href ? (
+            <li>
+              <Link href={rfis.awaiting.href} className="fl-cell">
+                <span className="fl-body flex-1">RFIs awaiting your answer</span>
+                <span className="num">{rfis.awaiting.count}</span>
+              </Link>
+            </li>
+          ) : null}
+        </ul>
+      ) : null}
       <section aria-label="Today on the schedule" className="flex flex-col gap-2">
         <h2 className="fl-section">Today</h2>
         <ul className="fl-group">

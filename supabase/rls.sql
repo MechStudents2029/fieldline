@@ -155,7 +155,11 @@ begin
     'bid_prices',
     'bid_awards',
     'draws',
-    'pay_app_lines'
+    'pay_app_lines',
+    'rfis',
+    'rfi_messages',
+    'rfi_files',
+    'rfi_attempts'
   ]
   loop
     execute format('alter table public.%I enable row level security', tbl);

@@ -76,6 +76,7 @@ import {
   submitVendorBill,
 } from "@/lib/services/vendor-portal";
 import { awardBid, createBid, declineVendorBid, saveBidLines, submitVendorBid } from "@/lib/services/bids";
+import { answerClientRfi, answerRfi, answerVendorRfi, closeRfi, createRfi, draftChangeFromRfi, shiftRfiSchedule, voidRfi } from "@/lib/services/rfis";
 import { addStarterPriceBook, setSetupDismissed } from "@/lib/services/onboarding";
 import { acceptExistingAccount, acceptNewAccount, changeMemberRole, createInvite, INVITE_EMAIL, previewInvite, removeMember, revokeInvite } from "@/lib/services/team";
 import { verifyPassword } from "@/lib/auth/password";
@@ -2272,6 +2273,138 @@ export async function submitVendorBidAction(token: string, bidId: string, _prev:
     });
     refreshVendor(token);
     revalidatePath(`/bids/${bidId}`);
+    return { ok: "Sent." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+function refreshRfi(projectId: string) {
+  revalidatePath(`/projects/${projectId}`);
+  revalidatePath("/rfis");
+  revalidatePath("/");
+  revalidatePath("/schedule");
+}
+
+export async function createRfiAction(projectId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    createRfi(
+      user,
+      projectId,
+      {
+        title: String(formData.get("title") || ""),
+        question: String(formData.get("question") || ""),
+        dueOn: String(formData.get("due") || ""),
+        assignee: String(formData.get("assignee") || ""),
+        related: String(formData.get("related") || "") || null,
+        internalNote: String(formData.get("internalNote") || "") || null,
+      },
+      await manyPhotos(formData),
+    );
+    refreshRfi(projectId);
+    return { ok: "Added." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function answerRfiAction(rfiId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const days = String(formData.get("days") || "").trim();
+    const cost = String(formData.get("cost") || "").trim();
+    answerRfi(
+      user,
+      rfiId,
+      {
+        body: String(formData.get("body") || ""),
+        internal: formData.get("internal") === "1",
+        costImpact: formData.has("costImpact") ? formData.get("costImpact") === "1" : undefined,
+        costImpactCents: cost ? parseMoneyToCents(cost) : undefined,
+        scheduleImpactDays: days ? Number(days) : undefined,
+      },
+      await manyPhotos(formData),
+    );
+    revalidatePath("/rfis");
+    revalidatePath("/projects");
+    return { ok: "Sent." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function closeRfiAction(rfiId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const days = String(formData.get("days") || "").trim();
+    const cost = String(formData.get("cost") || "").trim();
+    closeRfi(user, rfiId, {
+      costImpact: formData.get("costImpact") === "1",
+      costImpactCents: cost ? parseMoneyToCents(cost) : null,
+      scheduleImpactDays: days ? Number(days) : null,
+    });
+    revalidatePath("/rfis");
+    revalidatePath("/projects");
+    revalidatePath("/");
+    return { ok: "Closed." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function voidRfiAction(rfiId: string, _prev: ActionState, _formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    voidRfi(user, rfiId);
+    revalidatePath("/rfis");
+    revalidatePath("/projects");
+    return { ok: "Void." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function draftRfiChangeAction(rfiId: string, _prev: ActionState, _formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    draftChangeFromRfi(user, rfiId);
+    revalidatePath("/projects");
+    revalidatePath("/rfis");
+    return { ok: "Draft." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function shiftRfiAction(rfiId: string, _prev: ActionState, _formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    shiftRfiSchedule(user, rfiId);
+    revalidatePath("/schedule");
+    revalidatePath("/projects");
+    return { ok: "Shifted." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function answerVendorRfiAction(token: string, rfiId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    answerVendorRfi({ token, rfiId, body: String(formData.get("body") || ""), files: await manyPhotos(formData), ip: await requestIp() });
+    revalidatePath(`/v/${token}`);
+    revalidatePath("/projects");
+    return { ok: "Sent." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function answerClientRfiAction(token: string, rfiId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    answerClientRfi({ token, rfiId, body: String(formData.get("body") || ""), files: await manyPhotos(formData), ip: await requestIp() });
+    revalidatePath(`/portal/${token}`);
+    revalidatePath("/projects");
     return { ok: "Sent." };
   } catch (error) {
     return failure(error);

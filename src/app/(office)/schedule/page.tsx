@@ -25,6 +25,7 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
                 </span>
               </span>
               {item.conflict ? <span className="fl-pill">Conflict</span> : null}
+              {item.rfiDue ? <span className="text-[11px] text-[var(--fl-secondary)]">RFI</span> : null}
             </li>
           ))}
         </ul>

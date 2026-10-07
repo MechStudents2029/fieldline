@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Briefcase, Calendar, Clock, FileText, Receipt, Sun, Users, Wallet } from "lucide-react";
+import { Briefcase, Calendar, Clock, FileText, MessageSquare, Receipt, Sun, Users, Wallet } from "lucide-react";
 import { SignOutButton } from "@/components/sign-out-button";
 import type { OfficeChrome } from "@/lib/services/read";
 
@@ -83,6 +83,7 @@ export function Sidebar({
           ))}
           {field ? null : item("/estimates", "Estimates", <FileText size={16} strokeWidth={1.6} />, chrome.estimateCount)}
           {item("/schedule", "Schedule", <Calendar size={16} strokeWidth={1.6} />)}
+          {item("/rfis", "RFIs", <MessageSquare size={16} strokeWidth={1.6} />)}
           {item("/time", "Time", <Clock size={16} strokeWidth={1.6} />)}
           {field ? null : (
             <>

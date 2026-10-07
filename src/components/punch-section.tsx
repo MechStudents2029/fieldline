@@ -15,12 +15,14 @@ import { CopyField } from "@/components/copy-field";
 import { formatCalendarDay, formatWarrantyDay } from "@/lib/format";
 import { formatMoney } from "@/lib/money";
 import type { PunchBoard } from "@/lib/services/punch";
+import type { RfiListItem } from "@/lib/services/rfis";
+import { LinkedRfis } from "@/components/linked-rfis";
 
 function Pill({ children }: { children: string }) {
   return <span className="fl-pill">{children}</span>;
 }
 
-export function PunchSection({ board }: { board: PunchBoard }) {
+export function PunchSection({ board, rfis = {} }: { board: PunchBoard; rfis?: Record<string, RfiListItem[]> }) {
   const { counts, closeout } = board;
   return (
     <section id="punch" aria-label="Punch list" data-today={board.today} className="mb-6">
@@ -56,6 +58,7 @@ export function PunchSection({ board }: { board: PunchBoard }) {
               </p>
             </div>
             <Pill>{item.statusLabel}</Pill>
+            <LinkedRfis rows={rfis[item.id] ?? []} />
             {item.shared ? <Pill>Shared</Pill> : null}
             {board.canEdit && item.status !== "verified" ? (
               <ActionForm action={verifyPunchAction.bind(null, item.id)}>

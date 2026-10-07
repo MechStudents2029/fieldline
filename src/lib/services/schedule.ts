@@ -2,6 +2,7 @@ import { and, eq, gte, inArray, lte } from "drizzle-orm";
 import { getDb } from "@/lib/db/client";
 import { officeDb } from "@/lib/db/office";
 import { calendarFeeds, memberships, projects, scheduleAssignees, scheduleItems, users } from "@/lib/db/schema";
+import { overdueScheduleIds } from "@/lib/services/rfis";
 import { id, nowIso } from "@/lib/ids";
 import { canEditSchedule, type Role } from "@/lib/permissions";
 import { scheduleConflicts } from "@/lib/schedule/conflicts";
@@ -40,6 +41,7 @@ export type ScheduleChip = {
   note: string | null;
   assigneeIds: string[];
   conflict: boolean;
+  rfiDue: boolean;
 };
 
 export type ScheduleBoard = {
@@ -59,7 +61,7 @@ export type ScheduleBoard = {
   crew: { id: string; name: string }[];
   canEdit: boolean;
   hrefs: { prev: string; next: string; today: string; week: string; two: string; current: string };
-  phone: { id: string; jobName: string; title: string; who: string; when: string; conflict: boolean }[];
+  phone: { id: string; jobName: string; title: string; who: string; when: string; conflict: boolean; rfiDue: boolean }[];
 };
 
 export type DayAssignment = {
@@ -198,6 +200,7 @@ export function scheduleBoard(actor: Actor, query: { on?: string; span?: string 
   }));
   const hits = scheduleConflicts(conflictItems).filter((hit) => window.days.includes(hit.day));
   const conflictKey = new Set(hits.flatMap((hit) => hit.itemIds.map((itemId) => `${hit.userId}|${hit.day}|${itemId}`)));
+  const lateRfi = overdueScheduleIds(actor.orgId, today);
   const crew = loadCrew(db, actor.orgId);
   const people = new Map(crew.map((person) => [person.id, person.name]));
   const chipFor = (row: (typeof itemRows)[number], userId: string | null, day: string): ScheduleChip => ({
@@ -212,6 +215,7 @@ export function scheduleBoard(actor: Actor, query: { on?: string; span?: string 
     note: row.note,
     assigneeIds: byItem.get(row.id) ?? [],
     conflict: userId != null && conflictKey.has(`${userId}|${day}|${row.id}`),
+    rfiDue: lateRfi.has(row.id),
   });
   const rows = [
     ...crew.map((person) => ({
@@ -278,6 +282,7 @@ export function scheduleBoard(actor: Actor, query: { on?: string; span?: string 
           who: whoIds.length ? whoIds.map((userId) => people.get(userId) ?? "Crew").join(", ") : "Unassigned",
           when: row.startDate === row.endDate ? dayHeading(row.startDate) : `${dayHeading(row.startDate)} – ${dayHeading(row.endDate)}`,
           conflict: hits.some((hit) => hit.itemIds.includes(row.id)),
+          rfiDue: lateRfi.has(row.id),
         };
       }),
   };

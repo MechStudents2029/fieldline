@@ -102,6 +102,7 @@ export function ensureReady(holder: Holder) {
   ensureVendorPortal(holder);
   ensureBids(holder);
   ensureDraws(holder);
+  ensureRfis(holder);
   const version = holder.sqlite.prepare("select value from app_meta where key = ?").get("seed_version") as
     | { value: string }
     | undefined;
@@ -1155,6 +1156,74 @@ function ensureDraws(holder: Holder) {
   }
   holder.sqlite.exec("create index if not exists draws_project on draws (org_id, project_id)");
   holder.sqlite.exec("create index if not exists pay_app_lines_invoice on pay_app_lines (org_id, invoice_id)");
+}
+
+function ensureRfis(holder: Holder) {
+  const pk = holder.dialect === "postgres" ? "text primary key" : "text primary key not null";
+  if (!tableExists(holder.sqlite, "rfis", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists rfis (
+      id ${pk},
+      org_id text not null,
+      project_id text not null,
+      number integer not null,
+      title text not null,
+      question text not null,
+      due_on text,
+      status text not null,
+      assignee_kind text not null,
+      assignee_user_id text,
+      assignee_contact_id text,
+      related_type text,
+      related_id text,
+      internal_note text,
+      cost_impact integer not null default 0,
+      cost_impact_cents integer,
+      schedule_impact_days integer,
+      change_order_id text,
+      schedule_shifted_at text,
+      answered_at text,
+      closed_at text,
+      created_at text not null,
+      updated_at text not null,
+      created_by text
+    )`);
+  }
+  if (!tableExists(holder.sqlite, "rfi_messages", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists rfi_messages (
+      id ${pk},
+      org_id text not null,
+      rfi_id text not null,
+      body text not null,
+      author_kind text not null,
+      author_user_id text,
+      author_name text not null,
+      internal integer not null default 0,
+      created_at text not null
+    )`);
+  }
+  if (!tableExists(holder.sqlite, "rfi_files", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists rfi_files (
+      id ${pk},
+      org_id text not null,
+      rfi_id text not null,
+      message_id text,
+      document_id text not null,
+      created_at text not null
+    )`);
+  }
+  if (!tableExists(holder.sqlite, "rfi_attempts", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists rfi_attempts (
+      id ${pk},
+      org_id text not null,
+      ip text not null,
+      created_at text not null
+    )`);
+  }
+  holder.sqlite.exec("create unique index if not exists rfis_number on rfis (org_id, project_id, number)");
+  holder.sqlite.exec("create index if not exists rfis_org on rfis (org_id, project_id)");
+  holder.sqlite.exec("create index if not exists rfi_messages_rfi on rfi_messages (org_id, rfi_id)");
+  holder.sqlite.exec("create index if not exists rfi_files_rfi on rfi_files (org_id, rfi_id)");
+  holder.sqlite.exec("create index if not exists rfi_attempts_org on rfi_attempts (org_id, created_at)");
 }
 
 export function resetDatabase(): AppDatabase {

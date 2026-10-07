@@ -260,6 +260,7 @@ export function ScheduleBoard({ board, openJobId }: { board: Board; openJobId: s
                             <span className="block truncate text-[11px] font-semibold leading-4">{item.jobName}</span>
                             <span className="block truncate text-[11px] leading-4 text-[var(--mac-secondary)]">{item.title}</span>
                             {item.conflict ? <span className="mt-0.5 inline-flex rounded bg-[var(--mac-danger)]/10 px-1 text-[10px] font-semibold text-[var(--mac-danger)]">Conflict</span> : null}
+                            {item.rfiDue ? <span className="mt-0.5 inline-flex rounded bg-[var(--mac-fill)] px-1 text-[10px] text-[var(--mac-secondary)]">RFI</span> : null}
                           </button>
                         ))}
                         {board.canEdit && cell.items.length > 0 ? (

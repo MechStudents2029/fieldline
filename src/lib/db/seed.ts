@@ -48,6 +48,8 @@ import {
   priceBookItems,
   projects,
   punchItems,
+  rfiMessages,
+  rfis,
   warrantyRequests,
   proposals,
   signatures,
@@ -86,7 +88,7 @@ import {
   WEBSITE_FORM_SOURCE,
 } from "@/lib/lead-form/rules";
 
-export const SEED_VERSION = "18";
+export const SEED_VERSION = "19";
 
 const ORG = "org_rivera";
 const NORTH = "org_northline";
@@ -965,6 +967,23 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
         updatedAt: daysAgo(2),
         createdBy: "user_luis",
       },
+      {
+        id: "co_ok_rfi",
+        orgId: ORG,
+        projectId: "proj_okonkwo",
+        number: 4,
+        title: "Relocate the shower valve",
+        status: "draft",
+        description: "Does the niche need added blocking?",
+        priceDeltaCents: 180000,
+        costDeltaCents: 180000,
+        publicToken: "demo_co_okonkwo_rfi",
+        sentAt: null,
+        approvedAt: null,
+        createdAt: daysAgo(1),
+        updatedAt: daysAgo(1),
+        createdBy: "user_maya",
+      },
     ])
     .run();
   db.insert(changeOrderLines)
@@ -1006,6 +1025,19 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
         markupBps: 3500,
         priceCents: 96000,
         costCode: "TILE-HEAT",
+        sortOrder: 0,
+      },
+      {
+        id: "col_ok_rfi",
+        orgId: ORG,
+        changeOrderId: "co_ok_rfi",
+        name: "Relocate the shower valve",
+        qtyMilli: 1000,
+        unit: "ea",
+        unitCostCents: 180000,
+        markupBps: 0,
+        priceCents: 180000,
+        costCode: "RFI-MISC",
         sortOrder: 0,
       },
     ])
@@ -2185,6 +2217,116 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
       { id: "bpr_h_glass", orgId: ORG, inviteId: "binv_harbor", bidLineId: "bln_ok_glass", unitPriceCents: 340000, noBid: 0 },
       { id: "bpr_c_plb", orgId: ORG, inviteId: "binv_casa", bidLineId: "bln_ok_plb", unitPriceCents: 610000, noBid: 0 },
       { id: "bpr_c_glass", orgId: ORG, inviteId: "binv_casa", bidLineId: "bln_ok_glass", unitPriceCents: 290000, noBid: 0 },
+    ])
+    .run();
+
+  const rfiYesterday = addCalendarDays(punchToday, -1);
+  db.insert(rfis)
+    .values([
+      {
+        id: "rfi_ok_valve",
+        orgId: ORG,
+        projectId: "proj_okonkwo",
+        number: 1,
+        title: "Valve height",
+        question: "Confirm the shower valve height before tile.",
+        dueOn: rfiYesterday,
+        status: "open",
+        assigneeKind: "vendor",
+        assigneeUserId: null,
+        assigneeContactId: "c_harbor",
+        relatedType: "schedule",
+        relatedId: "sch_ok_plumb",
+        internalNote: "Do not share the allowance.",
+        costImpact: 0,
+        costImpactCents: null,
+        scheduleImpactDays: null,
+        changeOrderId: null,
+        scheduleShiftedAt: null,
+        answeredAt: null,
+        closedAt: null,
+        createdAt: daysAgo(3),
+        updatedAt: daysAgo(3),
+        createdBy: "user_maya",
+      },
+      {
+        id: "rfi_ok_vanity",
+        orgId: ORG,
+        projectId: "proj_okonkwo",
+        number: 2,
+        title: "Vanity quartz",
+        question: "Is quartz still the vanity?",
+        dueOn: addCalendarDays(punchToday, 4),
+        status: "answered",
+        assigneeKind: "client",
+        assigneeUserId: null,
+        assigneeContactId: "c_okonkwo",
+        relatedType: "selection",
+        relatedId: "sel_ok_vanity",
+        internalNote: null,
+        costImpact: 0,
+        costImpactCents: null,
+        scheduleImpactDays: null,
+        changeOrderId: null,
+        scheduleShiftedAt: null,
+        answeredAt: daysAgo(1),
+        closedAt: null,
+        createdAt: daysAgo(2),
+        updatedAt: daysAgo(1),
+        createdBy: "user_maya",
+      },
+      {
+        id: "rfi_ok_niche",
+        orgId: ORG,
+        projectId: "proj_okonkwo",
+        number: 3,
+        title: "Niche blocking",
+        question: "Does the niche need added blocking?",
+        dueOn: addCalendarDays(punchToday, -4),
+        status: "closed",
+        assigneeKind: "user",
+        assigneeUserId: "user_luis",
+        assigneeContactId: null,
+        relatedType: "change_order",
+        relatedId: "co_ok_1",
+        internalNote: null,
+        costImpact: 1,
+        costImpactCents: 180000,
+        scheduleImpactDays: null,
+        changeOrderId: "co_ok_rfi",
+        scheduleShiftedAt: null,
+        answeredAt: daysAgo(2),
+        closedAt: daysAgo(1),
+        createdAt: daysAgo(4),
+        updatedAt: daysAgo(1),
+        createdBy: "user_maya",
+      },
+    ])
+    .run();
+  db.insert(rfiMessages)
+    .values([
+      {
+        id: "rfim_ok_vanity",
+        orgId: ORG,
+        rfiId: "rfi_ok_vanity",
+        body: "Keep the quartz vanity.",
+        authorKind: "client",
+        authorUserId: null,
+        authorName: "Amara Okonkwo",
+        internal: 0,
+        createdAt: daysAgo(1),
+      },
+      {
+        id: "rfim_ok_niche",
+        orgId: ORG,
+        rfiId: "rfi_ok_niche",
+        body: "Yes. Add blocking and price it.",
+        authorKind: "user",
+        authorUserId: "user_luis",
+        authorName: "Luis Ortega",
+        internal: 0,
+        createdAt: daysAgo(2),
+      },
     ])
     .run();
 

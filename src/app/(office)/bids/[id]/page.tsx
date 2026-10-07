@@ -2,11 +2,13 @@ import Link from "next/link";
 import { awardBidAction, saveBidLinesAction } from "@/app/actions";
 import { ActionForm } from "@/components/action-form";
 import { MissingRecord } from "@/components/missing-record";
+import { LinkedRfis } from "@/components/linked-rfis";
 import { Toolbar } from "@/components/mac/toolbar";
 import { requireSession } from "@/lib/auth/session";
 import { formatCalendarDay } from "@/lib/format";
 import { formatMoney, formatQty, formatWhole } from "@/lib/money";
 import { bidComparison } from "@/lib/services/bids";
+import { relatedRfis } from "@/lib/services/rfis";
 
 function signed(cents: number) {
   if (cents === 0) return formatWhole(0);
@@ -20,6 +22,10 @@ export default async function BidPage({ params }: { params: Promise<{ id: string
   const bid = bidComparison(session, id);
   if (!bid) return <MissingRecord orgName={session.orgName} kind="bid" />;
   return (
+    <>
+    <div className="px-4 pt-3">
+      <LinkedRfis rows={relatedRfis(session, "bid", bid.id)} />
+    </div>
     <div className="md:flex md:min-h-0 md:flex-1 md:flex-col">
       <div className="hidden md:block">
         <Toolbar
@@ -149,5 +155,6 @@ export default async function BidPage({ params }: { params: Promise<{ id: string
         ) : null}
       </div>
     </div>
+    </>
   );
 }

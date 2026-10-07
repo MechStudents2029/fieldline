@@ -17,6 +17,7 @@ import { warrantyQueue } from "@/lib/services/punch";
 import { vendorBillQueue, vendorCertificateQueue } from "@/lib/services/vendor-portal";
 import { bidQueues } from "@/lib/services/bids";
 import { readyToBill } from "@/lib/services/draws";
+import { rfiQueue } from "@/lib/services/rfis";
 import { overdueSelections } from "@/lib/services/selections";
 import { timeBoard } from "@/lib/services/time";
 import { addCalendarDays, localDay } from "@/lib/time/calendar";
@@ -112,6 +113,7 @@ export default async function TodayPage() {
   const vendorCerts = vendorCertificateQueue(session.orgId);
   const bids = bidQueues(session.orgId);
   const ready = money ? readyToBill(session.orgId) : { count: 0, cents: 0, href: null as string | null };
+  const rfis = rfiQueue(session);
   const todayKey = officeDay(time.timeZone);
   const lateSelections = overdueSelections(session.orgId, todayKey).map((row) => ({
     key: `sel_${row.id}`,
@@ -156,7 +158,7 @@ export default async function TodayPage() {
         />
       ) : null}
       {quiet ? <EmptyState title="No jobs yet" why="Add a lead to start your pipeline." href="/leads/new" action="Add a lead" /> : null}
-      {webLeadCount > 0 || warranty.count > 0 || vendorBills.count > 0 || vendorCerts.count > 0 || bids.due.count > 0 || bids.award.count > 0 || ready.count > 0 ? (
+      {webLeadCount > 0 || warranty.count > 0 || vendorBills.count > 0 || vendorCerts.count > 0 || bids.due.count > 0 || bids.award.count > 0 || ready.count > 0 || rfis.overdue.count > 0 || rfis.awaiting.count > 0 ? (
         <ul className="fl-group">
           {webLeadCount > 0 ? <GroupedRow href={webLeadHref} title="New web leads" trailing={<span className="num">{webLeadCount}</span>} /> : null}
           {warranty.count > 0 && warranty.href ? <GroupedRow href={warranty.href} title="Warranty requests" trailing={<span className="num">{warranty.count}</span>} /> : null}
@@ -165,6 +167,8 @@ export default async function TodayPage() {
           {bids.due.count > 0 && bids.due.href ? <GroupedRow href={bids.due.href} title="Bids due" trailing={<span className="num">{bids.due.count}</span>} /> : null}
           {bids.award.count > 0 && bids.award.href ? <GroupedRow href={bids.award.href} title="Bids to award" trailing={<span className="num">{bids.award.count}</span>} /> : null}
           {ready.count > 0 && ready.href ? <GroupedRow href={ready.href} title="Ready to bill" trailing={<span className="num">{ready.count} · {formatWhole(ready.cents)}</span>} /> : null}
+          {rfis.overdue.count > 0 && rfis.overdue.href ? <GroupedRow href={rfis.overdue.href} title="RFIs overdue" trailing={<span className="num">{rfis.overdue.count}</span>} /> : null}
+          {rfis.awaiting.count > 0 && rfis.awaiting.href ? <GroupedRow href={rfis.awaiting.href} title="RFIs awaiting your answer" trailing={<span className="num">{rfis.awaiting.count}</span>} /> : null}
         </ul>
       ) : null}
       {shown.length > 0 ? (
@@ -251,7 +255,7 @@ export default async function TodayPage() {
         {quiet ? <EmptyState title="No jobs yet" why="Add a lead to start your pipeline." href="/leads/new" action="Add a lead" /> : null}
         <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_400px]">
           <div className="flex flex-col gap-6">
-            {webLeadCount > 0 || warranty.count > 0 || vendorBills.count > 0 || vendorCerts.count > 0 || bids.due.count > 0 || bids.award.count > 0 || ready.count > 0 ? (
+            {webLeadCount > 0 || warranty.count > 0 || vendorBills.count > 0 || vendorCerts.count > 0 || bids.due.count > 0 || bids.award.count > 0 || ready.count > 0 || rfis.overdue.count > 0 || rfis.awaiting.count > 0 ? (
               <ul className="fl-group">
                 {webLeadCount > 0 ? <GroupedRow href={webLeadHref} title="New web leads" trailing={<span className="num">{webLeadCount}</span>} /> : null}
                 {warranty.count > 0 && warranty.href ? <GroupedRow href={warranty.href} title="Warranty requests" trailing={<span className="num">{warranty.count}</span>} /> : null}
@@ -260,6 +264,8 @@ export default async function TodayPage() {
                 {bids.due.count > 0 && bids.due.href ? <GroupedRow href={bids.due.href} title="Bids due" trailing={<span className="num">{bids.due.count}</span>} /> : null}
                 {bids.award.count > 0 && bids.award.href ? <GroupedRow href={bids.award.href} title="Bids to award" trailing={<span className="num">{bids.award.count}</span>} /> : null}
           {ready.count > 0 && ready.href ? <GroupedRow href={ready.href} title="Ready to bill" trailing={<span className="num">{ready.count} · {formatWhole(ready.cents)}</span>} /> : null}
+                {rfis.overdue.count > 0 && rfis.overdue.href ? <GroupedRow href={rfis.overdue.href} title="RFIs overdue" trailing={<span className="num">{rfis.overdue.count}</span>} /> : null}
+                {rfis.awaiting.count > 0 && rfis.awaiting.href ? <GroupedRow href={rfis.awaiting.href} title="RFIs awaiting your answer" trailing={<span className="num">{rfis.awaiting.count}</span>} /> : null}
               </ul>
             ) : null}
             {shown.length > 0 ? (

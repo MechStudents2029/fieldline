@@ -2,6 +2,7 @@ import Link from "next/link";
 import { closePurchaseOrderAction, issuePurchaseOrderAction, voidPurchaseOrderAction } from "@/app/actions";
 import { ActionForm } from "@/components/action-form";
 import { MissingRecord } from "@/components/missing-record";
+import { LinkedRfis } from "@/components/linked-rfis";
 import { PurchaseOrderForm } from "@/components/purchase-order-form";
 import { Button } from "@/components/ui/button";
 import { requireSession } from "@/lib/auth/session";
@@ -9,6 +10,7 @@ import { formatDateTime } from "@/lib/format";
 import { formatMoney } from "@/lib/money";
 import { canManageMoney, canSeeMoney } from "@/lib/permissions";
 import { changeOrderChoices, purchaseOrderDetail } from "@/lib/services/purchase-orders";
+import { relatedRfis } from "@/lib/services/rfis";
 import { listContacts, listPriceBook, listProjects } from "@/lib/services/read";
 
 export default async function PurchaseOrderPage({ params }: { params: Promise<{ id: string }> }) {
@@ -28,6 +30,7 @@ export default async function PurchaseOrderPage({ params }: { params: Promise<{ 
     .map((contact) => ({ id: contact.id, label: contact.company || contact.name }));
   return (
     <div className="flex flex-col gap-5">
+      <LinkedRfis rows={relatedRfis(session, "purchase_order", po.id)} />
       <div>
         <p className="text-xs uppercase tracking-wide text-muted-foreground">{po.status}</p>
         <h1 className="font-heading text-3xl">{po.number}</h1>

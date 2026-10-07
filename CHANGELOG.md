@@ -2,6 +2,13 @@
 
 ## 2026-10-07
 
+### Requests for information
+
+- A job can hold an RFI: a short title, the question, a due date, and an assignee. The assignee is a teammate, a vendor already on the job, or the client. It can point at a schedule item, selection, purchase order, bid, punch item, or change order, and it can carry a photo. Numbers run RFI-001, RFI-002, and so on for that job. A voided number is not reused. Status is Open, Answered, Closed, or Void. Field can add one from the job on a phone.
+- The assignee answers in the office, on the vendor portal, or on the client portal. A vendor sees only the RFIs assigned to them. A client sees only the RFIs assigned to them. An answer can include a photo. The office closes it after review. No email or text goes out. Portal answers share the same request limit as the other portal forms.
+- On the way to an answer or a close, the office can mark a cost impact, a schedule impact in days, or both. Cost impact can draft a change order from the question and link it back. Schedule impact moves the linked schedule item by those days and keeps its length. Create, answer, close, and impact are on the audit log. Field does not see the cost amount. Vendors and clients do not see another party's RFIs or internal notes.
+- The job shows a table with number, title, assignee, due date, age in days, status, and impact. Linked items list their RFIs. Today counts RFIs overdue and RFIs awaiting your answer. A schedule item with an open RFI past due shows a small RFI mark. The company list filters by job, assignee, status, and overdue. Each job has a print log and a CSV.
+
 ### Draws and progress billing
 
 - A signed job gets a draw schedule from the company defaults in Settings. Each draw is a percent or a fixed amount, optionally tied to a schedule item. The due date is that item’s end plus the company terms, or a date. The rows have to equal the contract, including approved change orders, to the cent. An invoiced draw cannot be edited. When the linked item is done or its date has passed, the draw is Ready to bill. Today counts those draws and the dollars. Billing creates a draft invoice and a pay link. No email goes out.
