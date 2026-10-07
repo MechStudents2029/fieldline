@@ -21,6 +21,8 @@ export const organizations = sqliteTable("organizations", {
   timeZone: text("time_zone").notNull().default("America/New_York"),
   weekStartsOn: integer("week_starts_on").notNull().default(1),
   warrantyMonths: integer("warranty_months").notNull().default(12),
+  vendorComplianceMode: text("vendor_compliance_mode").notNull().default("warn"),
+  vendorRequiredTypes: text("vendor_required_types").notNull().default("general_liability,workers_comp"),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });
@@ -410,6 +412,7 @@ export const bills = sqliteTable(
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
     createdBy: text("created_by"),
+    portalSubmitted: integer("portal_submitted").notNull().default(0),
   },
   (t) => [index("bills_org").on(t.orgId), index("bills_vendor").on(t.orgId, t.vendorContactId)],
 );
@@ -459,6 +462,10 @@ export const purchaseOrders = sqliteTable(
     voidReason: text("void_reason"),
     issuedAt: text("issued_at"),
     closedAt: text("closed_at"),
+    acceptedAt: text("accepted_at"),
+    acceptedName: text("accepted_name"),
+    declinedAt: text("declined_at"),
+    declineReason: text("decline_reason"),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
     createdBy: text("created_by"),
@@ -851,6 +858,7 @@ export const scheduleItems = sqliteTable(
     startTime: text("start_time"),
     status: text("status").notNull(),
     note: text("note"),
+    vendorContactId: text("vendor_contact_id"),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
     createdBy: text("created_by"),
@@ -1089,6 +1097,46 @@ export const warrantyAttempts = sqliteTable(
     createdAt: text("created_at").notNull(),
   },
   (t) => [index("warranty_attempts_org").on(t.orgId, t.createdAt)],
+);
+
+/** One secret link per vendor. The URL token is stored as a hash. Regenerating replaces it. */
+export const vendorPortals = sqliteTable(
+  "vendor_portals",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    contactId: text("contact_id").notNull(),
+    tokenHash: text("token_hash").notNull(),
+    createdAt: text("created_at").notNull(),
+    rotatedAt: text("rotated_at"),
+  },
+  (t) => [uniqueIndex("vendor_portals_contact").on(t.orgId, t.contactId), uniqueIndex("vendor_portals_hash").on(t.tokenHash)],
+);
+
+export const vendorCertificates = sqliteTable(
+  "vendor_certificates",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    contactId: text("contact_id").notNull(),
+    type: text("type").notNull(),
+    expiresOn: text("expires_on").notNull(),
+    documentId: text("document_id"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (t) => [uniqueIndex("vendor_certificates_type").on(t.orgId, t.contactId, t.type), index("vendor_certificates_org").on(t.orgId, t.contactId)],
+);
+
+export const vendorPortalAttempts = sqliteTable(
+  "vendor_portal_attempts",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    ip: text("ip").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [index("vendor_portal_attempts_org").on(t.orgId, t.createdAt)],
 );
 
 export const appMeta = sqliteTable("app_meta", {

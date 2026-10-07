@@ -65,6 +65,16 @@ import {
   verifyPunch,
 } from "@/lib/services/punch";
 import { MAX_PHOTOS } from "@/lib/lead-form/rules";
+import {
+  acceptVendorPo,
+  declineVendorPo,
+  markVendorPunch,
+  rotateVendorPortal,
+  saveOfficeCertificate,
+  saveVendorCertificate,
+  setVendorCompliance,
+  submitVendorBill,
+} from "@/lib/services/vendor-portal";
 import { addStarterPriceBook, setSetupDismissed } from "@/lib/services/onboarding";
 import { acceptExistingAccount, acceptNewAccount, changeMemberRole, createInvite, INVITE_EMAIL, previewInvite, removeMember, revokeInvite } from "@/lib/services/team";
 import { verifyPassword } from "@/lib/auth/password";
@@ -145,6 +155,7 @@ export type ActionState = {
   inviteMessage?: string;
   bill?: BillDraftState;
   feedUrl?: string;
+  vendorUrl?: string;
 } | null;
 
 export type BillDraftState = {
@@ -664,6 +675,8 @@ export async function settingsAction(_prev: ActionState, formData: FormData): Pr
     }
     const warrantyMonths = formData.get("warrantyMonths");
     if (warrantyMonths != null && String(warrantyMonths).trim()) setWarrantyMonths(user, Number(warrantyMonths));
+    const vendorMode = formData.get("vendorComplianceMode");
+    if (vendorMode != null) setVendorCompliance(user, String(vendorMode), formData.getAll("requiredType").map(String));
     revalidatePath("/settings");
     revalidatePath("/time");
     revalidatePath("/");
@@ -1332,7 +1345,7 @@ export async function issuePurchaseOrderAction(poId: string, _prev: ActionState,
     const user = await actor();
     const result = issuePurchaseOrder(user, poId);
     refreshPurchaseOrder(String(formData.get("projectId") || ""), poId);
-    return { ok: `Issued ${result.number}.` };
+    return { ok: result.warning ? `Issued ${result.number}. ${result.warning}` : `Issued ${result.number}.` };
   } catch (error) {
     return failure(error);
   }
@@ -1893,6 +1906,120 @@ export async function rotateCalendarFeedAction(_prev: ActionState, _formData: Fo
     const proto = headerList.get("x-forwarded-proto") || "http";
     revalidatePath("/settings");
     return { feedUrl: `${proto}://${host}/feed/${token}` };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+function refreshVendor(token: string) {
+  revalidatePath(`/v/${token}`);
+  revalidatePath("/");
+  revalidatePath("/bills");
+  revalidatePath("/contacts");
+}
+
+async function namedUpload(formData: FormData, key: string) {
+  const file = formData.get(key);
+  if (!(file instanceof File) || file.size === 0) return null;
+  return { filename: file.name || "photo.jpg", bytes: Buffer.from(await file.arrayBuffer()) };
+}
+
+export async function rotateVendorPortalAction(contactId: string, _prev: ActionState, _formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const token = rotateVendorPortal(user, contactId);
+    const headerList = await headers();
+    const host = headerList.get("x-forwarded-host") || headerList.get("host") || "localhost";
+    const proto = headerList.get("x-forwarded-proto") || "http";
+    revalidatePath(`/contacts/${contactId}`);
+    return { vendorUrl: `${proto}://${host}/v/${token}` };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function saveOfficeCertificateAction(contactId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    saveOfficeCertificate(user, contactId, String(formData.get("type") || ""), String(formData.get("expiresOn") || ""), await namedUpload(formData, "file"));
+    revalidatePath(`/contacts/${contactId}`);
+    revalidatePath("/");
+    return { ok: "Saved." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function acceptVendorPoAction(token: string, purchaseOrderId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    acceptVendorPo({ token, purchaseOrderId, name: String(formData.get("name") || ""), ip: await requestIp() });
+    refreshVendor(token);
+    return { ok: "Accepted." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function declineVendorPoAction(token: string, purchaseOrderId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    declineVendorPo({ token, purchaseOrderId, reason: String(formData.get("reason") || ""), ip: await requestIp() });
+    refreshVendor(token);
+    return { ok: "Declined." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function submitVendorBillAction(token: string, purchaseOrderId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const codes = formData.getAll("lineCode").map(String);
+    const amounts = formData.getAll("lineAmount").map(String);
+    const lines: { costCode: string; amountCents: number }[] = [];
+    for (let index = 0; index < codes.length; index += 1) {
+      const raw = String(amounts[index] ?? "").trim();
+      if (!raw) continue;
+      const cents = parseMoneyToCents(raw);
+      if (cents == null) return { error: "Enter an amount." };
+      lines.push({ costCode: codes[index], amountCents: cents });
+    }
+    const result = submitVendorBill({
+      token,
+      ip: await requestIp(),
+      purchaseOrderId,
+      billNumber: String(formData.get("billNumber") || ""),
+      billDate: String(formData.get("billDate") || ""),
+      dueDate: String(formData.get("dueDate") || ""),
+      lines,
+      file: await namedUpload(formData, "file"),
+    });
+    refreshVendor(token);
+    return { ok: result.warning ? `Draft. ${result.warning}` : "Draft." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function markVendorPunchAction(token: string, itemId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    markVendorPunch({ token, ip: await requestIp(), itemId, photo: await namedUpload(formData, "photo") });
+    refreshVendor(token);
+    return { ok: "Done." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function saveVendorCertificateAction(token: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    saveVendorCertificate({
+      token,
+      ip: await requestIp(),
+      type: String(formData.get("type") || ""),
+      expiresOn: String(formData.get("expiresOn") || ""),
+      file: await namedUpload(formData, "file"),
+    });
+    refreshVendor(token);
+    return { ok: "Saved." };
   } catch (error) {
     return failure(error);
   }

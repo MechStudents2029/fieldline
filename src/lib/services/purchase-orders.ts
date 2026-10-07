@@ -17,6 +17,7 @@ import { openCommitmentByCode } from "@/lib/margin/commitment";
 import { positiveMoneyError } from "@/lib/money";
 import { canManageMoney, canSeeMoney, type Role } from "@/lib/permissions";
 import { ServiceError } from "@/lib/services/errors";
+import { assertVendorPoIssue } from "@/lib/services/vendor-portal";
 import type { Actor } from "@/lib/services/read";
 import { addCalendarDays, localDay } from "@/lib/time/calendar";
 
@@ -374,6 +375,7 @@ export function issuePurchaseOrder(actor: Actor, poId: string) {
   if (po.status !== "draft") throw new ServiceError("Only a draft can be issued.");
   const lines = loadLines(db, actor.orgId, po.id);
   if (lines.length === 0) throw new ServiceError("Add a line before issuing.");
+  const warning = assertVendorPoIssue(actor.orgId, po.vendorContactId);
   const now = nowIso();
   db.transaction((tx) => {
     tx.update(purchaseOrders)
@@ -383,7 +385,7 @@ export function issuePurchaseOrder(actor: Actor, poId: string) {
     writeEvent(tx, actor.orgId, po.id, actor.userId, "issued", null, JSON.stringify({ status: "draft" }), JSON.stringify({ status: "issued", lines: lineSnapshot(lines) }));
     noteActivity(tx, actor.orgId, po.projectId, actor.userId, `Issued ${po.number}.`);
   });
-  return { id: po.id, number: po.number };
+  return { id: po.id, number: po.number, warning };
 }
 
 export function closePurchaseOrder(actor: Actor, poId: string) {
@@ -523,6 +525,8 @@ export function purchaseOrderDetail(orgId: string, poId: string, role: Role) {
     po: toRow(po, lines, relieved, names),
     scope: po.scope,
     voidReason: po.voidReason,
+    acceptedName: po.acceptedName,
+    declineReason: po.declineReason,
     changeOrderId: po.changeOrderId,
     changeOrderLabel: changeOrder ? `CO ${changeOrder.number} · ${changeOrder.title}` : null,
     lines,

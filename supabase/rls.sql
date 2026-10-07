@@ -144,7 +144,10 @@ begin
     'punch_items',
     'warranty_requests',
     'warranty_photos',
-    'warranty_attempts'
+    'warranty_attempts',
+    'vendor_portals',
+    'vendor_certificates',
+    'vendor_portal_attempts'
   ]
   loop
     execute format('alter table public.%I enable row level security', tbl);

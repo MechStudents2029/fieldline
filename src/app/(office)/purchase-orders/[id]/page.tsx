@@ -40,6 +40,8 @@ export default async function PurchaseOrderPage({ params }: { params: Promise<{ 
         {detail.scope ? <p className="mt-2 text-sm">{detail.scope}</p> : null}
         {detail.changeOrderLabel ? <p className="mt-2 text-sm">Tied to {detail.changeOrderLabel}. The order does not change the budget by itself.</p> : null}
         {detail.voidReason ? <p className="mt-2 text-sm">Voided: {detail.voidReason}</p> : null}
+        {detail.acceptedName ? <p className="mt-2 text-sm">Accepted · {detail.acceptedName}</p> : null}
+        {detail.declineReason ? <p className="mt-2 text-sm">Declined · {detail.declineReason}</p> : null}
         <p className="mt-3">
           <Link href={`/purchase-orders/${po.id}/print`} className="text-sm underline">
             Printable view

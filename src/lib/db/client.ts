@@ -99,6 +99,7 @@ export function ensureReady(holder: Holder) {
   ensureSelections(holder);
   ensureLeadForm(holder);
   ensurePunch(holder);
+  ensureVendorPortal(holder);
   const version = holder.sqlite.prepare("select value from app_meta where key = ?").get("seed_version") as
     | { value: string }
     | undefined;
@@ -945,6 +946,53 @@ function ensurePunch(holder: Holder) {
   holder.sqlite.exec("create index if not exists warranty_requests_org on warranty_requests (org_id, project_id, status)");
   holder.sqlite.exec("create index if not exists warranty_photos_request on warranty_photos (org_id, request_id)");
   holder.sqlite.exec("create index if not exists warranty_attempts_org on warranty_attempts (org_id, created_at)");
+}
+
+function ensureVendorPortal(holder: Holder) {
+  const pk = holder.dialect === "postgres" ? "text primary key" : "text primary key not null";
+  ensureColumn(holder, "organizations", "vendor_compliance_mode", "text not null default 'warn'");
+  ensureColumn(holder, "organizations", "vendor_required_types", "text not null default 'general_liability,workers_comp'");
+  ensureColumn(holder, "purchase_orders", "accepted_at", "text");
+  ensureColumn(holder, "purchase_orders", "accepted_name", "text");
+  ensureColumn(holder, "purchase_orders", "declined_at", "text");
+  ensureColumn(holder, "purchase_orders", "decline_reason", "text");
+  ensureColumn(holder, "bills", "portal_submitted", "integer not null default 0");
+  ensureColumn(holder, "schedule_items", "vendor_contact_id", "text");
+  if (!tableExists(holder.sqlite, "vendor_portals", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists vendor_portals (
+      id ${pk},
+      org_id text not null,
+      contact_id text not null,
+      token_hash text not null,
+      created_at text not null,
+      rotated_at text
+    )`);
+  }
+  if (!tableExists(holder.sqlite, "vendor_certificates", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists vendor_certificates (
+      id ${pk},
+      org_id text not null,
+      contact_id text not null,
+      type text not null,
+      expires_on text not null,
+      document_id text,
+      created_at text not null,
+      updated_at text not null
+    )`);
+  }
+  if (!tableExists(holder.sqlite, "vendor_portal_attempts", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists vendor_portal_attempts (
+      id ${pk},
+      org_id text not null,
+      ip text not null,
+      created_at text not null
+    )`);
+  }
+  holder.sqlite.exec("create unique index if not exists vendor_portals_contact on vendor_portals (org_id, contact_id)");
+  holder.sqlite.exec("create unique index if not exists vendor_portals_hash on vendor_portals (token_hash)");
+  holder.sqlite.exec("create unique index if not exists vendor_certificates_type on vendor_certificates (org_id, contact_id, type)");
+  holder.sqlite.exec("create index if not exists vendor_certificates_org on vendor_certificates (org_id, contact_id)");
+  holder.sqlite.exec("create index if not exists vendor_portal_attempts_org on vendor_portal_attempts (org_id, created_at)");
 }
 
 function ensureTesterFeedback(holder: Holder) {

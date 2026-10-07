@@ -5,11 +5,13 @@ import { Button } from "@/components/ui/button";
 import { requireSession } from "@/lib/auth/session";
 import { canManageSettings } from "@/lib/permissions";
 import { listContacts } from "@/lib/services/read";
+import { complianceByContact } from "@/lib/services/vendor-portal";
 
 export default async function ContactsPage({ searchParams }: { searchParams: Promise<{ q?: string; type?: string }> }) {
   const session = await requireSession();
   const query = await searchParams;
   const rows = listContacts(session.orgId, query.q, query.type);
+  const compliance = complianceByContact(session.orgId);
   const filtered = Boolean(query.q?.trim() || query.type);
   return (
     <div className="flex flex-col gap-4">
@@ -66,6 +68,7 @@ export default async function ContactsPage({ searchParams }: { searchParams: Pro
               <th className="px-2">Name</th>
               <th className="px-2">Company</th>
               <th className="px-2">Type</th>
+              <th className="px-2">Compliance</th>
             </tr>
           </thead>
           <tbody>
@@ -78,6 +81,15 @@ export default async function ContactsPage({ searchParams }: { searchParams: Pro
                 </td>
                 <td className="px-2">{contact.company || contact.email || contact.city}</td>
                 <td className="px-2">{contact.type}</td>
+                <td className="px-2">
+                  {compliance[contact.id] ? (
+                    <span className="fl-pill" data-compliance={compliance[contact.id].state}>
+                      {compliance[contact.id].label}
+                    </span>
+                  ) : (
+                    "—"
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>

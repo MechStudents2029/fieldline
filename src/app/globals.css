@@ -1129,6 +1129,10 @@ html.mac-inspector-off .mac-inspector { display: none; }
   gap: 12px;
   margin-top: 20px;
 }
+.vendor-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (min-width: 768px) {
+  .vendor-strip { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
 .home-strip p:first-child { color: var(--fl-secondary); font-size: 13px; }
 .home-needs { margin-top: 24px; }
 .home-needs > h2, .home-progress > h2, .home-main > section > h2, .home-scope h2, .home-steps h2, .home-sign h2 {
@@ -1169,6 +1173,18 @@ html.mac-inspector-off .mac-inspector { display: none; }
   border-radius: 12px;
   background: var(--home-accent);
   color: #fff;
+  font-size: 17px;
+  font-weight: 600;
+}
+.home-btn-quiet {
+  display: flex;
+  width: 100%;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  background: var(--fl-fill);
+  color: var(--fl-label);
   font-size: 17px;
   font-weight: 600;
 }

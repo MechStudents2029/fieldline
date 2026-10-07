@@ -1,6 +1,12 @@
 # Changelog
 
-## 2026-10-06
+## 2026-10-07
+
+### Sub and vendor portal
+
+- A sub or vendor has one portal link. The office creates it from the vendor record, and a new link replaces the old one. The secret is stored as a hash. The link is shown to copy. No email or text goes out.
+- The portal lists that vendor's issued purchase orders, schedule days, punch items, and bills. Draft and void orders stay off it. Accept takes a typed name. Decline takes a reason. Both are on the audit log. A bill from the portal is always a draft, with the same duplicate bill number check and the same over-order warning. Today counts those drafts until the office reviews them.
+- Certificates are general liability, workers comp, license, W-9, or other, each with an expiration date and a file. The vendor or the office can replace one. The vendor list shows Current, Expires in N days, Expired, or Missing. Settings can warn or block a new purchase order when a required certificate is expired or missing. Warn is the default. Today counts vendors with a certificate expiring within 30 days or already expired.
 
 ### Punch list and warranty
 

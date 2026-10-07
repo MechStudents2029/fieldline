@@ -13,6 +13,7 @@ import { CalendarFeed } from "@/components/calendar-feed";
 import { calendarFeedReady } from "@/lib/services/schedule";
 import { teamBoard } from "@/lib/services/team";
 import { WEEKDAY_NAMES } from "@/lib/time/calendar";
+import { CERT_TYPES, parseRequiredTypes } from "@/lib/vendor/compliance";
 import { defaultHourlyCost } from "@/lib/services/time";
 
 function timeZones(current: string): string[] {
@@ -122,6 +123,22 @@ export default async function SettingsPage() {
             Warranty months
             <input name="warrantyMonths" type="number" min={1} max={120} defaultValue={org.warrantyMonths} className="field mt-1" />
           </label>
+          <label className="text-sm">
+            PO compliance
+            <select name="vendorComplianceMode" defaultValue={org.vendorComplianceMode} aria-label="PO compliance" className="field mt-1">
+              <option value="warn">Warn</option>
+              <option value="block">Block</option>
+            </select>
+          </label>
+          <fieldset className="flex flex-col gap-1">
+            <legend className="text-sm">Required certificates</legend>
+            {CERT_TYPES.filter((type) => type.id !== "other").map((type) => (
+              <label key={type.id} className="flex items-center gap-2 text-sm">
+                <input type="checkbox" name="requiredType" value={type.id} defaultChecked={parseRequiredTypes(org.vendorRequiredTypes).includes(type.id)} />
+                {type.label}
+              </label>
+            ))}
+          </fieldset>
           <label className="text-sm">
             Week starts
             <select name="weekStartsOn" defaultValue={String(org.weekStartsOn)} className="field mt-1">
