@@ -120,7 +120,7 @@ export function DataTable({
                   const cell = footer.cells[column.key];
                   const className = `${column.align === "right" || column.fit ? "num" : ""} ${column.align === "right" ? "text-right" : ""} ${cell?.tone === "late" ? "text-[var(--mac-danger)]" : ""} font-semibold`;
                   return (
-                    <td key={column.key} className={className}>
+                    <td key={column.key} className={className} style={cell?.tone === "late" ? { color: "var(--mac-danger)" } : undefined}>
                       {cell?.text ?? ""}
                     </td>
                   );
@@ -203,7 +203,7 @@ function GroupBlock({
                   const text = cell?.text ?? "";
                   const className = `${column.align === "right" || column.fit ? "num" : ""} ${column.align === "right" ? "text-right" : ""} ${cell?.tone === "late" ? "text-[var(--mac-danger)]" : ""}`;
                   return (
-                    <td key={column.key} className={className}>
+                    <td key={column.key} className={className} style={cell?.tone === "late" ? { color: "var(--mac-danger)" } : undefined}>
                       {columnIndex === 0 && row.href ? (
                         <>
                           <a href={row.href} className="hover-actions">
