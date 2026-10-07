@@ -36,9 +36,10 @@ test.describe("to-dos on a laptop", () => {
     await expect(page.getByText("1/2").first()).toBeVisible();
     await page.getByRole("checkbox", { name: "Order the trim" }).click();
     await expect(page.getByRole("button", { name: "Mark to-do done" })).toBeVisible();
-    await expect(page.getByLabel("To-do")).toHaveAttribute("data-status", "open");
+    const pane = page.getByRole("complementary", { name: "To-do" });
+    await expect(pane).toHaveAttribute("data-status", "open");
     await page.goto("/todos?task=task_walk");
-    const before = await page.getByLabel("To-do").getAttribute("data-due");
+    const before = await pane.getAttribute("data-due");
     await page.emulateMedia({ colorScheme: "light" });
     await shot(page, "todos-light");
     await page.emulateMedia({ colorScheme: "dark" });
@@ -56,7 +57,7 @@ test.describe("to-dos on a laptop", () => {
     await expect(item.getByRole("status")).toHaveText(/Moves [2-9] items/);
     await item.getByRole("button", { name: /Moves [2-9] items/ }).click();
     await page.goto("/todos?task=task_walk");
-    await expect(page.getByLabel("To-do")).not.toHaveAttribute("data-due", before || "");
+    await expect(page.getByRole("complementary", { name: "To-do" })).not.toHaveAttribute("data-due", before || "");
     await page.goto("/reports/wip");
     await page.getByRole("cell", { name: "-$16,800" }).click();
     await expect(page.getByRole("row", { name: /Brooks powder room/ })).toHaveClass(/is-selected/);

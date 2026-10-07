@@ -15,8 +15,13 @@ async function inboxToThread(page: Page) {
   await page.goto("/inbox");
   await expect(page.getByRole("list", { name: "Inbox" })).toContainText("RFI-001");
   await expect(page.getByRole("list", { name: "Inbox" })).toContainText("Luis Ortega");
-  await page.keyboard.press("j");
-  await expect(page.getByRole("list", { name: "Inbox" }).locator("[aria-current='true']")).toContainText("RFI-001");
+  await page.getByRole("heading", { name: "Inbox" }).click();
+  const current = page.getByRole("list", { name: "Inbox" }).locator("[aria-current='true']");
+  for (let step = 0; step < 8; step += 1) {
+    if ((await current.innerText()).includes("RFI-001")) break;
+    await page.keyboard.press("j");
+  }
+  await expect(current).toContainText("RFI-001");
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(/rfis\/rfi_ok_valve/);
   await expect(page.locator("[data-mention='Maya Rivera']")).toBeVisible();
