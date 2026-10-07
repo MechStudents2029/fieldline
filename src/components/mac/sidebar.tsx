@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Briefcase, Calendar, Clock, FileText, MessageSquare, Receipt, Sun, Users, Wallet } from "lucide-react";
+import { Briefcase, Calendar, Clock, FileText, Inbox, MessageSquare, Receipt, Sun, Users, Wallet } from "lucide-react";
 import { SignOutButton } from "@/components/sign-out-button";
 import type { OfficeChrome } from "@/lib/services/read";
 
@@ -20,6 +20,7 @@ export function Sidebar({
   userId,
   chrome,
   open,
+  inboxUnread = 0,
 }: {
   orgName: string;
   userName: string;
@@ -28,6 +29,7 @@ export function Sidebar({
   userId: string;
   chrome: OfficeChrome;
   open: boolean;
+  inboxUnread?: number;
 }) {
   const pathname = usePathname();
   const field = role === "field";
@@ -72,6 +74,7 @@ export function Sidebar({
         </div>
         <div className="mt-1 flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto">
           {item("/", field ? "My day" : "Today", <Sun size={16} strokeWidth={1.6} />)}
+          {item("/inbox", "Inbox", <Inbox size={16} strokeWidth={1.6} />, inboxUnread)}
           {item("/pipeline", "Leads", <Users size={16} strokeWidth={1.6} />, chrome.leadCount)}
           <p className="px-2 pb-1 pt-3 mac-t11 font-semibold text-[var(--mac-secondary)]">Work</p>
           {item("/projects", "Jobs", <Briefcase size={16} strokeWidth={1.6} />, chrome.pins.length)}

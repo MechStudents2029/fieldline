@@ -17,6 +17,7 @@ import { warrantyQueue } from "@/lib/services/punch";
 import { vendorBillQueue, vendorCertificateQueue } from "@/lib/services/vendor-portal";
 import { bidQueues } from "@/lib/services/bids";
 import { readyToBill } from "@/lib/services/draws";
+import { mentionUnread } from "@/lib/services/comments";
 import { rfiQueue } from "@/lib/services/rfis";
 import { overdueSelections } from "@/lib/services/selections";
 import { timeBoard } from "@/lib/services/time";
@@ -114,6 +115,7 @@ export default async function TodayPage() {
   const bids = bidQueues(session.orgId);
   const ready = money ? readyToBill(session.orgId) : { count: 0, cents: 0, href: null as string | null };
   const rfis = rfiQueue(session);
+  const mentions = mentionUnread(session);
   const todayKey = officeDay(time.timeZone);
   const lateSelections = overdueSelections(session.orgId, todayKey).map((row) => ({
     key: `sel_${row.id}`,
@@ -158,8 +160,9 @@ export default async function TodayPage() {
         />
       ) : null}
       {quiet ? <EmptyState title="No jobs yet" why="Add a lead to start your pipeline." href="/leads/new" action="Add a lead" /> : null}
-      {webLeadCount > 0 || warranty.count > 0 || vendorBills.count > 0 || vendorCerts.count > 0 || bids.due.count > 0 || bids.award.count > 0 || ready.count > 0 || rfis.overdue.count > 0 || rfis.awaiting.count > 0 ? (
+      {webLeadCount > 0 || warranty.count > 0 || vendorBills.count > 0 || vendorCerts.count > 0 || bids.due.count > 0 || bids.award.count > 0 || ready.count > 0 || rfis.overdue.count > 0 || rfis.awaiting.count > 0 || mentions > 0 ? (
         <ul className="fl-group">
+          {mentions > 0 ? <GroupedRow href="/inbox" title="Mentions" trailing={<span className="num">{mentions}</span>} /> : null}
           {webLeadCount > 0 ? <GroupedRow href={webLeadHref} title="New web leads" trailing={<span className="num">{webLeadCount}</span>} /> : null}
           {warranty.count > 0 && warranty.href ? <GroupedRow href={warranty.href} title="Warranty requests" trailing={<span className="num">{warranty.count}</span>} /> : null}
           {vendorBills.count > 0 && vendorBills.href ? <GroupedRow href={vendorBills.href} title="Vendor bills" trailing={<span className="num">{vendorBills.count}</span>} /> : null}
@@ -255,8 +258,9 @@ export default async function TodayPage() {
         {quiet ? <EmptyState title="No jobs yet" why="Add a lead to start your pipeline." href="/leads/new" action="Add a lead" /> : null}
         <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_400px]">
           <div className="flex flex-col gap-6">
-            {webLeadCount > 0 || warranty.count > 0 || vendorBills.count > 0 || vendorCerts.count > 0 || bids.due.count > 0 || bids.award.count > 0 || ready.count > 0 || rfis.overdue.count > 0 || rfis.awaiting.count > 0 ? (
+            {webLeadCount > 0 || warranty.count > 0 || vendorBills.count > 0 || vendorCerts.count > 0 || bids.due.count > 0 || bids.award.count > 0 || ready.count > 0 || rfis.overdue.count > 0 || rfis.awaiting.count > 0 || mentions > 0 ? (
               <ul className="fl-group">
+                {mentions > 0 ? <GroupedRow href="/inbox" title="Mentions" trailing={<span className="num">{mentions}</span>} /> : null}
                 {webLeadCount > 0 ? <GroupedRow href={webLeadHref} title="New web leads" trailing={<span className="num">{webLeadCount}</span>} /> : null}
                 {warranty.count > 0 && warranty.href ? <GroupedRow href={warranty.href} title="Warranty requests" trailing={<span className="num">{warranty.count}</span>} /> : null}
                 {vendorBills.count > 0 && vendorBills.href ? <GroupedRow href={vendorBills.href} title="Vendor bills" trailing={<span className="num">{vendorBills.count}</span>} /> : null}

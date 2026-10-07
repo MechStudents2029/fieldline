@@ -103,6 +103,7 @@ export function ensureReady(holder: Holder) {
   ensureBids(holder);
   ensureDraws(holder);
   ensureRfis(holder);
+  ensureComments(holder);
   const version = holder.sqlite.prepare("select value from app_meta where key = ?").get("seed_version") as
     | { value: string }
     | undefined;
@@ -1224,6 +1225,79 @@ function ensureRfis(holder: Holder) {
   holder.sqlite.exec("create index if not exists rfi_messages_rfi on rfi_messages (org_id, rfi_id)");
   holder.sqlite.exec("create index if not exists rfi_files_rfi on rfi_files (org_id, rfi_id)");
   holder.sqlite.exec("create index if not exists rfi_attempts_org on rfi_attempts (org_id, created_at)");
+}
+
+function ensureComments(holder: Holder) {
+  const pk = holder.dialect === "postgres" ? "text primary key" : "text primary key not null";
+  if (!tableExists(holder.sqlite, "comments", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists comments (
+      id ${pk},
+      org_id text not null,
+      entity_type text not null,
+      entity_id text not null,
+      project_id text,
+      author_id text not null,
+      body text not null,
+      created_at text not null,
+      edited_at text,
+      deleted_at text
+    )`);
+  }
+  if (!tableExists(holder.sqlite, "comment_mentions", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists comment_mentions (
+      id ${pk},
+      org_id text not null,
+      comment_id text not null,
+      kind text not null,
+      user_id text,
+      role text
+    )`);
+  }
+  if (!tableExists(holder.sqlite, "comment_files", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists comment_files (
+      id ${pk},
+      org_id text not null,
+      comment_id text not null,
+      document_id text not null
+    )`);
+  }
+  if (!tableExists(holder.sqlite, "notifications", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists notifications (
+      id ${pk},
+      org_id text not null,
+      user_id text not null,
+      kind text not null,
+      comment_id text,
+      entity_type text not null,
+      entity_id text not null,
+      project_id text,
+      actor_id text,
+      actor_name text not null,
+      snippet text not null,
+      read_at text,
+      created_at text not null
+    )`);
+  }
+  if (!tableExists(holder.sqlite, "notification_settings", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists notification_settings (
+      user_id ${pk},
+      org_id text not null,
+      mode text not null
+    )`);
+  }
+  if (!tableExists(holder.sqlite, "comment_attempts", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists comment_attempts (
+      id ${pk},
+      org_id text not null,
+      user_id text not null,
+      created_at text not null
+    )`);
+  }
+  holder.sqlite.exec("create index if not exists comments_entity on comments (org_id, entity_type, entity_id)");
+  holder.sqlite.exec("create index if not exists comment_mentions_comment on comment_mentions (org_id, comment_id)");
+  holder.sqlite.exec("create index if not exists comment_files_comment on comment_files (org_id, comment_id)");
+  holder.sqlite.exec("create index if not exists notifications_user on notifications (org_id, user_id, created_at)");
+  holder.sqlite.exec("create index if not exists comment_attempts_user on comment_attempts (org_id, user_id, created_at)");
 }
 
 export function resetDatabase(): AppDatabase {

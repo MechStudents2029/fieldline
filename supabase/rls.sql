@@ -341,3 +341,115 @@ create policy daily_logs_scope on public.daily_logs
       or (author_id = public.current_user_id() and visibility = 'internal')
     )
   );
+
+-- Comments stay inside the company. Money records stay off the field role.
+-- Notifications belong to one user.
+alter table public.comments enable row level security;
+drop policy if exists comments_member on public.comments;
+drop policy if exists comments_scope on public.comments;
+create policy comments_scope on public.comments
+  for all
+  to authenticated
+  using (
+    org_id in (select public.current_org_ids())
+    and (
+      entity_type not in ('estimate', 'change_order', 'purchase_order', 'bill')
+      or public.can_see_money(org_id)
+    )
+  )
+  with check (
+    org_id in (select public.current_org_ids())
+    and (
+      entity_type not in ('estimate', 'change_order', 'purchase_order', 'bill')
+      or public.can_see_money(org_id)
+    )
+  );
+
+alter table public.comment_mentions enable row level security;
+drop policy if exists comment_mentions_member on public.comment_mentions;
+drop policy if exists comment_mentions_scope on public.comment_mentions;
+create policy comment_mentions_scope on public.comment_mentions
+  for all
+  to authenticated
+  using (
+    org_id in (select public.current_org_ids())
+    and exists (
+      select 1 from public.comments c
+      where c.id = comment_id
+        and c.org_id = comment_mentions.org_id
+        and (
+          c.entity_type not in ('estimate', 'change_order', 'purchase_order', 'bill')
+          or public.can_see_money(c.org_id)
+        )
+    )
+  )
+  with check (
+    org_id in (select public.current_org_ids())
+    and exists (
+      select 1 from public.comments c
+      where c.id = comment_id
+        and c.org_id = comment_mentions.org_id
+        and (
+          c.entity_type not in ('estimate', 'change_order', 'purchase_order', 'bill')
+          or public.can_see_money(c.org_id)
+        )
+    )
+  );
+
+alter table public.comment_files enable row level security;
+drop policy if exists comment_files_member on public.comment_files;
+drop policy if exists comment_files_scope on public.comment_files;
+create policy comment_files_scope on public.comment_files
+  for all
+  to authenticated
+  using (
+    org_id in (select public.current_org_ids())
+    and exists (
+      select 1 from public.comments c
+      where c.id = comment_id
+        and c.org_id = comment_files.org_id
+        and (
+          c.entity_type not in ('estimate', 'change_order', 'purchase_order', 'bill')
+          or public.can_see_money(c.org_id)
+        )
+    )
+  )
+  with check (
+    org_id in (select public.current_org_ids())
+    and exists (
+      select 1 from public.comments c
+      where c.id = comment_id
+        and c.org_id = comment_files.org_id
+        and (
+          c.entity_type not in ('estimate', 'change_order', 'purchase_order', 'bill')
+          or public.can_see_money(c.org_id)
+        )
+    )
+  );
+
+alter table public.notifications enable row level security;
+drop policy if exists notifications_member on public.notifications;
+drop policy if exists notifications_scope on public.notifications;
+create policy notifications_scope on public.notifications
+  for all
+  to authenticated
+  using (org_id in (select public.current_org_ids()) and user_id = public.current_user_id())
+  with check (org_id in (select public.current_org_ids()) and user_id = public.current_user_id());
+
+alter table public.notification_settings enable row level security;
+drop policy if exists notification_settings_member on public.notification_settings;
+drop policy if exists notification_settings_scope on public.notification_settings;
+create policy notification_settings_scope on public.notification_settings
+  for all
+  to authenticated
+  using (org_id in (select public.current_org_ids()) and user_id = public.current_user_id())
+  with check (org_id in (select public.current_org_ids()) and user_id = public.current_user_id());
+
+alter table public.comment_attempts enable row level security;
+drop policy if exists comment_attempts_member on public.comment_attempts;
+drop policy if exists comment_attempts_scope on public.comment_attempts;
+create policy comment_attempts_scope on public.comment_attempts
+  for all
+  to authenticated
+  using (org_id in (select public.current_org_ids()) and user_id = public.current_user_id())
+  with check (org_id in (select public.current_org_ids()) and user_id = public.current_user_id());

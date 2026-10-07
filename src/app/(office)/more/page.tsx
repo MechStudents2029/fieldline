@@ -6,6 +6,7 @@ import { canManageSettings } from "@/lib/permissions";
 import { companyChecklist } from "@/lib/services/onboarding";
 
 const links = [
+  ["/inbox", "Inbox"],
   ["/setup", "Setup"],
   ["/pipeline", "Leads"],
   ["/time", "Time"],

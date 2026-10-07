@@ -77,6 +77,7 @@ import {
 } from "@/lib/services/vendor-portal";
 import { awardBid, createBid, declineVendorBid, saveBidLines, submitVendorBid } from "@/lib/services/bids";
 import { answerClientRfi, answerRfi, answerVendorRfi, closeRfi, createRfi, draftChangeFromRfi, shiftRfiSchedule, voidRfi } from "@/lib/services/rfis";
+import { deleteComment, editComment, markAllRead, postComment, setNotifyPreference } from "@/lib/services/comments";
 import { addStarterPriceBook, setSetupDismissed } from "@/lib/services/onboarding";
 import { acceptExistingAccount, acceptNewAccount, changeMemberRole, createInvite, INVITE_EMAIL, previewInvite, removeMember, revokeInvite } from "@/lib/services/team";
 import { verifyPassword } from "@/lib/auth/password";
@@ -2406,6 +2407,63 @@ export async function answerClientRfiAction(token: string, rfiId: string, _prev:
     revalidatePath(`/portal/${token}`);
     revalidatePath("/projects");
     return { ok: "Sent." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function postCommentAction(entityType: string, entityId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    postComment(user, entityType, entityId, String(formData.get("body") || ""), await onePhoto(formData));
+    revalidatePath("/inbox");
+    revalidatePath("/");
+    return { ok: "Posted." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function editCommentAction(commentId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    editComment(user, commentId, String(formData.get("body") || ""));
+    revalidatePath("/inbox");
+    return { ok: "Saved." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function deleteCommentAction(commentId: string, _prev: ActionState, _formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    deleteComment(user, commentId);
+    revalidatePath("/inbox");
+    return { ok: "Deleted." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function markAllReadAction(_prev: ActionState, _formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    markAllRead(user);
+    revalidatePath("/inbox");
+    revalidatePath("/");
+    return { ok: "Read." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function saveNotifyModeAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    setNotifyPreference(user, String(formData.get("mode") || ""));
+    revalidatePath("/inbox");
+    return { ok: "Saved." };
   } catch (error) {
     return failure(error);
   }

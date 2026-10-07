@@ -34,6 +34,7 @@ export function Shell({
   orgId,
   userId,
   chrome,
+  inboxUnread = 0,
   children,
 }: {
   orgName: string;
@@ -42,6 +43,7 @@ export function Shell({
   orgId: string;
   userId: string;
   chrome: OfficeChrome;
+  inboxUnread?: number;
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
@@ -76,7 +78,7 @@ export function Shell({
         Skip to the job file
       </a>
       {/* Desktop source list: Sidebar renders nav aria-label="Office" */}
-      <Sidebar orgName={orgName} userName={userName} role={role} orgId={orgId} userId={userId} chrome={chrome} open={open} />
+      <Sidebar orgName={orgName} userName={userName} role={role} orgId={orgId} userId={userId} chrome={chrome} open={open} inboxUnread={inboxUnread} />
       <div className="flex min-w-0 flex-1 flex-col md:m-2 md:overflow-hidden md:rounded-[14px] md:bg-[var(--mac-window)]">
         <OfflineBanner />
         <main id="main" className="px-4 pt-2 pb-[calc(5.25rem+env(safe-area-inset-bottom))] md:flex md:min-h-0 md:flex-1 md:flex-col md:overflow-auto md:px-0 md:pt-0 md:pb-0">

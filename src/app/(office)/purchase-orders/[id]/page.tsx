@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { closePurchaseOrderAction, issuePurchaseOrderAction, voidPurchaseOrderAction } from "@/app/actions";
 import { ActionForm } from "@/components/action-form";
+import { CommentThread } from "@/components/comment-thread";
 import { MissingRecord } from "@/components/missing-record";
 import { LinkedRfis } from "@/components/linked-rfis";
 import { PurchaseOrderForm } from "@/components/purchase-order-form";
@@ -127,6 +128,7 @@ export default async function PurchaseOrderPage({ params }: { params: Promise<{ 
           ))}
         </ul>
       </section>
+      <CommentThread entityType="purchase_order" entityId={po.id} />
     </div>
   );
 }

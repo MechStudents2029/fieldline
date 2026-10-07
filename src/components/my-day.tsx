@@ -12,6 +12,7 @@ import { formatDateTime } from "@/lib/format";
 import type { Actor } from "@/lib/services/read";
 import { myDay } from "@/lib/services/logs";
 import { fieldPunch } from "@/lib/services/punch";
+import { mentionUnread } from "@/lib/services/comments";
 import { rfiQueue } from "@/lib/services/rfis";
 import { memberAssignments } from "@/lib/services/schedule";
 import { formatHours, timeBoard } from "@/lib/services/time";
@@ -35,6 +36,7 @@ export function MyDay({ actor }: { actor: Actor }) {
   const plan = memberAssignments(actor);
   const punch = fieldPunch(actor);
   const rfis = rfiQueue(actor);
+  const mentions = mentionUnread(actor);
   const open = day.open;
   return (
     <div className="mx-auto flex max-w-lg flex-col gap-7 md:max-w-none md:px-6">
@@ -42,8 +44,16 @@ export function MyDay({ actor }: { actor: Actor }) {
         <Toolbar title="My day" subtitle={dayTitle(day.timeZone)} search={false} />
       </div>
       <LargeTitle title="My day" subtitle={dayTitle(day.timeZone)} />
-      {rfis.overdue.count > 0 || rfis.awaiting.count > 0 ? (
+      {rfis.overdue.count > 0 || rfis.awaiting.count > 0 || mentions > 0 ? (
         <ul className="fl-group">
+          {mentions > 0 ? (
+            <li>
+              <Link href="/inbox" className="fl-cell">
+                <span className="fl-body flex-1">Mentions</span>
+                <span className="num">{mentions}</span>
+              </Link>
+            </li>
+          ) : null}
           {rfis.overdue.count > 0 && rfis.overdue.href ? (
             <li>
               <Link href={rfis.overdue.href} className="fl-cell">

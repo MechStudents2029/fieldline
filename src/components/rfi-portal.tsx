@@ -1,4 +1,5 @@
 import { answerClientRfiAction, answerVendorRfiAction } from "@/app/actions";
+import { FileButton } from "@/components/file-button";
 import { ActionForm } from "@/components/action-form";
 import { formatCalendarDay } from "@/lib/format";
 import type { PortalRfi } from "@/lib/services/rfis";
@@ -37,10 +38,7 @@ export function RfiPortal({ token, items, side }: { token: string; items: Portal
                   Answer
                   <textarea name="body" aria-label={`Answer ${item.title}`} rows={2} className="field mt-1" required />
                 </label>
-                <label className="home-sub">
-                  Photo
-                  <input className="home-file" type="file" name="photo" accept="image/jpeg,image/png,image/webp" aria-label={`Photo ${item.title}`} />
-                </label>
+                <FileButton name="photo" label={`Photo ${item.title}`} accept="image/jpeg,image/png,image/webp" empty="Photo" />
                 <button type="submit" className="home-btn">
                   Send answer
                 </button>

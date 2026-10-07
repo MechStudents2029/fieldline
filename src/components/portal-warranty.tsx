@@ -1,5 +1,6 @@
 import { submitWarrantyAction } from "@/app/actions";
 import { ActionForm } from "@/components/action-form";
+import { FileButton } from "@/components/file-button";
 import { formatDate, formatWarrantyDay } from "@/lib/format";
 import type { PortalWarranty } from "@/lib/services/punch";
 
@@ -72,10 +73,7 @@ export function PortalWarrantySection({ token, home, startedAt }: { token: strin
               <option value="urgent">Urgent</option>
             </select>
           </label>
-          <label className="home-sub">
-            Photo
-            <input className="home-file" type="file" name="photo" accept="image/jpeg,image/png,image/webp" multiple />
-          </label>
+          <FileButton name="photo" label="Photo" accept="image/jpeg,image/png,image/webp" multiple empty="Photo" />
           <button type="submit" className="home-btn">
             Send request
           </button>

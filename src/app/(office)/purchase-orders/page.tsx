@@ -81,12 +81,12 @@ export default async function PurchaseOrdersPage({
           <li key={order.id} className="flex flex-col gap-1 p-4 text-sm sm:flex-row sm:items-center sm:justify-between">
             <div>
               <Link href={`/purchase-orders/${order.id}`} className="font-medium">
-                {order.number} · {order.vendorName}
+                <span className="num">{order.number}</span> · {order.vendorName}
               </Link>
               <p className="text-xs text-muted-foreground">{order.projectName}</p>
             </div>
             <div className="text-left sm:text-right">
-              <p>{formatMoney(order.amountCents)}</p>
+              <p className="num">{formatMoney(order.amountCents)}</p>
               <p className="text-xs capitalize text-muted-foreground">
                 {order.status}
                 {order.status === "issued" ? ` · open ${formatMoney(order.openCents)}` : ""}

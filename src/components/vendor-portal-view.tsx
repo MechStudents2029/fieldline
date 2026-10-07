@@ -6,6 +6,7 @@ import {
   submitVendorBillAction,
 } from "@/app/actions";
 import { ActionForm } from "@/components/action-form";
+import { FileButton } from "@/components/file-button";
 import { formatCalendarDay } from "@/lib/format";
 import { formatMoney, formatWhole } from "@/lib/money";
 import { CERT_TYPES } from "@/lib/vendor/compliance";
@@ -109,10 +110,7 @@ export function VendorPortalView({ token, home, bids, rfis = [] }: { token: stri
                         Name
                         <input name="name" required defaultValue={bid.name} aria-label={`Name ${bid.title}`} className="home-input" />
                       </label>
-                      <label className="home-sub">
-                        File
-                        <input className="home-file" type="file" name="file" accept="image/jpeg,image/png,image/webp" aria-label={`File ${bid.title}`} />
-                      </label>
+                      <FileButton name="file" label={`File ${bid.title}`} accept="image/jpeg,image/png,image/webp" empty="File" />
                       <button type="submit" className="home-btn">
                         Send {bid.title}
                       </button>
@@ -206,10 +204,7 @@ export function VendorPortalView({ token, home, bids, rfis = [] }: { token: stri
                         <input name="lineAmount" inputMode="decimal" aria-label={`Amount ${line.costCode}`} className="home-input" />
                       </label>
                     ))}
-                    <label className="home-sub">
-                      File
-                      <input className="home-file" type="file" name="file" accept="image/jpeg,image/png,image/webp" aria-label={`File ${order.number}`} />
-                    </label>
+                    <FileButton name="file" label={`File ${order.number}`} accept="image/jpeg,image/png,image/webp" empty="File" />
                     <button type="submit" className="home-btn">
                       Send bill
                     </button>
@@ -249,10 +244,7 @@ export function VendorPortalView({ token, home, bids, rfis = [] }: { token: stri
                 </div>
                 {item.status === "open" ? (
                   <ActionForm action={markVendorPunchAction.bind(null, token, item.id)} className="home-form">
-                    <label className="home-sub">
-                      Photo
-                      <input className="home-file" type="file" name="photo" accept="image/jpeg,image/png,image/webp" aria-label={`Photo ${item.title}`} />
-                    </label>
+                    <FileButton name="photo" label={`Photo ${item.title}`} accept="image/jpeg,image/png,image/webp" empty="Photo" />
                     <button type="submit" className="home-btn-quiet">
                       Mark {item.title} done
                     </button>
@@ -311,10 +303,7 @@ export function VendorPortalView({ token, home, bids, rfis = [] }: { token: stri
               Expires
               <input name="expiresOn" type="date" required aria-label="Expires" className="home-input" />
             </label>
-            <label className="home-sub">
-              File
-              <input className="home-file" type="file" name="file" accept="image/jpeg,image/png,image/webp" aria-label="Certificate file" />
-            </label>
+            <FileButton name="file" label="Certificate file" accept="image/jpeg,image/png,image/webp" empty="File" />
             <button type="submit" className="home-btn">
               Save certificate
             </button>

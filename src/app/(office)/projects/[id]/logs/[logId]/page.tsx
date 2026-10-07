@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { logPhotoAction, saveLogAction, shareLogAction, voidLogAction } from "@/app/actions";
 import { ActionForm } from "@/components/action-form";
+import { CommentThread } from "@/components/comment-thread";
 import { LogDraftSaver } from "@/components/log-draft-saver";
 import { JobTabs } from "@/components/job-tabs";
 import { MissingRecord } from "@/components/missing-record";
@@ -167,6 +168,7 @@ export default async function DailyLogPage({ params }: { params: Promise<{ id: s
           ))}
         </ul>
       </details>
+      <CommentThread entityType="daily_log" entityId={log.id} />
     </div>
   );
 }

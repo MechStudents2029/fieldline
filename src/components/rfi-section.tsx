@@ -38,12 +38,12 @@ export function RfiSection({ board }: { board: JobRfiBoard }) {
                   <Link href={item.href}>{item.title}</Link>
                 </td>
                 <td>{item.assigneeName}</td>
-                <td>{item.dueOn ? formatCalendarDay(item.dueOn) : "—"}</td>
+                <td className="num">{item.dueOn ? formatCalendarDay(item.dueOn) : "—"}</td>
                 <td className="num">{item.ageDays}</td>
                 <td>
                   <Pill>{item.statusLabel}</Pill>
                 </td>
-                <td>{item.impact}</td>
+                <td className="num">{item.impact}</td>
               </tr>
             ))}
           </tbody>

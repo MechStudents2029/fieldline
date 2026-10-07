@@ -581,7 +581,39 @@
   }
 }
 
-.num { font-variant-numeric: tabular-nums; }
+.num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.mac-table td.num,
+.mac-table th.num { white-space: nowrap; }
+.mention-pill {
+  display: inline-flex;
+  align-items: center;
+  height: 18px;
+  margin: 0 2px;
+  padding: 0 6px;
+  border-radius: 5px;
+  background: var(--mac-fill);
+  color: var(--mac-label);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.file-pick { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 4px; }
+.file-pick-input {
+  position: absolute;
+  left: -10000px;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+.file-pick-btn,
+.file-pick-clear {
+  min-height: 36px;
+  border-radius: 8px;
+  background: var(--fl-fill);
+  padding: 0 12px;
+  font-size: 15px;
+  color: inherit;
+}
 .mac-t26 { font-size: 26px; line-height: 32px; font-weight: 600; letter-spacing: -0.4px; }
 .mac-t22 { font-size: 22px; line-height: 26px; font-weight: 600; letter-spacing: -0.3px; }
 .mac-t17 { font-size: 17px; line-height: 22px; font-weight: 600; letter-spacing: -0.2px; }

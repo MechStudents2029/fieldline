@@ -88,7 +88,7 @@ export function DrawEditor({
                     onChange={(event) => update(row.key, { title: event.target.value })}
                   />
                 </td>
-                <td>
+                <td className="num">
                   <select
                     value={row.basis}
                     disabled={row.locked}
@@ -135,7 +135,7 @@ export function DrawEditor({
                     ))}
                   </select>
                 </td>
-                <td>
+                <td className="num">
                   <input
                     type="date"
                     value={row.dueOn}

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { approveCoAction, chooseSelectionAction, portalMessageAction } from "@/app/actions";
 import { ActionForm } from "@/components/action-form";
+import { FileButton } from "@/components/file-button";
 import { PhotoLightbox } from "@/components/portal/photo-lightbox";
 import { formatDate } from "@/lib/format";
 import { formatMoney } from "@/lib/money";
@@ -338,10 +339,7 @@ export default async function PortalPage({ params }: { params: Promise<{ token: 
             ) : null}
             <ActionForm action={portalMessageAction.bind(null, token)} className="home-form">
               <textarea name="body" rows={3} className="home-input" placeholder="Message" aria-label="Message" />
-              <label className="home-sub">
-                Photo
-                <input className="home-file" type="file" name="photo" accept="image/jpeg,image/png,image/webp" />
-              </label>
+              <FileButton name="photo" label="Photo" accept="image/jpeg,image/png,image/webp" empty="Photo" />
               <button type="submit" className="home-btn">
                 Send
               </button>
