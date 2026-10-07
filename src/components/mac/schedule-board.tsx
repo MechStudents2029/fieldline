@@ -327,14 +327,14 @@ export function ScheduleBoard({ board, openJobId }: { board: Board; openJobId: s
         ) : null}
       </div>
       {draft ? (
-        <aside role="dialog" aria-label="Schedule item" className="absolute inset-y-0 right-0 z-20 flex w-[320px] flex-col gap-3 border-l border-[var(--mac-separator)] bg-[var(--mac-window)] p-4">
-          <div className="flex items-center justify-between">
+        <aside role="dialog" aria-label="Schedule item" className="absolute inset-y-0 right-0 z-20 flex w-[320px] flex-col gap-3 overflow-hidden border-l border-[var(--mac-separator)] bg-[var(--mac-window)] p-4">
+          <div className="flex shrink-0 items-center justify-between bg-[var(--mac-window)]">
             <h2 className="mac-t15">{draft.id ? "Item" : "New item"}</h2>
             <button type="button" className="mac-glass-btn" onClick={() => setDraft(null)} aria-label="Close">
               Close
             </button>
           </div>
-          <form key={`${draft.id ?? "new"}-${draft.startDate}-${draft.assigneeIds.join(",")}`} className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto" onSubmit={onSubmit}>
+          <form key={`${draft.id ?? "new"}-${draft.startDate}-${draft.assigneeIds.join(",")}`} className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overflow-x-hidden" onSubmit={onSubmit}>
             {draft.id ? <input type="hidden" name="itemId" value={draft.id} /> : null}
             <label className="text-[13px]">
               Job
@@ -380,22 +380,27 @@ export function ScheduleBoard({ board, openJobId }: { board: Board; openJobId: s
                 <legend className="text-[13px]">After</legend>
                 {board.catalog
                   .filter((item) => item.projectId === draft.projectId && item.id !== draft.id)
+                  .sort((a, b) => a.title.localeCompare(b.title))
                   .map((item) => {
                     const link = board.links.find((row) => row.itemId === draft.id && row.predecessorId === item.id);
                     return (
-                      <label key={item.id} className="flex items-center gap-2 text-[13px]">
-                        <input type="checkbox" name="pred" value={item.id} defaultChecked={Boolean(link)} disabled={!board.canEdit} />
-                        <span className="min-w-0 flex-1 truncate">{item.title}</span>
-                        <input
-                          name={`lag-${item.id}`}
-                          aria-label={`Lag ${item.title}`}
-                          type="number"
-                          min={0}
-                          max={60}
-                          defaultValue={link?.lag ?? 0}
-                          className="field w-14"
-                          disabled={!board.canEdit}
-                        />
+                      <label key={item.id} className="grid grid-cols-[16px_minmax(0,1fr)_auto] items-center gap-2 text-[13px]">
+                        <input type="checkbox" name="pred" value={item.id} aria-label={`After ${item.title}`} defaultChecked={Boolean(link)} disabled={!board.canEdit} />
+                        <span className="truncate">{item.title}</span>
+                        <span className="inline-flex items-center gap-1">
+                          <input
+                            name={`lag-${item.id}`}
+                            aria-label={`Lag ${item.title} workdays`}
+                            type="number"
+                            min={0}
+                            max={60}
+                            defaultValue={link?.lag ?? 0}
+                            style={{ width: 52 }}
+                            className="h-7 shrink-0 rounded-md border border-[var(--mac-separator)] bg-[var(--mac-window)] px-1 text-right num"
+                            disabled={!board.canEdit}
+                          />
+                          <span className="text-[var(--mac-secondary)]">workdays</span>
+                        </span>
                       </label>
                     );
                   })}

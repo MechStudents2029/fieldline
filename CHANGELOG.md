@@ -2,6 +2,11 @@
 
 ## 2026-10-07
 
+### Work in progress
+
+- Reports holds a WIP page for the owner, an admin, and office. Field does not see it. One row per open job, plus a total. The as-of date rebuilds the month from records dated on or before that day. Filter by PM or status. A row opens that job’s cost codes. A projected-cost override needs a note and shows on the row.
+- CSV downloads the rows on screen. The filename carries the as-of date. Print is a landscape page. Today lists Underbilled with the count and the dollars.
+
 ### Job templates
 
 - A schedule item can depend on another item finishing first, with a lag in company workdays. Moving or extending that item shifts the items that follow. A loop is refused. The count shows before the save, as in Moves 4 items. An RFI schedule impact uses the same shift. The change is on the audit log.

@@ -4,6 +4,7 @@ import { Command } from "cmdk";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Dialog as DialogPrimitive } from "radix-ui";
+import { canEditCrm, type Role } from "@/lib/permissions";
 import type { OfficeChrome } from "@/lib/services/read";
 
 export function CommandMenu({ chrome, role }: { chrome: OfficeChrome; role: string }) {
@@ -59,6 +60,7 @@ export function CommandMenu({ chrome, role }: { chrome: OfficeChrome; role: stri
             <Command.Item onSelect={() => go("/time")}>Time</Command.Item>
             {field ? null : <Command.Item onSelect={() => go("/invoices")}>Invoices</Command.Item>}
             {field ? null : <Command.Item onSelect={() => go("/bills")}>Bills</Command.Item>}
+            {canEditCrm(role as Role) ? <Command.Item onSelect={() => go("/reports/wip")}>WIP</Command.Item> : null}
             <Command.Item onSelect={() => go("/contacts")}>Clients</Command.Item>
             {role === "owner" || role === "admin" ? <Command.Item onSelect={() => go("/import")}>Import</Command.Item> : null}
             <Command.Item onSelect={() => go("/settings")}>Settings</Command.Item>

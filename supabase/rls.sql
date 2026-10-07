@@ -516,3 +516,17 @@ create policy template_attempts_scope on public.template_attempts
   for all to authenticated
   using (org_id in (select public.current_org_ids()) and user_id = public.current_user_id())
   with check (org_id in (select public.current_org_ids()) and user_id = public.current_user_id());
+
+alter table public.wip_overrides enable row level security;
+drop policy if exists wip_overrides_scope on public.wip_overrides;
+create policy wip_overrides_scope on public.wip_overrides
+  for all to authenticated
+  using (org_id in (select public.current_org_ids()) and public.can_see_money(org_id))
+  with check (org_id in (select public.current_org_ids()) and public.can_see_money(org_id));
+
+alter table public.wip_attempts enable row level security;
+drop policy if exists wip_attempts_scope on public.wip_attempts;
+create policy wip_attempts_scope on public.wip_attempts
+  for all to authenticated
+  using (org_id in (select public.current_org_ids()) and user_id = public.current_user_id())
+  with check (org_id in (select public.current_org_ids()) and user_id = public.current_user_id());

@@ -100,7 +100,7 @@ import {
   WEBSITE_FORM_SOURCE,
 } from "@/lib/lead-form/rules";
 
-export const SEED_VERSION = "21";
+export const SEED_VERSION = "22";
 
 const ORG = "org_rivera";
 const NORTH = "org_northline";
@@ -2487,6 +2487,120 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
         createdAt: commentAt(1),
       },
     ])
+    .run();
+
+  db.update(projects).set({ pmUserId: "user_luis" }).where(eq(projects.id, "proj_okonkwo")).run();
+  db.update(projects).set({ pmUserId: "user_maya" }).where(eq(projects.id, "proj_brooks")).run();
+  db.update(projects).set({ pmUserId: "user_maya" }).where(eq(projects.id, "proj_chen")).run();
+  db.update(projects).set({ pmUserId: "user_luis" }).where(eq(projects.id, "proj_diaz")).run();
+  const powderStart = daysAgo(20).slice(0, 10);
+  const powderBill = daysAgo(14).slice(0, 10);
+  const powderInvoice = daysAgo(8).slice(0, 10);
+  db.insert(projects)
+    .values({
+      id: "proj_brooks_bath",
+      orgId: ORG,
+      leadId: null,
+      proposalId: null,
+      contactId: "c_brooks",
+      name: "Brooks powder room",
+      status: "active",
+      address: "44 Canyon Rd, Orinda, CA",
+      contractValueCents: 2_800_000,
+      originalContractCents: 2_800_000,
+      startDate: powderStart,
+      endDate: null,
+      portalToken: "demo_portal_brooks_bath",
+      pmUserId: "user_luis",
+      createdAt: daysAgo(21),
+      updatedAt: daysAgo(40),
+      createdBy: "user_maya",
+    })
+    .run();
+  db.insert(budgetLines)
+    .values([
+      { id: "bud_bb_demo", orgId: ORG, projectId: "proj_brooks_bath", changeOrderId: null, name: "Demo", costCode: "DEMO-GUT", budgetCostCents: 400_000, budgetPriceCents: 560_000, sourceLineId: null, createdAt: daysAgo(21) },
+      { id: "bud_bb_plumb", orgId: ORG, projectId: "proj_brooks_bath", changeOrderId: null, name: "Plumbing", costCode: "PLB-TOILET", budgetCostCents: 1_600_000, budgetPriceCents: 2_240_000, sourceLineId: null, createdAt: daysAgo(21) },
+    ])
+    .run();
+  db.insert(costItems)
+    .values({
+      id: "cost_bb_plumb",
+      orgId: ORG,
+      projectId: "proj_brooks_bath",
+      budgetLineId: "bud_bb_plumb",
+      costCode: "PLB-TOILET",
+      amountCents: 1_600_000,
+      vendorName: "Summit Lumber",
+      memo: "Rough and trim",
+      source: "bill",
+      aiExtracted: 0,
+      documentId: null,
+      createdAt: daysAgo(13),
+      updatedAt: daysAgo(13),
+      createdBy: "user_sam",
+    })
+    .run();
+  db.insert(bills)
+    .values({
+      id: "bill_brooks_bath",
+      orgId: ORG,
+      projectId: "proj_brooks_bath",
+      vendorContactId: "c_summit",
+      billNumber: "SL-510",
+      billDate: powderBill,
+      amountCents: 1_600_000,
+      dueDate: powderInvoice,
+      status: "approved",
+      memo: "Powder room lumber",
+      voidReason: null,
+      paidAt: null,
+      payMethod: null,
+      payReference: null,
+      documentId: null,
+      purchaseOrderId: null,
+      approvedAt: daysAgo(13),
+      lowConfidence: 0,
+      createdAt: daysAgo(14),
+      updatedAt: daysAgo(13),
+      createdBy: "user_sam",
+    })
+    .run();
+  db.insert(billLines)
+    .values({
+      id: "bln_brooks_bath",
+      orgId: ORG,
+      billId: "bill_brooks_bath",
+      costCode: "PLB-TOILET",
+      description: "Rough and trim",
+      amountCents: 1_600_000,
+      costItemId: "cost_bb_plumb",
+      sortOrder: 0,
+    })
+    .run();
+  db.insert(invoices)
+    .values({
+      id: "inv_brooks_bath",
+      orgId: ORG,
+      projectId: "proj_brooks_bath",
+      changeOrderId: null,
+      number: "RR-1058",
+      type: "deposit",
+      status: "open",
+      scheduleIndex: 0,
+      issueDate: powderInvoice,
+      dueDate: daysAgo(1).slice(0, 10),
+      subtotalCents: 560_000,
+      taxCents: 0,
+      totalCents: 560_000,
+      amountPaidCents: 0,
+      payToken: "demo_pay_brooks_bath",
+      applicationNumber: null,
+      retainageCents: 0,
+      createdAt: daysAgo(8),
+      updatedAt: daysAgo(8),
+      createdBy: "user_sam",
+    })
     .run();
 
   seedTemplates(db, now);
