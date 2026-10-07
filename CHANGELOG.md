@@ -2,6 +2,12 @@
 
 ## 2026-10-07
 
+### Job templates
+
+- A schedule item can depend on another item finishing first, with a lag in company workdays. Moving or extending that item shifts the items that follow. A loop is refused. The count shows before the save, as in Moves 4 items. An RFI schedule impact uses the same shift. The change is on the audit log.
+- Templates live under Work. A template holds a schedule with offsets and trades, estimate lines, a draw schedule in percent, selections with allowances, and a punch list. It does not keep a client, a vendor price, or a photo. Saving a job as a template asks which parts, with a count on each, and drops the client, the dates, the actuals, and the statuses.
+- A new job picks a template, the parts, a start date, a PM, and a vendor for each trade. Dates land on workdays. Draws are rescaled so they match the contract to the cent. An empty template is refused. Importing into a job only adds rows. The job keeps the template name and version it was made from. Later edits to the template do not change that job. Field does not see template money. Office manages templates. Writes are rate limited and audited.
+
 ### Comments and Inbox
 
 - A job, estimate, change order, purchase order, bill, RFI, punch item, daily log, or schedule item can hold an internal comment thread. Text keeps line breaks. A photo uses the same upload check as the rest of the app. The author can edit for 15 minutes and can delete their own comment. Both are on the audit log. Posting is rate limited. Client and vendor portals do not show these comments. Field can comment on jobs they can see, and cannot see comments on estimates, change orders, purchase orders, or bills.

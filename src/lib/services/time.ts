@@ -91,6 +91,18 @@ export function calendarForOrg(orgId: string): WorkCalendar {
   return { timeZone, weekStartsOn };
 }
 
+/** Monday–Friday unless the company saved a different set. Bit 0 is Sunday. */
+export function workdaysForOrg(orgId: string): number {
+  const org = getDb()
+    .select({ workdaysMask: organizations.workdaysMask })
+    .from(organizations)
+    .where(eq(organizations.id, orgId))
+    .get();
+  const mask = org?.workdaysMask;
+  if (typeof mask === "number" && mask > 0 && mask < 128) return mask;
+  return 62;
+}
+
 export function detectTimeFlags(
   entries: { id: string; userId: string; status: string; clockInAt: string; clockOutAt: string | null; breakMinutes: number; breakStartedAt: string | null }[],
   now = Date.now(),
@@ -614,22 +626,29 @@ export function setHourlyCost(actor: Actor, userId: string | null, hourlyCostCen
     .run();
 }
 
-export function updateWorkCalendar(actor: Actor, input: { timeZone: string; weekStartsOn: number }) {
+export function updateWorkCalendar(actor: Actor, input: { timeZone: string; weekStartsOn: number; workdays?: number[] }) {
   if (!canManageSettings(actor.role as Role)) throw new ServiceError("Only an owner or admin can change the workweek.");
   if (!isValidTimeZone(input.timeZone)) throw new ServiceError("Pick a time zone.");
   if (!Number.isInteger(input.weekStartsOn) || input.weekStartsOn < 0 || input.weekStartsOn > 6) {
     throw new ServiceError("Pick the day the week starts.");
   }
+  let workdaysMask: number | null = null;
+  if (input.workdays) {
+    if (input.workdays.length === 0 || input.workdays.some((day) => !Number.isInteger(day) || day < 0 || day > 6)) {
+      throw new ServiceError("Pick at least one workday.");
+    }
+    workdaysMask = input.workdays.reduce((mask, day) => mask | (1 << day), 0);
+  }
   const db = officeOrThrow(actor);
   const org = db.select().from(organizations).where(eq(organizations.id, actor.orgId)).get();
   if (!org) throw new ServiceError("Company not found.");
-  const before = { timeZone: org.timeZone, weekStartsOn: org.weekStartsOn };
-  const after = { timeZone: input.timeZone, weekStartsOn: input.weekStartsOn };
-  if (before.timeZone === after.timeZone && before.weekStartsOn === after.weekStartsOn) return;
+  const before = { timeZone: org.timeZone, weekStartsOn: org.weekStartsOn, workdaysMask: org.workdaysMask };
+  const after = { timeZone: input.timeZone, weekStartsOn: input.weekStartsOn, workdaysMask: workdaysMask ?? org.workdaysMask };
+  if (before.timeZone === after.timeZone && before.weekStartsOn === after.weekStartsOn && before.workdaysMask === after.workdaysMask) return;
   const stamp = nowIso();
   db.transaction((tx) => {
     tx.update(organizations)
-      .set({ timeZone: after.timeZone, weekStartsOn: after.weekStartsOn, updatedAt: stamp })
+      .set({ timeZone: after.timeZone, weekStartsOn: after.weekStartsOn, workdaysMask: after.workdaysMask, updatedAt: stamp })
       .where(eq(organizations.id, actor.orgId))
       .run();
     tx.insert(activities)

@@ -90,7 +90,7 @@ export default async function RfiPage({ params }: { params: Promise<{ id: string
       ) : null}
       {rfi.canShift ? (
         <ActionForm action={shiftRfiAction.bind(null, rfi.id)}>
-          <button type="submit">Shift schedule</button>
+          <button type="submit">{rfi.shiftLabel ?? "Shift schedule"}</button>
         </ActionForm>
       ) : null}
       {rfi.canClose ? (

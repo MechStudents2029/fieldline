@@ -12,7 +12,7 @@ import { requireSession } from "@/lib/auth/session";
 import { formatCalendarDay, formatDateTime, formatWarrantyDay } from "@/lib/format";
 import { overBudgetPercent } from "@/lib/margin/category";
 import { formatMoney, formatPercent, formatWhole } from "@/lib/money";
-import { canEditSchedule } from "@/lib/permissions";
+import { canEditCrm, canEditSchedule } from "@/lib/permissions";
 import { projectBills } from "@/lib/services/bills";
 import { projectPurchaseOrders } from "@/lib/services/purchase-orders";
 import { captionFromMetadata, listPriceBook, listProjects, pipelineBoard, projectDetail } from "@/lib/services/read";
@@ -39,8 +39,10 @@ function codeTone(percent: number | null, level: string) {
   return "text-[var(--fl-secondary)]";
 }
 
-export default async function ProjectPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function ProjectPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ created?: string }> }) {
   const { id } = await params;
+  const created = (await searchParams).created;
+  const createdCount = created && /^\d+$/.test(created) ? created : null;
   const session = await requireSession();
   const detail = projectDetail(session.orgId, id, session.role);
   if (!detail?.contact) return <MissingRecord orgName={session.orgName} kind="job" />;
@@ -107,11 +109,29 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
         />
       </div>
       <div className="md:px-6 md:pb-8">
+      {detail.project.templateName ? (
+        <p className="mb-3 hidden mac-t11 text-[var(--mac-secondary)] md:block">
+          {detail.project.templateName} v{detail.project.templateVersion}
+        </p>
+      ) : null}
+      {createdCount ? <p role="status">Created {createdCount} items</p> : null}
+      {canEditCrm(session.role) ? (
+        <p className="mb-3">
+          <Link href={`/projects/${detail.project.id}/template`} className="text-sm text-[var(--fl-accent)]">
+            Template
+          </Link>
+        </p>
+      ) : null}
       <div className="fl-safe-top md:hidden">
         <Link href="/projects" className="fl-body text-[var(--fl-accent)]">
           ‹ Jobs
         </Link>
         <h1 className="fl-title mt-2">{detail.project.name}</h1>
+        {detail.project.templateName ? (
+          <p className="mac-t11 text-[var(--fl-secondary)]">
+            {detail.project.templateName} v{detail.project.templateVersion}
+          </p>
+        ) : null}
         <p className="fl-secondary-text text-[var(--fl-secondary)]">{detail.project.address}</p>
       </div>
       {money ? (

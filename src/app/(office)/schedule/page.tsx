@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { ScheduleBoard } from "@/components/mac/schedule-board";
 import { requireSession } from "@/lib/auth/session";
 import { scheduleBoard } from "@/lib/services/schedule";
@@ -18,12 +19,12 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
           {board.phone.length === 0 ? <li className="fl-cell">No items this week</li> : null}
           {board.phone.map((item) => (
             <li key={item.id} className="fl-cell">
-              <span className="min-w-0 flex-1">
+              <Link href={`/schedule/items/${item.id}`} className="min-w-0 flex-1">
                 <span className="fl-body block truncate">{item.jobName}</span>
                 <span className="fl-footnote block truncate text-[var(--fl-secondary)]">
                   {item.title} · {item.who} · {item.when}
                 </span>
-              </span>
+              </Link>
               {item.conflict ? <span className="fl-pill">Conflict</span> : null}
               {item.rfiDue ? <span className="text-[11px] text-[var(--fl-secondary)]">RFI</span> : null}
             </li>

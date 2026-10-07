@@ -20,6 +20,7 @@ export const organizations = sqliteTable("organizations", {
   setupDismissedAt: text("setup_dismissed_at"),
   timeZone: text("time_zone").notNull().default("America/New_York"),
   weekStartsOn: integer("week_starts_on").notNull().default(1),
+  workdaysMask: integer("workdays_mask").notNull().default(62),
   warrantyMonths: integer("warranty_months").notNull().default(12),
   vendorComplianceMode: text("vendor_compliance_mode").notNull().default("warn"),
   vendorRequiredTypes: text("vendor_required_types").notNull().default("general_liability,workers_comp"),
@@ -286,6 +287,10 @@ export const projects = sqliteTable(
     closeOverrideReason: text("close_override_reason"),
     billingMode: text("billing_mode").notNull().default("draws"),
     retainageBps: integer("retainage_bps").notNull().default(0),
+    templateId: text("template_id"),
+    templateVersion: integer("template_version"),
+    templateName: text("template_name"),
+    pmUserId: text("pm_user_id"),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
     createdBy: text("created_by"),
@@ -1429,4 +1434,131 @@ export const commentAttempts = sqliteTable(
     createdAt: text("created_at").notNull(),
   },
   (t) => [index("comment_attempts_user").on(t.orgId, t.userId, t.createdAt)],
+);
+
+/** Finish-to-start link. Lag is workdays after the predecessor finish. */
+export const scheduleLinks = sqliteTable(
+  "schedule_links",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    projectId: text("project_id").notNull(),
+    itemId: text("item_id").notNull(),
+    predecessorId: text("predecessor_id").notNull(),
+    lagWorkdays: integer("lag_workdays").notNull().default(0),
+  },
+  (t) => [uniqueIndex("schedule_links_edge").on(t.orgId, t.itemId, t.predecessorId), index("schedule_links_project").on(t.orgId, t.projectId)],
+);
+
+export const jobTemplates = sqliteTable(
+  "job_templates",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    name: text("name").notNull(),
+    jobType: text("job_type").notNull(),
+    version: integer("version").notNull(),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    createdBy: text("created_by"),
+  },
+  (t) => [index("job_templates_org").on(t.orgId, t.name)],
+);
+
+export const templateTasks = sqliteTable(
+  "template_tasks",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    templateId: text("template_id").notNull(),
+    itemKey: text("item_key").notNull(),
+    title: text("title").notNull(),
+    phase: text("phase"),
+    startOffset: integer("start_offset").notNull(),
+    durationWorkdays: integer("duration_workdays").notNull(),
+    trade: text("trade"),
+    sortOrder: integer("sort_order").notNull(),
+  },
+  (t) => [index("template_tasks_template").on(t.orgId, t.templateId)],
+);
+
+export const templateTaskLinks = sqliteTable(
+  "template_task_links",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    templateId: text("template_id").notNull(),
+    itemKey: text("item_key").notNull(),
+    predecessorKey: text("predecessor_key").notNull(),
+    lagWorkdays: integer("lag_workdays").notNull().default(0),
+  },
+  (t) => [index("template_task_links_template").on(t.orgId, t.templateId)],
+);
+
+export const templateLines = sqliteTable(
+  "template_lines",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    templateId: text("template_id").notNull(),
+    name: text("name").notNull(),
+    costCode: text("cost_code"),
+    qtyMilli: integer("qty_milli").notNull(),
+    unit: text("unit").notNull(),
+    unitCostCents: integer("unit_cost_cents").notNull(),
+    unitPriceCents: integer("unit_price_cents").notNull(),
+    sortOrder: integer("sort_order").notNull(),
+  },
+  (t) => [index("template_lines_template").on(t.orgId, t.templateId)],
+);
+
+export const templateDraws = sqliteTable(
+  "template_draws",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    templateId: text("template_id").notNull(),
+    title: text("title").notNull(),
+    bps: integer("bps").notNull(),
+    sortOrder: integer("sort_order").notNull(),
+  },
+  (t) => [index("template_draws_template").on(t.orgId, t.templateId)],
+);
+
+export const templateSelections = sqliteTable(
+  "template_selections",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    templateId: text("template_id").notNull(),
+    title: text("title").notNull(),
+    area: text("area"),
+    allowanceCents: integer("allowance_cents").notNull(),
+    sortOrder: integer("sort_order").notNull(),
+  },
+  (t) => [index("template_selections_template").on(t.orgId, t.templateId)],
+);
+
+export const templateChecks = sqliteTable(
+  "template_checks",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    templateId: text("template_id").notNull(),
+    title: text("title").notNull(),
+    kind: text("kind").notNull(),
+    sortOrder: integer("sort_order").notNull(),
+  },
+  (t) => [index("template_checks_template").on(t.orgId, t.templateId)],
+);
+
+export const templateAttempts = sqliteTable(
+  "template_attempts",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    userId: text("user_id").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [index("template_attempts_user").on(t.orgId, t.userId, t.createdAt)],
 );

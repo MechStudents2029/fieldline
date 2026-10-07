@@ -1,7 +1,7 @@
 import { and, eq, gte, inArray, lte } from "drizzle-orm";
 import { getDb } from "@/lib/db/client";
 import { officeDb } from "@/lib/db/office";
-import { calendarFeeds, memberships, projects, scheduleAssignees, scheduleItems, users } from "@/lib/db/schema";
+import { calendarFeeds, memberships, projects, scheduleAssignees, scheduleItems, scheduleLinks, users } from "@/lib/db/schema";
 import { overdueScheduleIds } from "@/lib/services/rfis";
 import { id, nowIso } from "@/lib/ids";
 import { canEditSchedule, type Role } from "@/lib/permissions";
@@ -11,6 +11,7 @@ import { inclusiveDays, scheduleWindow, type ScheduleSpan } from "@/lib/schedule
 import { feedTokenMatches, hashFeedToken, newFeedSecret } from "@/lib/schedule/token";
 import { notifyAssignment } from "@/lib/services/comments";
 import { ServiceError } from "@/lib/services/errors";
+import { buildSchedulePlan, replaceScheduleLinks, writeScheduleShifts, type ScheduleLinkInput } from "@/lib/services/schedule-shift";
 import type { Actor } from "@/lib/services/read";
 import { calendarForOrg } from "@/lib/services/time";
 import { addCalendarDays, localDay, zonedTimeToUtc } from "@/lib/time/calendar";
@@ -28,6 +29,7 @@ export type ScheduleInput = {
   status: ScheduleStatus;
   note: string | null;
   assigneeIds: string[];
+  links?: ScheduleLinkInput[];
 };
 
 export type ScheduleChip = {
@@ -63,6 +65,8 @@ export type ScheduleBoard = {
   canEdit: boolean;
   hrefs: { prev: string; next: string; today: string; week: string; two: string; current: string };
   phone: { id: string; jobName: string; title: string; who: string; when: string; conflict: boolean; rfiDue: boolean }[];
+  catalog: { id: string; projectId: string; title: string }[];
+  links: { itemId: string; predecessorId: string; lag: number }[];
 };
 
 export type DayAssignment = {
@@ -286,6 +290,38 @@ export function scheduleBoard(actor: Actor, query: { on?: string; span?: string 
           rfiDue: lateRfi.has(row.id),
         };
       }),
+    catalog: db
+      .select({ id: scheduleItems.id, projectId: scheduleItems.projectId, title: scheduleItems.title })
+      .from(scheduleItems)
+      .where(eq(scheduleItems.orgId, actor.orgId))
+      .all()
+      .sort((a, b) => a.title.localeCompare(b.title)),
+    links: db
+      .select()
+      .from(scheduleLinks)
+      .where(eq(scheduleLinks.orgId, actor.orgId))
+      .all()
+      .map((row) => ({ itemId: row.itemId, predecessorId: row.predecessorId, lag: row.lagWorkdays })),
+  };
+}
+
+export function scheduleItemBrief(actor: Actor, itemId: string) {
+  const db = officeOrThrow(actor);
+  const item = db
+    .select({ item: scheduleItems, jobName: projects.name })
+    .from(scheduleItems)
+    .innerJoin(projects, and(eq(projects.id, scheduleItems.projectId), eq(projects.orgId, scheduleItems.orgId)))
+    .where(and(eq(scheduleItems.orgId, actor.orgId), eq(scheduleItems.id, itemId)))
+    .get();
+  if (!item) return null;
+  return {
+    id: item.item.id,
+    projectId: item.item.projectId,
+    jobName: item.jobName,
+    title: item.item.title,
+    startDate: item.item.startDate,
+    endDate: item.item.endDate,
+    canEdit: canEditSchedule(actor.role as Role),
   };
 }
 
@@ -391,6 +427,9 @@ export function saveScheduleItem(actor: Actor, input: ScheduleInput, itemId?: st
     : null;
   if (itemId && !existing) throw new ServiceError("That schedule item is not in your company.");
   const savedId = existing?.id ?? id("sch");
+  if (existing && input.links) replaceScheduleLinks(actor, savedId, input.links);
+  const dateChanged = Boolean(existing && (existing.startDate !== startDate || existing.endDate !== endDate));
+  const plan = dateChanged ? buildSchedulePlan(actor, savedId, startDate, endDate) : [];
   if (existing) {
     db.update(scheduleItems)
       .set({ projectId: project.id, title, startDate, endDate, startTime, status, note, updatedAt: now })
@@ -414,6 +453,8 @@ export function saveScheduleItem(actor: Actor, input: ScheduleInput, itemId?: st
       })
       .run();
   }
+  if (!existing && input.links) replaceScheduleLinks(actor, savedId, input.links);
+  if (plan.length) writeScheduleShifts(db, actor, plan);
   const previous = existing
     ? db
         .select()
@@ -440,10 +481,8 @@ export function moveScheduleItem(actor: Actor, itemId: string, input: { startDat
   const startDate = cleanDate(input.startDate, "start");
   const endDate = cleanDate(input.endDate, "end");
   if (endDate < startDate) throw new ServiceError("End is on or after the start.");
-  db.update(scheduleItems)
-    .set({ startDate, endDate, updatedAt: nowIso() })
-    .where(and(eq(scheduleItems.orgId, actor.orgId), eq(scheduleItems.id, itemId)))
-    .run();
+  const plan = buildSchedulePlan(actor, itemId, startDate, endDate);
+  if (plan.length) writeScheduleShifts(db, actor, plan);
   const previous = db
     .select()
     .from(scheduleAssignees)

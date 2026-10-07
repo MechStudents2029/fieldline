@@ -29,13 +29,13 @@ import { IP_WINDOW_MS, ORG_WINDOW_MS, rateLimitError } from "@/lib/lead-form/rul
 import { MAX_MONEY_CENTS } from "@/lib/money";
 import { canAddFieldNotes, canEditCrm, canEditSchedule, canManageMoney, canSeeMoney, type Role } from "@/lib/permissions";
 import { ageDays, impactText, isOverdueRfi, nextRfiNumber, RFI_STATUS_LABEL, rfiLabel } from "@/lib/rfis/format";
-import { shiftSpan } from "@/lib/schedule/range";
+import { buildSchedulePlan, previewScheduleShift, workdaySpan, writeScheduleShifts } from "@/lib/services/schedule-shift";
 import { photoExtension, photoUploadError, rasterImageType } from "@/lib/security";
 import { notifyAssignment, notifyRfiAnswer } from "@/lib/services/comments";
 import { ServiceError } from "@/lib/services/errors";
 import type { Actor } from "@/lib/services/read";
 import { createChangeOrder } from "@/lib/services/write";
-import { addCalendarDays, localDay } from "@/lib/time/calendar";
+import { localDay } from "@/lib/time/calendar";
 import { hashVendorToken, vendorTokenMatches } from "@/lib/vendor/token";
 
 const RELATED = ["schedule", "selection", "purchase_order", "bid", "punch", "change_order"] as const;
@@ -93,6 +93,7 @@ export type RfiDetail = RfiListItem & {
   canClose: boolean;
   canDraft: boolean;
   canShift: boolean;
+  shiftLabel: string | null;
   costImpact: boolean;
   costCents: number | null;
   scheduleImpactDays: number | null;
@@ -602,13 +603,11 @@ export function shiftRfiSchedule(actor: Actor, rfiId: string) {
     .where(and(eq(scheduleItems.orgId, actor.orgId), eq(scheduleItems.id, row.relatedId), eq(scheduleItems.projectId, row.projectId)))
     .get();
   if (!item) throw new ServiceError("That item is not on this job.");
-  const next = shiftSpan(item.startDate, item.endDate, addCalendarDays(item.startDate, row.scheduleImpactDays));
+  const next = workdaySpan(actor, item.startDate, item.endDate, row.scheduleImpactDays);
+  const plan = buildSchedulePlan(actor, item.id, next.startDate, next.endDate);
   const now = nowIso();
   db.transaction((tx) => {
-    tx.update(scheduleItems)
-      .set({ startDate: next.startDate, endDate: next.endDate, updatedAt: now })
-      .where(and(eq(scheduleItems.orgId, actor.orgId), eq(scheduleItems.id, item.id)))
-      .run();
+    writeScheduleShifts(tx as unknown as AppDatabase, actor, plan);
     tx.update(rfis).set({ scheduleShiftedAt: now, updatedAt: now }).where(and(eq(rfis.orgId, actor.orgId), eq(rfis.id, row.id))).run();
     writeAudit(tx as unknown as AppDatabase, actor.orgId, actor.userId, "rfi.impact", row.id, {
       scheduleItemId: item.id,
@@ -707,6 +706,19 @@ export function rfiDetail(actor: Actor, rfiId: string): RfiDetail | null {
     ? db.select().from(changeOrders).where(and(eq(changeOrders.orgId, actor.orgId), eq(changeOrders.id, row.changeOrderId))).get()
     : null;
   const files = fileMap(db, actor.orgId, [row.id]).filter((file) => !file.messageId).map((file) => ({ id: file.id, filename: file.filename }));
+  const canShift = canEditSchedule(role(actor)) && row.relatedType === "schedule" && Boolean(row.scheduleImpactDays) && !row.scheduleShiftedAt && row.status !== "void";
+  let shiftLabel: string | null = null;
+  if (canShift && row.relatedId && row.scheduleImpactDays) {
+    const linked = db
+      .select()
+      .from(scheduleItems)
+      .where(and(eq(scheduleItems.orgId, actor.orgId), eq(scheduleItems.id, row.relatedId)))
+      .get();
+    if (linked) {
+      const next = workdaySpan(actor, linked.startDate, linked.endDate, row.scheduleImpactDays);
+      shiftLabel = previewScheduleShift(actor, linked.id, next.startDate, next.endDate).label;
+    }
+  }
   return {
     ...base,
     question: row.question,
@@ -715,7 +727,8 @@ export function rfiDetail(actor: Actor, rfiId: string): RfiDetail | null {
     canAnswer: row.status === "open" || row.status === "answered",
     canClose: office && row.status !== "closed" && row.status !== "void",
     canDraft: canManageMoney(role(actor)) && row.costImpact === 1 && (row.costImpactCents ?? 0) > 0 && !row.changeOrderId && row.status !== "void",
-    canShift: canEditSchedule(role(actor)) && row.relatedType === "schedule" && Boolean(row.scheduleImpactDays) && !row.scheduleShiftedAt && row.status !== "void",
+    canShift,
+    shiftLabel,
     costImpact: row.costImpact === 1,
     costCents: showMoney ? row.costImpactCents : null,
     scheduleImpactDays: row.scheduleImpactDays,

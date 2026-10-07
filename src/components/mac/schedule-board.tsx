@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { moveScheduleAction, saveScheduleAction } from "@/app/actions";
+import { moveScheduleAction, previewScheduleShiftAction, saveScheduleAction } from "@/app/actions";
 import { Segmented, Toolbar } from "@/components/mac/toolbar";
 import { shiftSpan } from "@/lib/schedule/range";
 import type { ScheduleBoard as Board, ScheduleChip } from "@/lib/services/schedule";
@@ -25,6 +25,7 @@ type Pending = {
   startDate: string;
   endDate: string;
   assigneeId: string | null;
+  label?: string;
 };
 
 export function ScheduleBoard({ board, openJobId }: { board: Board; openJobId: string | null }) {
@@ -45,6 +46,7 @@ export function ScheduleBoard({ board, openJobId }: { board: Board; openJobId: s
     };
   });
   const [pending, setPending] = useState<Pending | null>(null);
+  const [confirmMove, setConfirmMove] = useState<{ label: string; start: string; end: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -63,6 +65,7 @@ export function ScheduleBoard({ board, openJobId }: { board: Board; openJobId: s
 
   function openCreate(userId: string | null, day: string) {
     setPending(null);
+    setConfirmMove(null);
     setError(null);
     setDraft({
       id: null,
@@ -79,6 +82,7 @@ export function ScheduleBoard({ board, openJobId }: { board: Board; openJobId: s
 
   function openEdit(item: ScheduleChip) {
     setPending(null);
+    setConfirmMove(null);
     setError(null);
     setDraft({
       id: item.id,
@@ -97,8 +101,17 @@ export function ScheduleBoard({ board, openJobId }: { board: Board; openJobId: s
     event.preventDefault();
     if (!board.canEdit || busy) return;
     setBusy(true);
-    const result = await saveScheduleAction(null, new FormData(event.currentTarget));
+    const data = new FormData(event.currentTarget);
+    const start = String(data.get("startDate") || "");
+    const end = String(data.get("endDate") || "");
+    if (confirmMove && confirmMove.start === start && confirmMove.end === end) data.set("confirmShift", "1");
+    const result = await saveScheduleAction(null, data);
     setBusy(false);
+    if (result?.confirm) {
+      setConfirmMove({ label: result.confirm, start, end });
+      setError(null);
+      return;
+    }
     if (!result || result.error) {
       setError(result?.error ?? "Could not save.");
       return;
@@ -139,7 +152,7 @@ export function ScheduleBoard({ board, openJobId }: { board: Board; openJobId: s
       const nextStart = addCalendarDays(baseStart, event.key === "ArrowRight" ? 1 : -1);
       const shifted = shiftSpan(baseStart, baseEnd, nextStart);
       setDraft(null);
-      setPending({ id: itemId, startDate: shifted.startDate, endDate: shifted.endDate, assigneeId: baseUser || null });
+      void stageMove({ id: itemId, startDate: shifted.startDate, endDate: shifted.endDate, assigneeId: baseUser || null });
       return;
     }
     const index = board.rows.findIndex((row) => (row.userId ?? "") === (baseUser ?? ""));
@@ -162,16 +175,31 @@ export function ScheduleBoard({ board, openJobId }: { board: Board; openJobId: s
     }
     if (!payload.id || !payload.start || !payload.end) return;
     const shifted = shiftSpan(payload.start, payload.end, day);
+    void stageMove({ id: payload.id, startDate: shifted.startDate, endDate: shifted.endDate, assigneeId: userId });
+  }
+
+  async function stageMove(next: Pending) {
     setBusy(true);
-    void moveScheduleAction({ id: payload.id, startDate: shifted.startDate, endDate: shifted.endDate, assigneeId: userId }).then((result) => {
-      setBusy(false);
-      if (!result || result.error) {
-        setError(result?.error ?? "Could not save.");
-        return;
-      }
-      setPending(null);
-      router.refresh();
-    });
+    const preview = await previewScheduleShiftAction({ id: next.id, startDate: next.startDate, endDate: next.endDate });
+    setBusy(false);
+    if (preview.error) {
+      setError(preview.error);
+      return;
+    }
+    if (preview.count > 1) {
+      setError(null);
+      setPending({ ...next, label: preview.label });
+      return;
+    }
+    setBusy(true);
+    const result = await moveScheduleAction(next);
+    setBusy(false);
+    if (!result || result.error) {
+      setError(result?.error ?? "Could not save.");
+      return;
+    }
+    setPending(null);
+    router.refresh();
   }
 
   const conflictLabel = board.counts.conflicts === 1 ? "1 conflict" : `${board.counts.conflicts} conflicts`;
@@ -289,7 +317,7 @@ export function ScheduleBoard({ board, openJobId }: { board: Board; openJobId: s
         </span>
         {pending && board.canEdit ? (
           <button type="button" data-mac-primary className="mac-primary ml-auto" onClick={() => void saveMove()} disabled={busy}>
-            Save
+            {pending.label ?? "Save"}
           </button>
         ) : null}
         {error && !draft ? (
@@ -346,6 +374,33 @@ export function ScheduleBoard({ board, openJobId }: { board: Board; openJobId: s
               Note
               <textarea name="note" aria-label="Note" defaultValue={draft.note} rows={3} className="field mt-1" disabled={!board.canEdit} />
             </label>
+            {draft.id ? <input type="hidden" name="linksForm" value="1" /> : null}
+            {draft.id ? (
+              <fieldset className="flex flex-col gap-1">
+                <legend className="text-[13px]">After</legend>
+                {board.catalog
+                  .filter((item) => item.projectId === draft.projectId && item.id !== draft.id)
+                  .map((item) => {
+                    const link = board.links.find((row) => row.itemId === draft.id && row.predecessorId === item.id);
+                    return (
+                      <label key={item.id} className="flex items-center gap-2 text-[13px]">
+                        <input type="checkbox" name="pred" value={item.id} defaultChecked={Boolean(link)} disabled={!board.canEdit} />
+                        <span className="min-w-0 flex-1 truncate">{item.title}</span>
+                        <input
+                          name={`lag-${item.id}`}
+                          aria-label={`Lag ${item.title}`}
+                          type="number"
+                          min={0}
+                          max={60}
+                          defaultValue={link?.lag ?? 0}
+                          className="field w-14"
+                          disabled={!board.canEdit}
+                        />
+                      </label>
+                    );
+                  })}
+              </fieldset>
+            ) : null}
             <fieldset className="flex flex-col gap-1">
               <legend className="text-[13px]">Crew</legend>
               {board.crew.map((person) => (
@@ -355,6 +410,11 @@ export function ScheduleBoard({ board, openJobId }: { board: Board; openJobId: s
                 </label>
               ))}
             </fieldset>
+            {confirmMove ? (
+              <p role="status" className="text-[13px]">
+                {confirmMove.label}
+              </p>
+            ) : null}
             {error ? (
               <p role="alert" className="text-[13px] text-[var(--mac-danger)]">
                 {error}
@@ -367,7 +427,7 @@ export function ScheduleBoard({ board, openJobId }: { board: Board; openJobId: s
             ) : null}
             {board.canEdit ? (
               <button type="submit" data-mac-primary className="mac-primary" disabled={busy}>
-                Save
+                {confirmMove?.label ?? "Save"}
               </button>
             ) : null}
           </form>
