@@ -17,8 +17,11 @@ import { projectBills } from "@/lib/services/bills";
 import { projectPurchaseOrders } from "@/lib/services/purchase-orders";
 import { captionFromMetadata, listPriceBook, listProjects, pipelineBoard, projectDetail } from "@/lib/services/read";
 import { jobSchedule } from "@/lib/services/schedule";
+import { LinkedRfis } from "@/components/linked-rfis";
 import { PunchSection } from "@/components/punch-section";
+import { RfiSection } from "@/components/rfi-section";
 import { punchBoard } from "@/lib/services/punch";
+import { jobRfis } from "@/lib/services/rfis";
 import { bidComposer } from "@/lib/services/bids";
 import { drawSchedule } from "@/lib/services/draws";
 import { selectionBoard } from "@/lib/services/selections";
@@ -50,6 +53,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
   const schedule = jobSchedule(session, detail.project.id);
   const picks = selectionBoard(session, detail.project.id, todayKey);
   const punch = punchBoard(session, detail.project.id);
+  const rfiBoard = jobRfis(session, detail.project.id);
   const bidCount = detail.money ? (bidComposer(session, detail.project.id)?.bids.length ?? 0) : 0;
   const billing = detail.money ? drawSchedule(session, detail.project.id)?.billing : null;
   const ranked = money ? [...money.byCode].sort((a, b) => (b.percentOfBudget ?? 0) - (a.percentOfBudget ?? 0)).slice(0, 2) : [];
@@ -142,7 +146,15 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
           </div>
         </div>
       ) : null}
-      {punch ? <PunchSection board={punch} /> : null}
+      {punch ? (
+        <PunchSection
+          board={punch}
+          rfis={Object.fromEntries(
+            punch.items.map((item) => [item.id, (rfiBoard?.items ?? []).filter((rfi) => rfi.relatedType === "punch" && rfi.relatedId === item.id && rfi.status !== "void")]),
+          )}
+        />
+      ) : null}
+      {rfiBoard ? <RfiSection board={rfiBoard} /> : null}
       <nav aria-label="Job sections" className="grid grid-cols-5 rounded-[10px] bg-[var(--fl-fill)] p-1 md:hidden">
         <a href="#overview" className="rounded-lg bg-card py-1.5 text-center fl-footnote">
           Overview
@@ -304,9 +316,12 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
         <h2 className="fl-section">Change orders</h2>
         <ul className="fl-group">
           {detail.orders.map((order) => (
-            <li key={order.id} className="fl-cell">
-              <span className="fl-body flex-1">{order.title}</span>
-              {money ? <span className="tabular-nums">{formatWhole(order.priceDeltaCents)}</span> : null}
+            <li key={order.id} className="fl-cell flex-col items-stretch">
+              <span className="flex w-full items-center gap-2">
+                <span className="fl-body flex-1">{order.title}</span>
+                {money ? <span className="tabular-nums">{formatWhole(order.priceDeltaCents)}</span> : null}
+              </span>
+              <LinkedRfis rows={(rfiBoard?.items ?? []).filter((item) => item.relatedType === "change_order" && item.relatedId === order.id && item.status !== "void")} />
             </li>
           ))}
         </ul>
@@ -425,7 +440,9 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
         </div>
         <ul className="fl-group">
           {schedule.length === 0 ? <li className="fl-cell">No items</li> : null}
-          {schedule.map((item) => (
+          {schedule.map((item) => {
+            const late = (rfiBoard?.items ?? []).some((rfi) => rfi.relatedType === "schedule" && rfi.relatedId === item.id && rfi.overdue);
+            return (
             <li key={item.id} className="fl-cell">
               <span className="min-w-0 flex-1">
                 <span className="fl-body block truncate">{item.title}</span>
@@ -433,10 +450,13 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
                   {formatCalendarDay(item.startDate)}
                   {item.endDate !== item.startDate ? ` – ${formatCalendarDay(item.endDate)}` : ""} · {item.who}
                 </span>
+                <LinkedRfis rows={(rfiBoard?.items ?? []).filter((rfi) => rfi.relatedType === "schedule" && rfi.relatedId === item.id && rfi.status !== "void")} />
               </span>
+              {late ? <span className="text-[11px] text-[var(--mac-secondary)]">RFI</span> : null}
               <span className="fl-pill">{item.status === "planned" ? "Planned" : item.status === "confirmed" ? "Confirmed" : item.status === "done" ? "Done" : item.status}</span>
             </li>
-          ))}
+            );
+          })}
         </ul>
       </section>
       <section id="photos" className="mac-docs flex flex-col gap-3">

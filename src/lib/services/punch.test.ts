@@ -66,7 +66,7 @@ describe("punch list and warranty", () => {
     expect(counts(ok!)).toEqual([
       ["punch", 4],
       ["invoice", 1],
-      ["changes", 0],
+      ["changes", 1],
       ["bills", 1],
       ["orders", 1],
       ["time", 3],

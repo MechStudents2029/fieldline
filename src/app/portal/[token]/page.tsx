@@ -20,6 +20,8 @@ import { PortalWarrantySection } from "@/components/portal-warranty";
 import { portalBilling } from "@/lib/services/draws";
 import { portalByToken } from "@/lib/services/read";
 import { portalWarranty } from "@/lib/services/punch";
+import { RfiPortal } from "@/components/rfi-portal";
+import { clientPortalRfis } from "@/lib/services/rfis";
 import { portalSelections, type PortalSelection } from "@/lib/services/selections";
 
 export const dynamic = "force-dynamic";
@@ -139,6 +141,7 @@ export default async function PortalPage({ params }: { params: Promise<{ token: 
         ) : null}
 
         <div className="home-main">
+          <RfiPortal token={token} items={clientPortalRfis(token)} side="client" />
           {warranty && (warranty.closed || warranty.punch.length > 0) ? (
             <PortalWarrantySection token={token} home={warranty} startedAt={portalStarted()} />
           ) : null}

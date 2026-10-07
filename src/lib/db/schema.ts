@@ -1276,6 +1276,78 @@ export const bidAwards = sqliteTable(
   (t) => [uniqueIndex("bid_awards_line").on(t.orgId, t.bidLineId), index("bid_awards_bid").on(t.orgId, t.bidId)],
 );
 
+/** Job questions. Cost cents stay on the row; the app strips them for field, vendors, and clients. */
+export const rfis = sqliteTable(
+  "rfis",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    projectId: text("project_id").notNull(),
+    number: integer("number").notNull(),
+    title: text("title").notNull(),
+    question: text("question").notNull(),
+    dueOn: text("due_on"),
+    status: text("status").notNull(),
+    assigneeKind: text("assignee_kind").notNull(),
+    assigneeUserId: text("assignee_user_id"),
+    assigneeContactId: text("assignee_contact_id"),
+    relatedType: text("related_type"),
+    relatedId: text("related_id"),
+    internalNote: text("internal_note"),
+    costImpact: integer("cost_impact").notNull().default(0),
+    costImpactCents: integer("cost_impact_cents"),
+    scheduleImpactDays: integer("schedule_impact_days"),
+    changeOrderId: text("change_order_id"),
+    scheduleShiftedAt: text("schedule_shifted_at"),
+    answeredAt: text("answered_at"),
+    closedAt: text("closed_at"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    createdBy: text("created_by"),
+  },
+  (t) => [uniqueIndex("rfis_number").on(t.orgId, t.projectId, t.number), index("rfis_org").on(t.orgId, t.projectId)],
+);
+
+export const rfiMessages = sqliteTable(
+  "rfi_messages",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    rfiId: text("rfi_id").notNull(),
+    body: text("body").notNull(),
+    authorKind: text("author_kind").notNull(),
+    authorUserId: text("author_user_id"),
+    authorName: text("author_name").notNull(),
+    internal: integer("internal").notNull().default(0),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [index("rfi_messages_rfi").on(t.orgId, t.rfiId)],
+);
+
+export const rfiFiles = sqliteTable(
+  "rfi_files",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    rfiId: text("rfi_id").notNull(),
+    messageId: text("message_id"),
+    documentId: text("document_id").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [index("rfi_files_rfi").on(t.orgId, t.rfiId)],
+);
+
+export const rfiAttempts = sqliteTable(
+  "rfi_attempts",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    ip: text("ip").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [index("rfi_attempts_org").on(t.orgId, t.createdAt)],
+);
+
 export const appMeta = sqliteTable("app_meta", {
   key: text("key").primaryKey(),
   value: text("value").notNull(),

@@ -9,7 +9,9 @@ import { ActionForm } from "@/components/action-form";
 import { formatCalendarDay } from "@/lib/format";
 import { formatMoney, formatWhole } from "@/lib/money";
 import { CERT_TYPES } from "@/lib/vendor/compliance";
+import { RfiPortal } from "@/components/rfi-portal";
 import type { VendorBidCard } from "@/lib/services/bids";
+import type { PortalRfi } from "@/lib/services/rfis";
 import type { VendorPortalHome } from "@/lib/services/vendor-portal";
 import { submitVendorBidAction, declineVendorBidAction } from "@/app/actions";
 
@@ -23,7 +25,7 @@ function dollars(cents: number | null) {
   return (cents / 100).toFixed(2);
 }
 
-export function VendorPortalView({ token, home, bids }: { token: string; home: VendorPortalHome; bids: VendorBidCard[] }) {
+export function VendorPortalView({ token, home, bids, rfis = [] }: { token: string; home: VendorPortalHome; bids: VendorBidCard[]; rfis?: PortalRfi[] }) {
   return (
     <main className="home mx-auto min-h-screen w-full max-w-5xl px-4 py-8 lg:px-8" data-today={home.today}>
       <header>
@@ -281,6 +283,7 @@ export function VendorPortalView({ token, home, bids }: { token: string; home: V
             ))}
           </ul>
         </section>
+        <RfiPortal token={token} items={rfis} side="vendor" />
         <section aria-label="Certificates">
           <h2>Certificates</h2>
           <ul className="home-stack">
