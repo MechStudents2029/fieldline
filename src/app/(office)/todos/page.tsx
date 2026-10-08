@@ -16,6 +16,10 @@ import { listTodos, todoDetail, todoPeople, type TodoFilter, type TodoRow } from
 import { calendarForOrg } from "@/lib/services/time";
 import { localDay } from "@/lib/time/calendar";
 
+function todayFor(orgId: string) {
+  return localDay(Date.now(), calendarForOrg(orgId).timeZone);
+}
+
 function phraseFor(row: TodoRow) {
   if (row.unlinked) return "Unlinked";
   if (row.scheduleItemId && (row.deadlineEdge === "start" || row.deadlineEdge === "finish") && row.deadlineOffset != null) {
@@ -57,7 +61,7 @@ export default async function TodosPage({ searchParams }: { searchParams: Promis
   const jobs = visibleJobIds ? people.jobs.filter((job) => visibleJobIds.has(job.id)) : people.jobs;
   const selectedId = one(query.task);
   const selected = selectedId ? todoDetail(session, selectedId) : null;
-  const today = localDay(Date.now(), calendarForOrg(session.orgId).timeZone);
+  const today = todayFor(session.orgId);
   const openCount = rows.filter((row) => row.status === "open").length;
   const office = canEditCrm(session.role);
   const params = {

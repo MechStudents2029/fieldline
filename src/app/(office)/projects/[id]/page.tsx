@@ -21,8 +21,10 @@ import { LinkedRfis } from "@/components/linked-rfis";
 import { CommentThread } from "@/components/comment-thread";
 import { PunchSection } from "@/components/punch-section";
 import { RfiSection } from "@/components/rfi-section";
+import { SubmittalSection } from "@/components/submittal-section";
 import { punchBoard } from "@/lib/services/punch";
 import { jobRfis } from "@/lib/services/rfis";
+import { jobSubmittals } from "@/lib/services/submittals";
 import { bidComposer } from "@/lib/services/bids";
 import { drawSchedule } from "@/lib/services/draws";
 import { selectionBoard } from "@/lib/services/selections";
@@ -57,6 +59,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
   const picks = selectionBoard(session, detail.project.id, todayKey);
   const punch = punchBoard(session, detail.project.id);
   const rfiBoard = jobRfis(session, detail.project.id);
+  const submittalBoard = jobSubmittals(session, detail.project.id);
   const bidCount = detail.money ? (bidComposer(session, detail.project.id)?.bids.length ?? 0) : 0;
   const billing = detail.money ? drawSchedule(session, detail.project.id)?.billing : null;
   const ranked = money ? [...money.byCode].sort((a, b) => (b.percentOfBudget ?? 0) - (a.percentOfBudget ?? 0)).slice(0, 2) : [];
@@ -180,6 +183,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
         />
       ) : null}
       {rfiBoard ? <RfiSection board={rfiBoard} /> : null}
+      {submittalBoard ? <SubmittalSection board={submittalBoard} /> : null}
       <nav aria-label="Job sections" className="grid grid-cols-5 rounded-[10px] bg-[var(--fl-fill)] p-1 md:hidden">
         <a href="#overview" className="rounded-lg bg-card py-1.5 text-center fl-footnote">
           Overview

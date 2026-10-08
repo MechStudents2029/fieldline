@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState } from "react";
+import { useActionState, useRef, useState } from "react";
 import { FileButton } from "@/components/file-button";
 import type { ActionState } from "@/app/actions";
 
@@ -22,9 +22,11 @@ export function CommentComposer({
   const [query, setQuery] = useState<string | null>(null);
   const [active, setActive] = useState(0);
   const [state, formAction, pending] = useActionState(action, null);
-  useEffect(() => {
-    if (state?.ok) setBody("");
-  }, [state]);
+  const [ack, setAck] = useState<ActionState | null>(null);
+  if (state?.ok && state !== ack) {
+    setAck(state);
+    setBody("");
+  }
   const options = [...people.map((person) => ({ id: person.id, name: person.name })), ...ROLES].filter((option) =>
     query == null ? false : option.name.toLowerCase().includes(query.toLowerCase()),
   );

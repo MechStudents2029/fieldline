@@ -12,6 +12,7 @@ import {
 } from "@/app/actions";
 import Link from "next/link";
 import { ActionForm } from "@/components/action-form";
+import { FileButton } from "@/components/file-button";
 import { CopyField } from "@/components/copy-field";
 import { formatCalendarDay, formatWarrantyDay } from "@/lib/format";
 import { formatMoney } from "@/lib/money";
@@ -79,10 +80,7 @@ export function PunchSection({ board, rfis = {} }: { board: PunchBoard; rfis?: R
             ) : null}
             {board.canAdd && item.status !== "verified" ? (
               <ActionForm action={markPunchDoneAction.bind(null, item.id)} className="flex items-center gap-2">
-                <label className="text-sm">
-                  After
-                  <input className="ml-1 text-sm" type="file" name="photo" accept="image/jpeg,image/png,image/webp" aria-label={`After photo ${item.title}`} />
-                </label>
+                <FileButton name="photo" label={`After photo ${item.title}`} accept="image/jpeg,image/png,image/webp" empty="After photo" />
                 <button type="submit" className="text-sm text-[var(--fl-accent)]">
                   Mark {item.title} done
                 </button>
@@ -144,10 +142,7 @@ export function PunchSection({ board, rfis = {} }: { board: PunchBoard; rfis?: R
             <input type="checkbox" name="shared" />
             Share
           </label>
-          <label className="text-sm">
-            Before
-            <input className="mt-1 block text-sm" type="file" name="photo" accept="image/jpeg,image/png,image/webp" aria-label="Before photo" />
-          </label>
+          <FileButton name="photo" label="Before photo" accept="image/jpeg,image/png,image/webp" empty="Before photo" />
           <button type="submit" className="mac-primary h-9">
             Add punch
           </button>

@@ -11,6 +11,8 @@ import { formatCalendarDay } from "@/lib/format";
 import { formatMoney, formatWhole } from "@/lib/money";
 import { CERT_TYPES } from "@/lib/vendor/compliance";
 import { RfiPortal } from "@/components/rfi-portal";
+import { SubmittalPortal } from "@/components/submittal-portal";
+import type { PortalSubmittal } from "@/lib/services/submittals";
 import type { VendorBidCard } from "@/lib/services/bids";
 import type { PortalRfi } from "@/lib/services/rfis";
 import type { VendorPortalHome } from "@/lib/services/vendor-portal";
@@ -27,7 +29,21 @@ function dollars(cents: number | null) {
   return (cents / 100).toFixed(2);
 }
 
-export function VendorPortalView({ token, home, bids, rfis = [], todos = [] }: { token: string; home: VendorPortalHome; bids: VendorBidCard[]; rfis?: PortalRfi[]; todos?: VendorTodo[] }) {
+export function VendorPortalView({
+  token,
+  home,
+  bids,
+  rfis = [],
+  todos = [],
+  submittals = { items: [], jobs: [] },
+}: {
+  token: string;
+  home: VendorPortalHome;
+  bids: VendorBidCard[];
+  rfis?: PortalRfi[];
+  todos?: VendorTodo[];
+  submittals?: { items: PortalSubmittal[]; jobs: { id: string; name: string }[] };
+}) {
   return (
     <main className="home mx-auto min-h-screen w-full max-w-5xl px-4 py-8 lg:px-8" data-today={home.today}>
       <header>
@@ -299,6 +315,7 @@ export function VendorPortalView({ token, home, bids, rfis = [], todos = [] }: {
           </ul>
         </section>
         <RfiPortal token={token} items={rfis} side="vendor" />
+        <SubmittalPortal token={token} items={submittals.items} jobs={submittals.jobs} side="vendor" />
         <section aria-label="Certificates">
           <h2>Certificates</h2>
           <ul className="home-stack">

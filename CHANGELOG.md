@@ -2,6 +2,15 @@
 
 ## 2026-10-08
 
+### Submittals
+
+- A job numbers submittals SUB-001 and up. A voided number stays taken. Each one has a title, a spec note, a division, a due date, an assignee, and an optional link to a schedule item, selection, purchase order, or bid.
+- Status runs Draft, Submitted, Under review, then Approved, Approved as noted, Revise and resubmit, Rejected, or Void. Revise and resubmit keeps the prior files and the review note, and the next send is a new revision. Each change is on the audit log.
+- Office reviews from the job or from Submittals under Work. Harbor’s portal lists only Harbor’s submittals and can send one. The Okonkwo client portal reviews one only when it is assigned to Amara. Neither portal sees the office note.
+- The company list uses the same filter row as the other lists. Filter by job, assignee, status, division, overdue, or waiting on review. CSV and Print are on the list. Today counts submittals that are overdue and the ones waiting on you.
+- Okonkwo SUB-001 is Harbor’s shower valve cut sheet, past due, on revision 2 after a revise note. SUB-002 is the tile sample, under review with Maya.
+- Office photo and file pickers use the same button as the portals. The button shows the file name. The browser’s file control stays off the page.
+
 ### Lists
 
 - To-dos, RFIs, Bills, Purchase orders, WIP, Clients, Leads, Jobs, and Inbox share one filter row. Each control shows its current value, such as Assignee: Any, and the list updates when it changes. Clear removes them. On a phone the row sits behind Filter.

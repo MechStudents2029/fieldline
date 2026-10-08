@@ -11,6 +11,7 @@ const links = [
   ["/pipeline", "Leads"],
   ["/time", "Time"],
   ["/rfis", "RFIs"],
+  ["/submittals", "Submittals"],
   ["/todos", "To-dos"],
   ["/templates", "Templates"],
   ["/follow-ups", "Follow-ups"],
@@ -32,7 +33,7 @@ export default async function MorePage() {
   const session = await requireSession();
   const dismissed = companyChecklist(session.orgId)?.facts.dismissed ?? false;
   const shown = links.filter(([href]) => {
-    if (href === "/reports/wip" && !canEditCrm(session.role)) return false;
+    if ((href === "/reports/wip" || href === "/submittals") && !canEditCrm(session.role)) return false;
     if (session.role === "field" && fieldHidden.has(href)) return false;
     return true;
   });

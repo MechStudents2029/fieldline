@@ -100,6 +100,22 @@ export function rasterImageType(body: Buffer): RasterType | null {
   return null;
 }
 
+export function attachmentUploadError(filename: string, body: Buffer): string | null {
+  if (body.length === 0) return "Choose a file.";
+  if (body.length > MAX_PHOTO_BYTES) return "Files must be 2.5 MB or smaller.";
+  const base = path.basename(filename).toLowerCase();
+  if (/\.(svg|html?|xhtml|js|mjs)$/.test(base)) return "Use a photo or a PDF.";
+  if (rasterImageType(body)) return null;
+  if (body.length >= 5 && body.subarray(0, 5).toString("latin1") === "%PDF-") return null;
+  return "Use a JPEG, PNG, WebP, or PDF.";
+}
+
+export function attachmentExtension(body: Buffer): "jpg" | "png" | "webp" | "pdf" {
+  const raster = rasterImageType(body);
+  if (raster) return photoExtension(raster);
+  return "pdf";
+}
+
 export function photoExtension(type: RasterType): "jpg" | "png" | "webp" {
   if (type === "image/jpeg") return "jpg";
   if (type === "image/png") return "png";

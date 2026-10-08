@@ -1701,6 +1701,73 @@ export const savedViews = sqliteTable(
   (t) => [index("saved_views_org_list").on(t.orgId, t.listKey)],
 );
 
+export const submittals = sqliteTable(
+  "submittals",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    projectId: text("project_id").notNull(),
+    number: integer("number").notNull(),
+    title: text("title").notNull(),
+    specNote: text("spec_note").notNull(),
+    division: text("division"),
+    status: text("status").notNull(),
+    dueOn: text("due_on"),
+    assigneeKind: text("assignee_kind").notNull(),
+    assigneeUserId: text("assignee_user_id"),
+    assigneeContactId: text("assignee_contact_id"),
+    relatedType: text("related_type"),
+    relatedId: text("related_id"),
+    internalNote: text("internal_note"),
+    revision: integer("revision").notNull(),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    createdBy: text("created_by"),
+  },
+  (t) => [uniqueIndex("submittals_number").on(t.orgId, t.projectId, t.number), index("submittals_org").on(t.orgId, t.projectId)],
+);
+
+export const submittalRevisions = sqliteTable(
+  "submittal_revisions",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    submittalId: text("submittal_id").notNull(),
+    revision: integer("revision").notNull(),
+    note: text("note").notNull().default(""),
+    reviewNote: text("review_note"),
+    authorName: text("author_name").notNull(),
+    reviewerName: text("reviewer_name"),
+    createdAt: text("created_at").notNull(),
+    reviewedAt: text("reviewed_at"),
+  },
+  (t) => [uniqueIndex("submittal_revisions_rev").on(t.orgId, t.submittalId, t.revision)],
+);
+
+export const submittalFiles = sqliteTable(
+  "submittal_files",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    submittalId: text("submittal_id").notNull(),
+    revisionId: text("revision_id").notNull(),
+    documentId: text("document_id").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [index("submittal_files_sub").on(t.orgId, t.submittalId)],
+);
+
+export const submittalAttempts = sqliteTable(
+  "submittal_attempts",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    ip: text("ip").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [index("submittal_attempts_org").on(t.orgId, t.createdAt)],
+);
+
 export const savedViewPins = sqliteTable(
   "saved_view_pins",
   {
