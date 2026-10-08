@@ -66,7 +66,8 @@ async function officeAndVendor(page: Page, shots: boolean) {
   await page.goto("/todos");
   await page.getByRole("link", { name: "Pre-drywall walk" }).first().click();
   const pane = page.getByRole("complementary", { name: "To-do" });
-  await expect(pane.getByRole("button", { name: "Photo" })).toBeVisible();
+  await expect(pane.locator(".file-pick-btn")).toHaveText("Photo");
+  await expect(pane.locator(".file-pick-btn")).toBeVisible();
   await expect(pane.getByLabel("Photo")).toHaveClass(/file-pick-input/);
   if (shots) {
     await shot(page, "todo-file-light");
