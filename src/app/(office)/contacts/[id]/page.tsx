@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { saveOfficeCertificateAction } from "@/app/actions";
 import { ActionForm } from "@/components/action-form";
+import { FileButton } from "@/components/file-button";
 import { MissingRecord } from "@/components/missing-record";
 import { VendorLink } from "@/components/vendor-link";
 import { requireSession } from "@/lib/auth/session";
@@ -60,10 +61,7 @@ export default async function ContactPage({ params }: { params: Promise<{ id: st
                 Expires
                 <input name="expiresOn" type="date" required aria-label="Expires" className="field mt-1" />
               </label>
-              <label className="text-sm">
-                File
-                <input className="mt-1" type="file" name="file" accept="image/jpeg,image/png,image/webp" aria-label="Certificate file" />
-              </label>
+              <FileButton name="file" label="Certificate file" accept="image/jpeg,image/png,image/webp" empty="Certificate" />
               <button type="submit" className="mac-primary w-fit">
                 Save certificate
               </button>

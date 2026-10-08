@@ -12,6 +12,7 @@ import {
   setTodoCheckAction,
 } from "@/app/actions";
 import { ActionForm } from "@/components/action-form";
+import { FileButton } from "@/components/file-button";
 import { formatCalendarDay } from "@/lib/format";
 import type { TodoRow } from "@/lib/services/todos";
 
@@ -111,10 +112,7 @@ export function TodoPane({
       {canTick ? (
         <ActionForm action={attachTodoFileAction} className="flex flex-col gap-2">
           <input type="hidden" name="taskId" value={todo.id} />
-          <label className="mac-t13">
-            Photo
-            <input name="photo" type="file" accept="image/jpeg,image/png,image/webp" aria-label="Photo" className="mt-1 block w-full text-[13px]" />
-          </label>
+          <FileButton name="photo" label="Photo" accept="image/jpeg,image/png,image/webp" empty="Photo" />
           <button type="submit" className="w-fit mac-t13">
             Attach
           </button>

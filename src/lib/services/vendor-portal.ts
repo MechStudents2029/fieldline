@@ -19,6 +19,8 @@ import {
   purchaseOrderLines,
   purchaseOrders,
   scheduleItems,
+  submittalFiles,
+  submittals,
   vendorCertificates,
   vendorPortalAttempts,
   vendorPortals,
@@ -800,6 +802,20 @@ export function vendorFileAllowed(token: string, documentId: string): boolean {
     .where(and(eq(bidInvites.orgId, ctx.orgId), eq(bidInvites.contactId, ctx.contactId)))
     .all();
   if (invited.some((row) => row.documentId === document.id)) return true;
+  const submittalFile = ctx.db
+    .select({ id: submittalFiles.id })
+    .from(submittalFiles)
+    .innerJoin(submittals, and(eq(submittals.id, submittalFiles.submittalId), eq(submittals.orgId, ctx.orgId)))
+    .where(
+      and(
+        eq(submittalFiles.orgId, ctx.orgId),
+        eq(submittalFiles.documentId, document.id),
+        eq(submittals.assigneeKind, "vendor"),
+        eq(submittals.assigneeContactId, ctx.contactId),
+      ),
+    )
+    .get();
+  if (submittalFile) return true;
   const bidIds = new Set(invited.map((row) => row.bidId));
   const attachment = ctx.db
     .select()

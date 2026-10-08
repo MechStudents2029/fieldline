@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { answerRfiAction, closeRfiAction, draftRfiChangeAction, shiftRfiAction, voidRfiAction } from "@/app/actions";
 import { ActionForm } from "@/components/action-form";
 import { CommentThread } from "@/components/comment-thread";
+import { FileButton } from "@/components/file-button";
 import { requireSession } from "@/lib/auth/session";
 import { formatCalendarDay, formatDateTime } from "@/lib/format";
 import { rfiDetail } from "@/lib/services/rfis";
@@ -49,10 +50,7 @@ export default async function RfiPage({ params }: { params: Promise<{ id: string
             Answer
             <textarea name="body" aria-label={`Answer ${rfi.title}`} rows={3} className="field mt-1" required />
           </label>
-          <label className="text-sm">
-            Photo
-            <input type="file" name="photo" accept="image/jpeg,image/png,image/webp" aria-label={`Photo ${rfi.title}`} />
-          </label>
+          <FileButton name="photo" label={`Photo ${rfi.title}`} accept="image/jpeg,image/png,image/webp" empty="Photo" />
           {rfi.canClose ? (
             <label className="text-sm">
               <input type="checkbox" name="internal" value="1" /> Internal note

@@ -110,6 +110,7 @@ export function ensureReady(holder: Holder) {
   ensureWip(holder);
   ensureTodos(holder);
   ensureSavedViews(holder);
+  ensureSubmittals(holder);
   const version = holder.sqlite.prepare("select value from app_meta where key = ?").get("seed_version") as
     | { value: string }
     | undefined;
@@ -1461,6 +1462,70 @@ function ensureRfis(holder: Holder) {
   holder.sqlite.exec("create index if not exists rfi_messages_rfi on rfi_messages (org_id, rfi_id)");
   holder.sqlite.exec("create index if not exists rfi_files_rfi on rfi_files (org_id, rfi_id)");
   holder.sqlite.exec("create index if not exists rfi_attempts_org on rfi_attempts (org_id, created_at)");
+}
+
+function ensureSubmittals(holder: Holder) {
+  const pk = holder.dialect === "postgres" ? "text primary key" : "text primary key not null";
+  if (!tableExists(holder.sqlite, "submittals", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists submittals (
+      id ${pk},
+      org_id text not null,
+      project_id text not null,
+      number integer not null,
+      title text not null,
+      spec_note text not null,
+      division text,
+      status text not null,
+      due_on text,
+      assignee_kind text not null,
+      assignee_user_id text,
+      assignee_contact_id text,
+      related_type text,
+      related_id text,
+      internal_note text,
+      revision integer not null,
+      created_at text not null,
+      updated_at text not null,
+      created_by text
+    )`);
+  }
+  if (!tableExists(holder.sqlite, "submittal_revisions", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists submittal_revisions (
+      id ${pk},
+      org_id text not null,
+      submittal_id text not null,
+      revision integer not null,
+      note text not null default '',
+      review_note text,
+      author_name text not null,
+      reviewer_name text,
+      created_at text not null,
+      reviewed_at text
+    )`);
+  }
+  if (!tableExists(holder.sqlite, "submittal_files", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists submittal_files (
+      id ${pk},
+      org_id text not null,
+      submittal_id text not null,
+      revision_id text not null,
+      document_id text not null,
+      created_at text not null
+    )`);
+  }
+  if (!tableExists(holder.sqlite, "submittal_attempts", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists submittal_attempts (
+      id ${pk},
+      org_id text not null,
+      ip text not null,
+      created_at text not null
+    )`);
+  }
+  holder.sqlite.exec("create unique index if not exists submittals_number on submittals (org_id, project_id, number)");
+  holder.sqlite.exec("create index if not exists submittals_org on submittals (org_id, project_id)");
+  holder.sqlite.exec("create unique index if not exists submittal_revisions_rev on submittal_revisions (org_id, submittal_id, revision)");
+  holder.sqlite.exec("create index if not exists submittal_files_sub on submittal_files (org_id, submittal_id)");
+  holder.sqlite.exec("create index if not exists submittal_attempts_org on submittal_attempts (org_id, created_at)");
 }
 
 function ensureComments(holder: Holder) {

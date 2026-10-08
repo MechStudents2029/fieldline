@@ -17,6 +17,10 @@ const PARTS: { key: TemplatePart; label: string }[] = [
   { key: "todos", label: "To-dos" },
 ];
 
+function todayFor(orgId: string) {
+  return localDay(Date.now(), calendarForOrg(orgId).timeZone);
+}
+
 export default async function JobTemplatePage({
   params,
   searchParams,
@@ -46,7 +50,7 @@ export default async function JobTemplatePage({
     );
   }
   const choices = templateChoices(session);
-  const today = localDay(Date.now(), calendarForOrg(session.orgId).timeZone);
+  const today = todayFor(session.orgId);
   const templateId = one(query.template);
   const anchor = one(query.anchor);
   const requested = many(query.parts);

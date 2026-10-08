@@ -159,7 +159,11 @@ begin
     'rfis',
     'rfi_messages',
     'rfi_files',
-    'rfi_attempts'
+    'rfi_attempts',
+    'submittals',
+    'submittal_revisions',
+    'submittal_files',
+    'submittal_attempts'
   ]
   loop
     execute format('alter table public.%I enable row level security', tbl);

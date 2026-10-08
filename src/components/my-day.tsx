@@ -14,6 +14,8 @@ import { myDay } from "@/lib/services/logs";
 import { fieldPunch } from "@/lib/services/punch";
 import { mentionUnread } from "@/lib/services/comments";
 import { rfiQueue } from "@/lib/services/rfis";
+import { submittalQueue } from "@/lib/services/submittals";
+import { FileButton } from "@/components/file-button";
 import { memberAssignments } from "@/lib/services/schedule";
 import { overdueTodoCount } from "@/lib/services/todos";
 import { formatHours, timeBoard } from "@/lib/services/time";
@@ -37,6 +39,7 @@ export function MyDay({ actor }: { actor: Actor }) {
   const plan = memberAssignments(actor);
   const punch = fieldPunch(actor);
   const rfis = rfiQueue(actor);
+  const submittals = submittalQueue(actor);
   const mentions = mentionUnread(actor);
   const overdueTodos = overdueTodoCount(actor);
   const open = day.open;
@@ -46,7 +49,7 @@ export function MyDay({ actor }: { actor: Actor }) {
         <Toolbar title="My day" subtitle={dayTitle(day.timeZone)} search={false} />
       </div>
       <LargeTitle title="My day" subtitle={dayTitle(day.timeZone)} />
-      {rfis.overdue.count > 0 || rfis.awaiting.count > 0 || mentions > 0 ? (
+      {rfis.overdue.count > 0 || rfis.awaiting.count > 0 || submittals.overdue.count > 0 || submittals.awaiting.count > 0 || mentions > 0 ? (
         <ul className="fl-group">
           {mentions > 0 ? (
             <li>
@@ -69,6 +72,22 @@ export function MyDay({ actor }: { actor: Actor }) {
               <Link href={rfis.awaiting.href} className="fl-cell">
                 <span className="fl-body flex-1">RFIs awaiting your answer</span>
                 <span className="num">{rfis.awaiting.count}</span>
+              </Link>
+            </li>
+          ) : null}
+          {submittals.overdue.count > 0 && submittals.overdue.href ? (
+            <li>
+              <Link href={submittals.overdue.href} className="fl-cell">
+                <span className="fl-body flex-1">Submittals overdue</span>
+                <span className="num">{submittals.overdue.count}</span>
+              </Link>
+            </li>
+          ) : null}
+          {submittals.awaiting.count > 0 && submittals.awaiting.href ? (
+            <li>
+              <Link href={submittals.awaiting.href} className="fl-cell">
+                <span className="fl-body flex-1">Submittals awaiting your review</span>
+                <span className="num">{submittals.awaiting.count}</span>
               </Link>
             </li>
           ) : null}
@@ -141,10 +160,7 @@ export function MyDay({ actor }: { actor: Actor }) {
                 {[item.projectName, item.location, item.statusLabel].filter(Boolean).join(" · ")}
               </p>
               <ActionForm action={markPunchDoneAction.bind(null, item.id)} className="mt-2 flex flex-col gap-2">
-                <label className="text-sm">
-                  After photo
-                  <input className="mt-1 block w-full text-sm" type="file" name="photo" accept="image/jpeg,image/png,image/webp" aria-label={`After photo ${item.title}`} />
-                </label>
+                <FileButton name="photo" label={`After photo ${item.title}`} accept="image/jpeg,image/png,image/webp" empty="After photo" />
                 <button type="submit" className="h-11 rounded-lg bg-[var(--fl-accent)] text-sm font-semibold text-white">
                   Mark {item.title} done
                 </button>

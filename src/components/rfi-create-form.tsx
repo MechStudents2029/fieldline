@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { createRfiAction } from "@/app/actions";
 import { ActionForm } from "@/components/action-form";
+import { FileButton } from "@/components/file-button";
 
 export function RfiCreateForm({
   projectId,
@@ -67,10 +68,7 @@ export function RfiCreateForm({
           <input name="internalNote" aria-label="Internal note" className="field mt-1" />
         </label>
       ) : null}
-      <label className="text-sm">
-        Photo
-        <input className="mt-1 block" type="file" name="photo" accept="image/jpeg,image/png,image/webp" aria-label="RFI photo" />
-      </label>
+      <FileButton name="photo" label="RFI photo" accept="image/jpeg,image/png,image/webp" empty="Photo" />
       <div className="md:col-span-2">
         <button type="submit" className="mac-primary">
           Create RFI

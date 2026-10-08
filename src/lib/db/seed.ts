@@ -59,6 +59,9 @@ import {
   punchItems,
   rfiMessages,
   rfis,
+  submittalFiles,
+  submittalRevisions,
+  submittals,
   commentFiles,
   commentMentions,
   comments,
@@ -106,7 +109,7 @@ import {
   WEBSITE_FORM_SOURCE,
 } from "@/lib/lead-form/rules";
 
-export const SEED_VERSION = "24";
+export const SEED_VERSION = "25";
 
 const ORG = "org_rivera";
 const NORTH = "org_northline";
@@ -2434,6 +2437,120 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
         createdAt: daysAgo(2),
       },
     ])
+    .run();
+
+  const submittalYesterday = addCalendarDays(punchToday, -1);
+  db.insert(documents)
+    .values({
+      id: "doc_sub_valve",
+      orgId: ORG,
+      projectId: "proj_okonkwo",
+      leadId: null,
+      contactId: "c_harbor",
+      type: "submittal",
+      filename: "valve-cut-sheet.pdf",
+      storagePath: "uploads/org_rivera/doc_sub_valve.pdf",
+      metadataJson: null,
+      deletedAt: null,
+      createdAt: daysAgo(1),
+      createdBy: null,
+    })
+    .run();
+  db.insert(submittals)
+    .values([
+      {
+        id: "sub_ok_valve",
+        orgId: ORG,
+        projectId: "proj_okonkwo",
+        number: 1,
+        title: "Shower valve cut sheet",
+        specNote: "Pressure-balance valve, chrome trim, before tile.",
+        division: "22 00",
+        status: "submitted",
+        dueOn: submittalYesterday,
+        assigneeKind: "vendor",
+        assigneeUserId: null,
+        assigneeContactId: "c_harbor",
+        relatedType: "schedule",
+        relatedId: "sch_ok_plumb",
+        internalNote: "Allowance stays in the office.",
+        revision: 2,
+        createdAt: daysAgo(4),
+        updatedAt: daysAgo(1),
+        createdBy: "user_maya",
+      },
+      {
+        id: "sub_ok_tile",
+        orgId: ORG,
+        projectId: "proj_okonkwo",
+        number: 2,
+        title: "Tile sample",
+        specNote: "3x6 field tile, grout to match the niche.",
+        division: "09 30",
+        status: "review",
+        dueOn: addCalendarDays(punchToday, 6),
+        assigneeKind: "user",
+        assigneeUserId: "user_maya",
+        assigneeContactId: null,
+        relatedType: null,
+        relatedId: null,
+        internalNote: null,
+        revision: 1,
+        createdAt: daysAgo(1),
+        updatedAt: daysAgo(1),
+        createdBy: "user_maya",
+      },
+    ])
+    .run();
+  db.insert(submittalRevisions)
+    .values([
+      {
+        id: "subv_ok_valve_1",
+        orgId: ORG,
+        submittalId: "sub_ok_valve",
+        revision: 1,
+        note: "Cut sheet for the pressure-balance valve.",
+        reviewNote: "Move the valve 2 inches.",
+        authorName: "Harbor Plumbing",
+        reviewerName: "Maya Rivera",
+        createdAt: daysAgo(4),
+        reviewedAt: daysAgo(2),
+      },
+      {
+        id: "subv_ok_valve_2",
+        orgId: ORG,
+        submittalId: "sub_ok_valve",
+        revision: 2,
+        note: "Revised cut sheet, valve moved.",
+        reviewNote: null,
+        authorName: "Harbor Plumbing",
+        reviewerName: null,
+        createdAt: daysAgo(1),
+        reviewedAt: null,
+      },
+      {
+        id: "subv_ok_tile_1",
+        orgId: ORG,
+        submittalId: "sub_ok_tile",
+        revision: 1,
+        note: "Field sample for the shower wall.",
+        reviewNote: null,
+        authorName: "Maya Rivera",
+        reviewerName: null,
+        createdAt: daysAgo(1),
+        reviewedAt: null,
+      },
+    ])
+    .run();
+  db.insert(submittalFiles)
+    .values({
+      id: "subf_ok_valve_2",
+      orgId: ORG,
+      submittalId: "sub_ok_valve",
+      revisionId: "subv_ok_valve_2",
+      documentId: "doc_sub_valve",
+      createdAt: daysAgo(1),
+    })
     .run();
 
   db.insert(warrantyRequests)

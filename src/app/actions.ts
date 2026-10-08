@@ -94,6 +94,7 @@ import {
 } from "@/lib/services/vendor-portal";
 import { awardBid, createBid, declineVendorBid, saveBidLines, submitVendorBid } from "@/lib/services/bids";
 import { answerClientRfi, answerRfi, answerVendorRfi, closeRfi, createRfi, draftChangeFromRfi, shiftRfiSchedule, voidRfi } from "@/lib/services/rfis";
+import { clientReviewSubmittal, createSubmittal, reviewSubmittal, submitSubmittal, vendorCreateSubmittal, vendorSubmitSubmittal } from "@/lib/services/submittals";
 import { deleteComment, editComment, markAllRead, postComment, setNotifyPreference } from "@/lib/services/comments";
 import { addStarterPriceBook, setSetupDismissed } from "@/lib/services/onboarding";
 import { acceptExistingAccount, acceptNewAccount, changeMemberRole, createInvite, INVITE_EMAIL, previewInvite, removeMember, revokeInvite } from "@/lib/services/team";
@@ -1907,6 +1908,13 @@ async function manyPhotos(formData: FormData) {
   return photos;
 }
 
+async function manyNamed(formData: FormData, key: string) {
+  const files = formData.getAll(key).filter((file): file is File => file instanceof File && file.size > 0);
+  const uploads = [];
+  for (const file of files) uploads.push({ filename: file.name || "file", bytes: Buffer.from(await file.arrayBuffer()) });
+  return uploads;
+}
+
 function refreshJob(projectId: string) {
   revalidatePath(`/projects/${projectId}`);
   revalidatePath("/");
@@ -2852,6 +2860,103 @@ export async function vendorTickAction(token: string, checkId: string, _prev: Ac
     vendorTick(token, checkId, done, await namedUpload(formData, "photo"));
     refreshVendor(token);
     return { ok: done ? "Done." : "Open." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+function refreshSubmittals(projectId: string) {
+  revalidatePath(`/projects/${projectId}`);
+  revalidatePath("/submittals");
+  revalidatePath("/");
+}
+
+export async function createSubmittalAction(projectId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    createSubmittal(
+      user,
+      projectId,
+      {
+        title: String(formData.get("title") || ""),
+        spec: String(formData.get("spec") || ""),
+        division: String(formData.get("division") || ""),
+        dueOn: String(formData.get("dueOn") || ""),
+        assignee: String(formData.get("assignee") || ""),
+        related: String(formData.get("related") || ""),
+        internalNote: String(formData.get("internalNote") || ""),
+      },
+      await manyNamed(formData, "file"),
+    );
+    refreshSubmittals(projectId);
+    return { ok: "Added." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function submitSubmittalAction(projectId: string, submittalId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    submitSubmittal(user, submittalId, String(formData.get("note") || ""), await manyNamed(formData, "file"));
+    refreshSubmittals(projectId);
+    revalidatePath(`/projects/${projectId}/submittals/${submittalId}`);
+    return { ok: "Submitted." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function reviewSubmittalAction(projectId: string, submittalId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    reviewSubmittal(user, submittalId, String(formData.get("status") || ""), String(formData.get("note") || ""));
+    refreshSubmittals(projectId);
+    revalidatePath(`/projects/${projectId}/submittals/${submittalId}`);
+    return { ok: "Saved." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function vendorCreateSubmittalAction(token: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    vendorCreateSubmittal({
+      token,
+      projectId: String(formData.get("projectId") || ""),
+      title: String(formData.get("title") || ""),
+      spec: String(formData.get("spec") || ""),
+      division: String(formData.get("division") || ""),
+      dueOn: String(formData.get("dueOn") || ""),
+      note: String(formData.get("note") || ""),
+      files: await manyNamed(formData, "file"),
+      ip: await requestIp(),
+    });
+    refreshVendor(token);
+    revalidatePath("/submittals");
+    return { ok: "Submitted." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function vendorSubmitSubmittalAction(token: string, submittalId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    vendorSubmitSubmittal({ token, submittalId, note: String(formData.get("note") || ""), files: await manyNamed(formData, "file"), ip: await requestIp() });
+    refreshVendor(token);
+    revalidatePath("/submittals");
+    return { ok: "Submitted." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function clientReviewSubmittalAction(token: string, submittalId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    clientReviewSubmittal({ token, submittalId, status: String(formData.get("status") || ""), note: String(formData.get("note") || ""), ip: await requestIp() });
+    revalidatePath(`/portal/${token}`);
+    revalidatePath("/submittals");
+    return { ok: "Saved." };
   } catch (error) {
     return failure(error);
   }

@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import { readBillAction, saveBillAction, type ActionState } from "@/app/actions";
 import { ActionForm } from "@/components/action-form";
+import { FileButton } from "@/components/file-button";
 import { Button } from "@/components/ui/button";
 
 type Choice = { id: string; label: string };
@@ -44,7 +45,7 @@ export function BillComposer({
             ))}
           </select>
         </label>
-        <input name="file" type="file" accept=".txt,.csv,.json,text/plain" aria-label="Upload a bill file" className="block min-h-11 w-full text-base" />
+        <FileButton name="file" label="Upload a bill file" accept=".txt,.csv,.json,text/plain" empty="File" />
         <label className="text-sm">
           Or use a sample
           <select name="sample" className="field mt-1" defaultValue="">

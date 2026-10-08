@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createBidAction } from "@/app/actions";
 import { ActionForm } from "@/components/action-form";
+import { FileButton } from "@/components/file-button";
 import { MissingRecord } from "@/components/missing-record";
 import { Toolbar } from "@/components/mac/toolbar";
 import { requireSession } from "@/lib/auth/session";
@@ -89,10 +90,7 @@ export default async function JobBidsPage({ params }: { params: Promise<{ id: st
                 </label>
               ))}
             </fieldset>
-            <label className="text-sm">
-              File
-              <input className="mt-1" type="file" name="file" accept="image/jpeg,image/png,image/webp" aria-label="File" />
-            </label>
+            <FileButton name="file" label="File" accept="image/jpeg,image/png,image/webp" empty="File" />
             <button type="submit" className="mac-primary w-fit">
               Request bids
             </button>

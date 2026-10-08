@@ -12,6 +12,7 @@ import type { Actor } from "@/lib/services/read";
 export const LIST_FILTERS: Record<string, string[]> = {
   todos: ["assignee", "job", "priority", "due", "status", "q"],
   rfis: ["job", "assignee", "status", "overdue", "q"],
+  submittals: ["job", "assignee", "status", "overdue", "division", "waiting", "q"],
   bills: ["job", "vendor", "status", "q"],
   "purchase-orders": ["job", "vendor", "status", "q"],
   wip: ["asof", "pm", "status", "q"],
@@ -24,6 +25,7 @@ export const LIST_FILTERS: Record<string, string[]> = {
 export const LIST_PATH: Record<string, string> = {
   todos: "/todos",
   rfis: "/rfis",
+  submittals: "/submittals",
   bills: "/bills",
   "purchase-orders": "/purchase-orders",
   wip: "/reports/wip",

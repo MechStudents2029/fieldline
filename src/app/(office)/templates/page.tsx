@@ -7,13 +7,17 @@ import { templateChoices } from "@/lib/services/templates";
 import { calendarForOrg } from "@/lib/services/time";
 import { localDay } from "@/lib/time/calendar";
 
+function todayFor(orgId: string) {
+  return localDay(Date.now(), calendarForOrg(orgId).timeZone);
+}
+
 export default async function TemplatesPage({ searchParams }: { searchParams: Promise<{ new?: string }> }) {
   const session = await requireSession();
   const query = await searchParams;
   const choices = templateChoices(session);
   const money = canSeeMoney(session.role);
   const office = canEditCrm(session.role);
-  const today = localDay(Date.now(), calendarForOrg(session.orgId).timeZone);
+  const today = todayFor(session.orgId);
   const showNew = office && (query.new === "1" || choices.templates.length > 0);
   return (
     <div className="relative md:flex md:min-h-0 md:flex-1 md:flex-col">

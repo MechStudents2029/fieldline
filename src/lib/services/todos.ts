@@ -482,7 +482,7 @@ export function updateTodoCheck(
   const db = dbFor(actor);
   const row = db.select().from(taskChecks).where(and(eq(taskChecks.orgId, actor.orgId), eq(taskChecks.id, checkId))).get();
   if (!row) throw new ServiceError("That item is not in your company.");
-  let userId = input.assigneeUserId || null;
+  const userId = input.assigneeUserId || null;
   let contactId = input.assigneeContactId || null;
   if (userId && contactId) contactId = null;
   if (userId) {
@@ -720,7 +720,7 @@ export function applyTemplateTodos(
     const item = scheduleId ? items.find((row) => row.id === scheduleId) : null;
     const edge = cleanEdge(todo.deadlineEdge);
     let due: string | null = null;
-    let linked = Boolean(item && edge && todo.deadlineOffset != null);
+    const linked = Boolean(item && edge && todo.deadlineOffset != null);
     if (item && edge && todo.deadlineOffset != null) due = linkedDeadline(edge === "start" ? item.startDate : item.endDate, todo.deadlineOffset, mask);
     else if (edge && todo.deadlineOffset != null) due = linkedDeadline(anchor, todo.deadlineOffset, mask);
     const taskId = id("task");
