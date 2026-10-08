@@ -566,6 +566,20 @@ create policy todo_attempts_scope on public.todo_attempts
   using (org_id in (select public.current_org_ids()) and user_id = public.current_user_id())
   with check (org_id in (select public.current_org_ids()) and user_id = public.current_user_id());
 
+alter table public.saved_views enable row level security;
+drop policy if exists saved_views_scope on public.saved_views;
+create policy saved_views_scope on public.saved_views
+  for all to authenticated
+  using (org_id in (select public.current_org_ids()))
+  with check (org_id in (select public.current_org_ids()));
+
+alter table public.saved_view_pins enable row level security;
+drop policy if exists saved_view_pins_scope on public.saved_view_pins;
+create policy saved_view_pins_scope on public.saved_view_pins
+  for all to authenticated
+  using (org_id in (select public.current_org_ids()) and user_id = public.current_user_id())
+  with check (org_id in (select public.current_org_ids()) and user_id = public.current_user_id());
+
 alter table public.wip_attempts enable row level security;
 drop policy if exists wip_attempts_scope on public.wip_attempts;
 create policy wip_attempts_scope on public.wip_attempts

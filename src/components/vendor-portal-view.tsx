@@ -73,7 +73,7 @@ export function VendorPortalView({ token, home, bids, rfis = [], todos = [] }: {
           {todos.map((todo) => (
             <li key={todo.id} className="home-card" data-todo={todo.title}>
               <p className="home-copy">{todo.title}</p>
-              <p className="home-sub">{[todo.job, todo.dueAt].filter(Boolean).join(" · ")}</p>
+              <p className="home-sub">{[todo.job, todo.dueAt ? formatCalendarDay(todo.dueAt) : ""].filter(Boolean).join(" · ")}</p>
               <ActionForm action={vendorTickAction.bind(null, token, todo.id)} className="mt-2 flex flex-col gap-2">
                 <input type="hidden" name="done" value={todo.status === "done" ? "0" : "1"} />
                 <button type="submit" role="checkbox" aria-checked={todo.status === "done"} aria-label={todo.title} className="h-11 rounded-lg bg-[var(--fl-accent)] text-sm font-semibold text-white">

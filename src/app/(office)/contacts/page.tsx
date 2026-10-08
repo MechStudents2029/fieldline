@@ -1,18 +1,26 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { EmptyState } from "@/components/empty-state";
+import { ListToolbar } from "@/components/list-toolbar";
 import { Toolbar } from "@/components/mac/toolbar";
-import { Button } from "@/components/ui/button";
 import { requireSession } from "@/lib/auth/session";
-import { canManageSettings } from "@/lib/permissions";
+import { one, pinnedTarget, readQuery } from "@/lib/lists/query";
+import { canEditCrm, canManageSettings } from "@/lib/permissions";
 import { listContacts } from "@/lib/services/read";
+import { LIST_FILTERS, listSavedViews, viewHref } from "@/lib/services/saved-views";
 import { complianceByContact } from "@/lib/services/vendor-portal";
 
-export default async function ContactsPage({ searchParams }: { searchParams: Promise<{ q?: string; type?: string }> }) {
+export default async function ContactsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const session = await requireSession();
   const query = await searchParams;
-  const rows = listContacts(session.orgId, query.q, query.type);
+  const keys = LIST_FILTERS.contacts ?? [];
+  const views = listSavedViews(session, "contacts");
+  const target = pinnedTarget("/contacts", query, views.find((view) => view.pinned) ?? null, keys);
+  if (target) redirect(target);
+  const filters = readQuery(query, keys);
+  const rows = listContacts(session.orgId, filters.q, filters.type);
   const compliance = complianceByContact(session.orgId);
-  const filtered = Boolean(query.q?.trim() || query.type);
+  const filtered = Boolean(filters.q || filters.type);
   return (
     <div className="flex flex-col gap-4">
       <div className="hidden md:block">
@@ -34,24 +42,17 @@ export default async function ContactsPage({ searchParams }: { searchParams: Pro
           Import
         </a>
       ) : null}
-      <form className="grid gap-2 sm:grid-cols-[1fr_160px_auto]" aria-label="Search contacts">
-        <label className="text-sm">
-          Search
-          <input name="q" defaultValue={query.q} placeholder="Name, company, or email" className="field mt-1" />
-        </label>
-        <label className="text-sm">
-          Type
-          <select name="type" defaultValue={query.type || ""} className="field mt-1">
-          <option value="">All types</option>
-          <option value="client">Clients</option>
-          <option value="sub">Subs</option>
-          <option value="vendor">Vendors</option>
-          </select>
-        </label>
-        <Button type="submit" variant="outline" className="h-11 self-end">
-          Search
-        </Button>
-      </form>
+      <ListToolbar
+        path="/contacts"
+        list="contacts"
+        search={filters.q || ""}
+        query={filters}
+        activeId={views.some((view) => view.id === one(query.view)) ? one(query.view) : ""}
+        canShare={canEditCrm(session.role)}
+        clearHref={filtered ? "/contacts?view=none" : null}
+        views={views.map((view) => ({ id: view.id, name: view.name, href: viewHref(view), pinned: view.pinned, mine: view.mine, shared: view.shared }))}
+        filters={[{ name: "type", label: "Type", value: filters.type || "", any: "Any", options: [{ value: "client", label: "Clients" }, { value: "sub", label: "Subs" }, { value: "vendor", label: "Vendors" }] }]}
+      />
       {rows.length === 0 && filtered ? <p className="text-sm text-muted-foreground">No contacts match.</p> : null}
       {rows.length === 0 && !filtered ? (
         <EmptyState

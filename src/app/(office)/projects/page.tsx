@@ -1,12 +1,16 @@
+import { redirect } from "next/navigation";
 import { EmptyState } from "@/components/empty-state";
 import { LargeTitle, PlusLink } from "@/components/ios";
 import { JobsBrowser, type JobItem } from "@/components/jobs-browser";
+import { ListToolbar } from "@/components/list-toolbar";
 import { DataTable, type TableRow } from "@/components/mac/data-table";
 import { Toolbar } from "@/components/mac/toolbar";
 import { requireSession } from "@/lib/auth/session";
 import { formatCalendarDay } from "@/lib/format";
+import { one, pinnedTarget, readQuery } from "@/lib/lists/query";
 import { formatPercent, formatWhole } from "@/lib/money";
-import { canSeeMoney } from "@/lib/permissions";
+import { canEditCrm, canSeeMoney } from "@/lib/permissions";
+import { LIST_FILTERS, listSavedViews, viewHref } from "@/lib/services/saved-views";
 import { billingForProjects } from "@/lib/services/draws";
 import { listContacts, listProjects, pipelineBoard } from "@/lib/services/read";
 import { timeBoard } from "@/lib/services/time";
@@ -24,8 +28,14 @@ function place(address: string | null | undefined, money: string) {
   return bits.join(" · ");
 }
 
-export default async function ProjectsPage() {
+export default async function ProjectsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  const query = await searchParams;
   const session = await requireSession();
+  const keys = LIST_FILTERS.jobs ?? [];
+  const views = listSavedViews(session, "jobs");
+  const target = pinnedTarget("/projects", query, views.find((view) => view.pinned) ?? null, keys);
+  if (target) redirect(target);
+  const filters = readQuery(query, keys);
   const rows = listProjects(session.orgId);
   const money = canSeeMoney(session.role);
   const billed = money ? billingForProjects(session.orgId) : new Map<string, { billedBps: number }>();
@@ -50,7 +60,28 @@ export default async function ProjectsPage() {
   const estimating = leads
     .filter((card) => card.stage.name !== "Estimate sent" && card.stage.name !== "Negotiation")
     .map((card) => leadItem(card, "Draft"));
-  const empty = inProgress.length === 0 && completed.length === 0 && upNext.length === 0 && estimating.length === 0;
+  const needle = (filters.q || "").toLowerCase();
+  const match = (items: JobItem[]) => items.filter((item) => !needle || item.title.toLowerCase().includes(needle));
+  const group = filters.group || "";
+  const show = (key: string, items: JobItem[]) => (!group || group === key ? match(items) : []);
+  const progressRows = show("active", inProgress);
+  const nextRows = show("next", upNext);
+  const estimateRows = show("estimating", estimating);
+  const doneRows = show("complete", completed);
+  const empty = progressRows.length === 0 && doneRows.length === 0 && nextRows.length === 0 && estimateRows.length === 0;
+  const jobsToolbar = (
+    <ListToolbar
+      path="/projects"
+      list="jobs"
+      search={filters.q || ""}
+      query={filters}
+      activeId={views.some((view) => view.id === one(query.view)) ? one(query.view) : ""}
+      canShare={canEditCrm(session.role)}
+      clearHref={filters.q || filters.group ? "/projects?view=none" : null}
+      views={views.map((view) => ({ id: view.id, name: view.name, href: viewHref(view), pinned: view.pinned, mine: view.mine, shared: view.shared }))}
+      filters={[{ name: "group", label: "Group", value: group, any: "All", options: [{ value: "active", label: "In progress" }, { value: "next", label: "Up next" }, { value: "estimating", label: "Estimating" }, { value: "complete", label: "Completed" }] }]}
+    />
+  );
   const names = new Map(listContacts(session.orgId).map((contact) => [contact.id, contact.name]));
   const onSite = new Map<string, string[]>();
   for (const person of timeBoard(session).office?.clockedIn ?? []) {
@@ -93,7 +124,7 @@ export default async function ProjectsPage() {
     },
   });
   const columns = [
-    { key: "job", header: "Job" },
+    { key: "job", header: "Job", clip: true },
     { key: "client", header: "Client" },
     { key: "city", header: "City" },
     { key: "status", header: "Status" },
@@ -110,24 +141,26 @@ export default async function ProjectsPage() {
     <>
     <div className="mx-auto flex max-w-lg flex-col gap-7 md:hidden">
       <LargeTitle title="Jobs" action={<PlusLink href="/leads/new" label="Add a lead" />} />
+      {jobsToolbar}
       {empty ? (
         <EmptyState title="No jobs yet" why="Signed proposals become jobs." href="/leads/new" action="Add a lead" />
       ) : (
-        <JobsBrowser inProgress={inProgress} upNext={upNext} estimating={estimating} completed={completed} />
+        <JobsBrowser inProgress={progressRows} upNext={nextRows} estimating={estimateRows} completed={doneRows} />
       )}
     </div>
     <div className="hidden min-h-0 flex-1 flex-col md:flex">
       <Toolbar title="Jobs" subtitle={`${rows.filter((row) => row.project.status === "active").length} active`} primary="New lead" primaryHref="/leads/new" />
+      {jobsToolbar}
       {empty ? (
         <EmptyState title="No jobs yet" why="Signed proposals become jobs." href="/leads/new" action="Add a lead" />
       ) : (
         <DataTable
           columns={columns}
           groups={[
-            { label: "In progress", rows: rows.filter((row) => row.project.status === "active").map((row) => projectRow(row, "Active")) },
-            { label: "Up next", rows: leads.filter((card) => card.stage.name === "Estimate sent" || card.stage.name === "Negotiation").map((card) => leadRow(card, card.stage.name === "Negotiation" ? "Deposit due" : "Sent", "pill")) },
-            { label: "Estimating", rows: leads.filter((card) => card.stage.name !== "Estimate sent" && card.stage.name !== "Negotiation").map((card) => leadRow(card, "Draft", "pill")) },
-            { label: "Completed", rows: rows.filter((row) => row.project.status === "complete").map((row) => projectRow(row, "Paid")) },
+            { label: "In progress", rows: (!group || group === "active" ? rows.filter((row) => row.project.status === "active" && (!needle || row.project.name.toLowerCase().includes(needle))) : []).map((row) => projectRow(row, "Active")) },
+            { label: "Up next", rows: (!group || group === "next" ? leads.filter((card) => (card.stage.name === "Estimate sent" || card.stage.name === "Negotiation") && (!needle || card.lead.title.toLowerCase().includes(needle))) : []).map((card) => leadRow(card, card.stage.name === "Negotiation" ? "Deposit due" : "Sent", "pill")) },
+            { label: "Estimating", rows: (!group || group === "estimating" ? leads.filter((card) => card.stage.name !== "Estimate sent" && card.stage.name !== "Negotiation" && (!needle || card.lead.title.toLowerCase().includes(needle))) : []).map((card) => leadRow(card, "Draft", "pill")) },
+            { label: "Completed", rows: (!group || group === "complete" ? rows.filter((row) => row.project.status === "complete" && (!needle || row.project.name.toLowerCase().includes(needle))) : []).map((row) => projectRow(row, "Paid")) },
           ]}
           status={`${rows.length + leads.length} jobs · Contract ${money ? formatWhole(contractTotal) : ""} · Spent ${money ? formatWhole(spentTotal) : ""}`}
         />

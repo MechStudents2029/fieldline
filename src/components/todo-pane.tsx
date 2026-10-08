@@ -7,15 +7,21 @@ import {
   completeTodosAction,
   deleteTodoCheckAction,
   moveTodoCheckAction,
-  renameTodoCheckAction,
   reorderTodoChecksAction,
+  saveTodoCheckAction,
   setTodoCheckAction,
-  updateTodoCheckAction,
 } from "@/app/actions";
 import { ActionForm } from "@/components/action-form";
+import { formatCalendarDay } from "@/lib/format";
 import type { TodoRow } from "@/lib/services/todos";
 
 type Person = { id: string; name: string };
+
+function assigneeValue(check: TodoRow["checks"][number]) {
+  if (check.assigneeUserId) return `user:${check.assigneeUserId}`;
+  if (check.assigneeContactId) return `vendor:${check.assigneeContactId}`;
+  return "";
+}
 
 export function TodoPane({
   todo,
@@ -58,96 +64,24 @@ export function TodoPane({
         {todo.progress ? <span className="num mac-t13 text-[var(--mac-secondary)]">{todo.progress}</span> : null}
       </div>
       <p className="mac-t13 text-[var(--mac-secondary)]">
-        {[todo.projectName, todo.priority, phrase, todo.dueAt].filter(Boolean).join(" · ")}
+        {[todo.projectName, todo.priority, phrase, todo.dueAt ? formatCalendarDay(todo.dueAt) : ""].filter(Boolean).join(" · ")}
       </p>
       {todo.tags ? <p className="mac-t11 text-[var(--mac-secondary)]">{todo.tags}</p> : null}
       {todo.notes ? <p className="mac-t13 whitespace-pre-wrap">{todo.notes}</p> : null}
       {todo.assignees.length ? <p className="mac-t13">{todo.assignees.map((person) => person.name).join(", ")}</p> : null}
-      <ul className="flex flex-col gap-2">
+      <ul className="flex flex-col">
         {todo.checks.map((check) => (
-          <li
+          <CheckRow
             key={check.id}
-            className="flex flex-col gap-1 rounded-md border border-[var(--mac-separator)] p-2"
-            onDragOver={(event) => event.preventDefault()}
+            todoId={todo.id}
+            check={check}
+            users={users}
+            vendors={vendors}
+            canEdit={canEdit}
+            canTick={canTick}
             onDrop={() => dropOn(check.id)}
-          >
-            <div className="flex items-center gap-2">
-              {canEdit ? (
-                <button
-                  type="button"
-                  draggable
-                  aria-label={`Drag ${check.title}`}
-                  className="cursor-grab text-[var(--mac-tertiary)]"
-                  onDragStart={() => setDragId(check.id)}
-                >
-                  ⋮⋮
-                </button>
-              ) : null}
-              {canTick ? (
-                <form action={setTodoCheckAction.bind(null, check.id, check.status !== "done")}>
-                  <button type="submit" role="checkbox" aria-checked={check.status === "done"} aria-label={check.title} className="mac-t13">
-                    {check.status === "done" ? "☑" : "☐"}
-                  </button>
-                </form>
-              ) : (
-                <span className="mac-t13">{check.status === "done" ? "☑" : "☐"} {check.title}</span>
-              )}
-              {canTick ? <span className="min-w-0 flex-1 truncate mac-t13">{check.title}</span> : null}
-              {canEdit ? (
-                <span className="flex gap-1">
-                  <form action={moveTodoCheckAction.bind(null, todo.id, check.id, "up")}>
-                    <button type="submit" aria-label={`Up ${check.title}`} className="mac-t11 text-[var(--mac-secondary)]">
-                      Up
-                    </button>
-                  </form>
-                  <form action={moveTodoCheckAction.bind(null, todo.id, check.id, "down")}>
-                    <button type="submit" aria-label={`Down ${check.title}`} className="mac-t11 text-[var(--mac-secondary)]">
-                      Down
-                    </button>
-                  </form>
-                  <form action={deleteTodoCheckAction.bind(null, check.id)}>
-                    <button type="submit" aria-label={`Delete ${check.title}`} className="mac-t11 text-[var(--mac-secondary)]">
-                      Delete
-                    </button>
-                  </form>
-                </span>
-              ) : null}
-            </div>
-            {check.assigneeName || check.dueAt ? (
-              <p className="mac-t11 text-[var(--mac-secondary)]">{[check.assigneeName, check.dueAt].filter(Boolean).join(" · ")}</p>
-            ) : null}
-            {canEdit ? (
-              <ActionForm action={renameTodoCheckAction} className="flex gap-1">
-                <input type="hidden" name="checkId" value={check.id} />
-                <input name="title" aria-label={`Rename ${check.title}`} defaultValue={check.title} className="field min-w-0 flex-1" />
-                <button type="submit" className="mac-t11">
-                  Save
-                </button>
-              </ActionForm>
-            ) : null}
-            {canEdit ? (
-              <ActionForm action={updateTodoCheckAction} className="flex gap-1">
-                <input type="hidden" name="checkId" value={check.id} />
-                <select name="assignee" aria-label={`Assignee ${check.title}`} defaultValue={check.assigneeUserId ? `user:${check.assigneeUserId}` : check.assigneeContactId ? `vendor:${check.assigneeContactId}` : ""} className="field min-w-0 flex-1">
-                  <option value="">Unassigned</option>
-                  {users.map((person) => (
-                    <option key={person.id} value={`user:${person.id}`}>
-                      {person.name}
-                    </option>
-                  ))}
-                  {vendors.map((person) => (
-                    <option key={person.id} value={`vendor:${person.id}`}>
-                      {person.name}
-                    </option>
-                  ))}
-                </select>
-                <input name="dueAt" type="date" aria-label={`Due ${check.title}`} defaultValue={check.dueAt || ""} className="field" />
-                <button type="submit" className="mac-t11">
-                  Set
-                </button>
-              </ActionForm>
-            ) : null}
-          </li>
+            onDragStart={() => setDragId(check.id)}
+          />
         ))}
       </ul>
       {canEdit ? (
@@ -187,5 +121,108 @@ export function TodoPane({
         </ActionForm>
       ) : null}
     </aside>
+  );
+}
+
+function CheckRow({
+  todoId,
+  check,
+  users,
+  vendors,
+  canEdit,
+  canTick,
+  onDrop,
+  onDragStart,
+}: {
+  todoId: string;
+  check: TodoRow["checks"][number];
+  users: Person[];
+  vendors: Person[];
+  canEdit: boolean;
+  canTick: boolean;
+  onDrop: () => void;
+  onDragStart: () => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const due = check.dueAt ? formatCalendarDay(check.dueAt) : "";
+  if (editing && canEdit) {
+    return (
+      <li className="border-b border-[var(--mac-separator)] py-1">
+        <form
+          className="flex flex-col gap-1"
+          action={async (formData) => {
+            await saveTodoCheckAction(formData);
+            setEditing(false);
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") {
+              event.preventDefault();
+              setEditing(false);
+            }
+            if (event.key === "Enter") {
+              event.preventDefault();
+              event.currentTarget.requestSubmit();
+            }
+          }}
+        >
+          <input type="hidden" name="checkId" value={check.id} />
+          <input name="title" aria-label="Item title" defaultValue={check.title} autoFocus className="field" />
+          <select name="assignee" aria-label="Item assignee" defaultValue={assigneeValue(check)} className="field">
+            <option value="">Unassigned</option>
+            {users.map((person) => (
+              <option key={person.id} value={`user:${person.id}`}>
+                {person.name}
+              </option>
+            ))}
+            {vendors.map((person) => (
+              <option key={person.id} value={`vendor:${person.id}`}>
+                {person.name}
+              </option>
+            ))}
+          </select>
+          <input name="dueAt" type="date" aria-label="Item due" defaultValue={check.dueAt || ""} className="field" />
+        </form>
+      </li>
+    );
+  }
+  return (
+    <li className="border-b border-[var(--mac-separator)]" onDragOver={(event) => event.preventDefault()} onDrop={onDrop}>
+      <div className="flex items-center gap-2 py-1">
+        {canEdit ? (
+          <button type="button" draggable aria-label={`Drag ${check.title}`} className="cursor-grab text-[var(--mac-tertiary)]" onDragStart={onDragStart}>
+            ⋮⋮
+          </button>
+        ) : null}
+        {canTick ? (
+          <form action={setTodoCheckAction.bind(null, check.id, check.status !== "done")}>
+            <button type="submit" role="checkbox" aria-checked={check.status === "done"} aria-label={check.title} className="mac-t13">
+              {check.status === "done" ? "☑" : "☐"}
+            </button>
+          </form>
+        ) : (
+          <span aria-hidden className="mac-t13">{check.status === "done" ? "☑" : "☐"}</span>
+        )}
+        <button type="button" className="min-w-0 flex-1 text-left" aria-label={canEdit ? `Edit ${check.title}` : undefined} onClick={() => canEdit && setEditing(true)} disabled={!canEdit}>
+          <span className="block truncate mac-t13">{check.title}</span>
+          {check.assigneeName || due ? <span className="block truncate mac-t11 text-[var(--mac-secondary)]">{[check.assigneeName, due].filter(Boolean).join(" · ")}</span> : null}
+        </button>
+        {canEdit ? (
+          <details className="list-pop">
+            <summary aria-label={`Menu ${check.title}`} role="button">⋯</summary>
+            <div className="list-menu">
+              <form action={moveTodoCheckAction.bind(null, todoId, check.id, "up")}>
+                <button type="submit">Move up</button>
+              </form>
+              <form action={moveTodoCheckAction.bind(null, todoId, check.id, "down")}>
+                <button type="submit">Move down</button>
+              </form>
+              <form action={deleteTodoCheckAction.bind(null, check.id)}>
+                <button type="submit">Delete</button>
+              </form>
+            </div>
+          </details>
+        ) : null}
+      </div>
+    </li>
   );
 }

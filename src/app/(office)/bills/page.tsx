@@ -1,29 +1,40 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { ListToolbar } from "@/components/list-toolbar";
 import { Toolbar } from "@/components/mac/toolbar";
-import { Button } from "@/components/ui/button";
 import { requireSession } from "@/lib/auth/session";
 import { formatCalendarDay } from "@/lib/format";
+import { one, pinnedTarget, readQuery } from "@/lib/lists/query";
 import { formatMoney } from "@/lib/money";
-import { canManageMoney, canSeeMoney } from "@/lib/permissions";
+import { canEditCrm, canManageMoney, canSeeMoney } from "@/lib/permissions";
 import { listBills, vendorBillSummaries } from "@/lib/services/bills";
 import { listContacts, listProjects } from "@/lib/services/read";
+import { LIST_FILTERS, listSavedViews, viewHref } from "@/lib/services/saved-views";
 
 export default async function BillsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ job?: string; vendor?: string; status?: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const session = await requireSession();
   if (!canSeeMoney(session.role)) {
     return <h1 className="fl-large-title">Bills</h1>;
   }
   const query = await searchParams;
+  const keys = LIST_FILTERS.bills ?? [];
+  const views = listSavedViews(session, "bills");
+  const target = pinnedTarget("/bills", query, views.find((view) => view.pinned) ?? null, keys);
+  if (target) redirect(target);
+  const filters = readQuery(query, keys);
   const rows = listBills(session.orgId, session.role, {
-    projectId: query.job || undefined,
-    vendorContactId: query.vendor || undefined,
-    status: query.status || undefined,
+    projectId: filters.job || undefined,
+    vendorContactId: filters.vendor || undefined,
+    status: filters.status || undefined,
+  }).filter((bill) => {
+    const needle = (filters.q || "").toLowerCase();
+    return !needle || `${bill.billNumber} ${bill.vendorName} ${bill.projectName}`.toLowerCase().includes(needle);
   });
-  const summaries = vendorBillSummaries(session.orgId, session.role).filter((row) => !query.vendor || row.contactId === query.vendor);
+  const summaries = vendorBillSummaries(session.orgId, session.role).filter((row) => !filters.vendor || row.contactId === filters.vendor);
   const jobs = listProjects(session.orgId);
   const vendors = listContacts(session.orgId).filter((contact) => contact.type === "sub" || contact.type === "vendor");
   return (
@@ -31,56 +42,27 @@ export default async function BillsPage({
       <div className="hidden md:block">
         <Toolbar title="Bills" primary={canManageMoney(session.role) ? "New bill" : undefined} primaryHref={canManageMoney(session.role) ? "/bills/new" : undefined} search={false} />
       </div>
-      <div className="flex flex-wrap items-end justify-between gap-3 md:hidden">
-        <div>
-          <h1 className="font-heading text-3xl">Bills</h1>
-          <p className="text-sm text-muted-foreground">Sub and vendor bills for {session.orgName}. Approving one adds it to the job. Paying one does not move money.</p>
-        </div>
-        {canManageMoney(session.role) ? (
-          <Link href="/bills/new" className="inline-flex h-11 items-center rounded-lg bg-primary px-4 text-sm text-primary-foreground">
-            New bill
-          </Link>
-        ) : null}
-      </div>
-      <form method="get" className="grid gap-2 rounded-xl bg-card p-4 ring-1 ring-foreground/10 sm:grid-cols-4">
-        <label className="text-sm">
-          Job
-          <select name="job" defaultValue={query.job ?? ""} className="field mt-1" aria-label="Filter by job">
-            <option value="">All jobs</option>
-            {jobs.map((row) => (
-              <option key={row.project.id} value={row.project.id}>
-                {row.project.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="text-sm">
-          Vendor
-          <select name="vendor" defaultValue={query.vendor ?? ""} className="field mt-1" aria-label="Filter by vendor">
-            <option value="">All vendors</option>
-            {vendors.map((contact) => (
-              <option key={contact.id} value={contact.id}>
-                {contact.company || contact.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="text-sm">
-          Status
-          <select name="status" defaultValue={query.status ?? ""} className="field mt-1" aria-label="Filter by status">
-            <option value="">All</option>
-            <option value="draft">Draft</option>
-            <option value="approved">Approved</option>
-            <option value="paid">Paid</option>
-            <option value="void">Void</option>
-            <option value="overdue">Overdue</option>
-            <option value="upcoming">Due in 7 days</option>
-          </select>
-        </label>
-        <Button type="submit" variant="outline" className="h-11 self-end">
-          Filter
-        </Button>
-      </form>
+      <h1 className="fl-large-title md:hidden">Bills</h1>
+      {canManageMoney(session.role) ? (
+        <Link href="/bills/new" className="mac-primary w-fit md:hidden">
+          New bill
+        </Link>
+      ) : null}
+      <ListToolbar
+        path="/bills"
+        list="bills"
+        search={filters.q || ""}
+        query={filters}
+        activeId={views.some((view) => view.id === one(query.view)) ? one(query.view) : ""}
+        canShare={canEditCrm(session.role)}
+        clearHref={Object.keys(filters).length ? "/bills?view=none" : null}
+        views={views.map((view) => ({ id: view.id, name: view.name, href: viewHref(view), pinned: view.pinned, mine: view.mine, shared: view.shared }))}
+        filters={[
+          { name: "job", label: "Job", value: filters.job || "", any: "Any", options: jobs.map((row) => ({ value: row.project.id, label: row.project.name })) },
+          { name: "vendor", label: "Vendor", value: filters.vendor || "", any: "Any", options: vendors.map((contact) => ({ value: contact.id, label: contact.company || contact.name })) },
+          { name: "status", label: "Status", value: filters.status || "", any: "Any", options: [{ value: "draft", label: "Draft" }, { value: "approved", label: "Approved" }, { value: "paid", label: "Paid" }, { value: "void", label: "Void" }, { value: "overdue", label: "Overdue" }, { value: "upcoming", label: "Due soon" }] },
+        ]}
+      />
       <div className="overflow-x-auto">
         <table className="mac-table">
           <thead>
@@ -106,7 +88,7 @@ export default async function BillsPage({
                   {bill.timing === "overdue" ? " · Overdue" : ""}
                   {bill.timing === "upcoming" ? " · Due soon" : ""}
                 </td>
-                <td className="px-2">
+                <td className="clip" title={bill.projectName}>
                   {bill.projectName}
                   {bill.dueDate ? <span className="num"> · {formatCalendarDay(bill.dueDate)}</span> : ""}
                 </td>
@@ -118,8 +100,7 @@ export default async function BillsPage({
         </table>
       </div>
       <section className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
-        <h2 className="font-heading text-xl">Vendors</h2>
-        <p className="mt-1 text-xs text-muted-foreground">Billed is approved and paid. Committed is the issued purchase-order total. Open PO is what those orders still have after approved bills.</p>
+        <h2 className="mac-t15">Vendors</h2>
         {summaries.length === 0 ? <p className="mt-3 text-sm text-muted-foreground">No approved or paid bills yet.</p> : null}
         <ul className="mt-3 space-y-4">
           {summaries.map((vendor) => (

@@ -52,6 +52,7 @@ import {
   vendorTick,
 } from "@/lib/services/todos";
 import { setWipOverride } from "@/lib/services/wip";
+import { deleteView, LIST_PATH, pinView, renameView, saveView, unpinView, viewHref } from "@/lib/services/saved-views";
 import { commitImport, previewImport, undoImport } from "@/lib/services/import";
 import {
   approveSelection,
@@ -2773,6 +2774,76 @@ export async function attachTodoFileAction(_prev: ActionState, formData: FormDat
   } catch (error) {
     return failure(error);
   }
+}
+
+export async function saveTodoCheckAction(formData: FormData) {
+  const user = await actor();
+  const checkId = String(formData.get("checkId") || "");
+  const who = String(formData.get("assignee") || "");
+  renameTodoCheck(user, checkId, String(formData.get("title") || ""));
+  updateTodoCheck(user, checkId, {
+    assigneeUserId: who.startsWith("user:") ? who.slice(5) : null,
+    assigneeContactId: who.startsWith("vendor:") ? who.slice(7) : null,
+    dueAt: String(formData.get("dueAt") || ""),
+  });
+  refreshTodos();
+}
+
+function viewQuery(formData: FormData): Record<string, string> {
+  try {
+    const parsed = JSON.parse(String(formData.get("query") || "{}")) as unknown;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+    const out: Record<string, string> = {};
+    for (const [key, value] of Object.entries(parsed)) {
+      if (typeof value === "string") out[key] = value;
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+export async function saveViewAction(formData: FormData) {
+  const user = await actor();
+  const view = saveView(user, {
+    list: String(formData.get("list") || ""),
+    name: String(formData.get("name") || ""),
+    query: viewQuery(formData),
+    sortKey: String(formData.get("sort") || "") || null,
+    sortDir: String(formData.get("dir") || "") || null,
+    shared: formData.get("shared") === "1",
+  });
+  revalidatePath(LIST_PATH[view.listKey] || "/");
+  redirect(viewHref(view));
+}
+
+export async function renameViewAction(formData: FormData) {
+  const user = await actor();
+  const view = renameView(user, String(formData.get("id") || ""), String(formData.get("name") || ""));
+  revalidatePath(LIST_PATH[view.listKey] || "/");
+  redirect(viewHref(view));
+}
+
+export async function deleteViewAction(formData: FormData) {
+  const user = await actor();
+  const list = String(formData.get("list") || "");
+  deleteView(user, String(formData.get("id") || ""));
+  revalidatePath(LIST_PATH[list] || "/");
+  redirect(`${LIST_PATH[list] || "/"}?view=none`);
+}
+
+export async function pinViewAction(formData: FormData) {
+  const user = await actor();
+  const view = pinView(user, String(formData.get("id") || ""));
+  revalidatePath(LIST_PATH[view.listKey] || "/");
+  redirect(viewHref(view));
+}
+
+export async function unpinViewAction(formData: FormData) {
+  const user = await actor();
+  const view = unpinView(user, String(formData.get("id") || ""));
+  revalidatePath(LIST_PATH[view.listKey] || "/");
+  redirect(viewHref(view));
 }
 
 export async function vendorTickAction(token: string, checkId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {

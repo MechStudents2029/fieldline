@@ -71,6 +71,9 @@ export type RfiListItem = {
   relatedId: string | null;
   relatedLabel: string | null;
   href: string;
+  projectId: string;
+  projectName: string;
+  assigneeValue: string;
 };
 
 export type JobRfiBoard = {
@@ -319,6 +322,9 @@ function listItem(db: AppDatabase, orgId: string, row: RfiRow, today: string, sh
     relatedId: row.relatedId,
     relatedLabel: relatedLabel(db, orgId, row.projectId, row.relatedType, row.relatedId),
     href: `/projects/${row.projectId}/rfis/${row.id}`,
+    projectId: row.projectId,
+    projectName: projectIn(db, orgId, row.projectId)?.name ?? "",
+    assigneeValue: row.assigneeUserId ? `user:${row.assigneeUserId}` : row.assigneeContactId ? `contact:${row.assigneeContactId}` : "",
   };
 }
 

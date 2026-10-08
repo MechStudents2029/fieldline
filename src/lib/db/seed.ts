@@ -46,6 +46,7 @@ import {
   templateSelections,
   templateTaskLinks,
   templateTasks,
+  savedViews,
   scheduleItems,
   selectionChoices,
   selectionEvents,
@@ -105,7 +106,7 @@ import {
   WEBSITE_FORM_SOURCE,
 } from "@/lib/lead-form/rules";
 
-export const SEED_VERSION = "23";
+export const SEED_VERSION = "24";
 
 const ORG = "org_rivera";
 const NORTH = "org_northline";
@@ -2697,6 +2698,19 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
     .run();
 
   seedTemplates(db, now);
+
+  db.insert(savedViews)
+    .values([
+      { id: "view_todos_overdue", orgId: ORG, userId: "user_maya", listKey: "todos", name: "My overdue", queryJson: JSON.stringify({ assignee: "user_maya", due: "overdue" }), sortKey: null, sortDir: null, shared: 0, createdAt: now, updatedAt: now },
+      { id: "view_rfis_open", orgId: ORG, userId: "user_maya", listKey: "rfis", name: "Awaiting answer", queryJson: JSON.stringify({ status: "open" }), sortKey: null, sortDir: null, shared: 1, createdAt: now, updatedAt: now },
+      { id: "view_todos_week", orgId: ORG, userId: "user_dana", listKey: "todos", name: "This week", queryJson: JSON.stringify({ due: "week" }), sortKey: null, sortDir: null, shared: 0, createdAt: now, updatedAt: now },
+      { id: "view_todos_high", orgId: ORG, userId: "user_dana", listKey: "todos", name: "High", queryJson: JSON.stringify({ priority: "high" }), sortKey: null, sortDir: null, shared: 0, createdAt: now, updatedAt: now },
+      { id: "view_leads_referral", orgId: ORG, userId: "user_luis", listKey: "leads", name: "Referral", queryJson: JSON.stringify({ source: "referral" }), sortKey: null, sortDir: null, shared: 0, createdAt: now, updatedAt: now },
+      { id: "view_todos_luis", orgId: ORG, userId: "user_luis", listKey: "todos", name: "High", queryJson: JSON.stringify({ priority: "high" }), sortKey: null, sortDir: null, shared: 0, createdAt: now, updatedAt: now },
+      { id: "view_bills_overdue", orgId: ORG, userId: "user_sam", listKey: "bills", name: "Overdue", queryJson: JSON.stringify({ status: "overdue" }), sortKey: null, sortDir: null, shared: 0, createdAt: now, updatedAt: now },
+      { id: "view_pos_issued", orgId: ORG, userId: "user_sam", listKey: "purchase-orders", name: "Issued", queryJson: JSON.stringify({ status: "issued" }), sortKey: null, sortDir: null, shared: 0, createdAt: now, updatedAt: now },
+    ])
+    .run();
 
   db.insert(auditLogs)
     .values({

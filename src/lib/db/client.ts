@@ -109,6 +109,7 @@ export function ensureReady(holder: Holder) {
   ensureTemplates(holder);
   ensureWip(holder);
   ensureTodos(holder);
+  ensureSavedViews(holder);
   const version = holder.sqlite.prepare("select value from app_meta where key = ?").get("seed_version") as
     | { value: string }
     | undefined;
@@ -306,6 +307,36 @@ function ensureTodos(holder: Holder) {
     "org_id text not null, template_id text not null, todo_id text not null, title text not null, sort_order integer not null",
     "create index if not exists template_todo_checks_todo on template_todo_checks (org_id, todo_id)",
   );
+}
+
+function ensureSavedViews(holder: Holder) {
+  const pk = holder.dialect === "postgres" ? "text primary key" : "text primary key not null";
+  if (!tableExists(holder.sqlite, "saved_views", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists saved_views (
+      id ${pk},
+      org_id text not null,
+      user_id text not null,
+      list_key text not null,
+      name text not null,
+      query_json text not null,
+      sort_key text,
+      sort_dir text,
+      shared integer not null default 0,
+      created_at text not null,
+      updated_at text not null
+    )`);
+  }
+  holder.sqlite.exec("create index if not exists saved_views_org_list on saved_views (org_id, list_key)");
+  if (!tableExists(holder.sqlite, "saved_view_pins", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists saved_view_pins (
+      id ${pk},
+      org_id text not null,
+      user_id text not null,
+      list_key text not null,
+      view_id text not null
+    )`);
+  }
+  holder.sqlite.exec("create unique index if not exists saved_view_pins_user_list on saved_view_pins (org_id, user_id, list_key)");
 }
 
 function ensureTemplates(holder: Holder) {
