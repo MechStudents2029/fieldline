@@ -223,6 +223,7 @@ Score each scenario pass or fail, with a note and a screenshot.
 23. **Job from a template.** Templates lists Bathroom remodel and Kitchen remodel. New job, pick Bathroom remodel, leave the parts checked, set a start date and Maya as PM, and map Plumbing to Harbor Plumbing if you want. The job opens with a count of what was created and the subtitle Bathroom remodel v1. On the schedule, extend Demo. The sheet says how many items move before you save. Field does not see template prices. Editing the template afterward leaves this job as it was.
 24. **WIP.** Maya opens Reports, then WIP. Today has an Underbilled row that opens the same list, most underbilled first. Brooks powder room is underbilled. Okonkwo and Chen are overbilled. Brooks addition is under the margin line. Set the as-of date and Show. Open Brooks powder room, set a projected cost with a note, and save. CSV and Print use that date. Dana does not see WIP. A selected row is a light teal tint, and the red underbilled amount stays red.
 25. **To-dos.** Maya opens To-dos under Work. Today has one Overdue to-dos row. Pre-drywall walk on Okonkwo is tied to Tile shower, one workday before finish, with a checklist. Confirm the tile delivery is a reminder in Inbox. Photograph the Diaz punch is done. Add a to-do, type a checklist, and check the last item. Mark to-do done stays optional. Move Tile shower and the linked date moves with it. Sign in as Dana on a phone and tick Water lines capped. Harbor’s portal lists Blocking in place only. Tick it and attach a photo. Bathroom remodel and Kitchen remodel carry the same Pre-drywall walk.
+26. **Saved views.** The filter row on To-dos, RFIs, Bills, and the other lists applies as you change it. Save the current filters as a view, then Pin it. The next visit opens that view. Awaiting answer is shared. My overdue is Maya’s. Click a checklist row, press Enter to keep the new title, or Esc to leave it.
 
 Feedback: file a GitHub issue with steps, expected, actual, screenshot, and device. A useful score is "would I send this proposal today?" from 1 to 5, plus minutes to a quote versus the current process.
 
@@ -250,6 +251,7 @@ Feedback: file a GitHub issue with steps, expected, actual, screenshot, and devi
 - Bid requests on a job. Vendors price the lines on the same portal link. The office compares them and awards draft purchase orders, with an optional budget update. No message is sent.
 - A WIP report for owner, admin, and office. One row per open job, an as-of date, a cost-code breakdown, CSV, and a print page. Field does not see it. Selected rows use a light teal tint so red figures stay readable.
 - To-dos on a job and across jobs, with checklists, priorities, tags, photos, and assignees among office, field, and vendors. A deadline can follow a schedule item by workdays. Reminders stay in Inbox. Field and vendors tick only their own items. Templates can carry the list.
+- Saved views on the list pages. Filters sit in one row and apply as they change. Pin a view to open it next time. Office can share one with the company.
 
 **Stubbed until keys exist**
 

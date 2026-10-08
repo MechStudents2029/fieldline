@@ -8,7 +8,7 @@ import { MissingRecord } from "@/components/missing-record";
 import { PhotoCapture } from "@/components/photo-capture";
 import { Button } from "@/components/ui/button";
 import { requireSession } from "@/lib/auth/session";
-import { formatCalendarDay } from "@/lib/format";
+import { formatCalendarDay, formatDateTime } from "@/lib/format";
 import { captionFromMetadata } from "@/lib/services/read";
 import { logDetail, lookupWeather } from "@/lib/services/logs";
 
@@ -162,7 +162,7 @@ export default async function DailyLogPage({ params }: { params: Promise<{ id: s
         <ul className="mt-2 space-y-2">
           {detail.events.map(({ event, actorName }) => (
             <li key={event.id} className="rounded-lg bg-muted px-3 py-2">
-              <span className="font-medium">{event.type}</span> · {actorName || "Someone"} · {event.createdAt}
+              <span className="font-medium">{event.type}</span> · {actorName || "Someone"} · {formatDateTime(event.createdAt)}
               {event.reason ? <span className="block">{event.reason}</span> : null}
             </li>
           ))}

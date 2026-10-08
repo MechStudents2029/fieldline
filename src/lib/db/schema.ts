@@ -1682,3 +1682,33 @@ export const wipAttempts = sqliteTable(
   },
   (t) => [index("wip_attempts_user").on(t.orgId, t.userId, t.createdAt)],
 );
+
+export const savedViews = sqliteTable(
+  "saved_views",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    userId: text("user_id").notNull(),
+    listKey: text("list_key").notNull(),
+    name: text("name").notNull(),
+    queryJson: text("query_json").notNull(),
+    sortKey: text("sort_key"),
+    sortDir: text("sort_dir"),
+    shared: integer("shared").notNull().default(0),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (t) => [index("saved_views_org_list").on(t.orgId, t.listKey)],
+);
+
+export const savedViewPins = sqliteTable(
+  "saved_view_pins",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    userId: text("user_id").notNull(),
+    listKey: text("list_key").notNull(),
+    viewId: text("view_id").notNull(),
+  },
+  (t) => [uniqueIndex("saved_view_pins_user_list").on(t.orgId, t.userId, t.listKey)],
+);

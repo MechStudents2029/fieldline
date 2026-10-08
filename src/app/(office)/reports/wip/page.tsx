@@ -1,20 +1,19 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { EmptyState } from "@/components/empty-state";
 import { GroupedList, GroupedRow, LargeTitle } from "@/components/ios";
+import { ListToolbar } from "@/components/list-toolbar";
 import { DataTable, type Cell, type TableRow } from "@/components/mac/data-table";
 import { Toolbar } from "@/components/mac/toolbar";
 import { requireSession } from "@/lib/auth/session";
 import { formatCalendarDay } from "@/lib/format";
+import { one, pinnedTarget, readQuery } from "@/lib/lists/query";
 import { formatPercent, formatWhole } from "@/lib/money";
 import { canEditCrm } from "@/lib/permissions";
+import { LIST_FILTERS, listSavedViews, viewHref } from "@/lib/services/saved-views";
 import { wipQuery, wipReport, wipSearch } from "@/lib/services/wip";
 
 const SORTS = new Set(["job", "contract", "projected", "cost", "percent", "earned", "billed", "under", "profit", "margin", "left"]);
-
-function one(value: string | string[] | undefined) {
-  return Array.isArray(value) ? value[0] : value;
-}
 
 function money(cents: number, danger = false): Cell {
   return { text: formatWhole(cents), sort: cents, tone: danger ? "late" : undefined };
@@ -28,6 +27,11 @@ export default async function WipPage({ searchParams }: { searchParams: Promise<
   const session = await requireSession();
   if (!canEditCrm(session.role)) notFound();
   const params = await searchParams;
+  const keys = LIST_FILTERS.wip ?? [];
+  const views = listSavedViews(session, "wip");
+  const target = pinnedTarget("/reports/wip", params, views.find((view) => view.pinned) ?? null, keys, ["sort", "dir"]);
+  if (target) redirect(target);
+  const filters = readQuery(params, keys);
   const query = wipQuery({
     asof: one(params.asof),
     pm: one(params.pm),
@@ -36,11 +40,13 @@ export default async function WipPage({ searchParams }: { searchParams: Promise<
     dir: one(params.dir),
   });
   const report = wipReport(session, query);
+  const needle = (filters.q || "").toLowerCase();
+  const visibleRows = needle ? report.rows.filter((row) => row.name.toLowerCase().includes(needle) || row.pmName.toLowerCase().includes(needle)) : report.rows;
   const screen = wipSearch({ ...query, asOf: report.asOf });
   const sortKey = query.sort && SORTS.has(query.sort) ? query.sort : "job";
   const dir = query.dir === "desc" ? "desc" : "asc";
   const columns = [
-    { key: "job", header: "Job" },
+    { key: "job", header: "Job", clip: true },
     { key: "contract", header: "Contract", align: "right" as const },
     { key: "projected", header: "Projected", align: "right" as const },
     { key: "cost", header: "Cost to date", align: "right" as const },
@@ -71,43 +77,30 @@ export default async function WipPage({ searchParams }: { searchParams: Promise<
     },
   });
   const totals = rowFor({ ...report.totals, projectId: "total", name: "Total", status: "", pmUserId: null, pmName: "", override: null, codes: [] });
-  const filters = (
-    <form method="get" className="flex flex-wrap items-center gap-2">
-      <label className="text-[13px] text-[var(--mac-secondary)]">
-        As of
-        <input type="date" name="asof" aria-label="As of" defaultValue={report.asOf} className="ml-1 h-7 rounded-md border border-[var(--mac-separator)] bg-transparent px-2 text-[13px] text-[var(--mac-label)]" />
-      </label>
-      <label className="text-[13px] text-[var(--mac-secondary)]">
-        PM
-        <select name="pm" aria-label="PM" defaultValue={query.pmUserId || ""} className="ml-1 h-7 rounded-md border border-[var(--mac-separator)] bg-transparent px-2 text-[13px] text-[var(--mac-label)]">
-          <option value="">All</option>
-          {report.pms.map((pm) => (
-            <option key={pm.id} value={pm.id}>
-              {pm.name}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label className="text-[13px] text-[var(--mac-secondary)]">
-        Status
-        <select name="status" aria-label="Status" defaultValue={query.status === "complete" || query.status === "all" ? query.status : "active"} className="ml-1 h-7 rounded-md border border-[var(--mac-separator)] bg-transparent px-2 text-[13px] text-[var(--mac-label)]">
-          <option value="active">Active</option>
-          <option value="complete">Complete</option>
-          <option value="all">All</option>
-        </select>
-      </label>
-      {query.sort && query.sort !== "job" ? <input type="hidden" name="sort" value={query.sort} /> : null}
-      {query.dir === "desc" ? <input type="hidden" name="dir" value="desc" /> : null}
-      <button type="submit" className="mac-primary">
-        Show
-      </button>
-    </form>
+  const statusValue = filters.status === "complete" || filters.status === "all" ? filters.status : "";
+  const toolbar = (
+    <ListToolbar
+      path="/reports/wip"
+      list="wip"
+      search={filters.q || ""}
+      query={{ ...filters, status: statusValue }}
+      activeId={views.some((view) => view.id === one(params.view)) ? one(params.view) : ""}
+      canShare
+      clearHref={Object.keys(filters).length ? "/reports/wip?view=none" : null}
+      preserve={{ ...(query.sort && query.sort !== "job" ? { sort: query.sort } : {}), ...(query.dir === "desc" ? { dir: "desc" } : {}) }}
+      views={views.map((view) => ({ id: view.id, name: view.name, href: viewHref(view), pinned: view.pinned, mine: view.mine, shared: view.shared }))}
+      dates={[{ name: "asof", label: "As of", value: filters.asof || report.asOf }]}
+      filters={[
+        { name: "pm", label: "PM", value: filters.pm || "", any: "All", options: report.pms.map((pm) => ({ value: pm.id, label: pm.name })) },
+        { name: "status", label: "Status", value: statusValue, any: "Active", options: [{ value: "complete", label: "Complete" }, { value: "all", label: "All" }] },
+      ]}
+    />
   );
   return (
     <>
       <div className="mx-auto flex max-w-lg flex-col gap-4 md:hidden">
         <LargeTitle title="WIP" subtitle={`${formatCalendarDay(report.asOf)} · ${report.rows.length} jobs`} />
-        {filters}
+        {toolbar}
         <div className="flex gap-3 text-[13px]">
           <Link href={`/api/export/wip${screen}`}>CSV</Link>
           <Link href={`/reports/wip/print${screen}`}>Print</Link>
@@ -116,7 +109,7 @@ export default async function WipPage({ searchParams }: { searchParams: Promise<
           <EmptyState title="No jobs" />
         ) : (
           <GroupedList label="Jobs">
-            {report.rows.map((row) => (
+            {visibleRows.map((row) => (
               <GroupedRow
                 key={row.projectId}
                 href={`/reports/wip/${row.projectId}?asof=${report.asOf}`}
@@ -145,13 +138,13 @@ export default async function WipPage({ searchParams }: { searchParams: Promise<
             </span>
           }
         />
-        <div className="px-4 pb-2">{filters}</div>
+        {toolbar}
         {report.rows.length === 0 ? (
           <EmptyState title="No jobs" />
         ) : (
           <DataTable
             columns={columns}
-            rows={report.rows.map((row) => rowFor(row, `/reports/wip/${row.projectId}?asof=${report.asOf}`))}
+            rows={visibleRows.map((row) => rowFor(row, `/reports/wip/${row.projectId}?asof=${report.asOf}`))}
             footer={totals}
             initialSort={{ key: sortKey, dir }}
             status={`${report.rows.length} jobs · ${formatWhole(report.totals.contractCents)}`}

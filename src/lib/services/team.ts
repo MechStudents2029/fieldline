@@ -4,6 +4,7 @@ import { hashInviteToken, inviteTokenShape, newInviteToken } from "@/lib/auth/in
 import { getDb, type AppDatabase } from "@/lib/db/client";
 import { officeDb } from "@/lib/db/office";
 import { activities, memberships, organizations, teamInvites, users } from "@/lib/db/schema";
+import { formatWhen } from "@/lib/format";
 import { id, nowIso } from "@/lib/ids";
 import { canGrantRole, canManageSettings, isInviteRole, isRole, roleLabel, type InviteRole, type Role } from "@/lib/permissions";
 import { acceptAllowed, appOrigin, normalizeEmail, passwordError } from "@/lib/security";
@@ -34,7 +35,7 @@ export function inviteTtlMs(role: InviteRole): number {
 }
 
 export function invitePasteMessage(input: { companyName: string; roleLabel: string; url: string; expiresAt: string }) {
-  return `Join ${input.companyName} on Fieldline as ${input.roleLabel}. Open ${input.url} (expires ${input.expiresAt.slice(0, 10)}).`;
+  return `Join ${input.companyName} on Fieldline as ${input.roleLabel}. Open ${input.url} (expires ${formatWhen(input.expiresAt)}).`;
 }
 
 export function createInvite(actor: Actor, input: { email: string; role: string }, now = Date.now()) {

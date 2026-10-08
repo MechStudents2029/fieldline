@@ -47,7 +47,6 @@ test.describe("WIP report", () => {
     await page.emulateMedia({ colorScheme: "light" });
 
     await page.getByLabel("As of").filter({ visible: true }).fill("2026-09-01");
-    await page.getByRole("button", { name: "Show" }).filter({ visible: true }).click();
     await expect(page.getByText("Sep 1").filter({ visible: true })).toBeVisible();
 
     await page.goto("/reports/wip");

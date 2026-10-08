@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-10-08
+
+### Lists
+
+- To-dos, RFIs, Bills, Purchase orders, WIP, Clients, Leads, Jobs, and Inbox share one filter row. Each control shows its current value, such as Assignee: Any, and the list updates when it changes. Clear removes them. On a phone the row sits behind Filter.
+- A saved view stores that list’s filters for one person. Pin makes it the default. Office can share a view with the company. Maya has My overdue and Awaiting answer. Dana has This week and High.
+- A checklist row shows the item, the person, and the date. Click the row to edit it. Enter saves and Esc cancels. Move and Delete sit in the row menu. Checks on a to-do list shows the first items under the title.
+- Dates read Oct 7 this year, Oct 7, 2025 in another year, and 2:30 PM for a time.
+- A selected table row stays a light teal tint, and a job name truncates instead of wrapping.
+
 ## 2026-10-07
 
 ### To-dos

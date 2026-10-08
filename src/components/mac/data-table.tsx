@@ -15,7 +15,7 @@ export function DataTable({
   initialSort = null,
   footer,
 }: {
-  columns: { key: string; header: string; align?: "right"; fit?: boolean }[];
+  columns: { key: string; header: string; align?: "right"; fit?: boolean; clip?: boolean }[];
   rows?: TableRow[];
   groups?: TableGroup[];
   status?: string;
@@ -163,7 +163,7 @@ function GroupBlock({
   onMenu,
 }: {
   group: TableGroup;
-  columns: { key: string; header: string; align?: "right"; fit?: boolean }[];
+  columns: { key: string; header: string; align?: "right"; fit?: boolean; clip?: boolean }[];
   closed: boolean;
   sorted: TableRow[];
   flat: TableRow[];
@@ -201,9 +201,9 @@ function GroupBlock({
                 {columns.map((column, columnIndex) => {
                   const cell = row.cells[column.key];
                   const text = cell?.text ?? "";
-                  const className = `${column.align === "right" || column.fit ? "num" : ""} ${column.align === "right" ? "text-right" : ""} ${cell?.tone === "late" ? "text-[var(--mac-danger)]" : ""}`;
+                  const className = `${column.align === "right" || column.fit ? "num" : ""} ${column.clip ? "clip" : ""} ${column.align === "right" ? "text-right" : ""} ${cell?.tone === "late" ? "text-[var(--mac-danger)]" : ""}`;
                   return (
-                    <td key={column.key} className={className} style={cell?.tone === "late" ? { color: "var(--mac-danger)" } : undefined}>
+                    <td key={column.key} className={className} title={column.clip ? text : undefined} style={cell?.tone === "late" ? { color: "var(--mac-danger)" } : undefined}>
                       {columnIndex === 0 && row.href ? (
                         <>
                           <a href={row.href} className="hover-actions">

@@ -1,20 +1,20 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { completeTodosAction, createTodoAction } from "@/app/actions";
 import { ActionForm } from "@/components/action-form";
 import { EmptyState } from "@/components/empty-state";
+import { ListToolbar } from "@/components/list-toolbar";
 import { Toolbar } from "@/components/mac/toolbar";
 import { TodoPane } from "@/components/todo-pane";
 import { requireSession } from "@/lib/auth/session";
 import { formatCalendarDay } from "@/lib/format";
+import { one, pinnedTarget, readQuery, withPatch } from "@/lib/lists/query";
 import { canAddFieldNotes, canEditCrm } from "@/lib/permissions";
+import { LIST_FILTERS, listSavedViews, viewHref } from "@/lib/services/saved-views";
 import { deadlinePhrase, type DeadlineEdge } from "@/lib/todos/deadline";
 import { listTodos, todoDetail, todoPeople, type TodoFilter, type TodoRow } from "@/lib/services/todos";
 import { calendarForOrg } from "@/lib/services/time";
 import { localDay } from "@/lib/time/calendar";
-
-function one(value: string | string[] | undefined) {
-  return (Array.isArray(value) ? value[0] : value) || "";
-}
 
 function phraseFor(row: TodoRow) {
   if (row.unlinked) return "Unlinked";
@@ -37,14 +37,21 @@ function keep(params: Record<string, string>, task?: string) {
 export default async function TodosPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const session = await requireSession();
   const query = await searchParams;
+  const keys = LIST_FILTERS.todos ?? [];
+  const views = listSavedViews(session, "todos");
+  const target = pinnedTarget("/todos", query, views.find((view) => view.pinned) ?? null, keys, ["task", "new", "checks"]);
+  if (target) redirect(target);
+  const filters = readQuery(query, keys);
   const filter: TodoFilter = {
-    assignee: one(query.assignee) || null,
-    projectId: one(query.job) || null,
-    priority: one(query.priority) || null,
-    due: one(query.due) || null,
-    status: one(query.status) || null,
+    assignee: filters.assignee || null,
+    projectId: filters.job || null,
+    priority: filters.priority || null,
+    due: filters.due || null,
+    status: filters.status || null,
   };
-  const rows = listTodos(session, filter);
+  const listed = listTodos(session, filter);
+  const needle = (filters.q || "").toLowerCase();
+  const rows = needle ? listed.filter((row) => row.title.toLowerCase().includes(needle) || row.projectName.toLowerCase().includes(needle)) : listed;
   const people = todoPeople(session);
   const visibleJobIds = session.role === "field" ? new Set(listTodos(session).map((row) => row.projectId)) : null;
   const jobs = visibleJobIds ? people.jobs.filter((job) => visibleJobIds.has(job.id)) : people.jobs;
@@ -54,56 +61,35 @@ export default async function TodosPage({ searchParams }: { searchParams: Promis
   const openCount = rows.filter((row) => row.status === "open").length;
   const office = canEditCrm(session.role);
   const params = {
-    assignee: filter.assignee || "",
-    job: filter.projectId || "",
-    priority: filter.priority || "",
-    due: filter.due || "",
-    status: filter.status || "",
+    assignee: filters.assignee || "",
+    job: filters.job || "",
+    priority: filters.priority || "",
+    due: filters.due || "",
+    status: filters.status || "",
+    q: filters.q || "",
   };
-  const filters = (
-    <form method="get" className="flex flex-wrap items-center gap-2">
-      <select name="assignee" aria-label="Assignee" defaultValue={params.assignee} className="field h-7 w-auto">
-        <option value="">Assignee</option>
-        {people.users.map((person) => (
-          <option key={person.id} value={person.id}>
-            {person.name}
-          </option>
-        ))}
-        {people.vendors.map((person) => (
-          <option key={person.id} value={person.id}>
-            {person.name}
-          </option>
-        ))}
-      </select>
-      <select name="job" aria-label="Job" defaultValue={params.job} className="field h-7 w-auto">
-        <option value="">Job</option>
-        {jobs.map((job) => (
-          <option key={job.id} value={job.id}>
-            {job.name}
-          </option>
-        ))}
-      </select>
-      <select name="priority" aria-label="Priority" defaultValue={params.priority} className="field h-7 w-auto">
-        <option value="">Priority</option>
-        <option value="low">Low</option>
-        <option value="normal">Normal</option>
-        <option value="high">High</option>
-      </select>
-      <select name="due" aria-label="Due" defaultValue={params.due} className="field h-7 w-auto">
-        <option value="">Due</option>
-        <option value="overdue">Overdue</option>
-        <option value="week">This week</option>
-        <option value="later">Later</option>
-      </select>
-      <select name="status" aria-label="Status" defaultValue={params.status} className="field h-7 w-auto">
-        <option value="">Open</option>
-        <option value="done">Done</option>
-        <option value="all">All</option>
-      </select>
-      <button type="submit" className="mac-primary">
-        Show
-      </button>
-    </form>
+  const activeId = views.some((view) => view.id === one(query.view)) ? one(query.view) : "";
+  const showChecks = one(query.checks) === "1";
+  const toolbar = (
+    <ListToolbar
+      path="/todos"
+      list="todos"
+      search={filters.q || ""}
+      query={params}
+      activeId={activeId}
+      canShare={office}
+      clearHref={Object.values(params).some(Boolean) ? withPatch("/todos", {}, { view: "none" }) : null}
+      views={views.map((view) => ({ id: view.id, name: view.name, href: viewHref(view), pinned: view.pinned, mine: view.mine, shared: view.shared }))}
+      preserve={showChecks ? { checks: "1" } : {}}
+      extra={<a className="list-link" href={withPatch("/todos", { ...params, ...(activeId ? { view: activeId } : {}), ...(selectedId ? { task: selectedId } : {}) }, { checks: showChecks ? null : "1" })}>{showChecks ? "Checks on" : "Checks"}</a>}
+      filters={[
+        { name: "assignee", label: "Assignee", value: params.assignee, any: "Any", options: [...people.users, ...people.vendors].map((person) => ({ value: person.id, label: person.name })) },
+        { name: "job", label: "Job", value: params.job, any: "Any", options: jobs.map((job) => ({ value: job.id, label: job.name })) },
+        { name: "priority", label: "Priority", value: params.priority, any: "Any", options: [{ value: "low", label: "Low" }, { value: "normal", label: "Normal" }, { value: "high", label: "High" }] },
+        { name: "due", label: "Due", value: params.due, any: "Any", options: [{ value: "overdue", label: "Overdue" }, { value: "week", label: "This week" }, { value: "later", label: "Later" }] },
+        { name: "status", label: "Status", value: params.status, any: "Open", options: [{ value: "done", label: "Done" }, { value: "all", label: "All" }] },
+      ]}
+    />
   );
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -119,7 +105,7 @@ export default async function TodosPage({ searchParams }: { searchParams: Promis
           </Link>
         ) : null}
       </div>
-      <div className="px-4 pb-3">{filters}</div>
+      {toolbar}
       {one(query.new) && office ? (
         <div role="dialog" aria-label="New to-do" className="mx-4 mb-3 max-w-xl rounded-md border border-[var(--mac-separator)] p-3">
         <ActionForm action={createTodoAction} className="flex flex-col gap-2">
@@ -245,8 +231,11 @@ export default async function TodosPage({ searchParams }: { searchParams: Promis
                           </td>
                           <td>
                             <Link href={keep(params, row.id)}>{row.title}</Link>
+                            {showChecks && row.checks.length ? (
+                              <span className="block truncate mac-t11 text-[var(--mac-secondary)]">{row.checks.slice(0, 3).map((item) => item.title).join(" · ")}</span>
+                            ) : null}
                           </td>
-                          <td>{row.projectName}</td>
+                          <td className="clip" title={row.projectName}>{row.projectName}</td>
                           <td className={`num ${late ? "text-[var(--mac-danger)]" : ""}`} style={late ? { color: "var(--mac-danger)" } : undefined}>
                             {row.dueAt ? formatCalendarDay(row.dueAt) : ""}
                           </td>
@@ -267,7 +256,7 @@ export default async function TodosPage({ searchParams }: { searchParams: Promis
                     <input type="checkbox" name="taskId" value={row.id} aria-label={`Select ${row.title}`} />
                     <Link href={keep(params, row.id)} className="min-w-0 flex-1">
                       <span className="block truncate">{row.title}</span>
-                      <span className="block mac-t11 text-[var(--mac-secondary)]">{[row.projectName, row.progress, row.dueAt].filter(Boolean).join(" · ")}</span>
+                      <span className="block mac-t11 text-[var(--mac-secondary)]">{[row.projectName, row.progress, row.dueAt ? formatCalendarDay(row.dueAt) : ""].filter(Boolean).join(" · ")}</span>
                     </Link>
                   </li>
                 ))}

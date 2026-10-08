@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { commitImportAction, previewImportAction, undoImportAction } from "@/app/actions";
 import { ImportParseError, MAX_IMPORT_BYTES, parseCsv, type CsvTable } from "@/lib/import/csv";
 import { FIELD_LABEL, autoMap, fieldsFor, type ImportKind } from "@/lib/import/map";
+import { formatWhen } from "@/lib/format";
 import { rowCounts, type ImportHistoryRow, type ImportViewRow } from "@/lib/import/review";
 
 export function ImportWizard({ kind, history }: { kind: ImportKind; history: ImportHistoryRow[] }) {
@@ -196,7 +197,7 @@ export function ImportWizard({ kind, history }: { kind: ImportKind; history: Imp
               {history.map((batch) => (
                 <li key={batch.id} className="flex h-7 items-center gap-3 mac-t13">
                   <span>{kindLabel(batch.kind)}</span>
-                  <span className="num text-[var(--mac-secondary)]">{batch.createdAt.slice(0, 10)}</span>
+                  <span className="num text-[var(--mac-secondary)]">{formatWhen(batch.createdAt)}</span>
                   <span className="num text-[var(--mac-secondary)]">{batch.summary.new} new</span>
                   {batch.reason ? <span className="text-[var(--mac-danger)]">{batch.reason}</span> : null}
                   {batch.undoneAt ? <span className="text-[var(--mac-secondary)]">Undone</span> : <button type="button" className="mac-glass-btn" disabled={pending} onClick={() => void onUndo(batch.id)}>Undo</button>}
