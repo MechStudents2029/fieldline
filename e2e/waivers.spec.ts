@@ -118,7 +118,7 @@ async function requestSignAndPay(page: Page, shots: boolean) {
   await page.getByLabel("Paid on").fill("2026-10-09");
   await page.getByLabel("Payment reference").fill("4455");
   await page.getByRole("button", { name: "Mark paid" }).click();
-  await expect(page.getByText(/Paid Oct 9/)).toBeVisible();
+  await expect(page.locator("[data-detail='facts']")).toContainText("Oct 9 · check · 4455");
   await expect(page.getByText("Lien waiver is not signed.")).toHaveCount(0);
   await page.getByRole("button", { name: "Request unconditional waiver" }).click();
   await expect(page.getByLabel("Lien waivers")).toContainText("Unconditional progress");

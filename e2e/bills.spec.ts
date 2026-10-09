@@ -77,9 +77,9 @@ test.describe("phone bill", () => {
     await expect(save).toBeInViewport();
     await save.click();
     await expect(page.getByRole("heading", { name: "HP-E2E-9" })).toBeVisible();
-    await expect(page.locator(".uppercase").getByText("draft", { exact: true })).toBeVisible();
+    await expect(page.locator("[data-status='draft']")).toBeVisible();
     await page.getByRole("button", { name: "Approve bill" }).click();
-    await expect(page.locator(".uppercase").getByText("approved", { exact: true })).toBeVisible();
+    await expect(page.locator("[data-status='approved']")).toBeVisible();
     await page.goto("/projects/proj_okonkwo");
     await expect(page.getByRole("link", { name: /HP-E2E-9 · Harbor Plumbing · approved/ })).toBeVisible();
     const after = costDollars(await page.getByText(/cost \$/).innerText());
@@ -89,7 +89,7 @@ test.describe("phone bill", () => {
     await page.getByLabel("Payment method").selectOption("check");
     await page.getByLabel("Payment reference").fill("E2E-19");
     await page.getByRole("button", { name: "Mark paid" }).click();
-    await expect(page.locator(".uppercase").getByText("paid", { exact: true })).toBeVisible();
+    await expect(page.locator("[data-status='paid']")).toBeVisible();
     await expect(page.getByText(/check · E2E-19/)).toBeVisible();
     await page.goto("/projects/proj_okonkwo");
     expect(costDollars(await page.getByText(/cost \$/).innerText())).toBeCloseTo(after, 2);

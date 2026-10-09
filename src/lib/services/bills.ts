@@ -17,10 +17,11 @@ import {
   purchaseOrderLines,
   purchaseOrders,
 } from "@/lib/db/schema";
+import { poOverageMessage } from "@/lib/bills/from-po";
 import { netPayableCents, retainedCents } from "@/lib/bills/retainage";
 import { id, nowIso } from "@/lib/ids";
 import { overageByCode } from "@/lib/margin/commitment";
-import { formatMoney, positiveMoneyError } from "@/lib/money";
+import { positiveMoneyError } from "@/lib/money";
 import { canManageMoney, canSeeMoney, type Role } from "@/lib/permissions";
 import { ServiceError } from "@/lib/services/errors";
 import { assessBill } from "@/lib/services/pay-ready";
@@ -315,9 +316,8 @@ function poWarning(db: Writer, orgId: string, purchaseOrderId: string | null | u
         .filter((line) => priorIds.includes(line.billId))
     : [];
   const overs = overageByCode(poLines, priorLines, lines);
-  if (overs.length === 0) return null;
-  const detail = overs.map((row) => `${formatMoney(row.overCents)} over on ${row.code}`).join(", ");
-  return `This bill is past ${order.number}: ${detail}. It was still saved.`;
+  const message = poOverageMessage(order.number, overs);
+  return message ? `${message} It was still saved.` : null;
 }
 
 export function createBill(actor: Actor, input: BillInput) {

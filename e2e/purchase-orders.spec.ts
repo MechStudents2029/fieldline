@@ -21,9 +21,9 @@ test("issue a purchase order, link a bill, and watch committed fall as actual ri
   await page.getByRole("button", { name: "Save draft" }).click();
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(/PO-\d+/);
   const number = (await page.getByRole("heading", { level: 1 }).innerText()).trim();
-  await expect(page.locator(".uppercase").getByText("draft", { exact: true })).toBeVisible();
+  await expect(page.locator("[data-status='draft']")).toBeVisible();
   await page.getByRole("button", { name: "Issue purchase order" }).click();
-  await expect(page.locator(".uppercase").getByText("issued", { exact: true })).toBeVisible();
+  await expect(page.locator("[data-status='issued']")).toBeVisible();
 
   await page.goto("/projects/proj_chen");
   const row = page.locator('[data-code="PLB-TOILET"]');
@@ -43,7 +43,7 @@ test("issue a purchase order, link a bill, and watch committed fall as actual ri
   await expect(page.getByRole("heading", { name: "PO-E2E-1" })).toBeVisible();
   await expect(page.getByRole("link", { name: number })).toBeVisible();
   await page.getByRole("button", { name: "Approve bill" }).click();
-  await expect(page.locator(".uppercase").getByText("approved", { exact: true })).toBeVisible();
+  await expect(page.locator("[data-status='approved']")).toBeVisible();
 
   await page.goto("/projects/proj_chen");
   const after = page.locator('[data-code="PLB-TOILET"]');

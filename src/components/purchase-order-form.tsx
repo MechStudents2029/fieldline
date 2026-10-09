@@ -11,12 +11,14 @@ export function PurchaseOrderForm({
   codes,
   defaults,
   lockJob,
+  compact,
 }: {
   projects: Choice[];
   vendors: Choice[];
   orders: Choice[];
   codes: string[];
   lockJob?: boolean;
+  compact?: boolean;
   defaults?: {
     id?: string;
     projectId?: string;
@@ -28,7 +30,7 @@ export function PurchaseOrderForm({
 }) {
   const lines = [...(defaults?.lines ?? []), { description: "", costCode: "", amountCents: 0 }, { description: "", costCode: "", amountCents: 0 }, { description: "", costCode: "", amountCents: 0 }].slice(0, 4);
   return (
-    <ActionForm action={savePurchaseOrderAction} className="grid gap-3 rounded-xl bg-card p-4 ring-1 ring-foreground/10 sm:grid-cols-2">
+    <ActionForm action={savePurchaseOrderAction} className={compact ? "grid gap-3 sm:grid-cols-2" : "grid gap-3 rounded-xl bg-card p-4 ring-1 ring-foreground/10 sm:grid-cols-2"} dataSheet={compact ? "edit" : undefined} dataDetailEdit={compact}>
       {defaults?.id ? <input type="hidden" name="purchaseOrderId" value={defaults.id} /> : null}
       <label className="text-sm">
         Job
@@ -93,9 +95,15 @@ export function PurchaseOrderForm({
           ))}
         </div>
       </div>
-      <Button type="submit" className="h-11 sm:col-span-2">
-        {defaults?.id ? "Save revision" : "Save draft"}
-      </Button>
+      {compact ? (
+        <button type="submit" className="mac-primary sm:col-span-2 w-fit">
+          Save
+        </button>
+      ) : (
+        <Button type="submit" className="h-11 sm:col-span-2">
+          {defaults?.id ? "Save revision" : "Save draft"}
+        </Button>
+      )}
     </ActionForm>
   );
 }

@@ -10,6 +10,8 @@ export function ActionForm({
   onSubmit,
   id,
   dataBar,
+  dataSheet,
+  dataDetailEdit,
 }: {
   action: (state: ActionState, formData: FormData) => Promise<ActionState>;
   children: React.ReactNode;
@@ -17,10 +19,12 @@ export function ActionForm({
   onSubmit?: (event: React.FormEvent<HTMLFormElement>) => void;
   id?: string;
   dataBar?: string;
+  dataSheet?: string;
+  dataDetailEdit?: boolean;
 }) {
   const [state, formAction, pending] = useActionState(action, null);
   return (
-    <form id={id} action={formAction} onSubmit={onSubmit} className={className} data-bar={dataBar} aria-busy={pending}>
+    <form id={id} action={formAction} onSubmit={onSubmit} className={className} data-bar={dataBar} data-sheet={dataSheet} data-detail-edit={dataDetailEdit ? "" : undefined} aria-busy={pending}>
       {children}
       {state?.error ? (
         <p role="alert" className="text-sm text-destructive">

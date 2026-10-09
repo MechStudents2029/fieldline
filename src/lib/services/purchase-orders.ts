@@ -4,6 +4,7 @@ import {
   activities,
   billLines,
   bills,
+  changeOrderLines,
   changeOrders,
   contacts,
   organizations,
@@ -12,7 +13,8 @@ import {
   purchaseOrderLines,
   purchaseOrders,
 } from "@/lib/db/schema";
-import { resolveRetainageBps } from "@/lib/bills/retainage";
+import { lineFigures } from "@/lib/bills/from-po";
+import { netPayableCents, resolveRetainageBps } from "@/lib/bills/retainage";
 import { id, nowIso } from "@/lib/ids";
 import { openCommitmentByCode } from "@/lib/margin/commitment";
 import { positiveMoneyError } from "@/lib/money";
@@ -527,6 +529,14 @@ export function purchaseOrderDetail(orgId: string, poId: string, role: Role) {
   const changeOrder = po.changeOrderId
     ? db.select().from(changeOrders).where(and(eq(changeOrders.id, po.changeOrderId), eq(changeOrders.orgId, orgId))).get()
     : undefined;
+  const figures = lineFigures(lines, relieved);
+  const linked = db
+    .select()
+    .from(bills)
+    .where(and(eq(bills.orgId, orgId), eq(bills.purchaseOrderId, po.id)))
+    .all()
+    .filter((bill) => bill.status !== "void")
+    .sort((a, b) => a.billNumber.localeCompare(b.billNumber));
   return {
     po: toRow(po, lines, relieved, names),
     scope: po.scope,
@@ -535,8 +545,44 @@ export function purchaseOrderDetail(orgId: string, poId: string, role: Role) {
     declineReason: po.declineReason,
     changeOrderId: po.changeOrderId,
     changeOrderLabel: changeOrder ? `CO ${changeOrder.number} · ${changeOrder.title}` : null,
-    lines,
+    lines: figures,
+    bills: linked.map((bill) => ({
+      id: bill.id,
+      billNumber: bill.billNumber,
+      billDate: bill.billDate,
+      status: bill.status,
+      amountCents: bill.amountCents,
+      retainageCents: bill.kind === "release" ? 0 : bill.retainageCents,
+      netCents: netPayableCents(bill.amountCents, bill.retainageCents, bill.kind === "release" ? "release" : "standard"),
+    })),
     events,
+  };
+}
+
+export function changeOrderRecord(orgId: string, orderId: string, role: Role) {
+  if (!canSeeMoney(role)) return null;
+  const db = companyDb(orgId);
+  if (!db) return null;
+  const order = db.select().from(changeOrders).where(and(eq(changeOrders.id, orderId), eq(changeOrders.orgId, orgId))).get();
+  if (!order) return null;
+  const project = db.select().from(projects).where(and(eq(projects.id, order.projectId), eq(projects.orgId, orgId))).get();
+  const lines = db
+    .select()
+    .from(changeOrderLines)
+    .where(and(eq(changeOrderLines.changeOrderId, order.id), eq(changeOrderLines.orgId, orgId)))
+    .all()
+    .sort((a, b) => a.sortOrder - b.sortOrder);
+  return {
+    id: order.id,
+    projectId: order.projectId,
+    projectName: project?.name ?? "Job",
+    number: order.number,
+    title: order.title,
+    status: order.status,
+    description: order.description,
+    priceDeltaCents: order.priceDeltaCents,
+    costDeltaCents: order.costDeltaCents,
+    lines,
   };
 }
 

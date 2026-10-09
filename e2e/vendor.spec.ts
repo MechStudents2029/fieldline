@@ -65,7 +65,7 @@ test("office vendor compliance, portal bill, and draft review at 1440", async ({
   await expect(page.locator("a:visible", { hasText: "Vendor bills" })).toContainText("1");
   await page.locator("a:visible", { hasText: "Vendor bills" }).click();
   await expect(page.getByRole("heading", { name: "HP-902" })).toBeVisible();
-  await expect(page.getByText("draft", { exact: true })).toBeVisible();
+  await expect(page.locator("[data-status='draft']")).toBeVisible();
   await page.goto("/contacts/c_harbor");
   await expect(page.locator("[data-cert=workers_comp]")).toContainText("Current");
 });
@@ -86,6 +86,6 @@ test.describe("vendor portal on a phone", () => {
     await expect(page.locator("a:visible", { hasText: "Vendor bills" })).toContainText("1");
     await page.locator("a:visible", { hasText: "Vendor bills" }).click();
     await expect(page.getByRole("heading", { name: "HP-903" })).toBeVisible();
-    await expect(page.getByText("draft", { exact: true })).toBeVisible();
+    await expect(page.locator("[data-status='draft']")).toBeVisible();
   });
 });
