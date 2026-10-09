@@ -31,6 +31,7 @@ import { MAX_QTY, positiveMoneyError } from "@/lib/money";
 import { canManageMoney, canSeeMoney, type Role } from "@/lib/permissions";
 import { photoExtension, photoUploadError, rasterImageType } from "@/lib/security";
 import { ServiceError } from "@/lib/services/errors";
+import { targetPlans } from "@/lib/services/files";
 import type { Actor } from "@/lib/services/read";
 import { localDay } from "@/lib/time/calendar";
 import { parseComplianceMode, parseRequiredTypes, poIssueDecision, poIssueProblems, vendorRollup, type CertStatus } from "@/lib/vendor/compliance";
@@ -137,6 +138,7 @@ export type VendorBidCard = {
     noBid: boolean;
   }[];
   files: { id: string; filename: string }[];
+  plans: { id: string; filename: string }[];
 };
 
 function roleOf(actor: Actor): Role {
@@ -941,6 +943,7 @@ export function vendorBidPortal(token: string): VendorBidCard[] | null {
         };
       }),
       files: files.map((row) => ({ id: row.documentId, filename: docs.find((doc) => doc.id === row.documentId)?.filename || "File" })),
+      plans: targetPlans(ctx.db, ctx.org.id, "bid", bid.id).map((plan) => ({ id: plan.documentId, filename: plan.name })),
     });
   }
   return cards.sort((a, b) => a.dueOn.localeCompare(b.dueOn) || a.title.localeCompare(b.title));

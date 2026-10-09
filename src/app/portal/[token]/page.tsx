@@ -26,6 +26,7 @@ import { clientPortalRfis } from "@/lib/services/rfis";
 import { clientPortalSubmittals } from "@/lib/services/submittals";
 import { SubmittalPortal } from "@/components/submittal-portal";
 import { portalSelections, type PortalSelection } from "@/lib/services/selections";
+import { clientPortalFiles } from "@/lib/services/files";
 
 export const dynamic = "force-dynamic";
 
@@ -49,6 +50,7 @@ export default async function PortalPage({ params }: { params: Promise<{ token: 
   if (process.env.FIELDLINE_E2E === "1" && token === "e2e-crash") throw new Error("E2E portal crash check");
   const data = portalByToken(token);
   if (!data?.org || !data.contact) notFound();
+  const jobFiles = clientPortalFiles(token);
 
   const orders = homeownerOrders(data.orders);
   const money = portalMoney({
@@ -275,6 +277,29 @@ export default async function PortalPage({ params }: { params: Promise<{ token: 
                       </div>
                       <span className="home-pill">Approved</span>
                     </div>
+                  </article>
+                ))}
+              </div>
+            </section>
+          ) : null}
+
+          {jobFiles && jobFiles.folders.length > 0 ? (
+            <section aria-label="Files">
+              <h2>Files</h2>
+              <div className="home-stack">
+                {jobFiles.folders.map((folder) => (
+                  <article key={folder.name} className="home-card">
+                    <p className="home-strong">{folder.name}</p>
+                    {folder.files.length === 0 ? <p className="home-sub">No files</p> : null}
+                    <ul>
+                      {folder.files.map((file) => (
+                        <li key={file.documentId}>
+                          <a className="home-link" href={`/api/files/${file.documentId}?portal=${encodeURIComponent(token)}`}>
+                            {file.name}
+                          </a>
+                        </li>
+                      ))}
+                    </ul>
                   </article>
                 ))}
               </div>

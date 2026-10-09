@@ -112,6 +112,7 @@ export function ensureReady(holder: Holder) {
   ensureSavedViews(holder);
   ensureSubmittals(holder);
   ensureLienWaivers(holder);
+  ensureJobFiles(holder);
   const version = holder.sqlite.prepare("select value from app_meta where key = ?").get("seed_version") as
     | { value: string }
     | undefined;
@@ -1574,6 +1575,81 @@ function ensureLienWaivers(holder: Holder) {
   holder.sqlite.exec("create index if not exists lien_waivers_org_bill on lien_waivers (org_id, bill_id)");
   holder.sqlite.exec("create index if not exists lien_waivers_vendor on lien_waivers (org_id, vendor_contact_id)");
   holder.sqlite.exec("create index if not exists lien_waiver_attempts_org on lien_waiver_attempts (org_id, created_at)");
+}
+
+function ensureJobFiles(holder: Holder) {
+  const pk = holder.dialect === "postgres" ? "text primary key" : "text primary key not null";
+  if (!tableExists(holder.sqlite, "file_folder_defaults", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists file_folder_defaults (
+      id ${pk},
+      org_id text not null,
+      name text not null,
+      kind text not null,
+      visibility text not null,
+      sort_order integer not null default 0,
+      archived_at text
+    )`);
+  }
+  if (!tableExists(holder.sqlite, "file_folders", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists file_folders (
+      id ${pk},
+      org_id text not null,
+      project_id text not null,
+      name text not null,
+      kind text not null,
+      visibility text not null,
+      vendor_contact_id text,
+      sort_order integer not null default 0,
+      archived_at text,
+      created_at text not null,
+      updated_at text not null
+    )`);
+  }
+  if (!tableExists(holder.sqlite, "job_files", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists job_files (
+      id ${pk},
+      org_id text not null,
+      project_id text not null,
+      folder_id text not null,
+      document_id text not null,
+      name text not null,
+      revision_group_id text not null,
+      revision integer not null,
+      is_current integer not null default 1,
+      visibility_override text,
+      share_history integer not null default 0,
+      byte_size integer not null default 0,
+      uploaded_by_name text not null,
+      uploaded_by_user_id text,
+      uploaded_by_contact_id text,
+      deleted_at text,
+      created_at text not null
+    )`);
+  }
+  if (!tableExists(holder.sqlite, "plan_refs", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists plan_refs (
+      id ${pk},
+      org_id text not null,
+      target_type text not null,
+      target_id text not null,
+      revision_group_id text not null,
+      created_at text not null
+    )`);
+  }
+  if (!tableExists(holder.sqlite, "job_file_attempts", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists job_file_attempts (
+      id ${pk},
+      org_id text not null,
+      ip text not null,
+      created_at text not null
+    )`);
+  }
+  holder.sqlite.exec("create index if not exists file_folder_defaults_org on file_folder_defaults (org_id, sort_order)");
+  holder.sqlite.exec("create index if not exists file_folders_project on file_folders (org_id, project_id)");
+  holder.sqlite.exec("create index if not exists job_files_project on job_files (org_id, project_id)");
+  holder.sqlite.exec("create index if not exists job_files_group on job_files (org_id, revision_group_id)");
+  holder.sqlite.exec("create unique index if not exists plan_refs_target on plan_refs (org_id, target_type, target_id, revision_group_id)");
+  holder.sqlite.exec("create index if not exists job_file_attempts_org on job_file_attempts (org_id, created_at)");
 }
 
 function ensureComments(holder: Holder) {

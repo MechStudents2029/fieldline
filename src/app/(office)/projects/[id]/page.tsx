@@ -3,7 +3,8 @@ import { addCostAction, createCoAction, draftCoAction, issueInvoiceAction, noteA
 import { ActionForm } from "@/components/action-form";
 import { GroupedList, GroupedRow, NumberStrip } from "@/components/ios";
 import { JobList, type JobListItem } from "@/components/mac/job-list";
-import { Segmented, Toolbar } from "@/components/mac/toolbar";
+import { jobSectionTabs } from "@/components/job-section-tabs";
+import { Toolbar } from "@/components/mac/toolbar";
 import { MissingRecord } from "@/components/missing-record";
 import { PhotoCapture } from "@/components/photo-capture";
 import { ReceiptCapture } from "@/components/receipt-capture";
@@ -88,17 +89,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
           title={detail.project.name}
           subtitle={`${detail.contact.name}${detail.project.address ? ` · ${detail.project.address}` : ""}`}
           search={false}
-          center={
-            <Segmented
-              items={[
-                { href: "#overview", label: "Overview", current: true },
-                { href: "#budget", label: "Budget" },
-                { href: `/projects/${detail.project.id}/logs`, label: "Logs" },
-                { href: "#photos", label: "Docs" },
-                { href: `/projects/${detail.project.id}/selections`, label: "Selections" },
-              ]}
-            />
-          }
+          center={jobSectionTabs(detail.project.id, "overview")}
           trailing={
             money ? (
               <span className="hidden md:inline">
@@ -194,9 +185,9 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
         <Link href={`/projects/${detail.project.id}/logs`} className="py-1.5 text-center fl-footnote text-[var(--fl-secondary)]">
           Logs
         </Link>
-        <a href="#photos" className="py-1.5 text-center fl-footnote text-[var(--fl-secondary)]">
-          Photos
-        </a>
+        <Link href={`/projects/${detail.project.id}/files`} className="py-1.5 text-center fl-footnote text-[var(--fl-secondary)]">
+          Files
+        </Link>
         <Link href={`/projects/${detail.project.id}/selections`} className="py-1.5 text-center fl-footnote text-[var(--fl-secondary)]">
           Selections
         </Link>

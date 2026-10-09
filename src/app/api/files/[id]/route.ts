@@ -5,6 +5,7 @@ import { dataDir, getDb } from "@/lib/db/client";
 import { officeDb } from "@/lib/db/office";
 import { documents, projects } from "@/lib/db/schema";
 import { demoAssetPath, fileResponseHeaders, fileVisible, resolveInside } from "@/lib/security";
+import { clientMayReadDocument, fieldMayReadDocument } from "@/lib/services/files";
 import { vendorFileAllowed } from "@/lib/services/vendor-portal";
 
 export const dynamic = "force-dynamic";
@@ -34,6 +35,12 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
   );
   const vendorMatch = Boolean(vendor && vendorFileAllowed(vendor, document.id));
   if (!vendorMatch && !fileVisible({ sessionOrgId: session?.orgId ?? null, documentOrgId: document.orgId, portalMatch })) {
+    return new Response("Not found", { status: 404 });
+  }
+  if (session?.role === "field" && !vendorMatch && !fieldMayReadDocument(db, session.orgId, document.id)) {
+    return new Response("Not found", { status: 404 });
+  }
+  if (portalMatch && !vendorMatch && !clientMayReadDocument(db, document.id)) {
     return new Response("Not found", { status: 404 });
   }
   const demo = demoAssetPath(document.storagePath);

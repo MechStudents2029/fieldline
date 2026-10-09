@@ -1816,6 +1816,86 @@ export const lienWaiverAttempts = sqliteTable(
   (t) => [index("lien_waiver_attempts_org").on(t.orgId, t.createdAt)],
 );
 
+export const fileFolderDefaults = sqliteTable(
+  "file_folder_defaults",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    name: text("name").notNull(),
+    kind: text("kind").notNull(),
+    visibility: text("visibility").notNull(),
+    sortOrder: integer("sort_order").notNull().default(0),
+    archivedAt: text("archived_at"),
+  },
+  (t) => [index("file_folder_defaults_org").on(t.orgId, t.sortOrder)],
+);
+
+export const fileFolders = sqliteTable(
+  "file_folders",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    projectId: text("project_id").notNull(),
+    name: text("name").notNull(),
+    kind: text("kind").notNull(),
+    visibility: text("visibility").notNull(),
+    vendorContactId: text("vendor_contact_id"),
+    sortOrder: integer("sort_order").notNull().default(0),
+    archivedAt: text("archived_at"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (t) => [index("file_folders_project").on(t.orgId, t.projectId)],
+);
+
+export const jobFiles = sqliteTable(
+  "job_files",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    projectId: text("project_id").notNull(),
+    folderId: text("folder_id").notNull(),
+    documentId: text("document_id").notNull(),
+    name: text("name").notNull(),
+    revisionGroupId: text("revision_group_id").notNull(),
+    revision: integer("revision").notNull(),
+    isCurrent: integer("is_current").notNull().default(1),
+    visibilityOverride: text("visibility_override"),
+    shareHistory: integer("share_history").notNull().default(0),
+    byteSize: integer("byte_size").notNull().default(0),
+    uploadedByName: text("uploaded_by_name").notNull(),
+    uploadedByUserId: text("uploaded_by_user_id"),
+    uploadedByContactId: text("uploaded_by_contact_id"),
+    deletedAt: text("deleted_at"),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [index("job_files_project").on(t.orgId, t.projectId), index("job_files_group").on(t.orgId, t.revisionGroupId)],
+);
+
+export const planRefs = sqliteTable(
+  "plan_refs",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    targetType: text("target_type").notNull(),
+    targetId: text("target_id").notNull(),
+    revisionGroupId: text("revision_group_id").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [uniqueIndex("plan_refs_target").on(t.orgId, t.targetType, t.targetId, t.revisionGroupId)],
+);
+
+export const jobFileAttempts = sqliteTable(
+  "job_file_attempts",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    ip: text("ip").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [index("job_file_attempts_org").on(t.orgId, t.createdAt)],
+);
+
 export const savedViewPins = sqliteTable(
   "saved_view_pins",
   {
