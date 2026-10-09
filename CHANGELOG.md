@@ -2,12 +2,20 @@
 
 ## 2026-10-09
 
+### Measurements and quantity formulas
+
+- An estimate has a Measurements list: name, number, and unit (sf, lf, ea, sq, cy). A lead’s square footage becomes Floor. Vasquez kitchen starts with Floor 240 sf, Walls 410 sf, Backsplash 38 sf, and Base 62 lf.
+- A line can take its quantity from a formula over those measurements, with a waste percent and an optional round-up to the purchase unit. The quantity shows an fx mark. The formula reads in one line, such as Walls x 1.10, round up to 32.
+- Changing a measurement recalculates every line that uses it, and the cost, price, total, and margin. Typed quantities stay put. Deleting a measurement that lines use is blocked and names the count. A bad formula is refused with a plain message.
+- A sent proposal stores the computed quantity. The client sees numbers only. Price-book items and cost-code template lines can carry a default formula and waste, and a new line with that code picks them up when the measurements exist.
+- The estimate draft uses those measurements. It marks a line needs-measure only when a formula’s measurement is missing.
+
 ### Purchase order detail
 
 - A purchase order opens as a compact header: number, status, vendor, and job, with Edit, New bill, Print, and a more menu for close, void, and release. Amount, committed, billed, open, retainage, and the plan are key-value rows. Lines show billed and remaining. Linked bills sit in their own table. Edit is a sheet with Save and Cancel.
 - New bill on that order starts with the vendor, the job, and each line’s remaining amount. Retainage comes from the order. A line past the remainder uses the same over-purchase-order warning.
 - Bills, change orders, and bids use the same header. Ready to pay has one Blocked by column and one pill on a row. Vendor cost codes sit in a disclosure under the vendor.
-- Okonkwo PO-1055 lists HP-510 and HP-511, with $3,000 billed and $2,000 remaining on the shower line.
+- Okonkwo PO-1055 lists HP-510 and HP-511, with $3,000 billed and $2,000 remaining on the shower line. Lines and Bills are labeled. Comments is one heading and one field on purchase orders, bills, change orders, and estimates.
 
 ### Ready to pay
 

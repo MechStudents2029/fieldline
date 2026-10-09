@@ -20,22 +20,34 @@ export type VasquezLine = {
   confidenceMilli: number | null;
   sourceNote: string | null;
   sortOrder: number;
+  formula?: string | null;
+  wasteBps?: number;
+  roundToMilli?: number | null;
 };
 
-/** Draft that displays as a $49,000 / 30% / $70,000 kitchen, plus one optional upgrade. */
+export const vasquezMeasurements = [
+  { id: "meas_vz_floor", name: "Floor", value: 240, unit: "sf", sortOrder: 0 },
+  { id: "meas_vz_walls", name: "Walls", value: 410, unit: "sf", sortOrder: 1 },
+  { id: "meas_vz_back", name: "Backsplash", value: 38, unit: "sf", sortOrder: 2 },
+  { id: "meas_vz_base", name: "Base", value: 62, unit: "lf", sortOrder: 3 },
+] as const;
+
+/** Draft that displays as a $48,070 / 30% / $68,671 kitchen, plus one optional upgrade. */
 export const vasquezLines: VasquezLine[] = [
   { id: "li_vz_demo", sectionId: "sec_vz_demo", name: "Demo and haul-off", code: "DEMO-GUT", qty: 1, unit: "job", unitCostCents: 252_000, markupBps: 4286, billing: "included", confidenceMilli: null, sourceNote: null, sortOrder: 0 },
   { id: "li_vz_base", sectionId: "sec_vz_cab", name: "Base cabinets", code: "CAB-BASE", qty: 14, unit: "lf", unitCostCents: 90_000, markupBps: 3333, billing: "included", confidenceMilli: 620, sourceNote: "Measure on site", sortOrder: 0 },
   { id: "li_vz_wall", sectionId: "sec_vz_cab", name: "Wall cabinets", code: "CAB-UPPER", qty: 12, unit: "lf", unitCostCents: 59_500, markupBps: 4286, billing: "included", confidenceMilli: null, sourceNote: null, sortOrder: 1 },
   { id: "li_vz_quartz", sectionId: "sec_vz_cab", name: "Quartz counters", code: "TOP-QUARTZ", qty: 52, unit: "sf", unitCostCents: 5654, markupBps: 4285, billing: "included", confidenceMilli: null, sourceNote: null, sortOrder: 2 },
-  { id: "li_vz_tile", sectionId: "sec_vz_cab", name: "Tile backsplash", code: "TILE-BACK", qty: 38, unit: "sf", unitCostCents: 6650, markupBps: 4286, billing: "included", confidenceMilli: null, sourceNote: null, sortOrder: 3 },
+  { id: "li_vz_tile", sectionId: "sec_vz_cab", name: "Tile backsplash", code: "TILE-BACK", qty: 38, unit: "sf", unitCostCents: 6650, markupBps: 4286, billing: "included", confidenceMilli: null, sourceNote: null, sortOrder: 3, formula: "Backsplash", wasteBps: 0, roundToMilli: null },
   { id: "li_vz_edge", sectionId: "sec_vz_cab", name: "Upgraded edge profile", code: "TOP-EDGE", qty: 14, unit: "lf", unitCostCents: 2800, markupBps: 4286, billing: "optional", confidenceMilli: null, sourceNote: null, sortOrder: 4 },
   { id: "li_vz_sink", sectionId: "sec_vz_plb", name: "Relocate sink", code: "PLB-SINK", qty: 1, unit: "ea", unitCostCents: 294_000, markupBps: 4286, billing: "included", confidenceMilli: null, sourceNote: null, sortOrder: 0 },
   { id: "li_vz_appl", sectionId: "sec_vz_plb", name: "Appliance allowance", code: "APP-ALLOW", qty: 5, unit: "ea", unitCostCents: 24_500, markupBps: 4286, billing: "allowance", confidenceMilli: null, sourceNote: null, sortOrder: 1 },
   { id: "li_vz_lights", sectionId: "sec_vz_plb", name: "Recessed lights", code: "ELE-RECESS", qty: 8, unit: "ea", unitCostCents: 21_750, markupBps: 3793, billing: "included", confidenceMilli: null, sourceNote: null, sortOrder: 2 },
   { id: "li_vz_circ", sectionId: "sec_vz_plb", name: "Dedicated circuits", code: "ELE-CIRCUIT", qty: 4, unit: "ea", unitCostCents: 56_000, markupBps: 4286, billing: "included", confidenceMilli: null, sourceNote: null, sortOrder: 3 },
-  { id: "li_vz_lvp", sectionId: "sec_vz_fin", name: "LVP flooring", code: "FLR-LVP", qty: 240, unit: "sf", unitCostCents: 1120, markupBps: 4286, billing: "included", confidenceMilli: null, sourceNote: null, sortOrder: 0 },
-  { id: "li_vz_dw", sectionId: "sec_vz_fin", name: "Drywall and paint", code: "DW-HANG", qty: 1, unit: "job", unitCostCents: 336_000, markupBps: 4286, billing: "included", confidenceMilli: null, sourceNote: null, sortOrder: 1 },
-  { id: "li_vz_permit", sectionId: "sec_vz_fin", name: "Permits and fees", code: "PERMIT-RES", qty: 1, unit: "ea", unitCostCents: 168_000, markupBps: 4286, billing: "included", confidenceMilli: null, sourceNote: null, sortOrder: 2 },
-  { id: "li_vz_super", sectionId: "sec_vz_fin", name: "Supervision", code: "GC-SUPER", qty: 6, unit: "wk", unitCostCents: 90_000, markupBps: 6667, billing: "included", confidenceMilli: null, sourceNote: null, sortOrder: 3 },
+  { id: "li_vz_lvp", sectionId: "sec_vz_fin", name: "LVP flooring", code: "FLR-LVP", qty: 240, unit: "sf", unitCostCents: 1120, markupBps: 4286, billing: "included", confidenceMilli: null, sourceNote: null, sortOrder: 0, formula: "Floor", wasteBps: 0, roundToMilli: null },
+  { id: "li_vz_drywall", sectionId: "sec_vz_fin", name: "Drywall", code: "DW-HANG", qty: 480, unit: "sf", unitCostCents: 240, markupBps: 4286, billing: "included", confidenceMilli: null, sourceNote: null, sortOrder: 1, formula: "Walls", wasteBps: 1000, roundToMilli: 32_000 },
+  { id: "li_vz_paint", sectionId: "sec_vz_fin", name: "Paint", code: "PNT-INT", qty: 451, unit: "sf", unitCostCents: 185, markupBps: 4286, billing: "included", confidenceMilli: null, sourceNote: null, sortOrder: 2, formula: "Walls", wasteBps: 1000, roundToMilli: null },
+  { id: "li_vz_trim", sectionId: "sec_vz_fin", name: "Base trim", code: "FLR-BASE", qty: 68.2, unit: "lf", unitCostCents: 650, markupBps: 4286, billing: "included", confidenceMilli: null, sourceNote: null, sortOrder: 3, formula: "Base", wasteBps: 1000, roundToMilli: null },
+  { id: "li_vz_permit", sectionId: "sec_vz_fin", name: "Permits and fees", code: "PERMIT-RES", qty: 1, unit: "ea", unitCostCents: 168_000, markupBps: 4286, billing: "included", confidenceMilli: null, sourceNote: null, sortOrder: 4 },
+  { id: "li_vz_super", sectionId: "sec_vz_fin", name: "Supervision", code: "GC-SUPER", qty: 6, unit: "wk", unitCostCents: 90_000, markupBps: 6667, billing: "included", confidenceMilli: null, sourceNote: null, sortOrder: 5 },
 ];

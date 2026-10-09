@@ -100,6 +100,29 @@ describe("intake and estimate", () => {
     expect(demo?.confidence).toBeLessThanOrEqual(PHOTO_ONLY_CONFIDENCE_CAP);
   });
 
+  it("prices drywall from Walls and asks for a measure only when Walls is missing", () => {
+    const book = riveraCatalog().map((item) => ({ ...item, defaultMarkupBps: 3500 }));
+    const scope = "Gut the 240 sq ft kitchen and hang drywall.";
+    const measured = draftEstimate({
+      scope,
+      book,
+      markupBps: 3500,
+      measurements: [{ name: "Walls", value: 410, unit: "sf" }],
+    });
+    const drywall = measured.sections.flatMap((section) => section.lines).find((line) => line.code === "DW-HANG");
+    expect(drywall?.qty).toBe(480);
+    expect(drywall?.formula).toBe("Walls");
+    expect(drywall?.wasteBps).toBe(1000);
+    expect(drywall?.roundToMilli).toBe(32_000);
+    expect(drywall?.reason).not.toMatch(/site measure/i);
+    expect(measured.measurements.find((row) => row.name === "Floor")).toMatchObject({ value: 240, unit: "sf" });
+    const missing = draftEstimate({ scope, book, markupBps: 3500 });
+    const guessed = missing.sections.flatMap((section) => section.lines).find((line) => line.code === "DW-HANG");
+    expect(guessed?.formula ?? null).toBeNull();
+    expect(guessed?.qty).toBe(480);
+    expect(guessed?.reason).toMatch(/site measure/i);
+  });
+
   it("asks for a site measure when cabinet length was inferred", () => {
     const book = riveraCatalog().map((item) => ({ ...item, defaultMarkupBps: 3500 }));
     const draft = draftEstimate({

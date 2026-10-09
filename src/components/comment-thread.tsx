@@ -11,7 +11,6 @@ export async function CommentThread({ entityType, entityId }: { entityType: stri
   return (
     <section id="comments" aria-label="Comments" className="mb-6 flex flex-col gap-2">
       <h2 className="mac-t13 font-semibold">Comments</h2>
-      {thread.comments.length === 0 ? <p className="mac-t13 text-[var(--mac-secondary)]">No comments</p> : null}
       <ul className="flex flex-col gap-3">
         {thread.comments.map((comment) => (
           <li key={comment.id} id={`comment-${comment.id}`} className="border-b border-[var(--mac-separator)] pb-3">

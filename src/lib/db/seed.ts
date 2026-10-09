@@ -6,7 +6,7 @@ import { resolveDataDir } from "@/lib/db/paths";
 import type { AppDatabase } from "@/lib/db/client";
 import { addMonths } from "@/lib/closeout/check";
 import { addCalendarDays, localDay, localWeek, zonedTimeToUtc } from "@/lib/time/calendar";
-import { northlineCatalog, riveraCatalog } from "@/lib/db/catalog";
+import { CATALOG_FORMULAS, northlineCatalog, riveraCatalog } from "@/lib/db/catalog";
 import {
   activities,
   aiRuns,
@@ -22,6 +22,7 @@ import {
   contacts,
   costItems,
   documents,
+  estimateMeasurements,
   estimateSections,
   estimates,
   followUpDrafts,
@@ -101,7 +102,7 @@ import {
 } from "@/lib/db/schema";
 import { retainageByLine } from "@/lib/draws/math";
 import { assembleSnapshot, defaultSchedule, type StoredSnapshot } from "@/lib/domain/snapshot";
-import { vasquezLines, vasquezSections } from "@/lib/estimate/vasquez";
+import { vasquezLines, vasquezMeasurements, vasquezSections } from "@/lib/estimate/vasquez";
 import { hashPassword, newSalt } from "@/lib/auth/password";
 import { canonicalJson, sha256 } from "@/lib/esign/hash";
 import { publicSnapshot } from "@/lib/selections/money";
@@ -120,7 +121,7 @@ import {
   WEBSITE_FORM_SOURCE,
 } from "@/lib/lead-form/rules";
 
-export const SEED_VERSION = "29";
+export const SEED_VERSION = "30";
 
 const ORG = "org_rivera";
 const NORTH = "org_northline";
@@ -417,6 +418,9 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
         defaultMarkupBps: 3500,
         vendor: item.vendor,
         keywords: item.keywords,
+        defaultFormula: CATALOG_FORMULAS[item.code]?.expr ?? null,
+        defaultWasteBps: CATALOG_FORMULAS[item.code]?.wasteBps ?? null,
+        defaultRoundToMilli: CATALOG_FORMULAS[item.code]?.roundToMilli ?? null,
         lastUsedAt: null,
         createdAt: created,
         updatedAt: now,
@@ -438,6 +442,9 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
         defaultMarkupBps: 4000,
         vendor: item.vendor,
         keywords: item.keywords,
+        defaultFormula: CATALOG_FORMULAS[item.code]?.expr ?? null,
+        defaultWasteBps: CATALOG_FORMULAS[item.code]?.wasteBps ?? null,
+        defaultRoundToMilli: CATALOG_FORMULAS[item.code]?.roundToMilli ?? null,
         lastUsedAt: null,
         createdAt: created,
         updatedAt: now,
@@ -701,6 +708,22 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
         sourceNote: line.sourceNote,
         sortOrder: line.sortOrder,
         billing: line.billing,
+        qtyFormula: line.formula ?? null,
+        wasteBps: line.wasteBps ?? 0,
+        roundToMilli: line.roundToMilli ?? null,
+      })),
+    )
+    .run();
+  db.insert(estimateMeasurements)
+    .values(
+      vasquezMeasurements.map((row) => ({
+        id: row.id,
+        orgId: ORG,
+        estimateId: "est_vasquez",
+        name: row.name,
+        valueMilli: qtyToMilli(row.value),
+        unit: row.unit,
+        sortOrder: row.sortOrder,
       })),
     )
     .run();
@@ -3275,6 +3298,9 @@ function seedTemplates(db: AppDatabase, now: string) {
           unitCostCents: line[2],
           unitPriceCents: line[3],
           sortOrder: index,
+          qtyFormula: CATALOG_FORMULAS[line[1]]?.expr ?? null,
+          wasteBps: CATALOG_FORMULAS[line[1]]?.wasteBps ?? 0,
+          roundToMilli: CATALOG_FORMULAS[line[1]]?.roundToMilli ?? null,
         })),
       )
       .run();

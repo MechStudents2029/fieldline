@@ -114,6 +114,7 @@ export function ensureReady(holder: Holder) {
   ensureLienWaivers(holder);
   ensureJobFiles(holder);
   ensureRetainage(holder);
+  ensureMeasurements(holder);
   const version = holder.sqlite.prepare("select value from app_meta where key = ?").get("seed_version") as
     | { value: string }
     | undefined;
@@ -1112,6 +1113,32 @@ function columnExists(holder: Holder, table: string, column: string): boolean {
     return Boolean(row);
   }
   return (holder.sqlite.prepare(`pragma table_info(${table})`).all() as { name: string }[]).some((entry) => entry.name === column);
+}
+
+function ensureMeasurements(holder: Holder) {
+  const pk = holder.dialect === "postgres" ? "text primary key" : "text primary key not null";
+  ensureColumn(holder, "line_items", "qty_formula", "text");
+  ensureColumn(holder, "line_items", "waste_bps", "integer not null default 0");
+  ensureColumn(holder, "line_items", "round_to_milli", "integer");
+  ensureColumn(holder, "price_book_items", "default_formula", "text");
+  ensureColumn(holder, "price_book_items", "default_waste_bps", "integer");
+  ensureColumn(holder, "price_book_items", "default_round_to_milli", "integer");
+  ensureColumn(holder, "template_lines", "qty_formula", "text");
+  ensureColumn(holder, "template_lines", "waste_bps", "integer not null default 0");
+  ensureColumn(holder, "template_lines", "round_to_milli", "integer");
+  if (!tableExists(holder.sqlite, "estimate_measurements", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists estimate_measurements (
+      id ${pk},
+      org_id text not null,
+      estimate_id text not null,
+      name text not null,
+      value_milli integer not null,
+      unit text not null,
+      sort_order integer not null
+    )`);
+  }
+  holder.sqlite.exec("create unique index if not exists estimate_measurements_name on estimate_measurements (org_id, estimate_id, name)");
+  holder.sqlite.exec("create index if not exists estimate_measurements_estimate on estimate_measurements (org_id, estimate_id)");
 }
 
 function ensureRetainage(holder: Holder) {

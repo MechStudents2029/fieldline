@@ -1,6 +1,7 @@
 import { z } from "zod";
 import {
   draftEstimate,
+  measurementsFromScope,
   normalizePhotos,
   reviewModelLine,
   type DraftEstimate,
@@ -126,6 +127,7 @@ export async function estimateFromScope(input: {
       sections: [...groups.entries()].map(([name, sectionLines]) => ({ name, lines: sectionLines })),
       notes: result.object.notes,
       model: process.env.AI_ESTIMATE_MODEL || "gateway",
+      measurements: measurementsFromScope(input.scope),
     };
   } catch {
     return local();

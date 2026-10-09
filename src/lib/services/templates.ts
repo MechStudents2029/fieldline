@@ -68,7 +68,17 @@ export type TemplateDraft = {
   name: string;
   jobType: string;
   tasks: TemplateTaskDraft[];
-  lines: { name: string; costCode: string | null; qtyMilli: number; unit: string; unitCostCents: number; unitPriceCents: number }[];
+  lines: {
+    name: string;
+    costCode: string | null;
+    qtyMilli: number;
+    unit: string;
+    unitCostCents: number;
+    unitPriceCents: number;
+    qtyFormula?: string | null;
+    wasteBps?: number;
+    roundToMilli?: number | null;
+  }[];
   draws: { title: string; bps: number }[];
   selections: { title: string; area: string | null; allowanceCents: number }[];
   checks: { title: string; kind: string }[];
@@ -254,6 +264,9 @@ export function templateDetail(actor: Actor, templateId: string) {
           unit: line.unit,
           unitCostCents: line.unitCostCents,
           unitPriceCents: line.unitPriceCents,
+          qtyFormula: line.qtyFormula,
+          wasteBps: line.wasteBps,
+          roundToMilli: line.roundToMilli,
         }))
       : [],
     draws: showMoney ? bundle.drawRows.map((draw) => ({ title: draw.title, bps: draw.bps })) : [],
@@ -320,6 +333,9 @@ function writeDraft(tx: AppDatabase, actor: Actor, templateId: string, draft: Te
         unit: line.unit || "ea",
         unitCostCents: line.unitCostCents,
         unitPriceCents: line.unitPriceCents,
+        qtyFormula: line.qtyFormula ?? null,
+        wasteBps: line.wasteBps ?? 0,
+        roundToMilli: line.roundToMilli ?? null,
         sortOrder: index,
       })
       .run();
@@ -469,6 +485,9 @@ export function renameTemplate(actor: Actor, templateId: string, name: string, j
       unit: line.unit,
       unitCostCents: line.unitCostCents,
       unitPriceCents: line.unitPriceCents,
+      qtyFormula: line.qtyFormula,
+      wasteBps: line.wasteBps,
+      roundToMilli: line.roundToMilli,
     })),
     draws: detail.draws,
     selections: detail.selections.map((row) => ({ title: row.title, area: row.area, allowanceCents: row.allowanceCents ?? 0 })),
