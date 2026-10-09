@@ -1,5 +1,8 @@
+import fs from "node:fs";
+import path from "node:path";
 import type Database from "better-sqlite3";
 import { eq } from "drizzle-orm";
+import { resolveDataDir } from "@/lib/db/paths";
 import type { AppDatabase } from "@/lib/db/client";
 import { addMonths } from "@/lib/closeout/check";
 import { addCalendarDays, localDay, localWeek, zonedTimeToUtc } from "@/lib/time/calendar";
@@ -64,6 +67,10 @@ import {
   submittals,
   lienWaiverTemplates,
   lienWaivers,
+  fileFolderDefaults,
+  fileFolders,
+  jobFiles,
+  planRefs,
   commentFiles,
   commentMentions,
   comments,
@@ -113,7 +120,7 @@ import {
   WEBSITE_FORM_SOURCE,
 } from "@/lib/lead-form/rules";
 
-export const SEED_VERSION = "26";
+export const SEED_VERSION = "27";
 
 const ORG = "org_rivera";
 const NORTH = "org_northline";
@@ -2986,6 +2993,57 @@ function seedTemplates(db: AppDatabase, now: string) {
     { key: "apps", title: "Appliances", offset: 7, duration: 1, trade: "Appliance", preds: [{ key: "cabs", lag: 0 }] },
     { key: "splash", title: "Backsplash", offset: 9, duration: 2, trade: "Tile", preds: [{ key: "tops", lag: 0 }] },
   ];
+  const planPdf = Buffer.from("%PDF-1.1\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF\n");
+  const vendorPng = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  const uploadDir = path.join(resolveDataDir(), "uploads", ORG);
+  fs.mkdirSync(uploadDir, { recursive: true });
+  fs.writeFileSync(path.join(uploadDir, "doc_ok_a101_r1.pdf"), planPdf);
+  fs.writeFileSync(path.join(uploadDir, "doc_ok_a101_r2.pdf"), planPdf);
+  fs.writeFileSync(path.join(uploadDir, "doc_ok_harbor.png"), vendorPng);
+  const folderDefaults = [
+    { key: "plans", name: "Plans", kind: "plans", visibility: "team", sort: 0 },
+    { key: "specs", name: "Specs", kind: "general", visibility: "team", sort: 1 },
+    { key: "contracts", name: "Contracts", kind: "general", visibility: "team", sort: 2 },
+    { key: "photos", name: "Photos", kind: "photos", visibility: "team", sort: 3 },
+  ];
+  db.insert(fileFolderDefaults)
+    .values(
+      folderDefaults.flatMap((row) => [
+        { id: `fd_rivera_${row.key}`, orgId: ORG, name: row.name, kind: row.kind, visibility: row.visibility, sortOrder: row.sort, archivedAt: null },
+        { id: `fd_north_${row.key}`, orgId: NORTH, name: row.name, kind: row.kind, visibility: row.visibility, sortOrder: row.sort, archivedAt: null },
+      ]),
+    )
+    .run();
+  db.insert(fileFolders)
+    .values([
+      { id: "ff_ok_plans", orgId: ORG, projectId: "proj_okonkwo", name: "Plans", kind: "plans", visibility: "subs", vendorContactId: null, sortOrder: 0, archivedAt: null, createdAt: daysAgo(8), updatedAt: daysAgo(1) },
+      { id: "ff_ok_specs", orgId: ORG, projectId: "proj_okonkwo", name: "Specs", kind: "general", visibility: "team", vendorContactId: null, sortOrder: 1, archivedAt: null, createdAt: daysAgo(8), updatedAt: daysAgo(8) },
+      { id: "ff_ok_contracts", orgId: ORG, projectId: "proj_okonkwo", name: "Contracts", kind: "general", visibility: "team", vendorContactId: null, sortOrder: 2, archivedAt: null, createdAt: daysAgo(8), updatedAt: daysAgo(8) },
+      { id: "ff_ok_photos", orgId: ORG, projectId: "proj_okonkwo", name: "Photos", kind: "photos", visibility: "client", vendorContactId: null, sortOrder: 3, archivedAt: null, createdAt: daysAgo(8), updatedAt: daysAgo(8) },
+      { id: "ff_ok_harbor", orgId: ORG, projectId: "proj_okonkwo", name: "Harbor Plumbing", kind: "vendor", visibility: "vendor", vendorContactId: "c_harbor", sortOrder: 4, archivedAt: null, createdAt: daysAgo(2), updatedAt: daysAgo(2) },
+    ])
+    .run();
+  db.insert(documents)
+    .values([
+      { id: "doc_ok_a101_r1", orgId: ORG, projectId: "proj_okonkwo", leadId: null, contactId: null, type: "job_file", filename: "a101-floor-plan.pdf", storagePath: "uploads/org_rivera/doc_ok_a101_r1.pdf", metadataJson: null, deletedAt: null, createdAt: daysAgo(8), createdBy: "user_luis" },
+      { id: "doc_ok_a101_r2", orgId: ORG, projectId: "proj_okonkwo", leadId: null, contactId: null, type: "job_file", filename: "a101-floor-plan.pdf", storagePath: "uploads/org_rivera/doc_ok_a101_r2.pdf", metadataJson: null, deletedAt: null, createdAt: daysAgo(1), createdBy: "user_maya" },
+      { id: "doc_ok_harbor", orgId: ORG, projectId: "proj_okonkwo", leadId: null, contactId: "c_harbor", type: "job_file", filename: "valve-photo.png", storagePath: "uploads/org_rivera/doc_ok_harbor.png", metadataJson: null, deletedAt: null, createdAt: daysAgo(2), createdBy: null },
+    ])
+    .run();
+  db.insert(jobFiles)
+    .values([
+      { id: "jf_ok_a101_r1", orgId: ORG, projectId: "proj_okonkwo", folderId: "ff_ok_plans", documentId: "doc_ok_a101_r1", name: "A-101 floor plan", revisionGroupId: "grp_ok_a101", revision: 1, isCurrent: 0, visibilityOverride: null, shareHistory: 0, byteSize: planPdf.length, uploadedByName: "Luis Ortega", uploadedByUserId: "user_luis", uploadedByContactId: null, deletedAt: null, createdAt: daysAgo(8) },
+      { id: "jf_ok_a101_r2", orgId: ORG, projectId: "proj_okonkwo", folderId: "ff_ok_plans", documentId: "doc_ok_a101_r2", name: "A-101 floor plan", revisionGroupId: "grp_ok_a101", revision: 2, isCurrent: 1, visibilityOverride: null, shareHistory: 0, byteSize: planPdf.length, uploadedByName: "Maya Rivera", uploadedByUserId: "user_maya", uploadedByContactId: null, deletedAt: null, createdAt: daysAgo(1) },
+      { id: "jf_ok_harbor", orgId: ORG, projectId: "proj_okonkwo", folderId: "ff_ok_harbor", documentId: "doc_ok_harbor", name: "Valve photo", revisionGroupId: "grp_ok_harbor", revision: 1, isCurrent: 1, visibilityOverride: null, shareHistory: 0, byteSize: vendorPng.length, uploadedByName: "Harbor Plumbing", uploadedByUserId: null, uploadedByContactId: "c_harbor", deletedAt: null, createdAt: daysAgo(2) },
+    ])
+    .run();
+  db.insert(planRefs)
+    .values([
+      { id: "pref_ok_bid", orgId: ORG, targetType: "bid", targetId: "bid_ok_valve", revisionGroupId: "grp_ok_a101", createdAt: daysAgo(1) },
+      { id: "pref_ok_po", orgId: ORG, targetType: "purchase_order", targetId: "po_ok_harbor", revisionGroupId: "grp_ok_a101", createdAt: daysAgo(1) },
+    ])
+    .run();
+
   const templates = [
     {
       id: "tpl_bath",

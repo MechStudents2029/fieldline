@@ -96,6 +96,20 @@ import { awardBid, createBid, declineVendorBid, saveBidLines, submitVendorBid } 
 import { answerClientRfi, answerRfi, answerVendorRfi, closeRfi, createRfi, draftChangeFromRfi, shiftRfiSchedule, voidRfi } from "@/lib/services/rfis";
 import { clientReviewSubmittal, createSubmittal, reviewSubmittal, submitSubmittal, vendorCreateSubmittal, vendorSubmitSubmittal } from "@/lib/services/submittals";
 import { requestUnconditional, requestWaiver, requestWaivers, saveLienSettings, signVendorWaiver, uploadPaperWaiver, voidWaiver } from "@/lib/services/waivers";
+import {
+  addJobFolder,
+  archiveJobFolder,
+  deleteJobFile,
+  referencePlan,
+  renameJobFolder,
+  reviseJobFile,
+  saveFolderDefault,
+  setFileVisibility,
+  setFolderVisibility,
+  setShareHistory,
+  uploadJobFile,
+  uploadVendorJobFile,
+} from "@/lib/services/files";
 import { deleteComment, editComment, markAllRead, postComment, setNotifyPreference } from "@/lib/services/comments";
 import { addStarterPriceBook, setSetupDismissed } from "@/lib/services/onboarding";
 import { acceptExistingAccount, acceptNewAccount, changeMemberRole, createInvite, INVITE_EMAIL, previewInvite, removeMember, revokeInvite } from "@/lib/services/team";
@@ -1549,6 +1563,161 @@ export async function signVendorWaiverAction(token: string, waiverId: string, _p
     refreshVendor(token);
     revalidatePath(`/waivers/${waiverId}/print`);
     return { ok: "Signed." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+function refreshFiles(projectId: string) {
+  revalidatePath(`/projects/${projectId}/files`);
+  revalidatePath(`/projects/${projectId}`);
+}
+
+export async function uploadJobFileAction(projectId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const file = await namedUpload(formData, "file");
+    if (!file) return { error: "Choose a file." };
+    uploadJobFile(user, { projectId, folderId: String(formData.get("folderId") || ""), file });
+    refreshFiles(projectId);
+    return { ok: "Uploaded." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function reviseJobFileAction(projectId: string, fileId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const file = await namedUpload(formData, "file");
+    if (!file) return { error: "Choose a file." };
+    reviseJobFile(user, { projectId, fileId, file });
+    refreshFiles(projectId);
+    return { ok: "Revised." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function setFileVisibilityAction(projectId: string, fileId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    setFileVisibility(user, { projectId, fileId, visibility: String(formData.get("visibility") || "") });
+    refreshFiles(projectId);
+    return { ok: "Saved." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function shareFileHistoryAction(projectId: string, fileId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    setShareHistory(user, { projectId, fileId, share: formData.get("share") === "1" });
+    refreshFiles(projectId);
+    return { ok: "Saved." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function deleteJobFileAction(projectId: string, fileId: string, _prev: ActionState, _formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    deleteJobFile(user, { projectId, fileId });
+    refreshFiles(projectId);
+    return { ok: "Deleted." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function addJobFolderAction(projectId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    addJobFolder(user, {
+      projectId,
+      name: String(formData.get("name") || ""),
+      kind: String(formData.get("kind") || "general"),
+      visibility: String(formData.get("visibility") || "team"),
+    });
+    refreshFiles(projectId);
+    return { ok: "Added." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function renameJobFolderAction(projectId: string, folderId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    renameJobFolder(user, { projectId, folderId, name: String(formData.get("name") || "") });
+    refreshFiles(projectId);
+    return { ok: "Saved." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function setFolderVisibilityAction(projectId: string, folderId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    setFolderVisibility(user, { projectId, folderId, visibility: String(formData.get("visibility") || "") });
+    refreshFiles(projectId);
+    return { ok: "Saved." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function archiveJobFolderAction(projectId: string, folderId: string, _prev: ActionState, _formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    archiveJobFolder(user, { projectId, folderId });
+    refreshFiles(projectId);
+    return { ok: "Archived." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function saveFolderDefaultAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    saveFolderDefault(user, {
+      id: String(formData.get("id") || "") || undefined,
+      name: String(formData.get("name") || ""),
+      kind: String(formData.get("kind") || "general"),
+      visibility: String(formData.get("visibility") || "team"),
+      archive: formData.get("archive") === "1",
+    });
+    revalidatePath("/settings/files");
+    return { ok: "Saved." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function referencePlanAction(projectId: string, targetType: "bid" | "purchase_order", targetId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    referencePlan(user, { targetType, targetId, groupId: String(formData.get("groupId") || "") });
+    refreshFiles(projectId);
+    revalidatePath(`/bids/${targetId}`);
+    revalidatePath(`/purchase-orders/${targetId}`);
+    return { ok: "Added." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function uploadVendorJobFileAction(token: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const file = await namedUpload(formData, "file");
+    if (!file) return { error: "Choose a file." };
+    uploadVendorJobFile({ token, projectId: String(formData.get("projectId") || ""), file, ip: await requestIp() });
+    refreshVendor(token);
+    return { ok: "Uploaded." };
   } catch (error) {
     return failure(error);
   }

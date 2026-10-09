@@ -2,6 +2,16 @@
 
 ## 2026-10-09
 
+### Job files
+
+- A job has a Files tab. Company defaults start as Plans, Specs, Contracts, and Photos. The office can add, rename, or archive a folder on the job or in Settings.
+- Each folder is Team, Client, or Subs. A file can override that. Field sees those folders and can add a photo. A vendor upload sits in a folder only that vendor and the office can see.
+- A plan keeps older revisions. The newest is Current. The rest stay Superseded, with the revision, the date, and who uploaded it. Portals show Current unless the office shares history.
+- Attached lists files already on an RFI, submittal, bill, punch item, daily log, bid, or purchase order, and links back. Field does not see money files. A vendor does not see another party’s files.
+- The client portal lists client folders. The vendor portal lists sub folders for jobs that vendor is on. A bid or purchase order can point at the current plan, and that file shows on the vendor’s bid or order.
+- Upload, revision, visibility, and delete are on the audit log. Delete hides the file.
+- Okonkwo Plans holds A-101 floor plan, revision 2 current and revision 1 superseded. Specs and Contracts stay with the team. Photos is on the client portal. Harbor Plumbing is the vendor folder.
+
 ### Lien waivers
 
 - Four waiver types: conditional progress, unconditional progress, conditional final, and unconditional final. Settings holds the company wording for each. The seeded lines are templates.

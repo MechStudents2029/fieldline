@@ -5,6 +5,7 @@ import {
   saveVendorCertificateAction,
   signVendorWaiverAction,
   submitVendorBillAction,
+  uploadVendorJobFileAction,
 } from "@/app/actions";
 import { ActionForm } from "@/components/action-form";
 import { FileButton } from "@/components/file-button";
@@ -20,6 +21,7 @@ import type { VendorPortalHome } from "@/lib/services/vendor-portal";
 import { submitVendorBidAction, declineVendorBidAction, vendorTickAction } from "@/app/actions";
 import type { VendorTodo } from "@/lib/services/todos";
 import type { PortalWaiver } from "@/lib/services/waivers";
+import type { VendorFileJob } from "@/lib/services/files";
 
 function when(row: { startDate: string; endDate: string; startTime: string | null }) {
   const days = row.startDate === row.endDate ? formatCalendarDay(row.startDate) : `${formatCalendarDay(row.startDate)} – ${formatCalendarDay(row.endDate)}`;
@@ -39,6 +41,7 @@ export function VendorPortalView({
   todos = [],
   submittals = { items: [], jobs: [] },
   waivers = [],
+  files = [],
 }: {
   token: string;
   home: VendorPortalHome;
@@ -47,6 +50,7 @@ export function VendorPortalView({
   todos?: VendorTodo[];
   submittals?: { items: PortalSubmittal[]; jobs: { id: string; name: string }[] };
   waivers?: PortalWaiver[];
+  files?: VendorFileJob[];
 }) {
   return (
     <main className="home mx-auto min-h-screen w-full max-w-5xl px-4 py-8 lg:px-8" data-today={home.today}>
@@ -177,6 +181,15 @@ export function VendorPortalView({
                     ))}
                   </ul>
                 )}
+                {bid.plans.length > 0 ? (
+                  <ul className="mt-2">
+                    {bid.plans.map((plan) => (
+                      <li key={plan.id}>
+                        <a href={`/api/files/${plan.id}?vendor=${encodeURIComponent(token)}`}>{plan.filename}</a>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
               </li>
             ))}
           </ul>
@@ -204,6 +217,15 @@ export function VendorPortalView({
                     </li>
                   ))}
                 </ul>
+                {order.plans.length > 0 ? (
+                  <ul className="mt-2">
+                    {order.plans.map((plan) => (
+                      <li key={plan.documentId}>
+                        <a href={`/api/files/${plan.documentId}?vendor=${encodeURIComponent(token)}`}>{plan.name}</a>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
                 {order.response === "issued" ? (
                   <div className="mt-3 flex flex-col gap-3">
                     <ActionForm action={acceptVendorPoAction.bind(null, token, order.id)} className="home-form">
@@ -256,6 +278,35 @@ export function VendorPortalView({
               </li>
             ))}
           </ul>
+        </section>
+        <section aria-label="Files">
+          <h2>Files</h2>
+          {files.length === 0 ? <p className="home-sub">No files</p> : null}
+          {files.map((job) => (
+            <div key={job.projectId} className="mt-3">
+              <p className="home-copy">{job.projectName}</p>
+              {job.folders.map((folder) => (
+                <div key={folder.name} className="home-card mt-2">
+                  <p className="home-sub">{folder.name}</p>
+                  <ul>
+                    {folder.files.map((file) => (
+                      <li key={file.documentId}>
+                        <a href={`/api/files/${file.documentId}?vendor=${encodeURIComponent(token)}`}>{file.name}</a>
+                        <span className="home-sub"> · Rev {file.revision} · {file.sizeLabel}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+              <ActionForm action={uploadVendorJobFileAction.bind(null, token)} className="home-form mt-2">
+                <input type="hidden" name="projectId" value={job.projectId} />
+                <FileButton name="file" label={`File ${job.projectName}`} accept="image/jpeg,image/png,image/webp,application/pdf,.pdf" empty="File" />
+                <button type="submit" className="home-btn">
+                  Upload
+                </button>
+              </ActionForm>
+            </div>
+          ))}
         </section>
         <section aria-label="Lien waivers">
           <h2>Lien waivers</h2>

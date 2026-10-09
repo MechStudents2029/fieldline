@@ -32,6 +32,7 @@ import { formatMoney, positiveMoneyError } from "@/lib/money";
 import { canEditCrm, canManageSettings, canSeeMoney, type Role } from "@/lib/permissions";
 import { photoExtension, photoUploadError, rasterImageType } from "@/lib/security";
 import { duplicateBill, normalizeBillNumber } from "@/lib/services/bills";
+import { targetPlans, vendorMayReadJobFile } from "@/lib/services/files";
 import { ServiceError } from "@/lib/services/errors";
 import type { Actor } from "@/lib/services/read";
 import { localDay } from "@/lib/time/calendar";
@@ -63,6 +64,7 @@ export type VendorOrder = {
   response: "issued" | "accepted" | "declined";
   amountCents: number;
   lines: { costCode: string; description: string; amountCents: number }[];
+  plans: { documentId: string; name: string }[];
 };
 
 export type VendorPortalHome = {
@@ -498,6 +500,7 @@ export function vendorPortal(token: string): VendorPortalHome | null {
           .filter((line) => line.purchaseOrderId === order.id)
           .sort((a, b) => a.sortOrder - b.sortOrder)
           .map((line) => ({ costCode: line.costCode, description: line.description ?? "", amountCents: line.amountCents })),
+        plans: targetPlans(db, orgId, "purchase_order", order.id).map((plan) => ({ documentId: plan.documentId, name: plan.name })),
       })),
     schedule: schedule.map((row) => ({
       id: row.item.id,
@@ -822,7 +825,8 @@ export function vendorFileAllowed(token: string, documentId: string): boolean {
     .from(bidFiles)
     .where(and(eq(bidFiles.orgId, ctx.orgId), eq(bidFiles.documentId, document.id)))
     .get();
-  return Boolean(attachment && bidIds.has(attachment.bidId));
+  if (attachment && bidIds.has(attachment.bidId)) return true;
+  return vendorMayReadJobFile(ctx.db, ctx.orgId, ctx.contactId, document.id);
 }
 
 export function vendorMoneyHiddenFrom(role: Role) {

@@ -166,7 +166,12 @@ begin
     'submittal_attempts',
     'lien_waiver_templates',
     'lien_waivers',
-    'lien_waiver_attempts'
+    'lien_waiver_attempts',
+    'file_folder_defaults',
+    'file_folders',
+    'job_files',
+    'plan_refs',
+    'job_file_attempts'
   ]
   loop
     execute format('alter table public.%I enable row level security', tbl);

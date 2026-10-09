@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { awardBidAction, saveBidLinesAction } from "@/app/actions";
+import { awardBidAction, referencePlanAction, saveBidLinesAction } from "@/app/actions";
 import { ActionForm } from "@/components/action-form";
 import { MissingRecord } from "@/components/missing-record";
 import { LinkedRfis } from "@/components/linked-rfis";
@@ -8,6 +8,7 @@ import { requireSession } from "@/lib/auth/session";
 import { formatCalendarDay } from "@/lib/format";
 import { formatMoney, formatQty, formatWhole } from "@/lib/money";
 import { bidComparison } from "@/lib/services/bids";
+import { officeTargetPlans, planChoices } from "@/lib/services/files";
 import { relatedRfis } from "@/lib/services/rfis";
 
 function signed(cents: number) {
@@ -21,6 +22,8 @@ export default async function BidPage({ params }: { params: Promise<{ id: string
   const session = await requireSession();
   const bid = bidComparison(session, id);
   if (!bid) return <MissingRecord orgName={session.orgName} kind="bid" />;
+  const plans = officeTargetPlans(session, "bid", bid.id);
+  const choices = planChoices(session, bid.projectId);
   return (
     <>
     <div className="px-4 pt-3">
@@ -45,6 +48,31 @@ export default async function BidPage({ params }: { params: Promise<{ id: string
             {bid.statusLabel} · {formatCalendarDay(bid.dueOn)}
           </p>
         </div>
+        {plans.length > 0 ? (
+          <ul aria-label="Plans">
+            {plans.map((plan) => (
+              <li key={plan.documentId}>
+                <a href={`/api/files/${plan.documentId}`}>{plan.name}</a>
+                <span className="text-sm text-[var(--mac-secondary)]"> · Rev {plan.revision}</span>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+        {bid.canEdit && choices.length > 0 ? (
+          <ActionForm action={referencePlanAction.bind(null, bid.projectId, "bid", bid.id)} className="flex flex-wrap items-end gap-2">
+            <label className="text-sm">
+              Plan
+              <select name="groupId" aria-label="Plan" className="field mt-1">
+                {choices.map((choice) => (
+                  <option key={choice.groupId} value={choice.groupId}>
+                    {choice.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button type="submit">Add plan</button>
+          </ActionForm>
+        ) : null}
         {bid.scope ? <p className="mac-t13">{bid.scope}</p> : null}
         {bid.purchaseOrders.length > 0 ? (
           <ul className="flex flex-wrap gap-3">

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { closePurchaseOrderAction, issuePurchaseOrderAction, voidPurchaseOrderAction } from "@/app/actions";
+import { closePurchaseOrderAction, issuePurchaseOrderAction, referencePlanAction, voidPurchaseOrderAction } from "@/app/actions";
 import { ActionForm } from "@/components/action-form";
 import { CommentThread } from "@/components/comment-thread";
 import { MissingRecord } from "@/components/missing-record";
@@ -11,6 +11,7 @@ import { formatDateTime } from "@/lib/format";
 import { formatMoney } from "@/lib/money";
 import { canManageMoney, canSeeMoney } from "@/lib/permissions";
 import { changeOrderChoices, purchaseOrderDetail } from "@/lib/services/purchase-orders";
+import { officeTargetPlans, planChoices } from "@/lib/services/files";
 import { relatedRfis } from "@/lib/services/rfis";
 import { listContacts, listPriceBook, listProjects } from "@/lib/services/read";
 
@@ -23,6 +24,8 @@ export default async function PurchaseOrderPage({ params }: { params: Promise<{ 
   const detail = purchaseOrderDetail(session.orgId, id, session.role);
   if (!detail) return <MissingRecord orgName={session.orgName} kind="purchase order" />;
   const { po, lines, events } = detail;
+  const plans = officeTargetPlans(session, "purchase_order", po.id);
+  const choices = planChoices(session, po.projectId);
   const office = canManageMoney(session.role);
   const editable = office && (po.status === "draft" || po.status === "issued");
   const projects = listProjects(session.orgId).map((row) => ({ id: row.project.id, label: row.project.name }));
@@ -52,6 +55,31 @@ export default async function PurchaseOrderPage({ params }: { params: Promise<{ 
           </Link>
         </p>
       </div>
+      {plans.length > 0 ? (
+        <ul aria-label="Plans">
+          {plans.map((plan) => (
+            <li key={plan.documentId}>
+              <a href={`/api/files/${plan.documentId}`}>{plan.name}</a>
+              <span className="text-sm"> · Rev {plan.revision}</span>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      {office && choices.length > 0 ? (
+        <ActionForm action={referencePlanAction.bind(null, po.projectId, "purchase_order", po.id)} className="flex flex-wrap items-end gap-2">
+          <label className="text-sm">
+            Plan
+            <select name="groupId" aria-label="Plan" className="field mt-1">
+              {choices.map((choice) => (
+                <option key={choice.groupId} value={choice.groupId}>
+                  {choice.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button type="submit">Add plan</button>
+        </ActionForm>
+      ) : null}
       <section className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
         <h2 className="font-medium">Lines</h2>
         <ul className="mt-2 space-y-2 text-sm">
