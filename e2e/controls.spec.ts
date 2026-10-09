@@ -34,13 +34,19 @@ function shot(page: Page, name: string) {
 
 async function lines(locator: Locator) {
   return locator.evaluate((el) => {
-    const range = document.createRange();
-    range.selectNodeContents(el);
-    const tops = new Set(
-      [...range.getClientRects()]
-        .filter((rect) => rect.width > 0 && rect.height > 0)
-        .map((rect) => Math.round(rect.top)),
-    );
+    const tops = new Set<number>();
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    let node = walker.nextNode();
+    while (node) {
+      if (node.textContent?.trim()) {
+        const range = document.createRange();
+        range.selectNodeContents(node);
+        for (const rect of range.getClientRects()) {
+          if (rect.width > 0 && rect.height > 0) tops.add(Math.round(rect.top));
+        }
+      }
+      node = walker.nextNode();
+    }
     return tops.size;
   });
 }
