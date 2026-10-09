@@ -316,6 +316,13 @@
   white-space: nowrap;
 }
 
+.fl-pill.fl-pill-sm {
+  padding: 0 6px;
+  font-size: 11px;
+  line-height: 16px;
+  font-weight: 500;
+}
+
 .fl-strip {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -771,7 +778,8 @@
 }
 .mac-schedule td { height: auto; min-height: 72px; padding: 4px; vertical-align: top; }
 .mac-table tbody tr:nth-child(even) td { background: var(--mac-alt); }
-.mac-table .is-selected td { background: color-mix(in srgb, var(--mac-accent) 14%, var(--mac-window)); }
+.mac-table .is-selected td,
+.mac-table tbody tr.is-selected td { background: color-mix(in srgb, var(--mac-accent) 14%, var(--mac-window)); }
 
 .mac-box {
   border: 0.5px solid var(--mac-box-border);

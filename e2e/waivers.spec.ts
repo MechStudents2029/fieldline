@@ -56,6 +56,16 @@ async function requestSignAndPay(page: Page, shots: boolean) {
   await expect(page.getByRole("table", { name: "Bills" })).toContainText("Requested");
   if (width < 768) await page.getByRole("button", { name: "Filter" }).click();
   await expect(page.getByLabel("Waiver", { exact: true })).toBeVisible();
+  const bills = page.getByRole("table", { name: "Bills" });
+  await expect(bills).toContainText("Paid");
+  await expect(bills).toContainText("Approved");
+  await expect(bills).toContainText("Draft");
+  await expect(page.getByRole("cell", { name: "Diaz deck replacement", exact: true }).first()).toBeVisible();
+  await expect(page.getByLabel("Waiver type")).toHaveCount(0);
+  const vendors = page.getByRole("table", { name: "Vendors" });
+  await expect(vendors).toContainText("Harbor Plumbing");
+  await expect(vendors).toContainText("Open PO");
+  await expect(vendors).toContainText("PLB-SHOWER");
   if (shots) {
     await page.getByRole("row", { name: /HP-220/ }).scrollIntoViewIfNeeded();
     await shot(page, "bills-waivers-light");
@@ -64,6 +74,25 @@ async function requestSignAndPay(page: Page, shots: boolean) {
     await page.emulateMedia({ colorScheme: "light" });
   }
   await page.getByLabel("Waiver HP-441").check();
+  await page.getByLabel("Waiver HP-220").check();
+  await expect(page.getByRole("region", { name: "Waiver request" })).toContainText("2 selected");
+  await expect(page.getByLabel("Waiver type")).toBeVisible();
+  if (shots) {
+    await page.getByRole("row", { name: /HP-220/ }).scrollIntoViewIfNeeded();
+    await shot(page, "bills-selected-light");
+    await page.emulateMedia({ colorScheme: "dark" });
+    await shot(page, "bills-selected-dark");
+    await page.emulateMedia({ colorScheme: "light" });
+    await page.getByRole("heading", { name: "Vendors" }).evaluate((node) => {
+      const top = node.getBoundingClientRect().top + window.scrollY;
+      window.scrollTo(0, Math.max(0, top - 24));
+    });
+    await shot(page, "bills-vendors-light");
+    await page.emulateMedia({ colorScheme: "dark" });
+    await shot(page, "bills-vendors-dark");
+    await page.emulateMedia({ colorScheme: "light" });
+  }
+  await page.getByLabel("Waiver HP-220").uncheck();
   await page.getByRole("button", { name: "Request waiver" }).click();
   await page.getByRole("link", { name: /HP-441/ }).click();
   await expect(page.getByLabel("Lien waivers")).toContainText("Requested");

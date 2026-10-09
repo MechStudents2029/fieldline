@@ -107,6 +107,7 @@ import {
   setFileVisibility,
   setFolderVisibility,
   setShareHistory,
+  updateJobFiles,
   uploadJobFile,
   uploadVendorJobFile,
 } from "@/lib/services/files";
@@ -1571,6 +1572,17 @@ export async function signVendorWaiverAction(token: string, waiverId: string, _p
 function refreshFiles(projectId: string) {
   revalidatePath(`/projects/${projectId}/files`);
   revalidatePath(`/projects/${projectId}`);
+}
+
+export async function bulkJobFilesAction(projectId: string, formData: FormData): Promise<void> {
+  const user = await actor();
+  updateJobFiles(user, {
+    projectId,
+    fileIds: formData.getAll("fileId").map(String),
+    visibility: String(formData.get("visibility") || ""),
+    folderId: String(formData.get("folderId") || ""),
+  });
+  refreshFiles(projectId);
 }
 
 export async function uploadJobFileAction(projectId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
