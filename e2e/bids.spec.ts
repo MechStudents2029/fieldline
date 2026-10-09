@@ -71,7 +71,7 @@ async function createAndAward(page: Page) {
   await expect(page.getByRole("link", { name: "PO-1056" })).toBeVisible();
   await expect(page.getByRole("link", { name: "PO-1057" })).toBeVisible();
   await page.getByRole("link", { name: "PO-1056" }).click();
-  await expect(page.getByText("draft", { exact: true })).toBeVisible();
+  await expect(page.locator("[data-status='draft']")).toBeVisible();
 
   await page.goto("/projects/proj_okonkwo");
   await expect(page.locator("[data-code='PLB-SHOWER'] [data-kind='budget']")).toHaveText("$100");

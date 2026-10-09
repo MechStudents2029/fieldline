@@ -71,6 +71,7 @@ export function PurchaseOrderDetail({
 }) {
   const [editing, setEditing] = useState(false);
   const [billing, setBilling] = useState(false);
+  const [more, setMore] = useState(false);
   const editable = office && (po.status === "draft" || po.status === "issued");
   const billed = lines.reduce((sum, line) => sum + line.billedCents, 0);
   const prefill = lines.filter((line) => line.remainingCents > 0);
@@ -109,10 +110,11 @@ export function PurchaseOrderDetail({
                 Print
               </Link>
               {po.status !== "void" ? (
-                <details className="detail-more">
-                  <summary className="ctl" aria-label="More">
+                <div className="detail-more">
+                  <button type="button" className="ctl" aria-label="More" aria-expanded={more} onClick={() => setMore((open) => !open)}>
                     …
-                  </summary>
+                  </button>
+                  {more ? (
                   <div className="detail-more-panel">
                     {retainage?.canRelease ? (
                       <ActionForm action={releasePoRetainageAction.bind(null, po.id)}>
@@ -137,7 +139,8 @@ export function PurchaseOrderDetail({
                       </button>
                     </ActionForm>
                   </div>
-                </details>
+                  ) : null}
+                </div>
               ) : null}
             </>
           ) : (

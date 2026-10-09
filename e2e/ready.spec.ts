@@ -30,11 +30,14 @@ async function payReady(page: Page) {
   await page.goto("/bills/bill_ok_ret_ready");
   await expect(page.getByLabel("Lien waivers")).toContainText("Unconditional progress");
   await page.goto("/purchase-orders/po_ok_retain");
-  await expect(page.locator("[data-retainage]")).toContainText("10%");
-  await expect(page.locator("[data-retainage]")).toContainText("$200.00");
+  const facts = page.locator("[data-detail='facts']");
+  await expect(facts).toContainText("10%");
+  await expect(facts).toContainText("$200.00");
+  await page.getByRole("button", { name: "More" }).click();
   await page.getByRole("button", { name: "Release retainage" }).click();
-  await expect(page.getByRole("link", { name: "PO-1055-R" })).toBeVisible();
-  await expect(page.locator("[data-retainage]")).toContainText("Released $200.00");
+  await expect(facts.getByRole("link", { name: "PO-1055-R" })).toBeVisible();
+  await expect(page.getByRole("table", { name: "Bills" }).getByRole("link", { name: "PO-1055-R" })).toBeVisible();
+  await expect(facts).toContainText("$200.00");
 }
 
 test("ready to pay, bulk paid, and release retainage", async ({ page, request }) => {
@@ -69,5 +72,5 @@ test("ready to pay on a phone", async ({ page, request }) => {
   await resetDemo(request);
   await signIn(page);
   await payReady(page);
-  await expect(page.getByRole("link", { name: "PO-1055-R" })).toBeVisible();
+  await expect(page.getByRole("table", { name: "Bills" }).getByRole("link", { name: "PO-1055-R" })).toBeVisible();
 });
