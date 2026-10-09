@@ -810,7 +810,6 @@ export function vendorBillSummaries(orgId: string, role: Role): VendorBillSummar
     const retainedOnPaid = vendorBills
       .filter((bill) => bill.kind !== "release" && bill.status === "paid")
       .reduce((sum, bill) => sum + bill.retainageCents, 0);
-    const released = vendorBills.filter((bill) => bill.kind === "release").reduce((sum, bill) => sum + bill.amountCents, 0);
     const commitment = commitments.get(contactId) ?? { committedCents: 0, openBalanceCents: 0 };
     summaries.push({
       contactId,
@@ -819,7 +818,7 @@ export function vendorBillSummaries(orgId: string, role: Role): VendorBillSummar
       billedCents: vendorBills.filter((bill) => bill.kind !== "release").reduce((sum, bill) => sum + bill.amountCents, 0),
       paidCents,
       outstandingCents,
-      retainedCents: Math.max(0, retainedOnPaid - released),
+      retainedCents: retainedOnPaid,
       committedCents: commitment.committedCents,
       openBalanceCents: commitment.openBalanceCents,
       codes,

@@ -47,7 +47,7 @@ export default async function PurchaseOrderPage({ params }: { params: Promise<{ 
         {po.status === "issued" ? <p className="text-sm">Open commitment {formatMoney(po.openCents)}</p> : null}
         {retainage ? (
           <p className="num text-sm" data-retainage="">
-            {Math.round(retainage.bps / 100)}% · Retained {formatMoney(retainage.heldCents)} · Released {formatMoney(retainage.releasedCents)}
+            {Math.round(retainage.bps / 100)}% · Retained {formatMoney(retainage.retainedCents)} · Released {formatMoney(retainage.releasedCents)}
             {retainage.releaseId && retainage.releaseNumber ? (
               <>
                 {" "}
