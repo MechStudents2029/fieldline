@@ -17,10 +17,10 @@ test("an assembly follows its measurement, and the editor keeps the totals clear
   await page.getByLabel("Assembly name").fill("Bench run");
   await page.getByLabel("Driving measurement").selectOption("length");
   await page.getByLabel("Part name").fill("Bench boards");
-  await page.getByLabel("Formula").fill("Qty");
-  await page.getByLabel("Waste").fill("10");
-  await page.getByLabel("Unit").selectOption("lf");
-  await page.getByLabel("Unit cost").fill("25");
+  await page.getByLabel("Formula", { exact: true }).fill("Qty");
+  await page.getByLabel("Waste", { exact: true }).fill("10");
+  await page.getByLabel("Unit", { exact: true }).selectOption("lf");
+  await page.getByLabel("Unit cost", { exact: true }).fill("25");
   await page.getByRole("button", { name: "Save" }).click();
   await expect(page).toHaveURL(/\/price-book\/assemblies\/asm_/);
   await expect(page.getByLabel("Assembly name")).toHaveValue("Bench run");
@@ -32,10 +32,10 @@ test("an assembly follows its measurement, and the editor keeps the totals clear
   await page.goto("/estimates/est_vasquez");
   const before = await page.getByTestId("client-total").innerText();
   await page.getByRole("button", { name: "Add assembly" }).click();
-  await page.getByLabel("Assembly").selectOption({ label: "Bench run" });
-  await page.getByLabel("Assembly measurement").selectOption({ label: "New" });
-  await page.getByLabel("New measurement").fill("Bench");
-  await page.getByLabel("New measurement value").fill("20");
+  await page.getByLabel("Assembly", { exact: true }).selectOption({ label: "Bench run" });
+  await page.getByLabel("Assembly measurement", { exact: true }).selectOption({ label: "New" });
+  await page.getByLabel("New measurement", { exact: true }).fill("Bench");
+  await page.getByLabel("New measurement value", { exact: true }).fill("20");
   await page.getByRole("button", { name: "Insert" }).click();
 
   const group = page.locator('[data-assembly="Bench run"]');
