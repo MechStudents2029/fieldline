@@ -40,7 +40,7 @@ export function NewJobSheet({
   const template = templates.find((row) => row.id === templateId) ?? templates[0];
   if (!template) return null;
   return (
-    <aside role="dialog" aria-label="New job" className="flex w-full flex-col gap-3 border border-[var(--mac-separator)] bg-[var(--mac-window)] p-4 md:absolute md:inset-y-0 md:right-0 md:z-20 md:w-[380px] md:border-y-0 md:border-r-0">
+    <aside role="dialog" aria-label="New job" data-pane="job" className="flex w-full flex-col gap-3 border border-[var(--mac-separator)] bg-[var(--mac-window)] p-4 md:absolute md:inset-y-0 md:right-0 md:z-20 md:w-[380px] md:border-y-0 md:border-r-0">
       <h2 className="mac-t15">New job</h2>
       <ActionForm key={template.id} action={createJobFromTemplateAction} className="flex flex-col gap-3">
         <label className="text-[13px]">

@@ -46,9 +46,9 @@ export function SubmittalSection({ board }: { board: JobSubmittalBoard }) {
                 </td>
                 <td>{item.division}</td>
                 <td>{item.assigneeName}</td>
-                <td className={`num ${item.overdue ? "text-[var(--mac-danger)]" : ""}`}>{item.dueOn ? formatCalendarDay(item.dueOn) : "—"}</td>
+                <td className={`fit num ${item.overdue ? "text-[var(--mac-danger)]" : ""}`} data-fit="date">{item.dueOn ? formatCalendarDay(item.dueOn) : "—"}</td>
                 <td className="num">{item.ageDays}</td>
-                <td>
+                <td className="fit" data-fit="status">
                   <Status pending={item.pending} label={item.statusLabel} />
                 </td>
                 <td className="num">{item.revision}</td>

@@ -64,10 +64,10 @@ export default async function InboxPage({ searchParams }: { searchParams: Promis
           ]}
         />
         <InboxList items={items} />
-        <ActionForm action={saveNotifyModeAction} className="flex items-center gap-2 px-4 pb-4">
-          <label className="mac-t13 text-[var(--mac-secondary)]">
+        <ActionForm action={saveNotifyModeAction} dataBar="notify" className="ctl-line px-4 pb-4">
+          <label className="ctl-line mac-t13 text-[var(--mac-secondary)]">
             Notify
-            <select name="mode" aria-label="Notify" defaultValue={mode} className="field ml-2">
+            <select name="mode" aria-label="Notify" defaultValue={mode} className="ctl">
               <option value="mentions">Mentions</option>
               <option value="all">My jobs</option>
             </select>

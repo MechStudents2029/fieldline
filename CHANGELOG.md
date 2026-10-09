@@ -2,6 +2,12 @@
 
 ## 2026-10-09
 
+### Compact controls
+
+- List toolbars, selection bars, sheets, and detail panes share one control size: 24px tall, only as wide as the label, capped at 260px. A form row still stretches.
+- Bills with rows checked is one line: count, waiver type, Request waiver, Clear. Job files keeps the date, size, and revision on one line, and the file pane uses the same file button as the rest of the app.
+- A check across the office, the client portal, and the vendor portal fails if a bar or pane select grows, a raw file button shows, or a date, size, amount, or status cell wraps.
+
 ### Job files and bills layout
 
 - Job files: Upload sits in the toolbar and opens a sheet for the file and folder. The folder starts as the one you are viewing, or the selected file’s folder. Selecting a row opens the file beside the list: name, folder, revisions, visibility, a new revision, share history, and delete. Folder add, rename, and archive are in the toolbar menu. Checked rows can move, change visibility, or download. Sidebar names stay intact, with a small visibility pill. Seeded plans show as 860 KB and 1.4 MB.

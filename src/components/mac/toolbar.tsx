@@ -27,7 +27,7 @@ export function Toolbar({
 }) {
   const router = useRouter();
   return (
-    <div className="flex h-[52px] shrink-0 items-center gap-3 px-4">
+    <div className="flex h-[52px] shrink-0 items-center gap-3 px-4" data-bar="toolbar">
       <div className="flex min-w-0 flex-1 items-center gap-2">
         {leading}
         <div className="min-w-0">

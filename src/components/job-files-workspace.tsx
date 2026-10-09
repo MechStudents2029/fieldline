@@ -17,6 +17,7 @@ import {
 } from "@/app/actions";
 import { ActionForm } from "@/components/action-form";
 import { FileButton } from "@/components/file-button";
+import { SelectionBar } from "@/components/selection-bar";
 import { jobSectionTabs } from "@/components/job-section-tabs";
 import { Toolbar } from "@/components/mac/toolbar";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -87,7 +88,7 @@ function AddFolderForm({ projectId }: { projectId: string }) {
           <option value="subs">Subs</option>
         </select>
       </label>
-      <button type="submit" className="w-fit">
+      <button type="submit" className="ctl">
         Add folder
       </button>
     </ActionForm>
@@ -105,18 +106,18 @@ function FolderEditor({ projectId, folder }: { projectId: string; folder: Folder
           Name
           <input name="name" required defaultValue={folder.name} aria-label={`Rename ${folder.name}`} className="field mt-1" />
         </label>
-        <button type="submit">Rename</button>
+        <button type="submit" className="ctl">Rename</button>
       </ActionForm>
-      <ActionForm action={visibility} className="flex items-center gap-2">
-        <select name="visibility" aria-label={`Folder visibility ${folder.name}`} defaultValue={folder.visibility} className="field">
+      <ActionForm action={visibility} className="ctl-line">
+        <select name="visibility" aria-label={`Folder visibility ${folder.name}`} defaultValue={folder.visibility} className="ctl">
           <option value="team">Team</option>
           <option value="client">Client</option>
           <option value="subs">Subs</option>
         </select>
-        <button type="submit">Save</button>
+        <button type="submit" className="ctl">Save</button>
       </ActionForm>
       <ActionForm action={archive}>
-        <button type="submit">Archive {folder.name}</button>
+        <button type="submit" className="ctl">Archive {folder.name}</button>
       </ActionForm>
     </div>
   );
@@ -142,7 +143,7 @@ function FilePane({
   const shareAction = useMemo(() => shareFileHistoryAction.bind(null, projectId, file.id), [projectId, file.id]);
   const deleteAction = useMemo(() => deleteJobFileAction.bind(null, projectId, file.id), [projectId, file.id]);
   return (
-    <aside aria-label="File" className="flex w-full shrink-0 flex-col gap-3 border-t border-[var(--mac-separator)] px-4 py-4 md:w-[300px] md:border-t-0 md:border-l">
+    <aside aria-label="File" data-pane="file" className="flex w-full shrink-0 flex-col gap-3 border-t border-[var(--mac-separator)] px-4 py-4 md:w-[300px] md:border-t-0 md:border-l">
       <button type="button" className="w-fit text-sm text-[var(--fl-accent)] md:hidden" onClick={onBack}>
         ‹ Files
       </button>
@@ -157,7 +158,7 @@ function FilePane({
           <ul className="mt-1">
             {history.map((rev) => (
               <li key={rev.id}>
-                <button type="button" className="text-left text-sm" onClick={() => onSelect(rev.id)}>
+                <button type="button" className="fit bg-transparent p-0 text-left" onClick={() => onSelect(rev.id)}>
                   Rev {rev.revision} · {rev.current ? "Current" : "Superseded"} · {formatCalendarDay(rev.createdAt)} · {rev.uploadedBy}
                 </button>
               </li>
@@ -170,14 +171,14 @@ function FilePane({
         </p>
       )}
       {canEdit ? (
-        <ActionForm action={visibilityAction} className="flex items-center gap-2">
-          <label className="text-sm">
+        <ActionForm action={visibilityAction} className="ctl-line">
+          <label className="ctl-line">
             Visibility
             <select
               name="visibility"
               aria-label={`Visibility ${file.name}`}
               defaultValue={file.visibilityOverride ?? "inherit"}
-              className="field ml-2"
+              className="ctl"
               onChange={(event) => event.currentTarget.form?.requestSubmit()}
             >
               <option value="inherit">Folder</option>
@@ -191,20 +192,20 @@ function FilePane({
         <span className="fl-pill w-fit">{file.visibilityLabel}</span>
       )}
       {canEdit && file.plans && file.current ? (
-        <ActionForm action={reviseAction} className="flex flex-wrap items-center gap-2">
+        <ActionForm action={reviseAction} className="ctl-line">
           <FileButton name="file" label={`Revise ${file.name}`} accept={ACCEPT} empty="File" />
-          <button type="submit">Upload new revision</button>
+          <button type="submit" className="ctl">Upload new revision</button>
         </ActionForm>
       ) : null}
       {canEdit && file.plans && file.current ? (
         <ActionForm action={shareAction}>
           <input type="hidden" name="share" value={file.shareHistory ? "0" : "1"} />
-          <button type="submit">{file.shareHistory ? "Hide history" : "Share history"}</button>
+          <button type="submit" className="ctl">{file.shareHistory ? "Hide history" : "Share history"}</button>
         </ActionForm>
       ) : null}
       {canEdit ? (
         <ActionForm action={deleteAction}>
-          <button type="submit">Delete</button>
+          <button type="submit" className="ctl">Delete</button>
         </ActionForm>
       ) : null}
     </aside>
@@ -339,43 +340,45 @@ export function JobFilesWorkspace({
             </nav>
             <div className="flex min-w-0 flex-col md:flex-row">
               <div className={`${selected ? "hidden md:flex" : "flex"} min-w-0 flex-1 flex-col`}>
-                {canEdit && picked.length > 0 ? (
-                  <form action={bulkAct} className="flex flex-wrap items-center gap-2 border-b border-[var(--mac-separator)] px-4 py-2" role="region" aria-label="Bulk actions">
-                    <span className="text-sm">{picked.length} selected</span>
-                    {picked.map((id) => (
-                      <input key={id} type="hidden" name="fileId" value={id} />
-                    ))}
-                    <select name="visibility" aria-label="Bulk visibility" className="field" defaultValue="">
-                      <option value="">Visibility</option>
-                      <option value="inherit">Folder</option>
-                      <option value="team">Team</option>
-                      <option value="client">Client</option>
-                      <option value="subs">Subs</option>
-                    </select>
-                    <select name="folderId" aria-label="Move to folder" className="field" defaultValue="">
-                      <option value="">Folder</option>
-                      {officeFolders.map((folder) => (
-                        <option key={folder.id} value={folder.id}>
-                          {folder.name}
-                        </option>
+                {canEdit ? (
+                  <form action={bulkAct}>
+                    <SelectionBar label="Bulk actions" count={picked.length} onClear={() => setChecked([])}>
+                      {picked.map((id) => (
+                        <input key={id} type="hidden" name="fileId" value={id} />
                       ))}
-                    </select>
-                    <button type="submit">Apply</button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        for (const file of visible.filter((row) => picked.includes(row.id))) {
-                          const link = document.createElement("a");
-                          link.href = `/api/files/${file.documentId}`;
-                          link.download = "";
-                          document.body.appendChild(link);
-                          link.click();
-                          link.remove();
-                        }
-                      }}
-                    >
-                      Download
-                    </button>
+                      <select name="visibility" aria-label="Bulk visibility" className="ctl" defaultValue="">
+                        <option value="">Visibility</option>
+                        <option value="inherit">Folder</option>
+                        <option value="team">Team</option>
+                        <option value="client">Client</option>
+                        <option value="subs">Subs</option>
+                      </select>
+                      <select name="folderId" aria-label="Move to folder" className="ctl" defaultValue="">
+                        <option value="">Folder</option>
+                        {officeFolders.map((folder) => (
+                          <option key={folder.id} value={folder.id}>
+                            {folder.name}
+                          </option>
+                        ))}
+                      </select>
+                      <button type="submit" className="ctl">Apply</button>
+                      <button
+                        type="button"
+                        className="ctl"
+                        onClick={() => {
+                          for (const file of visible.filter((row) => picked.includes(row.id))) {
+                            const link = document.createElement("a");
+                            link.href = `/api/files/${file.documentId}`;
+                            link.download = "";
+                            document.body.appendChild(link);
+                            link.click();
+                            link.remove();
+                          }
+                        }}
+                      >
+                        Download
+                      </button>
+                    </SelectionBar>
                   </form>
                 ) : null}
                 <div className="hidden overflow-x-auto md:block">
@@ -388,11 +391,11 @@ export function JobFilesWorkspace({
                           </th>
                         ) : null}
                         <th>Name</th>
-                        <th>Folder</th>
-                        <th>By</th>
-                        <th>Date</th>
-                        <th>Size</th>
-                        <th>Visibility</th>
+                        <th className="fit" data-fit="folder">Folder</th>
+                        <th className="fit" data-fit="by">By</th>
+                        <th className="fit" data-fit="date">Date</th>
+                        <th className="fit" data-fit="size">Size</th>
+                        <th className="fit" data-fit="status">Visibility</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -420,18 +423,18 @@ export function JobFilesWorkspace({
                             </td>
                           ) : null}
                           <td>
-                            {file.name}
+                            <span className="fit">{file.name}</span>
                             {file.plans ? (
-                              <span className="ml-2 text-[var(--mac-secondary)]">
+                              <span className="fit ml-2 text-[var(--mac-secondary)]" data-fit="status">
                                 Rev {file.revision} · {file.current ? "Current" : "Superseded"}
                               </span>
                             ) : null}
                           </td>
-                          <td>{file.folderName}</td>
-                          <td>{file.uploadedBy}</td>
-                          <td>{formatCalendarDay(file.createdAt)}</td>
-                          <td>{file.sizeLabel}</td>
-                          <td>
+                          <td className="fit" data-fit="folder">{file.folderName}</td>
+                          <td className="fit" data-fit="by">{file.uploadedBy}</td>
+                          <td className="fit" data-fit="date">{formatCalendarDay(file.createdAt)}</td>
+                          <td className="fit" data-fit="size">{file.sizeLabel}</td>
+                          <td className="fit" data-fit="status">
                             <span className="fl-pill fl-pill-sm">{file.visibilityLabel}</span>
                           </td>
                         </tr>
@@ -513,12 +516,12 @@ export function JobFilesWorkspace({
           <DialogHeader>
             <DialogTitle>Upload</DialogTitle>
           </DialogHeader>
-          <form action={uploadForm} className="grid gap-3">
+          <form action={uploadForm} className="grid gap-3" data-sheet="upload">
             {canAddPhoto && !canEdit ? <input type="hidden" name="folderId" value={photoFolderId || ""} /> : null}
             {canEdit ? (
-              <label className="text-sm">
+              <label className="ctl-line">
                 Folder
-                <select name="folderId" aria-label="Folder" defaultValue={defaultFolder} className="field mt-1">
+                <select name="folderId" aria-label="Folder" defaultValue={defaultFolder} className="ctl">
                   {officeFolders.map((folder) => (
                     <option key={folder.id} value={folder.id}>
                       {folder.name}

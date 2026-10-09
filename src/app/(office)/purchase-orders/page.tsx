@@ -87,11 +87,11 @@ export default async function PurchaseOrdersPage({
                 </td>
                 <td>{order.vendorName}</td>
                 <td className="clip" title={order.projectName}>{order.projectName}</td>
-                <td>
+                <td className="fit" data-fit="status">
                   {order.status === "draft" ? <span className="fl-pill">{order.status}</span> : order.status}
                   {order.status === "issued" ? <span className="num"> · {formatMoney(order.openCents)}</span> : ""}
                 </td>
-                <td className="num text-right">{formatMoney(order.amountCents)}</td>
+                <td className="fit num text-right" data-fit="amount">{formatMoney(order.amountCents)}</td>
               </tr>
             ))}
           </tbody>

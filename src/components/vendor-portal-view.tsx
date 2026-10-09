@@ -103,10 +103,7 @@ export function VendorPortalView({
                 <button type="submit" role="checkbox" aria-checked={todo.status === "done"} aria-label={todo.title} className="h-11 rounded-lg bg-[var(--fl-accent)] text-sm font-semibold text-white">
                   {todo.status === "done" ? "Reopen" : "Done"}
                 </button>
-                <label className="text-sm">
-                  Photo
-                  <input className="mt-1 block w-full text-sm" type="file" name="photo" accept="image/jpeg,image/png,image/webp" aria-label={`Photo ${todo.title}`} />
-                </label>
+                <FileButton name="photo" label={`Photo ${todo.title}`} accept="image/jpeg,image/png,image/webp" empty="Photo" />
               </ActionForm>
             </li>
           ))}

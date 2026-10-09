@@ -64,8 +64,8 @@ export default async function InvoicesPage() {
                 </td>
                 <td className="px-2">{contact.name}</td>
                 <td className="px-2">{project.name} · {invoice.type}</td>
-                <td className="px-2">{invoice.status === "open" ? <span className="fl-pill">{invoice.status}</span> : invoice.status}</td>
-                <td className="px-2 text-right num">{formatMoney(invoice.totalCents)}</td>
+                <td className="fit px-2" data-fit="status">{invoice.status === "open" ? <span className="fl-pill">{invoice.status}</span> : invoice.status}</td>
+                <td className="fit num px-2 text-right" data-fit="amount">{formatMoney(invoice.totalCents)}</td>
               </tr>
             ))}
           </tbody>

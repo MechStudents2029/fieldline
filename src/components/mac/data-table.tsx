@@ -4,6 +4,14 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 export type Cell = { text: string; sort?: string | number; tone?: "late" | "pill" };
+
+export function columnFit(column: { key: string; header: string; align?: "right"; fit?: boolean }) {
+  const key = `${column.key} ${column.header}`.toLowerCase();
+  if (column.align === "right") return "amount";
+  if (/\bstatus\b|\bpriority\b|\bcompliance\b/.test(key)) return "status";
+  if (column.fit || /\bstart\b|\bdue\b|\bdate\b/.test(key)) return "date";
+  return undefined;
+}
 export type TableRow = { id: string; href?: string; hint?: string; badge?: string; cells: Record<string, Cell> };
 export type TableGroup = { label: string; rows: TableRow[]; subtotal?: string };
 
@@ -118,9 +126,10 @@ export function DataTable({
               <tr>
                 {columns.map((column) => {
                   const cell = footer.cells[column.key];
-                  const className = `${column.align === "right" || column.fit ? "num" : ""} ${column.align === "right" ? "text-right" : ""} ${cell?.tone === "late" ? "text-[var(--mac-danger)]" : ""} font-semibold`;
+                  const fit = columnFit(column);
+                  const className = `${fit ? "fit" : ""} ${column.align === "right" || column.fit ? "num" : ""} ${column.align === "right" ? "text-right" : ""} ${cell?.tone === "late" ? "text-[var(--mac-danger)]" : ""} font-semibold`;
                   return (
-                    <td key={column.key} className={className} style={cell?.tone === "late" ? { color: "var(--mac-danger)" } : undefined}>
+                    <td key={column.key} data-fit={fit} className={className} style={cell?.tone === "late" ? { color: "var(--mac-danger)" } : undefined}>
                       {cell?.text ?? ""}
                     </td>
                   );
@@ -201,9 +210,10 @@ function GroupBlock({
                 {columns.map((column, columnIndex) => {
                   const cell = row.cells[column.key];
                   const text = cell?.text ?? "";
-                  const className = `${column.align === "right" || column.fit ? "num" : ""} ${column.clip ? "clip" : ""} ${column.align === "right" ? "text-right" : ""} ${cell?.tone === "late" ? "text-[var(--mac-danger)]" : ""}`;
+                  const fit = columnFit(column);
+                  const className = `${fit ? "fit" : ""} ${column.align === "right" || column.fit ? "num" : ""} ${column.clip ? "clip" : ""} ${column.align === "right" ? "text-right" : ""} ${cell?.tone === "late" ? "text-[var(--mac-danger)]" : ""}`;
                   return (
-                    <td key={column.key} className={className} title={column.clip ? text : undefined} style={cell?.tone === "late" ? { color: "var(--mac-danger)" } : undefined}>
+                    <td key={column.key} data-fit={fit} className={className} title={column.clip ? text : undefined} style={cell?.tone === "late" ? { color: "var(--mac-danger)" } : undefined}>
                       {columnIndex === 0 && row.href ? (
                         <>
                           <a href={row.href} className="hover-actions">

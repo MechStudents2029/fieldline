@@ -240,14 +240,14 @@ export default async function TodosPage({ searchParams }: { searchParams: Promis
                             ) : null}
                           </td>
                           <td className="clip" title={row.projectName}>{row.projectName}</td>
-                          <td className={`num ${late ? "text-[var(--mac-danger)]" : ""}`} style={late ? { color: "var(--mac-danger)" } : undefined}>
+                          <td className={`fit num ${late ? "text-[var(--mac-danger)]" : ""}`} data-fit="date" style={late ? { color: "var(--mac-danger)" } : undefined}>
                             {row.dueAt ? formatCalendarDay(row.dueAt) : ""}
                           </td>
                           <td>
                             <span className="rounded-full border border-[var(--mac-separator)] px-1.5 mac-t11">{row.priority}</span>
                           </td>
                           <td className="num">{row.progress}</td>
-                          <td>{row.status === "done" ? "Done" : "Open"}</td>
+                          <td className="fit" data-fit="status">{row.status === "done" ? "Done" : "Open"}</td>
                         </tr>
                       );
                     })}
