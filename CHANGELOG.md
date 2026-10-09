@@ -2,6 +2,11 @@
 
 ## 2026-10-09
 
+### Job files and bills layout
+
+- Job files: Upload sits in the toolbar and opens a sheet for the file and folder. The folder starts as the one you are viewing, or the selected file’s folder. Selecting a row opens the file beside the list: name, folder, revisions, visibility, a new revision, share history, and delete. Folder add, rename, and archive are in the toolbar menu. Checked rows can move, change visibility, or download. Sidebar names stay intact, with a small visibility pill. Seeded plans show as 860 KB and 1.4 MB.
+- Bills: Request waiver appears after you check rows, and the type is chosen there. The job column is the job name, full text on hover. Draft, Approved, Paid, and Void are the same kind of pill. Vendors is a numeric table, with cost codes indented under the vendor.
+
 ### Job files
 
 - A job has a Files tab. Company defaults start as Plans, Specs, Contracts, and Photos. The office can add, rename, or archive a folder on the job or in Settings.

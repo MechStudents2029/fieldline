@@ -14,6 +14,7 @@ import {
   saveFolderDefault,
   setFileVisibility,
   setShareHistory,
+  updateJobFiles,
   uploadJobFile,
   uploadVendorJobFile,
   vendorPortalFiles,
@@ -50,6 +51,9 @@ describe("job files", () => {
       [1, false],
     ]);
     expect(plans.find((file) => file.current)?.uploadedBy).toBe("Maya Rivera");
+    expect(plans.find((file) => file.current)?.sizeLabel).toBe("1.4 MB");
+    expect(plans.find((file) => !file.current)?.sizeLabel).toBe("860 KB");
+    expect(board?.files.find((file) => file.name === "Valve photo")?.sizeLabel).toBe("240 KB");
     expect(board?.files.some((file) => file.name === "Valve photo")).toBe(true);
     expect(folderDefaults(maya)?.map((folder) => folder.name)).toEqual(["Plans", "Specs", "Contracts", "Photos"]);
   });
@@ -80,6 +84,7 @@ describe("job files", () => {
     expect(jobFileBoard(actor("jordan@northline.demo"), "proj_okonkwo")).toBeNull();
     expect(() => uploadJobFile(actor("jordan@northline.demo"), { projectId: "proj_okonkwo", folderId: "ff_ok_plans", file: { filename: "x.pdf", bytes: pdf } })).toThrow(/not found/);
     expect(() => uploadJobFile(actor("riley@rivera.demo"), { projectId: "proj_okonkwo", folderId: "ff_ok_photos", file: { filename: "x.png", bytes: png } })).toThrow(/cannot/);
+    expect(() => updateJobFiles(actor("riley@rivera.demo"), { projectId: "proj_okonkwo", fileIds: ["jf_ok_a101_r2"], visibility: "client" })).toThrow(/cannot/);
   });
 
   it("shows the current plan to subs on the job and keeps the vendor folder private", () => {
@@ -115,6 +120,10 @@ describe("job files", () => {
     const revised = reviseJobFile(maya, { projectId: "proj_okonkwo", fileId: added.id, file: { filename: "A-102-rev.pdf", bytes: pdf } });
     expect(revised.revision).toBe(2);
     setFileVisibility(maya, { projectId: "proj_okonkwo", fileId: revised.id, visibility: "client" });
+    const specs = jobFileBoard(maya, "proj_okonkwo")?.folders.find((folder) => folder.name === "Specs");
+    updateJobFiles(maya, { projectId: "proj_okonkwo", fileIds: [revised.id], folderId: specs!.id });
+    expect(jobFileBoard(maya, "proj_okonkwo")?.files.find((file) => file.id === revised.id)?.folderName).toBe("Specs");
+    expect(() => updateJobFiles(maya, { projectId: "proj_okonkwo", fileIds: ["jf_ok_harbor"], folderId: specs!.id })).toThrow(/vendor/i);
     deleteJobFile(maya, { projectId: "proj_okonkwo", fileId: photo.id });
     const actions = getDb()
       .select()

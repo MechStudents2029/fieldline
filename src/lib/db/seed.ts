@@ -120,7 +120,7 @@ import {
   WEBSITE_FORM_SOURCE,
 } from "@/lib/lead-form/rules";
 
-export const SEED_VERSION = "27";
+export const SEED_VERSION = "28";
 
 const ORG = "org_rivera";
 const NORTH = "org_northline";
@@ -3032,9 +3032,9 @@ function seedTemplates(db: AppDatabase, now: string) {
     .run();
   db.insert(jobFiles)
     .values([
-      { id: "jf_ok_a101_r1", orgId: ORG, projectId: "proj_okonkwo", folderId: "ff_ok_plans", documentId: "doc_ok_a101_r1", name: "A-101 floor plan", revisionGroupId: "grp_ok_a101", revision: 1, isCurrent: 0, visibilityOverride: null, shareHistory: 0, byteSize: planPdf.length, uploadedByName: "Luis Ortega", uploadedByUserId: "user_luis", uploadedByContactId: null, deletedAt: null, createdAt: daysAgo(8) },
-      { id: "jf_ok_a101_r2", orgId: ORG, projectId: "proj_okonkwo", folderId: "ff_ok_plans", documentId: "doc_ok_a101_r2", name: "A-101 floor plan", revisionGroupId: "grp_ok_a101", revision: 2, isCurrent: 1, visibilityOverride: null, shareHistory: 0, byteSize: planPdf.length, uploadedByName: "Maya Rivera", uploadedByUserId: "user_maya", uploadedByContactId: null, deletedAt: null, createdAt: daysAgo(1) },
-      { id: "jf_ok_harbor", orgId: ORG, projectId: "proj_okonkwo", folderId: "ff_ok_harbor", documentId: "doc_ok_harbor", name: "Valve photo", revisionGroupId: "grp_ok_harbor", revision: 1, isCurrent: 1, visibilityOverride: null, shareHistory: 0, byteSize: vendorPng.length, uploadedByName: "Harbor Plumbing", uploadedByUserId: null, uploadedByContactId: "c_harbor", deletedAt: null, createdAt: daysAgo(2) },
+      { id: "jf_ok_a101_r1", orgId: ORG, projectId: "proj_okonkwo", folderId: "ff_ok_plans", documentId: "doc_ok_a101_r1", name: "A-101 floor plan", revisionGroupId: "grp_ok_a101", revision: 1, isCurrent: 0, visibilityOverride: null, shareHistory: 0, byteSize: 880_640, uploadedByName: "Luis Ortega", uploadedByUserId: "user_luis", uploadedByContactId: null, deletedAt: null, createdAt: daysAgo(8) },
+      { id: "jf_ok_a101_r2", orgId: ORG, projectId: "proj_okonkwo", folderId: "ff_ok_plans", documentId: "doc_ok_a101_r2", name: "A-101 floor plan", revisionGroupId: "grp_ok_a101", revision: 2, isCurrent: 1, visibilityOverride: null, shareHistory: 0, byteSize: 1_468_007, uploadedByName: "Maya Rivera", uploadedByUserId: "user_maya", uploadedByContactId: null, deletedAt: null, createdAt: daysAgo(1) },
+      { id: "jf_ok_harbor", orgId: ORG, projectId: "proj_okonkwo", folderId: "ff_ok_harbor", documentId: "doc_ok_harbor", name: "Valve photo", revisionGroupId: "grp_ok_harbor", revision: 1, isCurrent: 1, visibilityOverride: null, shareHistory: 0, byteSize: 245_760, uploadedByName: "Harbor Plumbing", uploadedByUserId: null, uploadedByContactId: "c_harbor", deletedAt: null, createdAt: daysAgo(2) },
     ])
     .run();
   db.insert(planRefs)

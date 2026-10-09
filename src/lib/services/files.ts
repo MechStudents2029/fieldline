@@ -72,6 +72,7 @@ export type JobFileRow = {
   shareHistory: boolean;
   visibility: string;
   visibilityLabel: string;
+  visibilityOverride: string | null;
   uploadedBy: string;
   createdAt: string;
   sizeLabel: string;
@@ -297,6 +298,7 @@ function toFileRow(row: typeof jobFiles.$inferSelect, folder: typeof fileFolders
     shareHistory: row.shareHistory === 1,
     visibility,
     visibilityLabel: visibilityLabel(visibility),
+    visibilityOverride: row.visibilityOverride,
     uploadedBy: row.uploadedByName,
     createdAt: row.createdAt,
     sizeLabel: formatFileSize(row.byteSize),
@@ -528,6 +530,38 @@ export function setFileVisibility(actor: Actor, input: { projectId: string; file
   db.update(jobFiles).set({ visibilityOverride: override }).where(and(eq(jobFiles.id, row.id), eq(jobFiles.orgId, actor.orgId))).run();
   writeAudit(db, actor.orgId, actor.userId, "file.visibility", row.id, { visibility: override ?? "inherit" });
   return { id: row.id };
+}
+
+export function updateJobFiles(actor: Actor, input: { projectId: string; fileIds: string[]; visibility?: string; folderId?: string }) {
+  if (!officeMayEditFiles(roleOf(actor))) throw new ServiceError("Your role cannot change these files.");
+  const ids = [...new Set(input.fileIds.map((id) => id.trim()).filter(Boolean))];
+  if (!ids.length) return { count: 0 };
+  const db = dbFor(actor);
+  const project = projectIn(db, actor.orgId, input.projectId);
+  if (!project) throw new ServiceError("Job not found.");
+  let folder: ReturnType<typeof requireFolder> | null = null;
+  if (input.folderId) {
+    folder = requireFolder(db, actor.orgId, project.id, input.folderId);
+    if (folder.visibility === "vendor" || folder.kind === "vendor" || folder.vendorContactId) throw new ServiceError("That folder is for the vendor.");
+  }
+  const override = !input.visibility ? undefined : input.visibility === "inherit" ? null : shareVisibility(input.visibility);
+  const moved = new Set<string>();
+  for (const fileId of ids) {
+    const row = db.select().from(jobFiles).where(and(eq(jobFiles.id, fileId), eq(jobFiles.orgId, actor.orgId), eq(jobFiles.projectId, project.id))).get();
+    if (!row || row.deletedAt) throw new ServiceError("File not found.");
+    const home = requireFolder(db, actor.orgId, project.id, row.folderId);
+    if (home.visibility === "vendor" || home.kind === "vendor" || home.vendorContactId) throw new ServiceError("Vendor files stay in the vendor folder.");
+    if (override !== undefined) {
+      db.update(jobFiles).set({ visibilityOverride: override }).where(and(eq(jobFiles.id, row.id), eq(jobFiles.orgId, actor.orgId))).run();
+      writeAudit(db, actor.orgId, actor.userId, "file.visibility", row.id, { visibility: override ?? "inherit" });
+    }
+    if (folder && folder.id !== row.folderId && !moved.has(row.revisionGroupId)) {
+      moved.add(row.revisionGroupId);
+      db.update(jobFiles).set({ folderId: folder.id }).where(and(eq(jobFiles.orgId, actor.orgId), eq(jobFiles.revisionGroupId, row.revisionGroupId), eq(jobFiles.projectId, project.id))).run();
+      writeAudit(db, actor.orgId, actor.userId, "file.visibility", row.id, { folderId: folder.id });
+    }
+  }
+  return { count: ids.length };
 }
 
 export function setShareHistory(actor: Actor, input: { projectId: string; fileId: string; share: boolean }) {
