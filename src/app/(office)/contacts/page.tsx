@@ -62,7 +62,7 @@ export default async function ContactsPage({ searchParams }: { searchParams: Pro
           action="Add a lead"
         />
       ) : null}
-      <div className="overflow-x-auto">
+      <div className="overflow-x-auto md:px-4">
         <table className="mac-table">
           <thead>
             <tr>

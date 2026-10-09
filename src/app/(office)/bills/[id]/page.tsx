@@ -1,7 +1,8 @@
 import Link from "next/link";
-import { approveBillAction, confirmBillAction, payBillAction, unapproveBillAction, voidBillAction } from "@/app/actions";
+import { approveBillAction, confirmBillAction, payBillAction, requestUnconditionalAction, requestWaiverAction, unapproveBillAction, uploadWaiverAction, voidBillAction, voidWaiverAction } from "@/app/actions";
 import { ActionForm } from "@/components/action-form";
 import { CommentThread } from "@/components/comment-thread";
+import { FileButton } from "@/components/file-button";
 import { MissingRecord } from "@/components/missing-record";
 import { Button } from "@/components/ui/button";
 import { requireSession } from "@/lib/auth/session";
@@ -9,6 +10,8 @@ import { formatCalendarDay, formatDateTime } from "@/lib/format";
 import { formatMoney } from "@/lib/money";
 import { canManageMoney, canSeeMoney } from "@/lib/permissions";
 import { billDetail } from "@/lib/services/bills";
+import { billWaiverPanel } from "@/lib/services/waivers";
+import { WAIVER_TYPES, waiverTypeLabel } from "@/lib/waivers/format";
 
 export default async function BillPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -20,6 +23,7 @@ export default async function BillPage({ params }: { params: Promise<{ id: strin
   if (!detail) return <MissingRecord orgName={session.orgName} kind="bill" />;
   const { bill, lines, events } = detail;
   const office = canManageMoney(session.role);
+  const waivers = billWaiverPanel(session, bill.id);
   return (
     <div className="flex flex-col gap-5">
       <div>
@@ -54,6 +58,73 @@ export default async function BillPage({ params }: { params: Promise<{ id: strin
           </p>
         ) : null}
       </div>
+      {waivers ? (
+        <section className="rounded-xl bg-card p-4 ring-1 ring-foreground/10" aria-label="Lien waivers">
+          <h2 className="font-medium">Lien waiver</h2>
+          {waivers.lines.length === 0 ? <p className="mt-2 text-sm">Missing</p> : null}
+          <ul className="mt-2 space-y-2 text-sm">
+            {waivers.lines.map((row) => (
+              <li key={row.id} className="flex flex-wrap items-center gap-2">
+                <span>{row.typeLabel}</span>
+                {row.pending ? <span className="fl-pill">{row.statusLabel}</span> : <span>{row.statusLabel}</span>}
+                {row.signedAt ? <span className="num">{formatCalendarDay(row.signedAt.slice(0, 10))}</span> : null}
+                <Link href={row.href}>Print</Link>
+                {office && row.pending ? (
+                  <ActionForm action={uploadWaiverAction.bind(null, row.id)} className="flex flex-wrap items-center gap-2">
+                    <FileButton name="file" label={`Paper ${row.typeLabel}`} accept="image/jpeg,image/png,image/webp,application/pdf" empty="File" />
+                    <Button type="submit" variant="outline" className="h-8">
+                      Mark signed
+                    </Button>
+                  </ActionForm>
+                ) : null}
+                {office && row.pending ? (
+                  <ActionForm action={voidWaiverAction.bind(null, row.id)}>
+                    <input type="hidden" name="projectId" value={bill.projectId} />
+                    <input type="hidden" name="billId" value={bill.id} />
+                    <Button type="submit" variant="outline" className="h-8">
+                      Void
+                    </Button>
+                  </ActionForm>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+          {office && bill.status !== "void" ? (
+            <ActionForm action={requestWaiverAction.bind(null, bill.id)} className="mt-3 grid gap-2 sm:grid-cols-3">
+              <input type="hidden" name="projectId" value={bill.projectId} />
+              <label className="text-sm">
+                Type
+                <select name="type" aria-label="Waiver type" className="field mt-1" defaultValue="conditional_progress">
+                  {WAIVER_TYPES.map((type) => (
+                    <option key={type} value={type}>
+                      {waiverTypeLabel(type)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="text-sm">
+                Amount
+                <input name="amount" aria-label="Waiver amount" defaultValue={(bill.amountCents / 100).toFixed(2)} className="field mt-1" />
+              </label>
+              <label className="text-sm">
+                Through
+                <input name="throughDate" type="date" aria-label="Through date" defaultValue={bill.billDate ?? ""} className="field mt-1" />
+              </label>
+              <Button type="submit" className="h-11 sm:col-span-3">
+                Request waiver
+              </Button>
+            </ActionForm>
+          ) : null}
+          {office && waivers.offer ? (
+            <ActionForm action={requestUnconditionalAction.bind(null, bill.id)} className="mt-3">
+              <input type="hidden" name="projectId" value={bill.projectId} />
+              <Button type="submit" className="h-11">
+                {waivers.offer.label}
+              </Button>
+            </ActionForm>
+          ) : null}
+        </section>
+      ) : null}
       <section className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
         <h2 className="font-medium">Lines</h2>
         <ul className="mt-2 space-y-2 text-sm">

@@ -3,6 +3,7 @@ import {
   declineVendorPoAction,
   markVendorPunchAction,
   saveVendorCertificateAction,
+  signVendorWaiverAction,
   submitVendorBillAction,
 } from "@/app/actions";
 import { ActionForm } from "@/components/action-form";
@@ -18,6 +19,7 @@ import type { PortalRfi } from "@/lib/services/rfis";
 import type { VendorPortalHome } from "@/lib/services/vendor-portal";
 import { submitVendorBidAction, declineVendorBidAction, vendorTickAction } from "@/app/actions";
 import type { VendorTodo } from "@/lib/services/todos";
+import type { PortalWaiver } from "@/lib/services/waivers";
 
 function when(row: { startDate: string; endDate: string; startTime: string | null }) {
   const days = row.startDate === row.endDate ? formatCalendarDay(row.startDate) : `${formatCalendarDay(row.startDate)} – ${formatCalendarDay(row.endDate)}`;
@@ -36,6 +38,7 @@ export function VendorPortalView({
   rfis = [],
   todos = [],
   submittals = { items: [], jobs: [] },
+  waivers = [],
 }: {
   token: string;
   home: VendorPortalHome;
@@ -43,6 +46,7 @@ export function VendorPortalView({
   rfis?: PortalRfi[];
   todos?: VendorTodo[];
   submittals?: { items: PortalSubmittal[]; jobs: { id: string; name: string }[] };
+  waivers?: PortalWaiver[];
 }) {
   return (
     <main className="home mx-auto min-h-screen w-full max-w-5xl px-4 py-8 lg:px-8" data-today={home.today}>
@@ -249,6 +253,30 @@ export function VendorPortalView({
                     </button>
                   </ActionForm>
                 ) : null}
+              </li>
+            ))}
+          </ul>
+        </section>
+        <section aria-label="Lien waivers">
+          <h2>Lien waivers</h2>
+          {waivers.length === 0 ? <p className="home-sub">None open</p> : null}
+          <ul className="home-stack">
+            {waivers.map((waiver) => (
+              <li key={waiver.id} className="home-card">
+                <p className="home-copy">{waiver.typeLabel}</p>
+                <p className="home-sub">
+                  {waiver.billNumber} · {waiver.job} · {formatMoney(waiver.amountCents)} · {formatCalendarDay(waiver.throughDate)}
+                </p>
+                <p className="mt-2 text-sm">{waiver.text}</p>
+                <ActionForm action={signVendorWaiverAction.bind(null, token, waiver.id)} className="home-form mt-3">
+                  <label className="text-sm">
+                    Name
+                    <input name="name" required aria-label={`Sign ${waiver.billNumber}`} className="home-input" />
+                  </label>
+                  <button type="submit" className="home-btn">
+                    Sign {waiver.billNumber}
+                  </button>
+                </ActionForm>
               </li>
             ))}
           </ul>

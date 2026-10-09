@@ -22,6 +22,7 @@ import { overageByCode } from "@/lib/margin/commitment";
 import { formatMoney, positiveMoneyError } from "@/lib/money";
 import { canManageMoney, canSeeMoney, type Role } from "@/lib/permissions";
 import { ServiceError } from "@/lib/services/errors";
+import { payGateForBill } from "@/lib/services/waivers";
 import { vendorCommitmentTotals } from "@/lib/services/purchase-orders";
 import type { Actor } from "@/lib/services/read";
 import { saveUploadedText } from "@/lib/services/write";
@@ -554,6 +555,8 @@ export function markBillPaid(actor: Actor, billId: string, input: { paidOn: stri
   if (!PAY_METHODS.has(method)) throw new ServiceError("Pick how it was paid.");
   const reference = input.reference.trim();
   if (reference.length < 1 || reference.length > 80) throw new ServiceError("Enter a check number or other reference.");
+  const gate = payGateForBill(db, actor.orgId, bill);
+  if (gate.error) throw new ServiceError(gate.error);
   const before = snapshot(bill, loadLines(db, actor.orgId, bill.id));
   const now = nowIso();
   db.transaction((tx) => {
@@ -573,7 +576,7 @@ export function markBillPaid(actor: Actor, billId: string, input: { paidOn: stri
     );
     noteActivity(tx, actor.orgId, bill.projectId, actor.userId, `Marked bill ${bill.billNumber} paid by ${method} ${reference}. No payment was sent.`);
   });
-  return { id: bill.id };
+  return { id: bill.id, warning: gate.warning };
 }
 
 export function voidBill(actor: Actor, billId: string, reason: string) {

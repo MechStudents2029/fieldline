@@ -23,6 +23,7 @@ export const organizations = sqliteTable("organizations", {
   workdaysMask: integer("workdays_mask").notNull().default(62),
   warrantyMonths: integer("warranty_months").notNull().default(12),
   vendorComplianceMode: text("vendor_compliance_mode").notNull().default("warn"),
+  lienWaiverMode: text("lien_waiver_mode").notNull().default("warn"),
   vendorRequiredTypes: text("vendor_required_types").notNull().default("general_liability,workers_comp"),
   paymentTermsDays: integer("payment_terms_days").notNull().default(7),
   defaultRetainageBps: integer("default_retainage_bps").notNull().default(0),
@@ -1766,6 +1767,53 @@ export const submittalAttempts = sqliteTable(
     createdAt: text("created_at").notNull(),
   },
   (t) => [index("submittal_attempts_org").on(t.orgId, t.createdAt)],
+);
+
+export const lienWaiverTemplates = sqliteTable(
+  "lien_waiver_templates",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    type: text("type").notNull(),
+    body: text("body").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (t) => [uniqueIndex("lien_waiver_templates_org_type").on(t.orgId, t.type)],
+);
+
+export const lienWaivers = sqliteTable(
+  "lien_waivers",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    billId: text("bill_id").notNull(),
+    projectId: text("project_id").notNull(),
+    vendorContactId: text("vendor_contact_id").notNull(),
+    type: text("type").notNull(),
+    status: text("status").notNull(),
+    amountCents: integer("amount_cents").notNull(),
+    throughDate: text("through_date").notNull(),
+    body: text("body").notNull(),
+    signedName: text("signed_name"),
+    signedAt: text("signed_at"),
+    signedText: text("signed_text"),
+    documentId: text("document_id"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    createdBy: text("created_by"),
+  },
+  (t) => [index("lien_waivers_org_bill").on(t.orgId, t.billId), index("lien_waivers_vendor").on(t.orgId, t.vendorContactId)],
+);
+
+export const lienWaiverAttempts = sqliteTable(
+  "lien_waiver_attempts",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    ip: text("ip").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [index("lien_waiver_attempts_org").on(t.orgId, t.createdAt)],
 );
 
 export const savedViewPins = sqliteTable(

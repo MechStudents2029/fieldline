@@ -38,8 +38,8 @@ export default async function RfisPage({
       <div className="hidden md:block">
         <Toolbar title="RFIs" search={false} trailing={<a href="/api/export/rfis">CSV</a>} />
       </div>
-      <div className="flex flex-col gap-4 px-4 py-4 md:px-6">
-        <h1 className="fl-large-title md:hidden">RFIs</h1>
+      <div className="flex flex-col gap-4 py-4">
+        <h1 className="fl-large-title px-4 md:hidden">RFIs</h1>
         <ListToolbar
           path="/rfis"
           list="rfis"
@@ -56,7 +56,7 @@ export default async function RfisPage({
             { name: "overdue", label: "Overdue", value: filters.overdue || "", any: "Any", options: [{ value: "1", label: "Yes" }] },
           ]}
         />
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto px-4">
         <table className="mac-table" aria-label="RFIs">
           <thead>
             <tr>
