@@ -38,7 +38,10 @@ async function vendorFiles(page: Page, shots: boolean) {
   await expect(files).not.toContainText("Contracts");
   await expect(files).toContainText("Valve photo");
   if (shots) {
-    await files.scrollIntoViewIfNeeded();
+    await files.locator("h2").evaluate((node) => {
+      const top = node.getBoundingClientRect().top + window.scrollY;
+      window.scrollTo(0, Math.max(0, top - 24));
+    });
     await shot(page, "vendor-files-light");
     await page.emulateMedia({ colorScheme: "dark" });
     await shot(page, "vendor-files-dark");
