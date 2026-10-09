@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { seedStarterAction } from "@/app/actions";
 import { ActionForm } from "@/components/action-form";
 import { EmptyState } from "@/components/empty-state";
@@ -6,7 +7,7 @@ import { requireSession } from "@/lib/auth/session";
 import { formatMoney } from "@/lib/money";
 import { canManageSettings, canSeeMoney } from "@/lib/permissions";
 import { starterMarkVisible } from "@/lib/services/onboarding";
-import { listPriceBook } from "@/lib/services/read";
+import { listAssemblies, listPriceBook } from "@/lib/services/read";
 import { STARTER_TRADE_LABELS, STARTER_TRADES } from "@/lib/security";
 
 export default async function PriceBookPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
@@ -20,6 +21,7 @@ export default async function PriceBookPage({ searchParams }: { searchParams: Pr
   }
   const query = await searchParams;
   const rows = listPriceBook(session.orgId, query.q);
+  const assemblies = listAssemblies(session.orgId);
   const unfiltered = query.q?.trim() ? listPriceBook(session.orgId) : rows;
   const money = canSeeMoney(session.role);
   const starter = rows.some((item) => starterMarkVisible(item.vendor));
@@ -37,6 +39,27 @@ export default async function PriceBookPage({ searchParams }: { searchParams: Pr
       {starter ? (
         <p className="text-sm text-copper">Starter rows are sample costs. Edit your prices before you send a proposal.</p>
       ) : null}
+      <div className="assembly-catalog">
+        <div className="flex items-center justify-between gap-3">
+          <p className="mac-t13 font-semibold">Assemblies</p>
+          <Link href="/price-book/assemblies/new" className="mac-t13 text-[var(--mac-accent)]">
+            New
+          </Link>
+        </div>
+        {assemblies.length === 0 ? <p className="mac-t13 text-muted-foreground">No assemblies</p> : null}
+        {assemblies.length > 0 ? (
+          <ul className="divide-y divide-border rounded-xl bg-card ring-1 ring-foreground/10">
+            {assemblies.map((item) => (
+              <li key={item.id}>
+                <Link href={`/price-book/assemblies/${item.id}`} className="flex items-center justify-between gap-3 px-4 py-2 text-sm">
+                  <span className="font-medium">{item.name}</span>
+                  <span className="text-xs text-muted-foreground">{item.drive === "area" ? "Area" : item.drive === "length" ? "Length" : "Count"}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </div>
       <form>
         <input name="q" defaultValue={query.q} placeholder="Search code, name, or trade" className="field" aria-label="Search the price book" />
       </form>

@@ -11,6 +11,11 @@ export type SnapshotLineInput = {
   markupBps: number;
   costCode: string | null;
   billing?: Billing;
+  groupId?: string | null;
+  groupName?: string | null;
+  presentAs?: "one" | "parts" | null;
+  groupQtyMilli?: number | null;
+  groupUnit?: string | null;
 };
 
 export type InternalLine = {
@@ -63,9 +68,11 @@ export function assembleSnapshot(input: {
 }): StoredSnapshot {
   const internal: InternalLine[] = [];
   const sections = input.sections.flatMap((section) => {
-    const lines = section.lines.flatMap((line) => {
+    const lines: PublicSnapshot["sections"][number]["lines"] = [];
+    const seen = new Set<string>();
+    for (const line of section.lines) {
       const billing = line.billing ?? "included";
-      if (billing === "excluded") return [];
+      if (billing === "excluded") continue;
       const amounts = lineAmounts(line.qtyMilli, line.unitCostCents, line.markupBps);
       if (countsTowardTotal(billing)) {
         internal.push({
@@ -77,19 +84,35 @@ export function assembleSnapshot(input: {
           unit: line.unit,
         });
       }
+      if (line.groupId && line.presentAs === "one" && line.groupName) {
+        if (seen.has(line.groupId)) continue;
+        seen.add(line.groupId);
+        const members = section.lines.filter((row) => row.groupId === line.groupId && (row.billing ?? "included") !== "excluded");
+        const priceCents = members.reduce((sum, row) => {
+          if (!countsTowardTotal(row.billing ?? "included")) return sum;
+          return sum + lineAmounts(row.qtyMilli, row.unitCostCents, row.markupBps).price;
+        }, 0);
+        const qtyMilli = line.groupQtyMilli ?? line.qtyMilli;
+        const qty = qtyMilli / 1000;
+        lines.push({
+          name: line.groupName,
+          qty: formatQty(qtyMilli),
+          unit: line.groupUnit || line.unit,
+          unitPriceCents: qty === 0 ? 0 : Math.round(priceCents / qty),
+          priceCents,
+        });
+        continue;
+      }
       const qty = line.qtyMilli / 1000;
-      const unitPriceCents = qty === 0 ? 0 : Math.round(amounts.price / qty);
-      return [
-        {
-          name: line.name,
-          qty: formatQty(line.qtyMilli),
-          unit: line.unit,
-          unitPriceCents,
-          priceCents: amounts.price,
-          ...(billing === "optional" || billing === "allowance" ? { kind: billing } : {}),
-        },
-      ];
-    });
+      lines.push({
+        name: line.name,
+        qty: formatQty(line.qtyMilli),
+        unit: line.unit,
+        unitPriceCents: qty === 0 ? 0 : Math.round(amounts.price / qty),
+        priceCents: amounts.price,
+        ...(billing === "optional" || billing === "allowance" ? { kind: billing } : {}),
+      });
+    }
     return lines.length ? [{ name: section.name, lines }] : [];
   });
 

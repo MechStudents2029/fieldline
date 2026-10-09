@@ -29,7 +29,7 @@ test("editing a measurement updates formula lines and leaves a typed line", asyn
 
   await page.getByRole("button", { name: "Formula Drywall" }).scrollIntoViewIfNeeded();
   await page.getByRole("button", { name: "Formula Drywall" }).click();
-  await expect(page.locator("[data-formula]")).toContainText("Walls x 1.10, round up to 32");
+  await expect(page.locator("[data-formula]")).toContainText("500 sf × 1.10 → 550, rounded to 576 (18 × 32 sf)");
   await shot(page, "estimate-measure-light");
   await page.emulateMedia({ colorScheme: "dark" });
   await shot(page, "estimate-measure-dark");

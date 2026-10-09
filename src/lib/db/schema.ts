@@ -290,7 +290,59 @@ export const lineItems = sqliteTable("line_items", {
   qtyFormula: text("qty_formula"),
   wasteBps: integer("waste_bps").notNull().default(0),
   roundToMilli: integer("round_to_milli"),
+  groupId: text("group_id"),
+  qtyOverridden: integer("qty_overridden").notNull().default(0),
 });
+
+export const assemblies = sqliteTable(
+  "assemblies",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    name: text("name").notNull(),
+    drive: text("drive").notNull(),
+    archivedAt: text("archived_at"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    createdBy: text("created_by"),
+  },
+  (t) => [index("assemblies_org").on(t.orgId)],
+);
+
+export const assemblyParts = sqliteTable(
+  "assembly_parts",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    assemblyId: text("assembly_id").notNull(),
+    name: text("name").notNull(),
+    priceBookItemId: text("price_book_item_id"),
+    costCode: text("cost_code"),
+    unit: text("unit").notNull(),
+    unitCostCents: integer("unit_cost_cents").notNull(),
+    formula: text("formula").notNull(),
+    wasteBps: integer("waste_bps").notNull().default(0),
+    roundToMilli: integer("round_to_milli"),
+    sortOrder: integer("sort_order").notNull(),
+  },
+  (t) => [index("assembly_parts_assembly").on(t.orgId, t.assemblyId)],
+);
+
+export const estimateGroups = sqliteTable(
+  "estimate_groups",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    estimateId: text("estimate_id").notNull(),
+    sectionId: text("section_id").notNull(),
+    assemblyId: text("assembly_id"),
+    name: text("name").notNull(),
+    measurementId: text("measurement_id").notNull(),
+    presentAs: text("present_as").notNull().default("one"),
+    sortOrder: integer("sort_order").notNull(),
+  },
+  (t) => [index("estimate_groups_estimate").on(t.orgId, t.estimateId)],
+);
 
 export const estimateMeasurements = sqliteTable(
   "estimate_measurements",

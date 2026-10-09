@@ -58,6 +58,8 @@ import {
   leadFormSubmissions,
   leadForms,
   pipelines,
+  assemblies,
+  assemblyParts,
   priceBookItems,
   projects,
   punchItems,
@@ -102,6 +104,7 @@ import {
 } from "@/lib/db/schema";
 import { retainageByLine } from "@/lib/draws/math";
 import { assembleSnapshot, defaultSchedule, type StoredSnapshot } from "@/lib/domain/snapshot";
+import { DEMO_ASSEMBLIES } from "@/lib/estimate/assembly";
 import { vasquezLines, vasquezMeasurements, vasquezSections } from "@/lib/estimate/vasquez";
 import { hashPassword, newSalt } from "@/lib/auth/password";
 import { canonicalJson, sha256 } from "@/lib/esign/hash";
@@ -121,7 +124,7 @@ import {
   WEBSITE_FORM_SOURCE,
 } from "@/lib/lead-form/rules";
 
-export const SEED_VERSION = "30";
+export const SEED_VERSION = "31";
 
 const ORG = "org_rivera";
 const NORTH = "org_northline";
@@ -452,6 +455,39 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
       })),
     )
     .run();
+
+  for (const assembly of DEMO_ASSEMBLIES) {
+    db.insert(assemblies)
+      .values({
+        id: assembly.id,
+        orgId: ORG,
+        name: assembly.name,
+        drive: assembly.drive,
+        archivedAt: null,
+        createdAt: created,
+        updatedAt: now,
+        createdBy: "user_maya",
+      })
+      .run();
+    db.insert(assemblyParts)
+      .values(
+        assembly.parts.map((part, index) => ({
+          id: part.id,
+          orgId: ORG,
+          assemblyId: assembly.id,
+          name: part.name,
+          priceBookItemId: part.code ? `pb_${part.code.toLowerCase()}` : null,
+          costCode: part.code,
+          unit: part.unit,
+          unitCostCents: part.unitCostCents,
+          formula: part.formula,
+          wasteBps: part.wasteBps,
+          roundToMilli: part.roundToMilli,
+          sortOrder: index,
+        })),
+      )
+      .run();
+  }
 
   const vasquezScope =
     "Elena Vasquez, 240 sq ft kitchen, gut, new cabinets, quartz, 14 linear ft of base cabinets. Relocate the sink. Paint. Recessed lights. Budget $60–80k. 240 Hillcrest Ave, Oakland.";

@@ -135,6 +135,14 @@ describe("intake and estimate", () => {
     expect(draft.notes).toMatch(/site measure/i);
   });
 
+  it("suggests a catalog assembly when the scope names it", () => {
+    const book = riveraCatalog().map((item) => ({ ...item, defaultMarkupBps: 3500 }));
+    const shower = draftEstimate({ scope: "New tile shower", book, markupBps: 3500 });
+    expect(shower.assemblies.map((item) => item.name)).toEqual(["Tile shower wall"]);
+    const kitchen = draftEstimate({ scope: SCOPE, book, markupBps: 3500 });
+    expect(kitchen.assemblies.map((item) => item.name)).toEqual(["Interior wall paint", "Base cabinet run"]);
+  });
+
   it("leaves an empty photo list the same as no photos", () => {
     const book = riveraCatalog().map((item) => ({ ...item, defaultMarkupBps: 3500 }));
     const omitted = draftEstimate({ scope: SCOPE, book, markupBps: 3500 });

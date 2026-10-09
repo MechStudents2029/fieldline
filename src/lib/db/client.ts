@@ -115,6 +115,7 @@ export function ensureReady(holder: Holder) {
   ensureJobFiles(holder);
   ensureRetainage(holder);
   ensureMeasurements(holder);
+  ensureAssemblies(holder);
   const version = holder.sqlite.prepare("select value from app_meta where key = ?").get("seed_version") as
     | { value: string }
     | undefined;
@@ -1139,6 +1140,56 @@ function ensureMeasurements(holder: Holder) {
   }
   holder.sqlite.exec("create unique index if not exists estimate_measurements_name on estimate_measurements (org_id, estimate_id, name)");
   holder.sqlite.exec("create index if not exists estimate_measurements_estimate on estimate_measurements (org_id, estimate_id)");
+}
+
+function ensureAssemblies(holder: Holder) {
+  const pk = holder.dialect === "postgres" ? "text primary key" : "text primary key not null";
+  ensureColumn(holder, "line_items", "group_id", "text");
+  ensureColumn(holder, "line_items", "qty_overridden", "integer not null default 0");
+  if (!tableExists(holder.sqlite, "assemblies", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists assemblies (
+      id ${pk},
+      org_id text not null,
+      name text not null,
+      drive text not null,
+      archived_at text,
+      created_at text not null,
+      updated_at text not null,
+      created_by text
+    )`);
+  }
+  holder.sqlite.exec("create index if not exists assemblies_org on assemblies (org_id)");
+  if (!tableExists(holder.sqlite, "assembly_parts", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists assembly_parts (
+      id ${pk},
+      org_id text not null,
+      assembly_id text not null,
+      name text not null,
+      price_book_item_id text,
+      cost_code text,
+      unit text not null,
+      unit_cost_cents integer not null,
+      formula text not null,
+      waste_bps integer not null default 0,
+      round_to_milli integer,
+      sort_order integer not null
+    )`);
+  }
+  holder.sqlite.exec("create index if not exists assembly_parts_assembly on assembly_parts (org_id, assembly_id)");
+  if (!tableExists(holder.sqlite, "estimate_groups", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists estimate_groups (
+      id ${pk},
+      org_id text not null,
+      estimate_id text not null,
+      section_id text not null,
+      assembly_id text,
+      name text not null,
+      measurement_id text not null,
+      present_as text not null default 'one',
+      sort_order integer not null
+    )`);
+  }
+  holder.sqlite.exec("create index if not exists estimate_groups_estimate on estimate_groups (org_id, estimate_id)");
 }
 
 function ensureRetainage(holder: Holder) {

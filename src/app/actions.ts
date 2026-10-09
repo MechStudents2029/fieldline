@@ -173,8 +173,14 @@ import {
   readDemoReceipt,
   removeLine,
   reviseEstimate,
+  archiveAssembly,
+  duplicateAssembly,
+  insertAssembly,
+  saveAssembly,
   saveMeasurement,
   deleteMeasurement,
+  setGroupPresentation,
+  ungroupAssembly,
   sendChangeOrder,
   sendProposal,
   syncEstimateGrid,
@@ -393,6 +399,75 @@ export async function syncEstimateGridAction(payload: unknown): Promise<ActionSt
     const estimateId = typeof payload === "object" && payload && "estimateId" in payload ? String(payload.estimateId) : "";
     if (estimateId) revalidatePath(`/estimates/${estimateId}`);
     return { ok: "Line saved." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function saveAssemblyAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const payload = JSON.parse(String(formData.get("payload") || ""));
+    const id = saveAssembly(user, payload);
+    revalidatePath("/price-book");
+    revalidatePath(`/price-book/assemblies/${id}`);
+    redirect(`/price-book/assemblies/${id}`);
+  } catch (error) {
+    if (error instanceof SyntaxError) return { error: "Check the assembly." };
+    return failure(error);
+  }
+}
+
+export async function duplicateAssemblyAction(assemblyId: string) {
+  const user = await actor();
+  const id = duplicateAssembly(user, assemblyId);
+  revalidatePath("/price-book");
+  redirect(`/price-book/assemblies/${id}`);
+}
+
+export async function archiveAssemblyAction(assemblyId: string) {
+  const user = await actor();
+  archiveAssembly(user, assemblyId);
+  revalidatePath("/price-book");
+  redirect("/price-book");
+}
+
+export async function insertAssemblyAction(estimateId: string, payload: unknown): Promise<ActionState> {
+  try {
+    const user = await actor();
+    if (!payload || typeof payload !== "object") return { error: "Check the assembly." };
+    const body = payload as { assemblyId?: string; measurementId?: string | null; measurementName?: string; measurementValue?: number };
+    insertAssembly(user, {
+      estimateId,
+      assemblyId: String(body.assemblyId || ""),
+      measurementId: body.measurementId,
+      measurementName: body.measurementName,
+      measurementValue: body.measurementValue,
+    });
+    revalidatePath(`/estimates/${estimateId}`);
+    return { ok: "Saved." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function ungroupAssemblyAction(groupId: string): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const estimateId = ungroupAssembly(user, groupId);
+    revalidatePath(`/estimates/${estimateId}`);
+    return { ok: "Saved." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function setGroupPresentationAction(groupId: string, presentAs: string): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const estimateId = setGroupPresentation(user, groupId, presentAs);
+    revalidatePath(`/estimates/${estimateId}`);
+    return { ok: "Saved." };
   } catch (error) {
     return failure(error);
   }

@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { syncEstimateGridAction } from "@/app/actions";
+import { useRouter } from "next/navigation";
+import { setGroupPresentationAction, syncEstimateGridAction, ungroupAssemblyAction } from "@/app/actions";
+import { AddAssembly, AssemblyGroupRow, groupPrice, measurementLabel } from "@/components/mac/add-assembly";
 import { FormulaBar, MeasurementsPanel } from "@/components/mac/measurements";
 import { defaultSchedule } from "@/lib/domain/snapshot";
-import { evaluateFormula, formulaCaption } from "@/lib/estimate/formula";
+import { evaluateFormula, formulaHint } from "@/lib/estimate/formula";
 import type { Billing } from "@/lib/estimate/pricing";
 import { groupSubtotals, repriceToMargin, sumCounting } from "@/lib/estimate/pricing";
 import { formatPercent, formatQty, formatWhole, lineAmounts, lineInputError, milliToQty, parseMoneyToCents, qtyToMilli, scheduleAmounts } from "@/lib/money";
@@ -25,9 +27,21 @@ export type WorkspaceLine = {
   qtyFormula: string | null;
   wasteBps: number;
   roundToMilli: number | null;
+  groupId: string | null;
+  qtyOverridden: boolean;
 };
 
 export type WorkspaceMeasure = { id: string; name: string; valueMilli: number; unit: string };
+
+export type WorkspaceGroup = {
+  id: string;
+  name: string;
+  sectionId: string;
+  measurementId: string;
+  presentAs: string;
+};
+
+export type WorkspaceAssembly = { id: string; name: string };
 
 export type WorkspaceSection = { id: string; name: string; sortOrder: number };
 
@@ -53,6 +67,8 @@ function namedSignature(rows: WorkspaceLine[]) {
         formula: row.qtyFormula,
         wasteBps: row.wasteBps,
         roundToMilli: row.roundToMilli,
+        groupId: row.groupId,
+        qtyOverridden: row.qtyOverridden,
       })),
   );
 }
@@ -130,6 +146,9 @@ export function EstimateWorkspace({
   sections,
   lines: initialLines,
   measurements,
+  groups,
+  assemblies,
+  comments,
   marginTargetBps,
   depositBps,
   progressBps,
@@ -148,6 +167,9 @@ export function EstimateWorkspace({
   sections: WorkspaceSection[];
   lines: WorkspaceLine[];
   measurements: WorkspaceMeasure[];
+  groups: WorkspaceGroup[];
+  assemblies: WorkspaceAssembly[];
+  comments?: React.ReactNode;
   marginTargetBps: number;
   depositBps: number;
   progressBps: number;
@@ -164,6 +186,8 @@ export function EstimateWorkspace({
   const [lines, setLines] = useState(initialLines);
   const [draft, setDraft] = useState<{ id: string; col: Col; text: string } | null>(null);
   const [collapsed, setCollapsed] = useState<string[]>([]);
+  const [collapsedGroups, setCollapsedGroups] = useState<string[]>([]);
+  const router = useRouter();
   const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
   const [targetText, setTargetText] = useState(String(Math.round(marginTargetBps / 100)));
   const storageKey = `fl-estimate-preview:${userId}`;
@@ -244,6 +268,8 @@ export function EstimateWorkspace({
           formula: row.qtyFormula,
           wasteBps: row.wasteBps,
           roundToMilli: row.roundToMilli,
+          groupId: row.groupId,
+          qtyOverridden: row.qtyOverridden,
         })),
         deletedIds,
         ...(nextTarget != null ? { marginTargetBps: nextTarget } : {}),
@@ -295,6 +321,7 @@ export function EstimateWorkspace({
           next.qtyFormula = null;
           next.wasteBps = 0;
           next.roundToMilli = null;
+          if (row.groupId) next.qtyOverridden = true;
         }
         return next;
       }),
@@ -306,7 +333,13 @@ export function EstimateWorkspace({
   }
 
   function useTyped(id: string) {
-    setLines((current) => current.map((row) => (row.id === id ? { ...row, qtyFormula: null, wasteBps: 0, roundToMilli: null } : row)));
+    setLines((current) =>
+      current.map((row) =>
+        row.id === id
+          ? { ...row, qtyFormula: null, wasteBps: 0, roundToMilli: null, qtyOverridden: row.groupId ? true : row.qtyOverridden }
+          : row,
+      ),
+    );
     setSelectedId(id);
   }
 
@@ -315,7 +348,9 @@ export function EstimateWorkspace({
       const qtyMilli = evaluateFormula({ expr, wasteBps, roundToMilli, measurements: measuresForFormula() });
       setError(null);
       setLines((current) =>
-        current.map((row) => (row.id === id ? { ...row, qtyFormula: expr, wasteBps, roundToMilli, qtyMilli, aiConfidenceMilli: null } : row)),
+        current.map((row) =>
+          row.id === id ? { ...row, qtyFormula: expr, wasteBps, roundToMilli, qtyMilli, qtyOverridden: false, aiConfidenceMilli: null } : row,
+        ),
       );
       setSelectedId(id);
     } catch (caught) {
@@ -354,6 +389,8 @@ export function EstimateWorkspace({
         qtyFormula: null,
         wasteBps: 0,
         roundToMilli: null,
+        groupId: null,
+        qtyOverridden: false,
       },
     ]);
     setFocusNonce((value) => value + 1);
@@ -557,15 +594,48 @@ export function EstimateWorkspace({
                       </span>
                     </div>
                     {open
-                      ? members.map((line) => {
+                      ? members.flatMap((line, index) => {
                           const amounts = lineAmounts(line.qtyMilli, line.unitCostCents, line.markupBps);
                           const measure = /site measure/i.test(line.sourceNote ?? "");
-                          const low = line.aiConfidenceMilli != null && line.aiConfidenceMilli < 800;
-                          return (
+                          const confidence = line.aiConfidenceMilli != null ? `${Math.round(line.aiConfidenceMilli / 10)}% confidence` : undefined;
+                          const group = line.groupId ? groups.find((item) => item.id === line.groupId) : undefined;
+                          const first = Boolean(group && members.findIndex((row) => row.groupId === line.groupId) === index);
+                          const groupOpen = !line.groupId || !collapsedGroups.includes(line.groupId);
+                          const header = first && group ? (
+                            <AssemblyGroupRow
+                              key={group.id}
+                              name={group.name}
+                              presentAs={group.presentAs}
+                              open={groupOpen}
+                              locked={locked}
+                              {...measurementLabel(measurements.find((row) => row.id === group.measurementId))}
+                              priceCents={groupPrice(members.filter((row) => row.groupId === group.id))}
+                              onToggle={() =>
+                                setCollapsedGroups((current) =>
+                                  current.includes(group.id) ? current.filter((id) => id !== group.id) : [...current, group.id],
+                                )
+                              }
+                              onUngroup={() => {
+                                void ungroupAssemblyAction(group.id).then((result) => {
+                                  if (result?.error) setError(result.error);
+                                  else router.refresh();
+                                });
+                              }}
+                              onPresent={() => {
+                                void setGroupPresentationAction(group.id, group.presentAs === "parts" ? "one" : "parts").then((result) => {
+                                  if (result?.error) setError(result.error);
+                                  else router.refresh();
+                                });
+                              }}
+                            />
+                          ) : null;
+                          if (!groupOpen) return header ? [header] : [];
+                          const row = (
                             <div
                               role="row"
                               key={line.id}
-                              className={`est-line ${line.billing === "excluded" ? "is-excluded" : ""}`}
+                              data-group={line.groupId ?? undefined}
+                              className={`est-line ${line.billing === "excluded" ? "is-excluded" : ""} ${line.groupId ? "is-part" : ""}`}
                               onDragOver={(event) => event.preventDefault()}
                               onDrop={(event) => {
                                 event.preventDefault();
@@ -604,11 +674,12 @@ export function EstimateWorkspace({
                                     onBlur={() => {
                                       if (draft?.id === line.id && draft.col === "name") setDraft(null);
                                     }}
+                                    title={confidence}
                                     onKeyDown={(event) => onKey(event, line, "name")}
                                   />
                                 ) : null}
                                 {measure ? <span className="fl-close est-measure">Measure on site</span> : null}
-                                {low ? <span className="est-confidence">{Math.round((line.aiConfidenceMilli ?? 0) / 10)}%</span> : null}
+                                {line.qtyOverridden ? <span className="est-override">Override</span> : null}
                               </span>
                               <span className="est-code">{line.costCode}</span>
                               <span className="est-qty">
@@ -617,7 +688,19 @@ export function EstimateWorkspace({
                                   data-col="qty"
                                   aria-label="Qty"
                                   className="est-cell num"
-                                  title={line.qtyFormula ? formulaCaption(line.qtyFormula, line.wasteBps, line.roundToMilli) : undefined}
+                                  title={
+                                    line.qtyFormula
+                                      ? formulaHint({
+                                          expr: line.qtyFormula,
+                                          wasteBps: line.wasteBps,
+                                          roundToMilli: line.roundToMilli,
+                                          measurements: measuresForFormula(),
+                                          unit: line.unit,
+                                        })
+                                      : line.qtyOverridden
+                                        ? "Override"
+                                        : undefined
+                                  }
                                   value={shownText(line, "qty", draft)}
                                   disabled={locked}
                                   readOnly={Boolean(line.qtyFormula)}
@@ -692,6 +775,7 @@ export function EstimateWorkspace({
                               </select>
                             </div>
                           );
+                          return header ? [header, row] : [row];
                         })
                       : null}
                   </div>
@@ -703,16 +787,19 @@ export function EstimateWorkspace({
               + Add line
             </button>
           )}
+          <AddAssembly estimateId={estimateId} locked={locked} assemblies={assemblies} measurements={measurements} />
         </div>
         <aside className="estimate-side" aria-label={previewOn ? "Client preview" : "Inspector"}>
           <MeasurementsPanel estimateId={estimateId} locked={locked} rows={measurements} />
           <FormulaBar
             key={`${selectedId ?? "none"}:${lines.find((row) => row.id === selectedId)?.qtyFormula ?? ""}:${lines.find((row) => row.id === selectedId)?.wasteBps ?? 0}:${lines.find((row) => row.id === selectedId)?.roundToMilli ?? ""}`}
             line={lines.find((row) => row.id === selectedId) ?? null}
+            measurements={measurements}
             locked={locked}
             onTyped={useTyped}
             onFormula={useFormula}
           />
+          <div className="estimate-comments">{comments}</div>
           <button type="button" className="est-preview-toggle" aria-pressed={previewOn} onClick={togglePreview}>
             Preview
           </button>
@@ -730,9 +817,27 @@ export function EstimateWorkspace({
                   return (
                     <section key={section.id} className="est-preview-section">
                       <h2>{section.name}</h2>
-                      {members.map((line) => {
+                      {members.flatMap((line, index) => {
+                        const group = line.groupId ? groups.find((item) => item.id === line.groupId) : undefined;
+                        if (group && group.presentAs !== "parts") {
+                          if (members.findIndex((row) => row.groupId === line.groupId) !== index) return [];
+                          const block = members.filter((row) => row.groupId === line.groupId);
+                          const labeled = measurementLabel(measurements.find((row) => row.id === group.measurementId));
+                          return [
+                            <div key={group.id} className="est-preview-line" data-preview-line={group.id}>
+                              <span>
+                                {group.name}
+                                <span className="est-muted">
+                                  {" "}
+                                  {labeled.qty} {labeled.unit}
+                                </span>
+                              </span>
+                              <span className="num">{formatWhole(groupPrice(block))}</span>
+                            </div>,
+                          ];
+                        }
                         const amounts = lineAmounts(line.qtyMilli, line.unitCostCents, line.markupBps);
-                        return (
+                        return [
                           <div key={line.id} className="est-preview-line" data-preview-line={line.id}>
                             <span>
                               {line.billing === "optional" ? "Optional · " : line.billing === "allowance" ? "Allowance · " : ""}
@@ -743,8 +848,8 @@ export function EstimateWorkspace({
                               </span>
                             </span>
                             <span className="num">{formatWhole(amounts.price)}</span>
-                          </div>
-                        );
+                          </div>,
+                        ];
                       })}
                     </section>
                   );
