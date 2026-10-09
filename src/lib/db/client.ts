@@ -113,6 +113,7 @@ export function ensureReady(holder: Holder) {
   ensureSubmittals(holder);
   ensureLienWaivers(holder);
   ensureJobFiles(holder);
+  ensureRetainage(holder);
   const version = holder.sqlite.prepare("select value from app_meta where key = ?").get("seed_version") as
     | { value: string }
     | undefined;
@@ -1111,6 +1112,14 @@ function columnExists(holder: Holder, table: string, column: string): boolean {
     return Boolean(row);
   }
   return (holder.sqlite.prepare(`pragma table_info(${table})`).all() as { name: string }[]).some((entry) => entry.name === column);
+}
+
+function ensureRetainage(holder: Holder) {
+  ensureColumn(holder, "organizations", "vendor_retainage_bps", "integer not null default 0");
+  ensureColumn(holder, "contacts", "retainage_bps", "integer");
+  ensureColumn(holder, "purchase_orders", "retainage_bps", "integer not null default 0");
+  ensureColumn(holder, "bills", "retainage_cents", "integer not null default 0");
+  ensureColumn(holder, "bills", "kind", "text not null default 'standard'");
 }
 
 function ensureColumn(holder: Holder, table: string, column: string, type: string) {

@@ -7,6 +7,7 @@ import { requireSession } from "@/lib/auth/session";
 import { one, pinnedTarget, readQuery } from "@/lib/lists/query";
 import { canEditCrm, canManageMoney, canSeeMoney } from "@/lib/permissions";
 import { listBills, vendorBillSummaries } from "@/lib/services/bills";
+import { payNotes } from "@/lib/services/pay-ready";
 import { listContacts, listProjects } from "@/lib/services/read";
 import { LIST_FILTERS, listSavedViews, viewHref } from "@/lib/services/saved-views";
 import { waiverBadges } from "@/lib/services/waivers";
@@ -35,8 +36,15 @@ export default async function BillsPage({
     return !needle || `${bill.billNumber} ${bill.vendorName} ${bill.projectName}`.toLowerCase().includes(needle);
   });
   const badges = new Map(waiverBadges(session).map((row) => [row.billId, row]));
+  const notes = payNotes(session.orgId);
   const waiver = filters.waiver || "";
-  const listed = waiver ? rows.filter((bill) => badges.get(bill.id)?.state === waiver) : rows;
+  const readyOn = filters.ready === "1";
+  const listed = rows.filter((bill) => {
+    if (waiver && badges.get(bill.id)?.state !== waiver) return false;
+    if (readyOn && bill.status !== "approved") return false;
+    return true;
+  });
+  const readyRows = listed.filter((bill) => notes.get(bill.id)?.ready);
   const summaries = vendorBillSummaries(session.orgId, session.role).filter((row) => !filters.vendor || row.contactId === filters.vendor);
   const office = canManageMoney(session.role);
   const jobs = listProjects(session.orgId);
@@ -74,6 +82,11 @@ export default async function BillsPage({
         canShare={canEditCrm(session.role)}
         clearHref={Object.keys(filters).length ? "/bills?view=none" : null}
         views={views.map((view) => ({ id: view.id, name: view.name, href: viewHref(view), pinned: view.pinned, mine: view.mine, shared: view.shared }))}
+        links={[
+          { href: "/bills", label: "All", current: !readyOn },
+          { href: "/bills?ready=1", label: "Ready to pay", current: readyOn },
+        ]}
+        preserve={{ ready: filters.ready || "" }}
         filters={[
           { name: "job", label: "Job", value: filters.job || "", any: "Any", options: jobs.map((row) => ({ value: row.project.id, label: row.project.name })) },
           { name: "vendor", label: "Vendor", value: filters.vendor || "", any: "Any", options: vendors.map((contact) => ({ value: contact.id, label: contact.company || contact.name })) },
@@ -81,10 +94,22 @@ export default async function BillsPage({
           { name: "waiver", label: "Waiver", value: filters.waiver || "", any: "Any", options: [{ value: "missing", label: "Missing" }, { value: "requested", label: "Requested" }, { value: "signed", label: "Signed" }] },
         ]}
       />
+      <nav aria-label="Bill views" className="flex gap-3 px-4 text-sm md:hidden">
+        <Link href="/bills" aria-current={readyOn ? undefined : "page"}>
+          All
+        </Link>
+        <Link href="/bills?ready=1" aria-current={readyOn ? "page" : undefined}>
+          Ready to pay
+        </Link>
+      </nav>
       <BillsBoard
         office={office}
+        pay={readyOn}
+        readyCount={readyRows.length}
+        readyCents={readyRows.reduce((sum, bill) => sum + bill.netCents, 0)}
         rows={listed.map((bill) => {
           const badge = badges.get(bill.id);
+          const note = notes.get(bill.id);
           return {
             id: bill.id,
             billNumber: bill.billNumber,
@@ -92,9 +117,12 @@ export default async function BillsPage({
             projectName: bill.projectName,
             status: bill.status,
             amountCents: bill.amountCents,
+            netCents: bill.netCents,
             timing: bill.timing,
             waiverLabel: badge?.label ?? "Missing",
             waiverRequested: badge?.state === "requested",
+            ready: note?.ready ?? false,
+            reason: bill.status === "approved" ? (note?.reason ?? null) : null,
           };
         })}
         summaries={summaries}

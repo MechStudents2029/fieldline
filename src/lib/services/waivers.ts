@@ -18,6 +18,7 @@ import {
 import { formatCalendarDay } from "@/lib/format";
 import { id, nowIso } from "@/lib/ids";
 import { IP_WINDOW_MS, ORG_WINDOW_MS, rateLimitError } from "@/lib/lead-form/rules";
+import { netPayableCents } from "@/lib/bills/retainage";
 import { formatMoney, parseMoneyToCents } from "@/lib/money";
 import { canManageMoney, canManageSettings, canSeeMoney, type Role } from "@/lib/permissions";
 import { attachmentExtension, attachmentUploadError } from "@/lib/security";
@@ -314,6 +315,13 @@ export function requestUnconditional(actor: Actor, billId: string) {
   return { id: insertWaiver(db, actor, bill, type, bill.amountCents, through), type };
 }
 
+export function requestUnconditionals(actor: Actor, billIds: string[]) {
+  const ids = [...new Set(billIds.map((billId) => billId.trim()).filter(Boolean))];
+  if (ids.length === 0) throw new ServiceError("Select a bill.");
+  for (const billId of ids) requestUnconditional(actor, billId);
+  return { count: ids.length };
+}
+
 function lineOf(row: WaiverRow): WaiverLine {
   return {
     id: row.id,
@@ -407,18 +415,22 @@ export function billsCsv(actor: Actor): string | null {
   const badges = new Map(waiverBadges(actor).map((row) => [row.billId, row.label]));
   const names = new Map(db.select().from(contacts).where(eq(contacts.orgId, actor.orgId)).all().map((row) => [row.id, row.company?.trim() || row.name]));
   const jobs = new Map(db.select().from(projects).where(eq(projects.orgId, actor.orgId)).all().map((row) => [row.id, row.name]));
-  const header = ["Bill", "Vendor", "Job", "Status", "Amount", "Waiver"];
+  const header = ["Bill", "Vendor", "Job", "Status", "Amount", "Retained", "Net", "Released", "Waiver"];
   const lines = db
     .select()
     .from(bills)
     .where(eq(bills.orgId, actor.orgId))
     .all()
     .filter((row) => row.status !== "void")
-    .map((row) =>
-      [row.billNumber, names.get(row.vendorContactId ?? "") ?? "", jobs.get(row.projectId) ?? "", row.status, formatMoney(row.amountCents), badges.get(row.id) ?? "Missing"]
+    .map((row) => {
+      const kind = row.kind === "release" ? "release" : "standard";
+      const retained = kind === "release" ? 0 : row.retainageCents;
+      const net = netPayableCents(row.amountCents, row.retainageCents, kind);
+      const released = kind === "release" ? row.amountCents : 0;
+      return [row.billNumber, names.get(row.vendorContactId ?? "") ?? "", jobs.get(row.projectId) ?? "", row.status, formatMoney(row.amountCents), formatMoney(retained), formatMoney(net), formatMoney(released), badges.get(row.id) ?? "Missing"]
         .map(csvCell)
-        .join(","),
-    );
+        .join(",");
+    });
   return [header.join(","), ...lines].join("\n");
 }
 

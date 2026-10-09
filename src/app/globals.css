@@ -769,6 +769,15 @@ select.ctl {
 }
 .mac-table th button { white-space: nowrap; }
 .mac-table td { height: 28px; padding: 0 10px; white-space: nowrap; }
+.mac-files { table-layout: fixed; width: 100%; }
+.mac-files th,
+.mac-files td { overflow: hidden; text-overflow: ellipsis; }
+.mac-files col.files-check { width: 36px; }
+.mac-files col.files-folder { width: 120px; }
+.mac-files col.files-by { width: 110px; }
+.mac-files col.files-date { width: 88px; }
+.mac-files col.files-size { width: 72px; }
+.mac-files col.files-vis { width: 104px; }
 .mac-table td.wrap { white-space: normal; }
 .mac-table td.clip,
 .mac-table th.clip {

@@ -382,7 +382,16 @@ export function JobFilesWorkspace({
                   </form>
                 ) : null}
                 <div className="hidden overflow-x-auto md:block">
-                  <table className="mac-table" aria-label="Files">
+                  <table className="mac-table mac-files" aria-label="Files">
+                    <colgroup>
+                      {canEdit ? <col className="files-check" /> : null}
+                      <col className="files-name" />
+                      <col className="files-folder" />
+                      <col className="files-by" />
+                      <col className="files-date" />
+                      <col className="files-size" />
+                      <col className="files-vis" />
+                    </colgroup>
                     <thead>
                       <tr>
                         {canEdit ? (

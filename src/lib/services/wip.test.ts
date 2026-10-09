@@ -40,7 +40,7 @@ describe("WIP report", () => {
     const chen = row("proj_chen");
     const brooks = row("proj_brooks");
     const powder = row("proj_brooks_bath");
-    expect(okonkwo?.costToDateCents).toBe(1_369_000);
+    expect(okonkwo?.costToDateCents).toBe(1_669_000);
     expect(okonkwo?.billedCents).toBe(3_360_000);
     expect(okonkwo && okonkwo.overUnderCents > 0).toBe(true);
     expect(chen).toMatchObject({ costToDateCents: 0, billedCents: 736_000, percentBps: 0, earnedCents: 0, overUnderCents: 736_000 });

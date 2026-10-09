@@ -381,7 +381,7 @@ export function VendorPortalView({
                     <p className="home-sub">
                       {formatMoney(bill.amountCents)}
                       {bill.billDate ? ` · ${formatCalendarDay(bill.billDate)}` : ""}
-                      {bill.paidOn ? ` · Paid ${formatCalendarDay(bill.paidOn)}` : ""}
+                      {` · Paid ${formatMoney(bill.paidCents)} · Retained ${formatMoney(bill.retainedCents)} · Released ${formatMoney(bill.releasedCents)}`}
                     </p>
                   </div>
                   <span className="home-pill">{bill.statusLabel}</span>

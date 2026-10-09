@@ -25,6 +25,7 @@ import {
   vendorPortalAttempts,
   vendorPortals,
 } from "@/lib/db/schema";
+import { netPayableCents, retainedCents } from "@/lib/bills/retainage";
 import { id, nowIso } from "@/lib/ids";
 import { IP_WINDOW_MS, ORG_WINDOW_MS, rateLimitError } from "@/lib/lead-form/rules";
 import { openCommitmentByCode, overageByCode } from "@/lib/margin/commitment";
@@ -78,7 +79,18 @@ export type VendorPortalHome = {
   orders: VendorOrder[];
   schedule: { id: string; title: string; startDate: string; endDate: string; startTime: string | null; job: string; address: string }[];
   punch: { id: string; title: string; location: string; dueDate: string | null; status: string; statusLabel: string }[];
-  bills: { id: string; number: string; billDate: string | null; amountCents: number; status: string; statusLabel: string; paidOn: string | null }[];
+  bills: {
+    id: string;
+    number: string;
+    billDate: string | null;
+    amountCents: number;
+    paidCents: number;
+    retainedCents: number;
+    releasedCents: number;
+    status: string;
+    statusLabel: string;
+    paidOn: string | null;
+  }[];
   certificates: { type: string; label: string; statusLabel: string; state: string; expiresOn: string; documentId: string | null }[];
 };
 
@@ -459,7 +471,7 @@ export function vendorPortal(token: string): VendorPortalHome | null {
   let commitmentCents = 0;
   for (const order of openOrders) {
     const relieved = vendorBills
-      .filter((bill) => bill.purchaseOrderId === order.id && RELIEVING.has(bill.status))
+      .filter((bill) => bill.purchaseOrderId === order.id && RELIEVING.has(bill.status) && bill.kind !== "release")
       .flatMap((bill) => lines.filter((line) => line.billId === bill.id));
     commitmentCents += openCommitmentByCode(
       poLines.filter((line) => line.purchaseOrderId === order.id),
@@ -486,8 +498,10 @@ export function vendorPortal(token: string): VendorPortalHome | null {
     today,
     openPos: openOrders.length,
     commitmentCents,
-    billedCents: vendorBills.reduce((sum, row) => sum + row.amountCents, 0),
-    paidCents: vendorBills.filter((row) => row.status === "paid").reduce((sum, row) => sum + row.amountCents, 0),
+    billedCents: vendorBills.filter((row) => row.kind !== "release").reduce((sum, row) => sum + row.amountCents, 0),
+    paidCents: vendorBills
+      .filter((row) => row.status === "paid")
+      .reduce((sum, row) => sum + netPayableCents(row.amountCents, row.retainageCents, row.kind === "release" ? "release" : "standard"), 0),
     orders: orders
       .sort((a, b) => a.number.localeCompare(b.number))
       .map((order) => ({
@@ -526,6 +540,9 @@ export function vendorPortal(token: string): VendorPortalHome | null {
         number: row.billNumber,
         billDate: row.billDate,
         amountCents: row.amountCents,
+        paidCents: row.status === "paid" ? netPayableCents(row.amountCents, row.retainageCents, row.kind === "release" ? "release" : "standard") : 0,
+        retainedCents: row.kind === "release" ? 0 : row.retainageCents,
+        releasedCents: row.kind === "release" ? row.amountCents : 0,
         status: row.status,
         statusLabel: statusLabel(row.status),
         paidOn: row.status === "paid" ? row.paidAt?.slice(0, 10) ?? null : null,
@@ -645,7 +662,7 @@ export function submitVendorBill(input: {
     .from(bills)
     .where(and(eq(bills.orgId, ctx.orgId), eq(bills.purchaseOrderId, order.id)))
     .all()
-    .filter((row) => RELIEVING.has(row.status));
+    .filter((row) => RELIEVING.has(row.status) && row.kind !== "release");
   const priorIds = new Set(prior.map((row) => row.id));
   const priorLines = ctx.db
     .select()
@@ -685,6 +702,8 @@ export function submitVendorBill(input: {
         updatedAt: now,
         createdBy: null,
         portalSubmitted: 1,
+        retainageCents: retainedCents(amountCents, order.retainageBps),
+        kind: "standard",
       })
       .run();
     cleaned.forEach((line, index) => {

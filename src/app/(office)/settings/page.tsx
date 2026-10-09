@@ -157,6 +157,10 @@ export default async function SettingsPage() {
             <input name="defaultRetainage" type="number" min={0} max={100} defaultValue={(billingDefaults.retainageBps / 100).toFixed(0)} className="field mt-1 w-24" />
           </label>
           <label className="text-sm">
+            Vendor retainage %
+            <input name="vendorRetainage" type="number" min={0} max={100} defaultValue={(billingDefaults.vendorRetainageBps / 100).toFixed(0)} className="field mt-1 w-24" />
+          </label>
+          <label className="text-sm">
             Warranty months
             <input name="warrantyMonths" type="number" min={1} max={120} defaultValue={org.warrantyMonths} className="field mt-1" />
           </label>

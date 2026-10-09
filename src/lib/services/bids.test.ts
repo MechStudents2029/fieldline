@@ -165,7 +165,7 @@ describe("bids", () => {
         updateBudget: true,
       }),
     ).toThrow(/Workers comp missing/);
-    expect(getDb().select().from(purchaseOrders).where(eq(purchaseOrders.number, "PO-1045")).get()).toBeUndefined();
+    expect(getDb().select().from(purchaseOrders).where(eq(purchaseOrders.number, "PO-1056")).get()).toBeUndefined();
     setVendorCompliance(maya, "warn", ["general_liability", "workers_comp"]);
     const awarded = awardBid(maya, {
       bidId: "bid_ok_valve",
@@ -176,7 +176,7 @@ describe("bids", () => {
       createPurchaseOrders: true,
       updateBudget: true,
     });
-    expect(awarded.purchaseOrders).toEqual(["PO-1045", "PO-1046"]);
+    expect(awarded.purchaseOrders).toEqual(["PO-1056", "PO-1057"]);
     expect(awarded.warning).toMatch(/Workers comp missing/);
     const pos = getDb()
       .select()
@@ -195,7 +195,7 @@ describe("bids", () => {
     expect(getDb().select().from(auditLogs).where(and(eq(auditLogs.action, "bid.award"), eq(auditLogs.entityId, "bid_ok_valve"))).get()?.actorId).toBe("user_maya");
     expect(bidComparison(maya, "bid_ok_valve")?.statusLabel).toBe("Awarded");
     expect(vendorBidPortal(DEMO_HARBOR_PORTAL_TOKEN)?.find((row) => row.id === "bid_ok_valve")?.editable).toBe(false);
-    expect(JSON.stringify(bidComparison(actor("dana@rivera.demo"), "bid_ok_valve"))).not.toContain("PO-1045");
+    expect(JSON.stringify(bidComparison(actor("dana@rivera.demo"), "bid_ok_valve"))).not.toContain("PO-1056");
   });
 
   it("rate limits portal bid writes", () => {

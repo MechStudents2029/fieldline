@@ -37,6 +37,11 @@ export default async function BillPage({ params }: { params: Promise<{ id: strin
           {bill.vendorName} · <Link href={`/projects/${bill.projectId}`} className="underline">{bill.projectName}</Link>
         </p>
         <p className="mt-2 font-heading text-3xl">{formatMoney(bill.amountCents)}</p>
+        {bill.retainageCents > 0 ? (
+          <p className="num text-sm">
+            Net {formatMoney(bill.netCents)} · Retained {formatMoney(bill.retainageCents)}
+          </p>
+        ) : null}
         <p className="text-sm text-muted-foreground">
           Bill date {bill.billDate ? formatCalendarDay(bill.billDate) : "—"} · due {bill.dueDate ? formatCalendarDay(bill.dueDate) : "—"}
         </p>

@@ -13,7 +13,7 @@ export const LIST_FILTERS: Record<string, string[]> = {
   todos: ["assignee", "job", "priority", "due", "status", "q"],
   rfis: ["job", "assignee", "status", "overdue", "q"],
   submittals: ["job", "assignee", "status", "overdue", "division", "waiting", "q"],
-  bills: ["job", "vendor", "status", "waiver", "q"],
+  bills: ["job", "vendor", "status", "waiver", "ready", "q"],
   "purchase-orders": ["job", "vendor", "status", "q"],
   wip: ["asof", "pm", "status", "q"],
   contacts: ["type", "q"],

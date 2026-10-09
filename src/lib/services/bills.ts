@@ -17,12 +17,13 @@ import {
   purchaseOrderLines,
   purchaseOrders,
 } from "@/lib/db/schema";
+import { netPayableCents, retainedCents } from "@/lib/bills/retainage";
 import { id, nowIso } from "@/lib/ids";
 import { overageByCode } from "@/lib/margin/commitment";
 import { formatMoney, positiveMoneyError } from "@/lib/money";
 import { canManageMoney, canSeeMoney, type Role } from "@/lib/permissions";
 import { ServiceError } from "@/lib/services/errors";
-import { payGateForBill } from "@/lib/services/waivers";
+import { assessBill } from "@/lib/services/pay-ready";
 import { vendorCommitmentTotals } from "@/lib/services/purchase-orders";
 import type { Actor } from "@/lib/services/read";
 import { saveUploadedText } from "@/lib/services/write";
@@ -69,6 +70,9 @@ export type BillRow = {
   dueDate: string | null;
   status: string;
   amountCents: number;
+  retainageCents: number;
+  netCents: number;
+  kind: "standard" | "release";
   timing: BillTiming;
   lowConfidence: boolean;
 };
@@ -88,6 +92,7 @@ export type VendorBillSummary = {
   outstandingCents: number;
   committedCents: number;
   openBalanceCents: number;
+  retainedCents: number;
   codes: VendorCodeSpend[];
 };
 
@@ -299,7 +304,7 @@ function poWarning(db: Writer, orgId: string, purchaseOrderId: string | null | u
     .from(bills)
     .where(and(eq(bills.orgId, orgId), eq(bills.purchaseOrderId, order.id)))
     .all()
-    .filter((bill) => (bill.status === "approved" || bill.status === "paid") && bill.id !== exceptBillId);
+    .filter((bill) => (bill.status === "approved" || bill.status === "paid") && bill.kind !== "release" && bill.id !== exceptBillId);
   const priorIds = priorBills.map((bill) => bill.id);
   const priorLines = priorIds.length
     ? db
@@ -363,6 +368,8 @@ export function createBill(actor: Actor, input: BillInput) {
           createdAt: now,
           updatedAt: now,
           createdBy: actor.userId,
+          retainageCents: retainedCents(amountCents, order?.retainageBps ?? 0),
+          kind: "standard",
         })
         .run();
       insertLines(tx, actor.orgId, billId, lines);
@@ -403,6 +410,10 @@ export function updateDraft(actor: Actor, billId: string, input: BillInput) {
         billDate: input.billDate,
         dueDate: input.dueDate,
         amountCents: lines.reduce((sum, line) => sum + line.amountCents, 0),
+        retainageCents: retainedCents(
+          lines.reduce((sum, line) => sum + line.amountCents, 0),
+          order?.retainageBps ?? 0,
+        ),
         memo: input.memo?.trim() || null,
         purchaseOrderId: order?.id ?? null,
         lowConfidence: input.lowConfidence ? 1 : 0,
@@ -434,6 +445,7 @@ export function confirmBillRead(actor: Actor, billId: string) {
 }
 
 function postLines(db: Writer, actor: Actor, bill: BillRecord, vendorName: string) {
+  if (bill.kind === "release") return [];
   const lines = loadLines(db, actor.orgId, bill.id);
   const posted: string[] = [];
   const now = nowIso();
@@ -502,8 +514,16 @@ export function approveBill(actor: Actor, billId: string) {
   db.transaction((tx) => {
     const costItemIds = postLines(tx, actor, bill, vendorLabel(vendor));
     const now = nowIso();
+    const order = bill.purchaseOrderId
+      ? tx.select().from(purchaseOrders).where(and(eq(purchaseOrders.id, bill.purchaseOrderId), eq(purchaseOrders.orgId, actor.orgId))).get()
+      : undefined;
     tx.update(bills)
-      .set({ status: "approved", approvedAt: now, updatedAt: now })
+      .set({
+        status: "approved",
+        approvedAt: now,
+        updatedAt: now,
+        retainageCents: bill.kind === "release" ? 0 : retainedCents(bill.amountCents, order?.retainageBps ?? 0),
+      })
       .where(and(eq(bills.id, bill.id), eq(bills.orgId, actor.orgId)))
       .run();
     const after = loadBill(tx, actor.orgId, bill.id);
@@ -555,8 +575,8 @@ export function markBillPaid(actor: Actor, billId: string, input: { paidOn: stri
   if (!PAY_METHODS.has(method)) throw new ServiceError("Pick how it was paid.");
   const reference = input.reference.trim();
   if (reference.length < 1 || reference.length > 80) throw new ServiceError("Enter a check number or other reference.");
-  const gate = payGateForBill(db, actor.orgId, bill);
-  if (gate.error) throw new ServiceError(gate.error);
+  const gate = assessBill(db, actor.orgId, bill);
+  if (gate.payError) throw new ServiceError(gate.payError);
   const before = snapshot(bill, loadLines(db, actor.orgId, bill.id));
   const now = nowIso();
   db.transaction((tx) => {
@@ -576,7 +596,35 @@ export function markBillPaid(actor: Actor, billId: string, input: { paidOn: stri
     );
     noteActivity(tx, actor.orgId, bill.projectId, actor.userId, `Marked bill ${bill.billNumber} paid by ${method} ${reference}. No payment was sent.`);
   });
-  return { id: bill.id, warning: gate.warning };
+  return { id: bill.id, warning: gate.payWarning };
+}
+
+export function markBillsPaid(actor: Actor, billIds: string[], input: { paidOn: string; method: string; reference: string }) {
+  assertOffice(actor);
+  const db = dbFor(actor);
+  const ids = [...new Set(billIds.map((billId) => billId.trim()).filter(Boolean))];
+  if (ids.length === 0) throw new ServiceError("Select a bill.");
+  if (!validDay(input.paidOn)) throw new ServiceError("Enter the date it was paid.");
+  const method = input.method.trim().toLowerCase();
+  if (!PAY_METHODS.has(method)) throw new ServiceError("Pick how it was paid.");
+  const reference = input.reference.trim();
+  if (reference.length < 1 || reference.length > 80) throw new ServiceError("Enter a check number or other reference.");
+  const loaded = ids.map((billId) => {
+    const bill = loadBill(db, actor.orgId, billId);
+    if (!bill) throw new ServiceError("Bill not found.");
+    if (bill.status !== "approved") throw new ServiceError("Approve the bill before marking it paid.");
+    const decision = assessBill(db, actor.orgId, bill);
+    if (decision.payError) throw new ServiceError(decision.payError);
+    return bill;
+  });
+  const warnings: string[] = [];
+  const paidIds: string[] = [];
+  for (const bill of loaded) {
+    const paid = markBillPaid(actor, bill.id, { paidOn: input.paidOn, method, reference });
+    paidIds.push(paid.id);
+    if (paid.warning) warnings.push(paid.warning);
+  }
+  return { ids: paidIds, warning: warnings[0] ?? null };
 }
 
 export function voidBill(actor: Actor, billId: string, reason: string) {
@@ -637,6 +685,9 @@ function toRow(
     dueDate: bill.dueDate,
     status: bill.status,
     amountCents: bill.amountCents,
+    retainageCents: bill.kind === "release" ? 0 : bill.retainageCents,
+    netCents: netPayableCents(bill.amountCents, bill.retainageCents, bill.kind === "release" ? "release" : "standard"),
+    kind: bill.kind === "release" ? "release" : "standard",
     timing: billTiming(bill.status, bill.dueDate, today),
     lowConfidence: bill.lowConfidence === 1,
   };
@@ -738,7 +789,7 @@ export function vendorBillSummaries(orgId: string, role: Role): VendorBillSummar
     const billedByCode = new Map<string, number>();
     for (const line of vendorLines) {
       const bill = vendorBills.find((row) => row.id === line.billId);
-      if (!bill) continue;
+      if (!bill || bill.kind === "release") continue;
       billedByCode.set(line.costCode, (billedByCode.get(line.costCode) ?? 0) + line.amountCents);
       const jobs = jobsByCode.get(line.costCode) ?? new Set<string>();
       jobs.add(bill.projectId);
@@ -753,16 +804,21 @@ export function vendorBillSummaries(orgId: string, role: Role): VendorBillSummar
         return { code, billedCents, budgetCents };
       })
       .sort((a, b) => a.code.localeCompare(b.code));
-    const paidCents = vendorBills.filter((bill) => bill.status === "paid").reduce((sum, bill) => sum + bill.amountCents, 0);
-    const outstandingCents = vendorBills.filter((bill) => bill.status === "approved").reduce((sum, bill) => sum + bill.amountCents, 0);
+    const cash = (bill: BillRecord) => netPayableCents(bill.amountCents, bill.retainageCents, bill.kind === "release" ? "release" : "standard");
+    const paidCents = vendorBills.filter((bill) => bill.status === "paid").reduce((sum, bill) => sum + cash(bill), 0);
+    const outstandingCents = vendorBills.filter((bill) => bill.status === "approved").reduce((sum, bill) => sum + cash(bill), 0);
+    const retainedOnPaid = vendorBills
+      .filter((bill) => bill.kind !== "release" && bill.status === "paid")
+      .reduce((sum, bill) => sum + bill.retainageCents, 0);
     const commitment = commitments.get(contactId) ?? { committedCents: 0, openBalanceCents: 0 };
     summaries.push({
       contactId,
       name: contact.name,
       company: contact.company,
-      billedCents: paidCents + outstandingCents,
+      billedCents: vendorBills.filter((bill) => bill.kind !== "release").reduce((sum, bill) => sum + bill.amountCents, 0),
       paidCents,
       outstandingCents,
+      retainedCents: retainedOnPaid,
       committedCents: commitment.committedCents,
       openBalanceCents: commitment.openBalanceCents,
       codes,

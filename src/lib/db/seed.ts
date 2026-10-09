@@ -120,7 +120,7 @@ import {
   WEBSITE_FORM_SOURCE,
 } from "@/lib/lead-form/rules";
 
-export const SEED_VERSION = "28";
+export const SEED_VERSION = "29";
 
 const ORG = "org_rivera";
 const NORTH = "org_northline";
@@ -1225,6 +1225,8 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
       { id: "cost_dz_1", orgId: ORG, projectId: "proj_diaz", budgetLineId: null, costCode: "DECK-BOARD", amountCents: 980000, vendorName: "Summit Lumber", memo: "Boards and hardware", source: "bill", aiExtracted: 0, documentId: null, createdAt: daysAgo(30), updatedAt: daysAgo(30), createdBy: "user_sam" },
       { id: "cost_dz_2", orgId: ORG, projectId: "proj_diaz", budgetLineId: null, costCode: "FRM-LABOR", amountCents: 670000, vendorName: "Rivera crew", memo: "Deck labor", source: "labor", aiExtracted: 0, documentId: null, createdAt: daysAgo(20), updatedAt: daysAgo(20), createdBy: "user_sam" },
       { id: "cost_bill_hp", orgId: ORG, projectId: "proj_okonkwo", budgetLineId: null, costCode: "PLB-SHOWER", amountCents: 150000, vendorName: "Harbor Plumbing", memo: "Bill HP-441", source: "bill", aiExtracted: 0, documentId: null, createdAt: daysAgo(4), updatedAt: daysAgo(4), createdBy: "user_sam" },
+      { id: "cost_bill_hp510", orgId: ORG, projectId: "proj_okonkwo", budgetLineId: null, costCode: "PLB-SHOWER", amountCents: 200000, vendorName: "Harbor Plumbing", memo: "Bill HP-510", source: "bill", aiExtracted: 0, documentId: null, createdAt: daysAgo(3), updatedAt: daysAgo(3), createdBy: "user_sam" },
+      { id: "cost_bill_hp511", orgId: ORG, projectId: "proj_okonkwo", budgetLineId: null, costCode: "PLB-SHOWER", amountCents: 100000, vendorName: "Harbor Plumbing", memo: "Bill HP-511", source: "bill", aiExtracted: 0, documentId: null, createdAt: daysAgo(2), updatedAt: daysAgo(2), createdBy: "user_sam" },
       { id: "cost_bill_sl", orgId: ORG, projectId: "proj_diaz", budgetLineId: null, costCode: "DECK-BOARD", amountCents: 125000, vendorName: "Summit Lumber", memo: "Bill SL-1904", source: "bill", aiExtracted: 0, documentId: null, createdAt: daysAgo(12), updatedAt: daysAgo(8), createdBy: "user_sam" },
       { id: "cost_bill_be", orgId: ORG, projectId: "proj_brooks", budgetLineId: null, costCode: "ELE-KIT", amountCents: 700000, vendorName: "Brighton Electric", memo: "Bill BE-77", source: "bill", aiExtracted: 0, documentId: null, createdAt: daysAgo(10), updatedAt: daysAgo(10), createdBy: "user_sam" },
     ])
@@ -1374,6 +1376,56 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
         updatedAt: daysAgo(1),
         createdBy: "user_sam",
       },
+      {
+        id: "bill_ok_ret_ready",
+        orgId: ORG,
+        projectId: "proj_okonkwo",
+        vendorContactId: "c_harbor",
+        billNumber: "HP-510",
+        billDate: addCalendarDays(billToday, -3),
+        amountCents: 200000,
+        dueDate: billDueSoon,
+        status: "approved",
+        memo: "Retainage 10%",
+        voidReason: null,
+        paidAt: null,
+        payMethod: null,
+        payReference: null,
+        documentId: null,
+        purchaseOrderId: "po_ok_retain",
+        approvedAt: daysAgo(2),
+        lowConfidence: 0,
+        createdAt: daysAgo(3),
+        updatedAt: daysAgo(2),
+        createdBy: "user_sam",
+        retainageCents: 20000,
+        kind: "standard",
+      },
+      {
+        id: "bill_ok_ret_blocked",
+        orgId: ORG,
+        projectId: "proj_okonkwo",
+        vendorContactId: "c_harbor",
+        billNumber: "HP-511",
+        billDate: addCalendarDays(billToday, -1),
+        amountCents: 100000,
+        dueDate: billDueSoon,
+        status: "approved",
+        memo: "Retainage 10%, waiver unsigned",
+        voidReason: null,
+        paidAt: null,
+        payMethod: null,
+        payReference: null,
+        documentId: null,
+        purchaseOrderId: "po_ok_retain",
+        approvedAt: daysAgo(1),
+        lowConfidence: 0,
+        createdAt: daysAgo(1),
+        updatedAt: daysAgo(1),
+        createdBy: "user_sam",
+        retainageCents: 10000,
+        kind: "standard",
+      },
     ])
     .run();
   db.insert(billLines)
@@ -1384,6 +1436,8 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
       { id: "bln_br_brighton", orgId: ORG, billId: "bill_br_brighton", costCode: "ELE-KIT", description: "Rough electrical", amountCents: 700000, costItemId: "cost_bill_be", sortOrder: 0 },
       { id: "bln_harbor_paid", orgId: ORG, billId: "bill_harbor_paid", costCode: "PLB-SHOWER", description: "Rough valve", amountCents: 48000, costItemId: null, sortOrder: 0 },
       { id: "bln_harbor_req", orgId: ORG, billId: "bill_ok_harbor_req", costCode: "PLB-SHOWER", description: "Trim balance", amountCents: 96000, costItemId: null, sortOrder: 0 },
+      { id: "bln_ok_ret_ready", orgId: ORG, billId: "bill_ok_ret_ready", costCode: "PLB-SHOWER", description: "Shower package", amountCents: 200000, costItemId: "cost_bill_hp510", sortOrder: 0 },
+      { id: "bln_ok_ret_blocked", orgId: ORG, billId: "bill_ok_ret_blocked", costCode: "PLB-SHOWER", description: "Shower balance", amountCents: 100000, costItemId: "cost_bill_hp511", sortOrder: 0 },
     ])
     .run();
   db.insert(billEvents)
@@ -1461,6 +1515,39 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
         updatedAt: daysAgo(1),
         createdBy: "user_maya",
       },
+      {
+        id: "lw_harbor_ready",
+        orgId: ORG,
+        billId: "bill_ok_ret_ready",
+        projectId: "proj_okonkwo",
+        vendorContactId: "c_harbor",
+        type: "conditional_progress",
+        status: "signed",
+        amountCents: 180000,
+        throughDate: addCalendarDays(billToday, -3),
+        body: renderWaiver(DEFAULT_WAIVER_BODIES.conditional_progress, {
+          vendor: "Harbor Plumbing",
+          job: "Okonkwo primary bath",
+          amount: formatMoney(180000),
+          through: formatCalendarDay(addCalendarDays(billToday, -3)),
+          bill: "HP-510",
+          company: "Rivera Remodeling & Trade",
+        }),
+        signedName: "Pete Alvarez",
+        signedAt: daysAgo(1),
+        signedText: renderWaiver(DEFAULT_WAIVER_BODIES.conditional_progress, {
+          vendor: "Harbor Plumbing",
+          job: "Okonkwo primary bath",
+          amount: formatMoney(180000),
+          through: formatCalendarDay(addCalendarDays(billToday, -3)),
+          bill: "HP-510",
+          company: "Rivera Remodeling & Trade",
+        }),
+        documentId: null,
+        createdAt: daysAgo(2),
+        updatedAt: daysAgo(1),
+        createdBy: "user_sam",
+      },
     ])
     .run();
 
@@ -1497,6 +1584,42 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
     .values([
       { id: "poe_ok_created", orgId: ORG, purchaseOrderId: "po_ok_harbor", actorId: "user_sam", type: "created", reason: null, beforeJson: null, afterJson: null, createdAt: daysAgo(7) },
       { id: "poe_ok_issued", orgId: ORG, purchaseOrderId: "po_ok_harbor", actorId: "user_sam", type: "issued", reason: null, beforeJson: null, afterJson: JSON.stringify({ status: "issued" }), createdAt: daysAgo(6) },
+    ])
+    .run();
+  db.insert(purchaseOrders)
+    .values({
+      id: "po_ok_retain",
+      orgId: ORG,
+      projectId: "proj_okonkwo",
+      vendorContactId: "c_harbor",
+      changeOrderId: null,
+      number: "PO-1055",
+      scope: "Shower package held at 10% until the final waiver.",
+      status: "issued",
+      voidReason: null,
+      issuedAt: daysAgo(4),
+      closedAt: null,
+      createdAt: daysAgo(4),
+      updatedAt: daysAgo(4),
+      createdBy: "user_sam",
+      retainageBps: 1000,
+    })
+    .run();
+  db.insert(purchaseOrderLines)
+    .values({
+      id: "pol_ok_retain",
+      orgId: ORG,
+      purchaseOrderId: "po_ok_retain",
+      costCode: "PLB-SHOWER",
+      description: "Shower package",
+      amountCents: 500000,
+      sortOrder: 0,
+    })
+    .run();
+  db.insert(purchaseOrderEvents)
+    .values([
+      { id: "poe_ok_ret_created", orgId: ORG, purchaseOrderId: "po_ok_retain", actorId: "user_sam", type: "created", reason: null, beforeJson: null, afterJson: null, createdAt: daysAgo(4) },
+      { id: "poe_ok_ret_issued", orgId: ORG, purchaseOrderId: "po_ok_retain", actorId: "user_sam", type: "issued", reason: null, beforeJson: null, afterJson: JSON.stringify({ status: "issued" }), createdAt: daysAgo(4) },
     ])
     .run();
 
