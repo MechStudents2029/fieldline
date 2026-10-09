@@ -35,6 +35,9 @@ export default async function EstimatePage({ params }: { params: Promise<{ id: s
     sortOrder: line.sortOrder,
     aiConfidenceMilli: line.aiConfidenceMilli,
     sourceNote: line.sourceNote,
+    qtyFormula: line.qtyFormula,
+    wasteBps: line.wasteBps ?? 0,
+    roundToMilli: line.roundToMilli,
   }));
   const budget = detail.lead?.scopeText?.match(/\$\d+–\d+k/i)?.[0] ?? null;
   return (
@@ -79,6 +82,12 @@ export default async function EstimatePage({ params }: { params: Promise<{ id: s
         locked={detail.locked}
         sections={detail.sections.map((section) => ({ id: section.id, name: section.name, sortOrder: section.sortOrder }))}
         lines={lines}
+        measurements={detail.measurements.map((row) => ({
+          id: row.id,
+          name: row.name,
+          valueMilli: row.valueMilli,
+          unit: row.unit,
+        }))}
         marginTargetBps={detail.estimate.marginTargetBps}
         depositBps={detail.depositBps}
         progressBps={detail.progressBps}

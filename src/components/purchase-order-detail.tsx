@@ -184,7 +184,9 @@ export function PurchaseOrderDetail({
           ...(voidReason ? [{ label: "Void", value: voidReason }] : []),
         ]}
       />
-      <div className="overflow-x-auto px-4">
+      <section className="px-4" aria-label="Lines">
+        <h2 className="mac-t13 text-[var(--mac-secondary)]">Lines</h2>
+        <div className="overflow-x-auto">
         <table className="mac-table" aria-label="Lines">
           <thead>
             <tr>
@@ -207,8 +209,11 @@ export function PurchaseOrderDetail({
             ))}
           </tbody>
         </table>
-      </div>
-      <div className="overflow-x-auto px-4">
+        </div>
+      </section>
+      <section className="px-4" aria-label="Bills">
+        <h2 className="mac-t13 text-[var(--mac-secondary)]">Bills</h2>
+        <div className="overflow-x-auto">
         <table className="mac-table" aria-label="Bills">
           <thead>
             <tr>
@@ -240,7 +245,8 @@ export function PurchaseOrderDetail({
             ))}
           </tbody>
         </table>
-      </div>
+        </div>
+      </section>
       <section className="px-4" aria-label="History">
         <h2 className="mac-t13 text-[var(--mac-secondary)]">History</h2>
         <ul className="mt-1">

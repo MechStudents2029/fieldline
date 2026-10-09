@@ -151,7 +151,9 @@ export default async function BillPage({ params }: { params: Promise<{ id: strin
           ) : null}
         </section>
       ) : null}
-      <div className="overflow-x-auto px-4">
+      <section className="px-4" aria-label="Lines">
+        <h2 className="mac-t13 text-[var(--mac-secondary)]">Lines</h2>
+        <div className="overflow-x-auto">
         <table className="mac-table" aria-label="Lines">
           <thead>
             <tr>
@@ -170,7 +172,8 @@ export default async function BillPage({ params }: { params: Promise<{ id: strin
             ))}
           </tbody>
         </table>
-      </div>
+        </div>
+      </section>
       {office && bill.status === "approved" ? (
         <div className="grid gap-4 px-4">
           <ActionForm action={payBillAction.bind(null, bill.id)} className="grid gap-2 sm:grid-cols-3">

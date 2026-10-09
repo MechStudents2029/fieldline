@@ -1,3 +1,5 @@
+import { applyCatalogQuantity, measuresFromValues } from "@/lib/estimate/formula";
+
 export type PriceRef = {
   id?: string;
   code: string;
@@ -6,6 +8,9 @@ export type PriceRef = {
   unit: string;
   unitCostCents: number;
   defaultMarkupBps: number;
+  formula?: string | null;
+  wasteBps?: number;
+  roundToMilli?: number | null;
 };
 
 export type DraftLine = {
@@ -19,15 +24,21 @@ export type DraftLine = {
   confidence: number;
   reason: string;
   priceBookItemId?: string;
+  formula?: string | null;
+  wasteBps?: number;
+  roundToMilli?: number | null;
 };
 
 export type DraftSection = { name: string; lines: DraftLine[] };
+
+export type DraftMeasurement = { name: string; value: number; unit: string };
 
 export type DraftEstimate = {
   title: string;
   sections: DraftSection[];
   notes: string;
   model: string;
+  measurements: DraftMeasurement[];
 };
 
 /** A photo-only cue never outranks a written dimension. Estimators still have to check the site. */
@@ -324,11 +335,20 @@ const RULES: Rule[] = [
 const PHOTO_SITE_CHECK = "From a site photo, not the written scope. Needs a site check.";
 const SITE_MEASURE = "Needs a site measure.";
 
-function finishReason(rule: Rule, ctx: Ctx, photoOnly: boolean): string {
+function finishReason(rule: Rule, ctx: Ctx, photoOnly: boolean, needsMeasure: boolean): string {
   let reason = rule.reason(ctx);
   if (photoOnly && !/site photo/i.test(reason)) reason = `${reason} ${PHOTO_SITE_CHECK}`;
-  if (rule.needsMeasure?.(ctx) && !/site measure/i.test(reason)) reason = `${reason} ${SITE_MEASURE}`;
+  if (needsMeasure && !/site measure/i.test(reason)) reason = `${reason} ${SITE_MEASURE}`;
   return reason;
+}
+
+export function measurementsFromScope(scope: string, extra: DraftMeasurement[] = []): DraftMeasurement[] {
+  const ctx = buildCtx(scope, "");
+  const byName = new Map<string, DraftMeasurement>();
+  if (ctx.sqft) byName.set("Floor", { name: "Floor", value: ctx.sqft, unit: "sf" });
+  if (ctx.baseLf != null) byName.set("Base", { name: "Base", value: ctx.baseLf, unit: "lf" });
+  for (const row of extra) byName.set(row.name, row);
+  return [...byName.values()];
 }
 
 /**
@@ -364,6 +384,7 @@ export function draftEstimate(input: {
   book: PriceRef[];
   markupBps: number;
   model?: string;
+  measurements?: DraftMeasurement[];
 }): DraftEstimate {
   const photos = normalizePhotos(input);
   const ctx = buildCtx(input.scope, photoBlob(photos));
@@ -376,12 +397,20 @@ export function draftEstimate(input: {
   const byCode = new Map(input.book.map((item) => [item.code, item]));
   const lines: DraftLine[] = [];
   const seen = new Set<string>();
+  const measurements = measurementsFromScope(input.scope, input.measurements);
+  const measureMilli = measuresFromValues(measurements);
 
   for (const rule of RULES) {
     if (!rule.when(ctx) || seen.has(rule.code)) continue;
     const item = byCode.get(rule.code);
     if (!item) continue;
-    const qty = rule.qty(ctx);
+    const guess = rule.qty(ctx);
+    if (!Number.isFinite(guess) || guess <= 0) continue;
+    const catalogSpec = item.formula
+      ? { expr: item.formula, wasteBps: item.wasteBps ?? 0, roundToMilli: item.roundToMilli ?? null }
+      : undefined;
+    const applied = applyCatalogQuantity(item.code, guess, measureMilli, catalogSpec);
+    const qty = applied.qty;
     if (!Number.isFinite(qty) || qty <= 0) continue;
     seen.add(rule.code);
     const scopeHit = rule.when(scopeCtx);
@@ -391,6 +420,7 @@ export function draftEstimate(input: {
     if (photoOnly) confidence = Math.min(confidence, PHOTO_ONLY_CONFIDENCE_CAP);
     else if (photoHit && scopeHit) confidence = Math.min(0.95, confidence + 0.06);
     else if (photos.length > 0) confidence = Math.min(0.95, confidence + 0.03);
+    const needsMeasure = applied.formula || applied.needsMeasure ? applied.needsMeasure : Boolean(rule.needsMeasure?.(ctx));
     lines.push({
       code: item.code,
       name: item.name,
@@ -400,8 +430,11 @@ export function draftEstimate(input: {
       unitCostCents: item.unitCostCents,
       markupBps: input.markupBps,
       confidence: Math.round(confidence * 100) / 100,
-      reason: finishReason(rule, ctx, photoOnly),
+      reason: finishReason(rule, ctx, photoOnly, needsMeasure),
       priceBookItemId: item.id,
+      formula: applied.formula,
+      wasteBps: applied.wasteBps,
+      roundToMilli: applied.roundToMilli,
     });
   }
 
@@ -446,6 +479,7 @@ export function draftEstimate(input: {
     sections: [...groups.entries()].map(([name, sectionLines]) => ({ name, lines: sectionLines })),
     notes: `${low} line${low === 1 ? "" : "s"} under 70% confidence.${measureNote} Prices come from your price book, not from a generic model.${photoNote} Review every line before you send.`,
     model: input.model ?? "fieldline-pricebook-v1",
+    measurements,
   };
 }
 

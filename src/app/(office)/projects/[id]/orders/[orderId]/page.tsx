@@ -33,7 +33,9 @@ export default async function ChangeOrderPage({ params }: { params: Promise<{ id
         ]}
       />
       {order.lines.length > 0 ? (
-        <div className="overflow-x-auto px-4">
+        <section className="px-4" aria-label="Lines">
+          <h2 className="mac-t13 text-[var(--mac-secondary)]">Lines</h2>
+          <div className="overflow-x-auto">
           <table className="mac-table" aria-label="Lines">
             <thead>
               <tr>
@@ -54,7 +56,8 @@ export default async function ChangeOrderPage({ params }: { params: Promise<{ id
               ))}
             </tbody>
           </table>
-        </div>
+          </div>
+        </section>
       ) : null}
       <div className="px-4">
         <CommentThread entityType="change_order" entityId={order.id} />

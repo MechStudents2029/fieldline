@@ -2,7 +2,9 @@
 
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { syncEstimateGridAction } from "@/app/actions";
+import { FormulaBar, MeasurementsPanel } from "@/components/mac/measurements";
 import { defaultSchedule } from "@/lib/domain/snapshot";
+import { evaluateFormula, formulaCaption } from "@/lib/estimate/formula";
 import type { Billing } from "@/lib/estimate/pricing";
 import { groupSubtotals, repriceToMargin, sumCounting } from "@/lib/estimate/pricing";
 import { formatPercent, formatQty, formatWhole, lineAmounts, lineInputError, milliToQty, parseMoneyToCents, qtyToMilli, scheduleAmounts } from "@/lib/money";
@@ -20,7 +22,12 @@ export type WorkspaceLine = {
   sortOrder: number;
   aiConfidenceMilli: number | null;
   sourceNote: string | null;
+  qtyFormula: string | null;
+  wasteBps: number;
+  roundToMilli: number | null;
 };
+
+export type WorkspaceMeasure = { id: string; name: string; valueMilli: number; unit: string };
 
 export type WorkspaceSection = { id: string; name: string; sortOrder: number };
 
@@ -43,6 +50,9 @@ function namedSignature(rows: WorkspaceLine[]) {
         billing: row.billing,
         costCode: row.costCode,
         sortOrder: row.sortOrder,
+        formula: row.qtyFormula,
+        wasteBps: row.wasteBps,
+        roundToMilli: row.roundToMilli,
       })),
   );
 }
@@ -119,6 +129,7 @@ export function EstimateWorkspace({
   locked,
   sections,
   lines: initialLines,
+  measurements,
   marginTargetBps,
   depositBps,
   progressBps,
@@ -136,6 +147,7 @@ export function EstimateWorkspace({
   locked: boolean;
   sections: WorkspaceSection[];
   lines: WorkspaceLine[];
+  measurements: WorkspaceMeasure[];
   marginTargetBps: number;
   depositBps: number;
   progressBps: number;
@@ -175,6 +187,8 @@ export function EstimateWorkspace({
   const ackLines = useRef(initialLines);
   const forceTarget = useRef<number | undefined>(undefined);
   const ticketRef = useRef(0);
+  const holdSync = useRef(false);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const focusRef = useRef<{ id: string; col: Col } | null>(null);
   const editStart = useRef<{ id: string; col: Col; snapshot: WorkspaceLine } | null>(null);
 
@@ -182,6 +196,7 @@ export function EstimateWorkspace({
     const incoming = namedSignature(initialLines);
     if (incoming === ackSig.current) return;
     if (namedSignature(lines) !== ackSig.current) return;
+    holdSync.current = true;
     ackLines.current = initialLines;
     ackSig.current = incoming;
     setLines(initialLines);
@@ -199,6 +214,10 @@ export function EstimateWorkspace({
 
   useEffect(() => {
     if (locked) return;
+    if (holdSync.current) {
+      holdSync.current = false;
+      return;
+    }
     const signature = namedSignature(lines);
     if (signature === ackSig.current && forceTarget.current == null) return;
     const handle = window.setTimeout(() => {
@@ -222,6 +241,9 @@ export function EstimateWorkspace({
           billing: row.billing,
           costCode: row.costCode,
           sortOrder: row.sortOrder,
+          formula: row.qtyFormula,
+          wasteBps: row.wasteBps,
+          roundToMilli: row.roundToMilli,
         })),
         deletedIds,
         ...(nextTarget != null ? { marginTargetBps: nextTarget } : {}),
@@ -268,9 +290,37 @@ export function EstimateWorkspace({
     setLines((current) =>
       current.map((row) => {
         if (row.id !== id) return row;
-        return { ...row, ...patch, aiConfidenceMilli: clearConfidence ? null : row.aiConfidenceMilli };
+        const next = { ...row, ...patch, aiConfidenceMilli: clearConfidence ? null : row.aiConfidenceMilli };
+        if (patch.qtyMilli != null && patch.qtyMilli !== row.qtyMilli) {
+          next.qtyFormula = null;
+          next.wasteBps = 0;
+          next.roundToMilli = null;
+        }
+        return next;
       }),
     );
+  }
+
+  function measuresForFormula() {
+    return measurements.map((row) => ({ name: row.name, valueMilli: row.valueMilli }));
+  }
+
+  function useTyped(id: string) {
+    setLines((current) => current.map((row) => (row.id === id ? { ...row, qtyFormula: null, wasteBps: 0, roundToMilli: null } : row)));
+    setSelectedId(id);
+  }
+
+  function useFormula(id: string, expr: string, wasteBps: number, roundToMilli: number | null) {
+    try {
+      const qtyMilli = evaluateFormula({ expr, wasteBps, roundToMilli, measurements: measuresForFormula() });
+      setError(null);
+      setLines((current) =>
+        current.map((row) => (row.id === id ? { ...row, qtyFormula: expr, wasteBps, roundToMilli, qtyMilli, aiConfidenceMilli: null } : row)),
+      );
+      setSelectedId(id);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Check the formula.");
+    }
   }
 
   function addBelow(afterId: string | null) {
@@ -301,6 +351,9 @@ export function EstimateWorkspace({
         sortOrder,
         aiConfidenceMilli: null,
         sourceNote: null,
+        qtyFormula: null,
+        wasteBps: 0,
+        roundToMilli: null,
       },
     ]);
     setFocusNonce((value) => value + 1);
@@ -442,6 +495,13 @@ export function EstimateWorkspace({
           </div>
         </div>
       </div>
+      <div className="estimate-phone-measures">
+        {measurements.map((row) => (
+          <p key={row.id}>
+            {row.name} <span className="num">{formatQty(row.valueMilli)}</span> {row.unit}
+          </p>
+        ))}
+      </div>
       {children}
       <div className="estimate-mac">
         <div className="estimate-grid-wrap">
@@ -551,7 +611,43 @@ export function EstimateWorkspace({
                                 {low ? <span className="est-confidence">{Math.round((line.aiConfidenceMilli ?? 0) / 10)}%</span> : null}
                               </span>
                               <span className="est-code">{line.costCode}</span>
-                              {(["qty", "unit", "cost", "markup"] as Col[]).map((col) => (
+                              <span className="est-qty">
+                                <input
+                                  data-line={line.id}
+                                  data-col="qty"
+                                  aria-label="Qty"
+                                  className="est-cell num"
+                                  title={line.qtyFormula ? formulaCaption(line.qtyFormula, line.wasteBps, line.roundToMilli) : undefined}
+                                  value={shownText(line, "qty", draft)}
+                                  disabled={locked}
+                                  readOnly={Boolean(line.qtyFormula)}
+                                  inputMode="decimal"
+                                  onFocus={() => {
+                                    editStart.current = { id: line.id, col: "qty", snapshot: { ...line } };
+                                    if (line.qtyFormula) setSelectedId(line.id);
+                                  }}
+                                  onChange={(event) => {
+                                    if (line.qtyFormula) return;
+                                    const text = event.target.value;
+                                    setDraft({ id: line.id, col: "qty", text });
+                                    const parsed = parseCell("qty", text);
+                                    if ("patch" in parsed) {
+                                      setError(null);
+                                      patchLine(line.id, parsed.patch, true);
+                                    } else if ("error" in parsed) setError(parsed.error);
+                                  }}
+                                  onBlur={() => {
+                                    if (draft?.id === line.id && draft.col === "qty") setDraft(null);
+                                  }}
+                                  onKeyDown={(event) => onKey(event, line, "qty")}
+                                />
+                                {line.qtyFormula ? (
+                                  <button type="button" className="est-fx" aria-label={`Formula ${line.name}`} onClick={() => setSelectedId(line.id)}>
+                                    fx
+                                  </button>
+                                ) : null}
+                              </span>
+                              {(["unit", "cost", "markup"] as Col[]).map((col) => (
                                 <input
                                   key={col}
                                   data-line={line.id}
@@ -609,6 +705,14 @@ export function EstimateWorkspace({
           )}
         </div>
         <aside className="estimate-side" aria-label={previewOn ? "Client preview" : "Inspector"}>
+          <MeasurementsPanel estimateId={estimateId} locked={locked} rows={measurements} />
+          <FormulaBar
+            key={`${selectedId ?? "none"}:${lines.find((row) => row.id === selectedId)?.qtyFormula ?? ""}:${lines.find((row) => row.id === selectedId)?.wasteBps ?? 0}:${lines.find((row) => row.id === selectedId)?.roundToMilli ?? ""}`}
+            line={lines.find((row) => row.id === selectedId) ?? null}
+            locked={locked}
+            onTyped={useTyped}
+            onFormula={useFormula}
+          />
           <button type="button" className="est-preview-toggle" aria-pressed={previewOn} onClick={togglePreview}>
             Preview
           </button>

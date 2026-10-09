@@ -173,6 +173,8 @@ import {
   readDemoReceipt,
   removeLine,
   reviseEstimate,
+  saveMeasurement,
+  deleteMeasurement,
   sendChangeOrder,
   sendProposal,
   syncEstimateGrid,
@@ -352,6 +354,33 @@ export async function generateEstimateAction(leadId: string, _prev: ActionState,
     const result = await generateEstimate(user, leadId);
     revalidatePath(`/leads/${leadId}`);
     redirect(`/estimates/${result.estimateId}`);
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function saveMeasurementAction(estimateId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    saveMeasurement(user, estimateId, {
+      id: String(formData.get("id") || "") || undefined,
+      name: String(formData.get("name") || ""),
+      value: Number(formData.get("value")),
+      unit: String(formData.get("unit") || ""),
+    });
+    revalidatePath(`/estimates/${estimateId}`);
+    return { ok: "Saved." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function deleteMeasurementAction(estimateId: string, measurementId: string): Promise<ActionState> {
+  try {
+    const user = await actor();
+    deleteMeasurement(user, estimateId, measurementId);
+    revalidatePath(`/estimates/${estimateId}`);
+    return { ok: "Saved." };
   } catch (error) {
     return failure(error);
   }

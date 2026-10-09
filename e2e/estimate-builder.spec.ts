@@ -12,7 +12,7 @@ test("keyboard edits, line changes, and target margin update the client preview"
   await page.goto("/estimates/est_vasquez");
   await expect(page.getByRole("grid", { name: "Estimate lines" })).toBeVisible();
   await expect(page.getByText("CAB-BASE")).toBeVisible();
-  await expect(page.getByTestId("client-total")).toHaveText("$70,000");
+  await expect(page.getByTestId("client-total")).toHaveText("$68,671");
   await expect(page.getByTestId("client-preview")).not.toContainText("$900");
 
   const qty = page.locator('[data-line="li_vz_base"][data-col="qty"]');
@@ -26,7 +26,7 @@ test("keyboard edits, line changes, and target margin update the client preview"
   await expect(page.locator('[data-line="li_vz_base"][data-col="markup"]')).toBeFocused();
   await page.keyboard.press("Enter");
   await expect(page.locator('[data-line="li_vz_wall"][data-col="markup"]')).toBeFocused();
-  await expect(page.getByTestId("client-total")).not.toHaveText("$70,000");
+  await expect(page.getByTestId("client-total")).not.toHaveText("$68,671");
   await expect(page.locator('[data-preview-line="li_vz_base"]')).toContainText("15");
   await expect(page.getByText("Line saved.")).toBeVisible();
 
@@ -49,7 +49,7 @@ test("keyboard edits, line changes, and target margin update the client preview"
   await expect(page.getByText("Line saved.")).toBeHidden();
   await expect(page.getByText("Line saved.")).toBeVisible();
   await expect(page.getByTestId("gross-margin")).toHaveText("35%");
-  await expect(page.getByTestId("client-total")).not.toHaveText("$70,000");
+  await expect(page.getByTestId("client-total")).not.toHaveText("$68,671");
   await expect(page.getByTestId("client-preview")).toContainText("Allowance · Appliance allowance");
   await expect(page.getByTestId("client-preview")).toContainText("Optional · Upgraded edge profile");
 

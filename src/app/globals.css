@@ -1143,6 +1143,17 @@ html.mac-inspector-off .mac-inspector { display: none; }
   font-size: 17px;
 }
 .estimate-mac { display: none; }
+.estimate-phone-measures { display: flex; flex-wrap: wrap; gap: 8px 16px; padding: 0 16px 8px; color: var(--mac-secondary); font-size: 13px; }
+.measure-block { margin-bottom: 12px; }
+.measure-table { width: 100%; border-collapse: collapse; }
+.measure-table th { color: var(--mac-secondary); font-size: 11px; font-weight: 600; text-align: left; }
+.measure-table td { padding: 2px 4px 2px 0; vertical-align: middle; }
+.measure-table input.ctl { width: 72px; max-width: 88px; }
+.measure-table select.ctl { width: auto; max-width: 72px; }
+.measure-formula { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 8px 0; font-size: 13px; }
+.est-qty { display: flex; align-items: center; justify-content: flex-end; gap: 2px; min-width: 0; }
+.est-qty .est-cell { width: 100%; min-width: 0; padding: 0; text-align: right; }
+.est-fx { border: 0; background: transparent; color: var(--mac-accent); font-size: 11px; font-weight: 600; line-height: 16px; padding: 0 1px; cursor: pointer; }
 .estimate-reprice,
 .estimate-deposit { display: none; }
 .estimate-send {
@@ -1164,7 +1175,7 @@ html.mac-inspector-off .mac-inspector { display: none; }
     gap: 0;
     min-height: 0;
   }
-  .estimate-phone { display: none; }
+  .estimate-phone, .estimate-phone-measures { display: none; }
   .estimate-phone-preview,
   .estimate-back-name { display: none; }
   .estimate-top {
@@ -1282,7 +1293,7 @@ html.mac-inspector-off .mac-inspector { display: none; }
 .est-head,
 .est-line {
   display: grid;
-  grid-template-columns: 22px minmax(140px, 1.6fr) 88px 56px 44px 84px 64px 76px 92px;
+  grid-template-columns: 22px minmax(140px, 1.6fr) 88px 88px 44px 84px 56px 72px 92px;
   align-items: center;
   gap: 4px;
   min-height: 28px;

@@ -73,20 +73,17 @@ export function CommentComposer({
   }
 
   return (
-    <form action={formAction} className="mt-3 grid gap-2" aria-busy={pending}>
-      <label className="text-sm">
-        Comment
-        <textarea
-          ref={box}
-          name="body"
-          aria-label="Comment"
-          rows={2}
-          value={body}
-          className="field mt-1"
-          onChange={(event) => sync(event.target.value, event.target.selectionStart)}
-          onKeyDown={onKeyDown}
-        />
-      </label>
+    <form action={formAction} className="grid gap-2" aria-busy={pending}>
+      <textarea
+        ref={box}
+        name="body"
+        aria-label="Comment"
+        rows={2}
+        value={body}
+        className="field"
+        onChange={(event) => sync(event.target.value, event.target.selectionStart)}
+        onKeyDown={onKeyDown}
+      />
       {query != null && options.length > 0 ? (
         <ul role="listbox" aria-label="Mention" className="mac-box overflow-hidden">
           {options.map((option, index) => (

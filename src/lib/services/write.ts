@@ -14,6 +14,7 @@ import {
   contacts,
   costItems,
   documents,
+  estimateMeasurements,
   estimateSections,
   estimates,
   followUpDrafts,
@@ -46,6 +47,7 @@ import {
 } from "@/lib/ai/nurture";
 import { suggestCostCode } from "@/lib/ai/cost-code";
 import { extractReceiptText, readReceiptMeta, type StoredReceipt } from "@/lib/ai/receipt";
+import { applyCatalogQuantity, evaluateFormula, FormulaError, measurementName, measurementUnit, measuresFromValues, referencedNames } from "@/lib/estimate/formula";
 import { parseGridSync } from "@/lib/estimate/grid";
 import { countsTowardTotal, type Billing } from "@/lib/estimate/pricing";
 import { assembleSnapshot, defaultSchedule, type StoredSnapshot } from "@/lib/domain/snapshot";
@@ -334,11 +336,16 @@ export async function generateEstimate(actor: Actor, leadId: string) {
       unit: item.unit,
       unitCostCents: item.unitCostCents,
       defaultMarkupBps: item.defaultMarkupBps,
+      formula: item.defaultFormula,
+      wasteBps: item.defaultWasteBps ?? 0,
+      roundToMilli: item.defaultRoundToMilli,
     })),
     markupBps: org.defaultMarkupBps,
   });
   const estimateId = id("est");
   const now = nowIso();
+  const measureRows = draft.measurements ?? [];
+  const measureMilli = measuresFromValues(measureRows);
   const previous = db.select().from(estimates).where(eq(estimates.leadId, leadId)).all();
   const version = previous.reduce((max, row) => Math.max(max, row.version), 0) + 1;
   db.transaction((tx) => {
@@ -362,12 +369,29 @@ export async function generateEstimate(actor: Actor, leadId: string) {
         createdBy: actor.userId,
       })
       .run();
+    measureRows.forEach((row, index) => {
+      tx.insert(estimateMeasurements)
+        .values({
+          id: id("meas"),
+          orgId: actor.orgId,
+          estimateId,
+          name: row.name,
+          valueMilli: qtyToMilli(row.value),
+          unit: row.unit,
+          sortOrder: index,
+        })
+        .run();
+    });
     draft.sections.forEach((section, sectionIndex) => {
       const sectionId = id("sec");
       tx.insert(estimateSections)
         .values({ id: sectionId, orgId: actor.orgId, estimateId, name: section.name, sortOrder: sectionIndex })
         .run();
       section.lines.forEach((line, lineIndex) => {
+        const applied = line.formula
+          ? { qty: line.qty, formula: line.formula, wasteBps: line.wasteBps ?? 0, roundToMilli: line.roundToMilli ?? null, needsMeasure: false }
+          : applyCatalogQuantity(line.code, line.qty, measureMilli);
+        const reason = applied.formula == null && applied.needsMeasure && !/site measure/i.test(line.reason) ? `${line.reason} Needs a site measure.` : line.reason;
         tx.insert(lineItems)
           .values({
             id: id("li"),
@@ -377,15 +401,18 @@ export async function generateEstimate(actor: Actor, leadId: string) {
             priceBookItemId: line.priceBookItemId ?? null,
             name: line.name,
             description: null,
-            qtyMilli: qtyToMilli(line.qty),
+            qtyMilli: qtyToMilli(applied.qty),
             unit: line.unit,
             unitCostCents: line.unitCostCents,
             markupBps: line.markupBps,
             costCode: line.code,
             source: "ai",
             aiConfidenceMilli: Math.round(line.confidence * 1000),
-            sourceNote: line.reason,
+            sourceNote: reason,
             sortOrder: lineIndex,
+            qtyFormula: applied.formula,
+            wasteBps: applied.wasteBps,
+            roundToMilli: applied.roundToMilli,
           })
           .run();
         if (line.priceBookItemId) {
@@ -444,6 +471,7 @@ export function updateLine(
       markupBps: patch.markupBps ?? line.markupBps,
       name: patch.name?.trim() || line.name,
       source: line.source === "ai" ? "manual" : line.source,
+      ...(patch.qty != null ? { qtyFormula: null, wasteBps: 0, roundToMilli: null } : {}),
     })
     .where(eq(lineItems.id, lineId))
     .run();
@@ -467,6 +495,20 @@ export function addManualLine(
   if (!input.name.trim()) throw new ServiceError("A line needs a name and a quantity.");
   const invalid = lineInputError({ qty: input.qty, unitCostCents: input.unitCostCents, markupBps: input.markupBps });
   if (invalid) throw new ServiceError(invalid);
+  const book = input.costCode
+    ? db.select().from(priceBookItems).where(and(eq(priceBookItems.orgId, actor.orgId), eq(priceBookItems.code, input.costCode))).get()
+    : undefined;
+  const stored = book?.defaultFormula
+    ? { expr: book.defaultFormula, wasteBps: book.defaultWasteBps ?? 0, roundToMilli: book.defaultRoundToMilli ?? null }
+    : undefined;
+  const applied = input.costCode
+    ? applyCatalogQuantity(
+        input.costCode,
+        input.qty,
+        measurementRows(db, actor.orgId, estimateId).map((row) => ({ name: row.name, valueMilli: row.valueMilli })),
+        stored,
+      )
+    : null;
   db.insert(lineItems)
     .values({
       id: id("li"),
@@ -476,7 +518,7 @@ export function addManualLine(
       priceBookItemId: null,
       name: input.name.trim(),
       description: null,
-      qtyMilli: qtyToMilli(input.qty),
+      qtyMilli: qtyToMilli(applied?.formula ? applied.qty : input.qty),
       unit: input.unit || "ea",
       unitCostCents: input.unitCostCents,
       markupBps: input.markupBps,
@@ -485,8 +527,145 @@ export function addManualLine(
       aiConfidenceMilli: null,
       sourceNote: "Added by hand.",
       sortOrder: 100,
+      qtyFormula: applied?.formula ?? null,
+      wasteBps: applied?.wasteBps ?? 0,
+      roundToMilli: applied?.roundToMilli ?? null,
     })
     .run();
+}
+
+function measurementRows(db: Writer, orgId: string, estimateId: string) {
+  return db
+    .select()
+    .from(estimateMeasurements)
+    .where(and(eq(estimateMeasurements.orgId, orgId), eq(estimateMeasurements.estimateId, estimateId)))
+    .all();
+}
+
+function linesUsingMeasurement(db: Writer, orgId: string, estimateId: string, name: string): string | null {
+  const lines = db
+    .select()
+    .from(lineItems)
+    .where(and(eq(lineItems.orgId, orgId), eq(lineItems.estimateId, estimateId)))
+    .all();
+  const count = lines.filter((line) => {
+    if (!line.qtyFormula) return false;
+    try {
+      return referencedNames(line.qtyFormula).includes(name);
+    } catch {
+      return false;
+    }
+  }).length;
+  if (!count) return null;
+  return count === 1 ? `1 line uses ${name}.` : `${count} lines use ${name}.`;
+}
+
+function recalcFormulas(db: Writer, orgId: string, estimateId: string) {
+  const packed = measurementRows(db, orgId, estimateId).map((row) => ({ name: row.name, valueMilli: row.valueMilli }));
+  const lines = db
+    .select()
+    .from(lineItems)
+    .where(and(eq(lineItems.orgId, orgId), eq(lineItems.estimateId, estimateId)))
+    .all();
+  for (const line of lines) {
+    if (!line.qtyFormula) continue;
+    let qtyMilli: number;
+    try {
+      qtyMilli = evaluateFormula({
+        expr: line.qtyFormula,
+        wasteBps: line.wasteBps ?? 0,
+        roundToMilli: line.roundToMilli,
+        measurements: packed,
+      });
+    } catch (error) {
+      throw new ServiceError(error instanceof FormulaError ? error.message : "Check the formula.");
+    }
+    if (qtyMilli !== line.qtyMilli) {
+      db.update(lineItems).set({ qtyMilli }).where(and(eq(lineItems.id, line.id), eq(lineItems.orgId, orgId))).run();
+    }
+  }
+}
+
+function formulaQty(
+  orgId: string,
+  estimateId: string,
+  line: { formula?: string | null; wasteBps?: number; roundToMilli?: number | null },
+): { qtyMilli: number; formula: string; wasteBps: number; roundToMilli: number | null } | null {
+  const formula = line.formula?.trim() ?? "";
+  if (!formula) return null;
+  const db = officeDb(orgId);
+  if (!db) throw new ServiceError("This company is not on the signed-in account.");
+  try {
+    const qtyMilli = evaluateFormula({
+      expr: formula,
+      wasteBps: line.wasteBps ?? 0,
+      roundToMilli: line.roundToMilli ?? null,
+      measurements: measurementRows(db, orgId, estimateId).map((row) => ({ name: row.name, valueMilli: row.valueMilli })),
+    });
+    return { qtyMilli, formula, wasteBps: line.wasteBps ?? 0, roundToMilli: line.roundToMilli ?? null };
+  } catch (error) {
+    throw new ServiceError(error instanceof FormulaError ? error.message : "Check the formula.");
+  }
+}
+
+export function saveMeasurement(
+  actor: Actor,
+  estimateId: string,
+  input: { id?: string; name: string; value: number; unit: string },
+) {
+  assertMoney(actor);
+  loadEditableEstimate(actor, estimateId);
+  let name: string;
+  let unit: string;
+  try {
+    name = measurementName(input.name);
+    unit = measurementUnit(input.unit);
+  } catch (error) {
+    throw new ServiceError(error instanceof FormulaError ? error.message : "Check the measurement.");
+  }
+  if (!Number.isFinite(input.value) || input.value <= 0 || input.value > 1_000_000) {
+    throw new ServiceError("Enter a number greater than zero.");
+  }
+  const valueMilli = qtyToMilli(input.value);
+  const db = staffDb(actor);
+  const existing = measurementRows(db, actor.orgId, estimateId);
+  const row = input.id ? existing.find((item) => item.id === input.id) : existing.find((item) => item.name === name);
+  if (row && row.name !== name) {
+    const used = linesUsingMeasurement(db, actor.orgId, estimateId, row.name);
+    if (used) throw new ServiceError(used);
+  }
+  if (existing.some((item) => item.name === name && item.id !== row?.id)) throw new ServiceError(`${name} is already on this estimate.`);
+  db.transaction((tx) => {
+    if (row) {
+      tx.update(estimateMeasurements).set({ name, valueMilli, unit }).where(eq(estimateMeasurements.id, row.id)).run();
+    } else {
+      tx.insert(estimateMeasurements)
+        .values({
+          id: id("meas"),
+          orgId: actor.orgId,
+          estimateId,
+          name,
+          valueMilli,
+          unit,
+          sortOrder: existing.length,
+        })
+        .run();
+    }
+    recalcFormulas(tx, actor.orgId, estimateId);
+    tx.update(estimates).set({ updatedAt: nowIso() }).where(eq(estimates.id, estimateId)).run();
+  });
+}
+
+export function deleteMeasurement(actor: Actor, estimateId: string, measurementId: string) {
+  assertMoney(actor);
+  loadEditableEstimate(actor, estimateId);
+  const db = staffDb(actor);
+  const row = measurementRows(db, actor.orgId, estimateId).find((item) => item.id === measurementId);
+  if (!row) throw new ServiceError("Measurement not found.");
+  const used = linesUsingMeasurement(db, actor.orgId, estimateId, row.name);
+  if (used) throw new ServiceError(used);
+  db.delete(estimateMeasurements).where(and(eq(estimateMeasurements.id, row.id), eq(estimateMeasurements.orgId, actor.orgId))).run();
+  db.update(estimates).set({ updatedAt: nowIso() }).where(eq(estimates.id, estimateId)).run();
 }
 
 export function syncEstimateGrid(actor: Actor, input: unknown) {
@@ -531,7 +710,11 @@ export function syncEstimateGrid(actor: Actor, input: unknown) {
         sectionIds.add(line.sectionId);
       }
       const row = byId.get(line.id);
-      const qtyMilli = qtyToMilli(line.qty);
+      const stored = formulaQty(actor.orgId, estimate.id, line);
+      const qtyMilli = stored?.qtyMilli ?? qtyToMilli(line.qty);
+      const formulaFields = stored
+        ? { qtyFormula: stored.formula, wasteBps: stored.wasteBps, roundToMilli: stored.roundToMilli }
+        : { qtyFormula: null, wasteBps: 0, roundToMilli: null };
       if (!row) {
         tx.insert(lineItems)
           .values({
@@ -552,6 +735,7 @@ export function syncEstimateGrid(actor: Actor, input: unknown) {
             sourceNote: null,
             sortOrder: line.sortOrder,
             billing: line.billing,
+            ...formulaFields,
           })
           .run();
         continue;
@@ -563,7 +747,8 @@ export function syncEstimateGrid(actor: Actor, input: unknown) {
         row.unitCostCents !== line.unitCostCents ||
         row.markupBps !== line.markupBps ||
         row.sectionId !== line.sectionId ||
-        (row.billing || "included") !== line.billing;
+        (row.billing || "included") !== line.billing ||
+        (row.qtyFormula ?? null) !== formulaFields.qtyFormula;
       tx.update(lineItems)
         .set({
           sectionId: line.sectionId,
@@ -575,6 +760,7 @@ export function syncEstimateGrid(actor: Actor, input: unknown) {
           costCode: line.costCode,
           sortOrder: line.sortOrder,
           billing: line.billing,
+          ...formulaFields,
           source: changed && row.source === "ai" ? "manual" : row.source,
           aiConfidenceMilli: changed && row.source === "ai" ? null : row.aiConfidenceMilli,
         })
@@ -612,6 +798,7 @@ export function reviseEstimate(actor: Actor, estimateId: string) {
   if (!estimate) throw new ServiceError("Estimate not found.");
   const sections = db.select().from(estimateSections).where(eq(estimateSections.estimateId, estimateId)).all();
   const lines = db.select().from(lineItems).where(eq(lineItems.estimateId, estimateId)).all();
+  const measures = measurementRows(db, actor.orgId, estimateId);
   const previous = db.select().from(estimates).where(eq(estimates.leadId, estimate.leadId)).all();
   const nextId = id("est");
   const now = nowIso();
@@ -637,6 +824,11 @@ export function reviseEstimate(actor: Actor, estimateId: string) {
           .values({ ...line, id: id("li"), sectionId, estimateId: nextId })
           .run();
       }
+    }
+    for (const row of measures) {
+      tx.insert(estimateMeasurements)
+        .values({ ...row, id: id("meas"), estimateId: nextId })
+        .run();
     }
     log(tx, actor.orgId, "lead", estimate.leadId, "estimate", `Revised estimate into v${previous.reduce((max, row) => Math.max(max, row.version), 0) + 1}.`, "user", actor.userId);
   });

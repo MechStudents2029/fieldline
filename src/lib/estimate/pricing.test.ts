@@ -28,10 +28,10 @@ describe("estimate pricing", () => {
     expect(() => markupBpsForMargin(10000)).toThrow(/Margin/);
   });
 
-  it("keeps the Vasquez kitchen at $49,000, 30%, $70,000 without the optional edge", () => {
+  it("keeps the Vasquez kitchen at $48,070, 30%, $68,671 without the optional edge", () => {
     const totals = sumCounting(vasquezLines.map(priced));
-    expect(formatWhole(totals.costCents)).toBe("$49,000");
-    expect(formatWhole(totals.priceCents)).toBe("$70,000");
+    expect(formatWhole(totals.costCents)).toBe("$48,070");
+    expect(formatWhole(totals.priceCents)).toBe("$68,671");
     expect(formatPercent(totals.marginBps)).toBe("30%");
     const edge = vasquezLines.find((line) => line.billing === "optional")!;
     const edgeAmounts = lineAmounts(qtyToMilli(edge.qty), edge.unitCostCents, edge.markupBps);

@@ -98,6 +98,16 @@ const ROWS: Array<[string, string, string, string, number, string, string]> = [
   ["HVAC-BATH", "Bath exhaust fan", "HVAC", "ea", 38000, "Airside Mechanical", "exhaust fan"],
 ];
 
+/** Default quantity formula for a price-book code. Waste is basis points. Round-up is milli-units. */
+export const CATALOG_FORMULAS: Record<string, { expr: string; wasteBps: number; roundToMilli: number | null }> = {
+  "FLR-LVP": { expr: "Floor", wasteBps: 1000, roundToMilli: null },
+  "TILE-FLR": { expr: "Floor", wasteBps: 1000, roundToMilli: 10_000 },
+  "TILE-BACK": { expr: "Backsplash", wasteBps: 1000, roundToMilli: 10_000 },
+  "DW-HANG": { expr: "Walls", wasteBps: 1000, roundToMilli: 32_000 },
+  "PNT-INT": { expr: "Walls", wasteBps: 1000, roundToMilli: null },
+  "FLR-BASE": { expr: "Base", wasteBps: 1000, roundToMilli: null },
+};
+
 export function riveraCatalog(): CatalogRow[] {
   return ROWS.map(([code, name, category, unit, unitCostCents, vendor, keywords]) => ({
     code,

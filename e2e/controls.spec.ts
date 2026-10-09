@@ -9,6 +9,7 @@ const routes = [
   "/projects",
   "/todos",
   "/estimates",
+  "/estimates/est_vasquez",
   "/schedule",
   "/rfis",
   "/submittals",
@@ -112,6 +113,30 @@ test("compact controls stay on one row", async ({ page }) => {
   for (const route of routes) {
     await page.goto(route);
     await assertCompact(page, route);
+  }
+
+  await page.goto("/estimates/est_vasquez");
+  const measure = page.locator("[data-measure]");
+  await expect(measure).toBeVisible();
+  const fields = measure.locator("input:visible, select:visible");
+  const fieldCount = await fields.count();
+  expect(fieldCount).toBeGreaterThan(0);
+  for (let index = 0; index < fieldCount; index += 1) {
+    const field = fields.nth(index);
+    const box = await field.boundingBox();
+    const label = (await field.getAttribute("aria-label")) || "measure";
+    expect(box, label).toBeTruthy();
+    expect(box!.width, `${label} width`).toBeLessThanOrEqual(264);
+    expect(box!.height, `${label} height`).toBeLessThanOrEqual(32);
+  }
+  const measureButtons = measure.locator("button:visible");
+  const measureButtonCount = await measureButtons.count();
+  for (let index = 0; index < measureButtonCount; index += 1) {
+    const button = measureButtons.nth(index);
+    const box = await button.boundingBox();
+    const klass = (await button.getAttribute("class")) || "";
+    expect(klass).toMatch(/ctl/);
+    expect(box!.height).toBeLessThanOrEqual(40);
   }
 
   await page.goto("/bills");

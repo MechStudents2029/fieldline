@@ -12,6 +12,7 @@ import {
   contacts,
   costItems,
   documents,
+  estimateMeasurements,
   estimateSections,
   estimates,
   followUpDrafts,
@@ -241,6 +242,12 @@ export function estimateDetail(orgId: string, estimateId: string) {
     .where(eq(estimateSections.estimateId, estimateId))
     .orderBy(asc(estimateSections.sortOrder))
     .all();
+  const measurements = db
+    .select()
+    .from(estimateMeasurements)
+    .where(and(eq(estimateMeasurements.estimateId, estimateId), eq(estimateMeasurements.orgId, orgId)))
+    .orderBy(asc(estimateMeasurements.sortOrder))
+    .all();
   const lines = db
     .select()
     .from(lineItems)
@@ -273,6 +280,7 @@ export function estimateDetail(orgId: string, estimateId: string) {
     lead,
     contact,
     sections,
+    measurements,
     lines: priced,
     photos,
     depositBps: org?.depositBps ?? 4000,

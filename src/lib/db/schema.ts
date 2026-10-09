@@ -233,6 +233,9 @@ export const priceBookItems = sqliteTable(
     defaultMarkupBps: integer("default_markup_bps").notNull(),
     vendor: text("vendor"),
     keywords: text("keywords"),
+    defaultFormula: text("default_formula"),
+    defaultWasteBps: integer("default_waste_bps"),
+    defaultRoundToMilli: integer("default_round_to_milli"),
     lastUsedAt: text("last_used_at"),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
@@ -284,7 +287,24 @@ export const lineItems = sqliteTable("line_items", {
   sortOrder: integer("sort_order").notNull(),
   /** included counts. allowance counts and is labeled. optional is shown, not counted. excluded is omitted. */
   billing: text("billing").notNull().default("included"),
+  qtyFormula: text("qty_formula"),
+  wasteBps: integer("waste_bps").notNull().default(0),
+  roundToMilli: integer("round_to_milli"),
 });
+
+export const estimateMeasurements = sqliteTable(
+  "estimate_measurements",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    estimateId: text("estimate_id").notNull(),
+    name: text("name").notNull(),
+    valueMilli: integer("value_milli").notNull(),
+    unit: text("unit").notNull(),
+    sortOrder: integer("sort_order").notNull(),
+  },
+  (t) => [uniqueIndex("estimate_measurements_name").on(t.orgId, t.estimateId, t.name)],
+);
 
 export const proposals = sqliteTable(
   "proposals",
@@ -1608,6 +1628,9 @@ export const templateLines = sqliteTable(
     unitCostCents: integer("unit_cost_cents").notNull(),
     unitPriceCents: integer("unit_price_cents").notNull(),
     sortOrder: integer("sort_order").notNull(),
+    qtyFormula: text("qty_formula"),
+    wasteBps: integer("waste_bps").notNull().default(0),
+    roundToMilli: integer("round_to_milli"),
   },
   (t) => [index("template_lines_template").on(t.orgId, t.templateId)],
 );

@@ -15,6 +15,9 @@ const lineSchema = z.object({
   billing: billingSchema,
   costCode: z.string().trim().max(40).nullable(),
   sortOrder: z.number().int().min(0).max(100_000),
+  formula: z.string().trim().max(80).nullable().optional(),
+  wasteBps: z.number().int().min(0).max(10_000).optional(),
+  roundToMilli: z.number().int().positive().max(1_000_000_000).nullable().optional(),
 });
 
 export const gridSyncSchema = z.object({
