@@ -42,16 +42,15 @@ test("purchase order comments are one field, and bill and change order match", a
   await signIn(page);
   await page.goto("/purchase-orders/po_ok_retain");
   const comments = page.getByRole("region", { name: "Comments" });
-  await comments.scrollIntoViewIfNeeded();
   await expect(comments.getByRole("heading", { name: "Comments" })).toHaveCount(1);
   await expect(page.getByText("No comments")).toHaveCount(0);
   await expect(page.getByText("Comment", { exact: true })).toHaveCount(0);
   await expect(comments.getByRole("textbox", { name: "Comment" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Lines" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Bills" })).toBeVisible();
-  await shot(page, "po-comments-light");
+  await comments.screenshot({ path: "/opt/cursor/artifacts/po-comments-light.png" });
   await page.emulateMedia({ colorScheme: "dark" });
-  await shot(page, "po-comments-dark");
+  await comments.screenshot({ path: "/opt/cursor/artifacts/po-comments-dark.png" });
   await page.emulateMedia({ colorScheme: "light" });
 
   for (const route of ["/bills/bill_ok_ret_ready", "/projects/proj_okonkwo/orders/co_ok_1"]) {
