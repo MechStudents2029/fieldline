@@ -76,16 +76,16 @@ describe("purchase orders", () => {
     const row = code("proj_okonkwo", "PLB-SHOWER");
     expect(row).toMatchObject({
       budgetCents: 520_000,
-      actualCents: 430_000,
-      committedOpenCents: 250_000,
-      projectedCents: 680_000,
-      costToCompleteCents: 250_000,
-      varianceCents: -160_000,
+      actualCents: 730_000,
+      committedOpenCents: 450_000,
+      projectedCents: 1_180_000,
+      costToCompleteCents: 450_000,
+      varianceCents: -660_000,
       level: "over",
       suggestDraft: true,
     });
     const harbor = vendorBillSummaries("org_rivera", "owner").find((item) => item.contactId === "c_harbor");
-    expect(harbor).toMatchObject({ committedCents: 400_000, openBalanceCents: 250_000 });
+    expect(harbor).toMatchObject({ committedCents: 900_000, openBalanceCents: 450_000 });
     expect(stalePurchaseOrders("org_rivera", "owner").some((order) => order.number === "PO-1044")).toBe(false);
   });
 

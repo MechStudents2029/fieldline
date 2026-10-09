@@ -68,7 +68,7 @@ describe("punch list and warranty", () => {
       ["invoice", 1],
       ["changes", 1],
       ["bills", 1],
-      ["orders", 1],
+      ["orders", 2],
       ["time", 3],
     ]);
     expect(diaz?.closeout.closed).toBe(true);

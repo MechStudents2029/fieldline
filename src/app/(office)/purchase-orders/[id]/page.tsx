@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { closePurchaseOrderAction, issuePurchaseOrderAction, referencePlanAction, voidPurchaseOrderAction } from "@/app/actions";
+import { closePurchaseOrderAction, issuePurchaseOrderAction, referencePlanAction, releasePoRetainageAction, voidPurchaseOrderAction } from "@/app/actions";
 import { ActionForm } from "@/components/action-form";
 import { CommentThread } from "@/components/comment-thread";
 import { MissingRecord } from "@/components/missing-record";
@@ -11,6 +11,7 @@ import { formatDateTime } from "@/lib/format";
 import { formatMoney } from "@/lib/money";
 import { canManageMoney, canSeeMoney } from "@/lib/permissions";
 import { changeOrderChoices, purchaseOrderDetail } from "@/lib/services/purchase-orders";
+import { poRetainage } from "@/lib/services/pay-ready";
 import { officeTargetPlans, planChoices } from "@/lib/services/files";
 import { relatedRfis } from "@/lib/services/rfis";
 import { listContacts, listPriceBook, listProjects } from "@/lib/services/read";
@@ -24,6 +25,7 @@ export default async function PurchaseOrderPage({ params }: { params: Promise<{ 
   const detail = purchaseOrderDetail(session.orgId, id, session.role);
   if (!detail) return <MissingRecord orgName={session.orgName} kind="purchase order" />;
   const { po, lines, events } = detail;
+  const retainage = poRetainage(session.orgId, po.id);
   const plans = officeTargetPlans(session, "purchase_order", po.id);
   const choices = planChoices(session, po.projectId);
   const office = canManageMoney(session.role);
@@ -43,6 +45,24 @@ export default async function PurchaseOrderPage({ params }: { params: Promise<{ 
         </p>
         <p className="mt-2 font-heading text-3xl">{formatMoney(po.amountCents)}</p>
         {po.status === "issued" ? <p className="text-sm">Open commitment {formatMoney(po.openCents)}</p> : null}
+        {retainage ? (
+          <p className="num text-sm" data-retainage="">
+            {Math.round(retainage.bps / 100)}% · Retained {formatMoney(retainage.heldCents)} · Released {formatMoney(retainage.releasedCents)}
+            {retainage.releaseId && retainage.releaseNumber ? (
+              <>
+                {" "}
+                · <Link href={`/bills/${retainage.releaseId}`}>{retainage.releaseNumber}</Link>
+              </>
+            ) : null}
+          </p>
+        ) : null}
+        {office && retainage?.canRelease ? (
+          <ActionForm action={releasePoRetainageAction.bind(null, po.id)} className="mt-3">
+            <button type="submit" className="mac-primary">
+              Release retainage
+            </button>
+          </ActionForm>
+        ) : null}
         {po.status === "closed" ? <p className="text-sm">Closed. Unbilled balance is no longer committed.</p> : null}
         {detail.scope ? <p className="mt-2 text-sm">{detail.scope}</p> : null}
         {detail.changeOrderLabel ? <p className="mt-2 text-sm">Tied to {detail.changeOrderLabel}. The order does not change the budget by itself.</p> : null}

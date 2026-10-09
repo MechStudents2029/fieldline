@@ -821,7 +821,7 @@ export function rollChangeOrder(actor: Actor, changeOrderId: string) {
 
 export function saveBillingDefaults(
   actor: Actor,
-  input: { draws: { title: string; bps: number }[]; termsDays: number; retainageBps: number },
+  input: { draws: { title: string; bps: number }[]; termsDays: number; retainageBps: number; vendorRetainageBps?: number },
 ) {
   if (!canManageSettings(actor.role as Role)) throw new ServiceError("Only an owner or admin can change company settings.");
   const db = officeDb(actor.orgId);
@@ -831,6 +831,9 @@ export function saveBillingDefaults(
   if (bps !== 10000) throw new ServiceError("Default draws must total 100%.");
   if (input.termsDays < 0 || input.termsDays > 90) throw new ServiceError("Terms are 0 to 90 days.");
   if (input.retainageBps < 0 || input.retainageBps > 10000) throw new ServiceError("Retainage is 0 to 100%.");
+  if (input.vendorRetainageBps != null && (input.vendorRetainageBps < 0 || input.vendorRetainageBps > 10000)) {
+    throw new ServiceError("Vendor retainage is 0 to 100%.");
+  }
   const first = input.draws[0]?.bps ?? 0;
   const last = input.draws[input.draws.length - 1]?.bps ?? 0;
   const middle = 10000 - first - last;
@@ -839,6 +842,7 @@ export function saveBillingDefaults(
       defaultDrawsJson: JSON.stringify(input.draws.map((draw) => ({ title: draw.title.trim().slice(0, 80) || "Draw", bps: draw.bps }))),
       paymentTermsDays: input.termsDays,
       defaultRetainageBps: input.retainageBps,
+      ...(input.vendorRetainageBps == null ? {} : { vendorRetainageBps: input.vendorRetainageBps }),
       depositBps: first,
       progressBps: middle,
       finalBps: last,
@@ -921,11 +925,11 @@ export function payAppDocument(actor: Actor, invoiceId: string) {
   return { invoice, project, orgName: org?.name ?? "", lines };
 }
 
-export function defaultDrawForm(org: { depositBps: number; progressBps: number; finalBps: number; defaultDrawsJson?: string | null; paymentTermsDays?: number; defaultRetainageBps?: number }) {
+export function defaultDrawForm(org: { depositBps: number; progressBps: number; finalBps: number; defaultDrawsJson?: string | null; paymentTermsDays?: number; defaultRetainageBps?: number; vendorRetainageBps?: number }) {
   const custom = parseDefaultDraws(org.defaultDrawsJson);
   const draws =
     custom && custom.reduce((sum, row) => sum + row.bps, 0) === 10000
       ? custom
       : defaultSchedule(org).map((part) => ({ title: part.label, bps: part.bps }));
-  return { draws, termsDays: org.paymentTermsDays ?? 7, retainageBps: org.defaultRetainageBps ?? 0 };
+  return { draws, termsDays: org.paymentTermsDays ?? 7, retainageBps: org.defaultRetainageBps ?? 0, vendorRetainageBps: org.vendorRetainageBps ?? 0 };
 }

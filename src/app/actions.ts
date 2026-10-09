@@ -95,7 +95,8 @@ import {
 import { awardBid, createBid, declineVendorBid, saveBidLines, submitVendorBid } from "@/lib/services/bids";
 import { answerClientRfi, answerRfi, answerVendorRfi, closeRfi, createRfi, draftChangeFromRfi, shiftRfiSchedule, voidRfi } from "@/lib/services/rfis";
 import { clientReviewSubmittal, createSubmittal, reviewSubmittal, submitSubmittal, vendorCreateSubmittal, vendorSubmitSubmittal } from "@/lib/services/submittals";
-import { requestUnconditional, requestWaiver, requestWaivers, saveLienSettings, signVendorWaiver, uploadPaperWaiver, voidWaiver } from "@/lib/services/waivers";
+import { requestUnconditional, requestUnconditionals, requestWaiver, requestWaivers, saveLienSettings, signVendorWaiver, uploadPaperWaiver, voidWaiver } from "@/lib/services/waivers";
+import { releaseRetainage as releaseVendorRetainage } from "@/lib/services/pay-ready";
 import {
   addJobFolder,
   archiveJobFolder,
@@ -121,6 +122,7 @@ import {
   confirmBillRead,
   createBill,
   markBillPaid,
+  markBillsPaid,
   readBillFile,
   unapproveBill,
   updateDraft,
@@ -196,6 +198,7 @@ export type ReceiptDraftState = {
 export type ActionState = {
   error?: string;
   ok?: string;
+  paidIds?: string[];
   receipt?: ReceiptDraftState;
   postedDocumentId?: string;
   inviteUrl?: string;
@@ -855,6 +858,7 @@ export async function settingsAction(_prev: ActionState, formData: FormData): Pr
           .filter((draw) => draw.title && draw.bps > 0),
         termsDays: Math.round(Number(formData.get("paymentTermsDays") || 7)),
         retainageBps: Math.round(Number(formData.get("defaultRetainage") || 0) * 100),
+        ...(formData.get("vendorRetainage") == null ? {} : { vendorRetainageBps: Math.round(Number(formData.get("vendorRetainage") || 0) * 100) }),
       });
     }
     revalidatePath("/settings");
@@ -1480,6 +1484,44 @@ export async function payBillAction(billId: string, _prev: ActionState, formData
     });
     refreshBill(String(formData.get("projectId") || ""), billId);
     return { ok: paid.warning ? `Marked paid. ${paid.warning}` : "Marked paid." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function payBillsAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const paid = markBillsPaid(user, formData.getAll("billId").map(String), {
+      paidOn: String(formData.get("paidOn") || ""),
+      method: String(formData.get("method") || ""),
+      reference: String(formData.get("reference") || ""),
+    });
+    revalidatePath("/bills");
+    revalidatePath("/");
+    for (const billId of paid.ids) revalidatePath(`/bills/${billId}`);
+    return { ok: paid.warning ? `Marked paid. ${paid.warning}` : "Marked paid.", paidIds: paid.ids };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function requestUnconditionalsAction(formData: FormData): Promise<void> {
+  const user = await actor();
+  requestUnconditionals(user, formData.getAll("billId").map(String));
+  revalidatePath("/bills");
+  revalidatePath("/");
+}
+
+export async function releasePoRetainageAction(purchaseOrderId: string, _prev: ActionState, _formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const released = releaseVendorRetainage(user, purchaseOrderId);
+    revalidatePath(`/purchase-orders/${purchaseOrderId}`);
+    revalidatePath("/bills");
+    revalidatePath(`/bills/${released.id}`);
+    revalidatePath("/");
+    return { ok: `${released.number} · ${released.amountCents}` };
   } catch (error) {
     return failure(error);
   }

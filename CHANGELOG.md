@@ -2,6 +2,14 @@
 
 ## 2026-10-09
 
+### Ready to pay
+
+- Bills has a Ready to pay view. A bill is ready when it is approved, the required waiver is signed for the company’s Off, Warn, or Block setting, and required certificates are current when that setting blocks. Approved bills that are not ready show one reason, such as Waiver unsigned, COI expired, or Over PO. The totals row is the count and the net dollars.
+- Checked ready rows can be marked paid with a date, method, and reference. Block refuses a bill that is not ready, including a bulk request. Mark paid still sends no money. The unconditional waiver can be requested for that batch.
+- A purchase order holds a percent from the vendor or the company, otherwise 0. Each linked bill keeps retainage and a net payable. Release retainage writes one bill for the held amount, and Block waits for a signed final waiver. Job cost stays the full bill. Cash is the net.
+- The vendor portal lists that vendor’s bills with paid, retained, and released amounts. Field and the client portal do not see bills. Today counts bills ready to pay, and retainage still held on closed jobs.
+- The bill CSV adds Retained, Net, and Released. Okonkwo PO-1055 is Harbor at 10%. HP-510 is ready. HP-511 is waiting on a waiver.
+
 ### Compact controls
 
 - List toolbars, selection bars, sheets, and detail panes share one control size: 24px tall, only as wide as the label, capped at 260px. A form row still stretches.

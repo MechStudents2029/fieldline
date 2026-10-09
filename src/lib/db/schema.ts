@@ -27,6 +27,7 @@ export const organizations = sqliteTable("organizations", {
   vendorRequiredTypes: text("vendor_required_types").notNull().default("general_liability,workers_comp"),
   paymentTermsDays: integer("payment_terms_days").notNull().default(7),
   defaultRetainageBps: integer("default_retainage_bps").notNull().default(0),
+  vendorRetainageBps: integer("vendor_retainage_bps").notNull().default(0),
   defaultDrawsJson: text("default_draws_json"),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
@@ -79,6 +80,7 @@ export const contacts = sqliteTable(
     state: text("state"),
     zip: text("zip"),
     notes: text("notes"),
+    retainageBps: integer("retainage_bps"),
     deletedAt: text("deleted_at"),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
@@ -527,6 +529,8 @@ export const bills = sqliteTable(
     updatedAt: text("updated_at").notNull(),
     createdBy: text("created_by"),
     portalSubmitted: integer("portal_submitted").notNull().default(0),
+    retainageCents: integer("retainage_cents").notNull().default(0),
+    kind: text("kind").notNull().default("standard"),
   },
   (t) => [index("bills_org").on(t.orgId), index("bills_vendor").on(t.orgId, t.vendorContactId)],
 );
@@ -583,6 +587,7 @@ export const purchaseOrders = sqliteTable(
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
     createdBy: text("created_by"),
+    retainageBps: integer("retainage_bps").notNull().default(0),
   },
   (t) => [uniqueIndex("purchase_orders_number").on(t.orgId, t.number), index("purchase_orders_org").on(t.orgId)],
 );

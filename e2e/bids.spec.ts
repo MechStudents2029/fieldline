@@ -68,9 +68,9 @@ async function createAndAward(page: Page) {
   await page.getByLabel("Award BATH-GLASS Casa Tile").check();
   await page.getByLabel("Update budget").check();
   await page.getByRole("button", { name: "Award" }).click();
-  await expect(page.getByRole("link", { name: "PO-1045" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "PO-1046" })).toBeVisible();
-  await page.getByRole("link", { name: "PO-1045" }).click();
+  await expect(page.getByRole("link", { name: "PO-1056" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "PO-1057" })).toBeVisible();
+  await page.getByRole("link", { name: "PO-1056" }).click();
   await expect(page.getByText("draft", { exact: true })).toBeVisible();
 
   await page.goto("/projects/proj_okonkwo");

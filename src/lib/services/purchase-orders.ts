@@ -12,6 +12,7 @@ import {
   purchaseOrderLines,
   purchaseOrders,
 } from "@/lib/db/schema";
+import { resolveRetainageBps } from "@/lib/bills/retainage";
 import { id, nowIso } from "@/lib/ids";
 import { openCommitmentByCode } from "@/lib/margin/commitment";
 import { positiveMoneyError } from "@/lib/money";
@@ -55,6 +56,7 @@ export type PurchaseOrderRow = {
   amountCents: number;
   openCents: number;
   issuedAt: string | null;
+  retainageBps: number;
 };
 
 type PoRecord = typeof purchaseOrders.$inferSelect;
@@ -226,7 +228,7 @@ function relievingLines(db: Writer, orgId: string, purchaseOrderIds: string[]) {
     .from(bills)
     .where(and(eq(bills.orgId, orgId), inArray(bills.purchaseOrderId, purchaseOrderIds)))
     .all()
-    .filter((bill) => RELIEVING.has(bill.status));
+    .filter((bill) => RELIEVING.has(bill.status) && bill.kind !== "release");
   const ids = linked.map((bill) => bill.id);
   const lines = ids.length
     ? db
@@ -269,6 +271,8 @@ export function createPurchaseOrder(actor: Actor, input: PoInput) {
   const vendor = requireVendor(db, actor.orgId, input.vendorContactId);
   requireProject(db, actor.orgId, input.projectId);
   const changeOrderId = requireChangeOrder(db, actor.orgId, input.projectId, input.changeOrderId);
+  const org = db.select().from(organizations).where(eq(organizations.id, actor.orgId)).get();
+  const retainageBps = resolveRetainageBps(vendor.retainageBps, org?.vendorRetainageBps);
   const poId = id("po");
   const now = nowIso();
   let number = "";
@@ -290,6 +294,7 @@ export function createPurchaseOrder(actor: Actor, input: PoInput) {
         createdAt: now,
         updatedAt: now,
         createdBy: actor.userId,
+        retainageBps,
       })
       .run();
     insertLines(tx, actor.orgId, poId, lines);
@@ -473,6 +478,7 @@ function toRow(
     amountCents: lines.reduce((sum, line) => sum + line.amountCents, 0),
     openCents: openFor(po, lines, relieved),
     issuedAt: po.issuedAt,
+    retainageBps: po.retainageBps,
   };
 }
 

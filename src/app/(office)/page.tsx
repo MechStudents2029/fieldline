@@ -17,6 +17,7 @@ import { warrantyQueue } from "@/lib/services/punch";
 import { vendorBillQueue, vendorCertificateQueue } from "@/lib/services/vendor-portal";
 import { bidQueues } from "@/lib/services/bids";
 import { readyToBill } from "@/lib/services/draws";
+import { readyToPay, retainageHeldOnClosed } from "@/lib/services/pay-ready";
 import { mentionUnread } from "@/lib/services/comments";
 import { rfiQueue } from "@/lib/services/rfis";
 import { submittalQueue } from "@/lib/services/submittals";
@@ -118,6 +119,8 @@ export default async function TodayPage() {
   const vendorCerts = vendorCertificateQueue(session.orgId);
   const bids = bidQueues(session.orgId);
   const ready = money ? readyToBill(session.orgId) : { count: 0, cents: 0, href: null as string | null };
+  const payReady = money ? readyToPay(session.orgId, session.role) : { count: 0, cents: 0, href: null as string | null };
+  const heldRetainage = money ? retainageHeldOnClosed(session.orgId, session.role) : { cents: 0, href: null as string | null };
   const rfis = rfiQueue(session);
   const submittals = submittalQueue(session);
   const waivers = money ? waiverQueue(session) : { count: 0, href: null };
@@ -168,7 +171,7 @@ export default async function TodayPage() {
         />
       ) : null}
       {quiet ? <EmptyState title="No jobs yet" why="Add a lead to start your pipeline." href="/leads/new" action="Add a lead" /> : null}
-      {under.count > 0 || overdueTodos > 0 || webLeadCount > 0 || warranty.count > 0 || vendorBills.count > 0 || vendorCerts.count > 0 || bids.due.count > 0 || bids.award.count > 0 || ready.count > 0 || rfis.overdue.count > 0 || rfis.awaiting.count > 0 || submittals.overdue.count > 0 || submittals.awaiting.count > 0 || waivers.count > 0 || mentions > 0 ? (
+      {under.count > 0 || overdueTodos > 0 || webLeadCount > 0 || warranty.count > 0 || vendorBills.count > 0 || vendorCerts.count > 0 || bids.due.count > 0 || bids.award.count > 0 || ready.count > 0 || payReady.count > 0 || heldRetainage.cents > 0 || rfis.overdue.count > 0 || rfis.awaiting.count > 0 || submittals.overdue.count > 0 || submittals.awaiting.count > 0 || waivers.count > 0 || mentions > 0 ? (
         <ul className="fl-group">
           {overdueTodos > 0 ? <GroupedRow href="/todos?due=overdue" title="Overdue to-dos" trailing={<span className="num">{overdueTodos}</span>} /> : null}
           {under.count > 0 ? <GroupedRow href="/reports/wip?sort=under&dir=asc" title="Underbilled" trailing={<span className="num fl-late">{under.count} · {formatWhole(Math.abs(under.cents))}</span>} /> : null}
@@ -180,6 +183,8 @@ export default async function TodayPage() {
           {bids.due.count > 0 && bids.due.href ? <GroupedRow href={bids.due.href} title="Bids due" trailing={<span className="num">{bids.due.count}</span>} /> : null}
           {bids.award.count > 0 && bids.award.href ? <GroupedRow href={bids.award.href} title="Bids to award" trailing={<span className="num">{bids.award.count}</span>} /> : null}
           {ready.count > 0 && ready.href ? <GroupedRow href={ready.href} title="Ready to bill" trailing={<span className="num">{ready.count} · {formatWhole(ready.cents)}</span>} /> : null}
+          {payReady.count > 0 && payReady.href ? <GroupedRow href={payReady.href} title="Ready to pay" trailing={<span className="num">{payReady.count} · {formatWhole(payReady.cents)}</span>} /> : null}
+          {heldRetainage.cents > 0 ? <GroupedRow href="/bills" title="Retainage held" trailing={<span className="num">{formatWhole(heldRetainage.cents)}</span>} /> : null}
           {rfis.overdue.count > 0 && rfis.overdue.href ? <GroupedRow href={rfis.overdue.href} title="RFIs overdue" trailing={<span className="num">{rfis.overdue.count}</span>} /> : null}
           {rfis.awaiting.count > 0 && rfis.awaiting.href ? <GroupedRow href={rfis.awaiting.href} title="RFIs awaiting your answer" trailing={<span className="num">{rfis.awaiting.count}</span>} /> : null}
           {submittals.overdue.count > 0 && submittals.overdue.href ? <GroupedRow href={submittals.overdue.href} title="Submittals overdue" trailing={<span className="num">{submittals.overdue.count}</span>} /> : null}
@@ -271,7 +276,7 @@ export default async function TodayPage() {
         {quiet ? <EmptyState title="No jobs yet" why="Add a lead to start your pipeline." href="/leads/new" action="Add a lead" /> : null}
         <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_400px]">
           <div className="flex flex-col gap-6">
-            {under.count > 0 || overdueTodos > 0 || webLeadCount > 0 || warranty.count > 0 || vendorBills.count > 0 || vendorCerts.count > 0 || bids.due.count > 0 || bids.award.count > 0 || ready.count > 0 || rfis.overdue.count > 0 || rfis.awaiting.count > 0 || submittals.overdue.count > 0 || submittals.awaiting.count > 0 || waivers.count > 0 || mentions > 0 ? (
+            {under.count > 0 || overdueTodos > 0 || webLeadCount > 0 || warranty.count > 0 || vendorBills.count > 0 || vendorCerts.count > 0 || bids.due.count > 0 || bids.award.count > 0 || ready.count > 0 || payReady.count > 0 || heldRetainage.cents > 0 || rfis.overdue.count > 0 || rfis.awaiting.count > 0 || submittals.overdue.count > 0 || submittals.awaiting.count > 0 || waivers.count > 0 || mentions > 0 ? (
               <ul className="fl-group">
                 {overdueTodos > 0 ? <GroupedRow href="/todos?due=overdue" title="Overdue to-dos" trailing={<span className="num">{overdueTodos}</span>} /> : null}
                 {under.count > 0 ? <GroupedRow href="/reports/wip?sort=under&dir=asc" title="Underbilled" trailing={<span className="num text-[var(--mac-danger)]">{under.count} · {formatWhole(Math.abs(under.cents))}</span>} /> : null}
@@ -283,6 +288,8 @@ export default async function TodayPage() {
                 {bids.due.count > 0 && bids.due.href ? <GroupedRow href={bids.due.href} title="Bids due" trailing={<span className="num">{bids.due.count}</span>} /> : null}
                 {bids.award.count > 0 && bids.award.href ? <GroupedRow href={bids.award.href} title="Bids to award" trailing={<span className="num">{bids.award.count}</span>} /> : null}
           {ready.count > 0 && ready.href ? <GroupedRow href={ready.href} title="Ready to bill" trailing={<span className="num">{ready.count} · {formatWhole(ready.cents)}</span>} /> : null}
+          {payReady.count > 0 && payReady.href ? <GroupedRow href={payReady.href} title="Ready to pay" trailing={<span className="num">{payReady.count} · {formatWhole(payReady.cents)}</span>} /> : null}
+          {heldRetainage.cents > 0 ? <GroupedRow href="/bills" title="Retainage held" trailing={<span className="num">{formatWhole(heldRetainage.cents)}</span>} /> : null}
                 {rfis.overdue.count > 0 && rfis.overdue.href ? <GroupedRow href={rfis.overdue.href} title="RFIs overdue" trailing={<span className="num">{rfis.overdue.count}</span>} /> : null}
                 {rfis.awaiting.count > 0 && rfis.awaiting.href ? <GroupedRow href={rfis.awaiting.href} title="RFIs awaiting your answer" trailing={<span className="num">{rfis.awaiting.count}</span>} /> : null}
                 {submittals.overdue.count > 0 && submittals.overdue.href ? <GroupedRow href={submittals.overdue.href} title="Submittals overdue" trailing={<span className="num">{submittals.overdue.count}</span>} /> : null}
