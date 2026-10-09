@@ -3,11 +3,12 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { deleteMeasurementAction, saveMeasurementAction } from "@/app/actions";
-import { formulaCaption } from "@/lib/estimate/formula";
+import { formulaHint } from "@/lib/estimate/formula";
 import { formatQty } from "@/lib/money";
 
 type MeasureRowData = { id: string; name: string; valueMilli: number; unit: string };
-type FormulaLine = { id: string; qtyFormula: string | null; wasteBps: number; roundToMilli: number | null };
+type FormulaLine = { id: string; unit: string; qtyFormula: string | null; wasteBps: number; roundToMilli: number | null };
+type FormulaMeasure = { name: string; valueMilli: number };
 
 const UNITS = ["sf", "lf", "ea", "sq", "cy"];
 
@@ -124,6 +125,7 @@ function MeasureRow({
 }) {
   const [value, setValue] = useState(formatQty(row.valueMilli));
   const [unit, setUnit] = useState(row.unit);
+  const [menu, setMenu] = useState(false);
   return (
     <tr>
       <td>{row.name}</td>
@@ -159,9 +161,14 @@ function MeasureRow({
       </td>
       <td>
         {locked ? null : (
-          <button type="button" className="ctl" aria-label={`Delete ${row.name}`} onClick={onDelete}>
-            Delete
-          </button>
+          <div className={`measure-actions${menu ? " is-open" : ""}`}>
+            <button type="button" className="ctl" aria-label={`Actions ${row.name}`} aria-expanded={menu} onClick={() => setMenu((open) => !open)}>
+              ···
+            </button>
+            <button type="button" className="ctl measure-pop" onClick={onDelete}>
+              Delete
+            </button>
+          </div>
         )}
       </td>
     </tr>
@@ -170,11 +177,13 @@ function MeasureRow({
 
 export function FormulaBar({
   line,
+  measurements,
   locked,
   onTyped,
   onFormula,
 }: {
   line: FormulaLine | null;
+  measurements: FormulaMeasure[];
   locked: boolean;
   onTyped: (id: string) => void;
   onFormula: (id: string, expr: string, wasteBps: number, roundToMilli: number | null) => void;
@@ -186,9 +195,15 @@ export function FormulaBar({
   if (line.qtyFormula) {
     return (
       <p className="measure-formula" data-formula>
-        {formulaCaption(line.qtyFormula, line.wasteBps, line.roundToMilli)}{" "}
-        <button type="button" className="ctl" onClick={() => onTyped(line.id)}>
-          Typed
+        {formulaHint({
+          expr: line.qtyFormula,
+          wasteBps: line.wasteBps,
+          roundToMilli: line.roundToMilli,
+          measurements,
+          unit: line.unit,
+        })}{" "}
+        <button type="button" className="ctl" aria-label="Enter a quantity" onClick={() => onTyped(line.id)}>
+          Enter qty
         </button>
       </p>
     );

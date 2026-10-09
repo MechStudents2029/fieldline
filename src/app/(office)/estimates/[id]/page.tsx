@@ -11,7 +11,7 @@ import { requireSession } from "@/lib/auth/session";
 import type { Billing } from "@/lib/estimate/pricing";
 import { formatQty, formatWhole, milliToQty } from "@/lib/money";
 import { canSeeMoney } from "@/lib/permissions";
-import { captionFromMetadata, estimateDetail } from "@/lib/services/read";
+import { captionFromMetadata, estimateDetail, listAssemblies } from "@/lib/services/read";
 
 export default async function EstimatePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -38,6 +38,8 @@ export default async function EstimatePage({ params }: { params: Promise<{ id: s
     qtyFormula: line.qtyFormula,
     wasteBps: line.wasteBps ?? 0,
     roundToMilli: line.roundToMilli,
+    groupId: line.groupId,
+    qtyOverridden: Boolean(line.qtyOverridden),
   }));
   const budget = detail.lead?.scopeText?.match(/\$\d+–\d+k/i)?.[0] ?? null;
   return (
@@ -88,6 +90,15 @@ export default async function EstimatePage({ params }: { params: Promise<{ id: s
           valueMilli: row.valueMilli,
           unit: row.unit,
         }))}
+        groups={detail.groups.map((group) => ({
+          id: group.id,
+          name: group.name,
+          sectionId: group.sectionId,
+          measurementId: group.measurementId,
+          presentAs: group.presentAs,
+        }))}
+        assemblies={listAssemblies(session.orgId).map((item) => ({ id: item.id, name: item.name }))}
+        comments={<CommentThread entityType="estimate" entityId={detail.estimate.id} />}
         marginTargetBps={detail.estimate.marginTargetBps}
         depositBps={detail.depositBps}
         progressBps={detail.progressBps}
@@ -162,7 +173,6 @@ export default async function EstimatePage({ params }: { params: Promise<{ id: s
           </GroupedList>
         </div>
       </EstimateWorkspace>
-      <CommentThread entityType="estimate" entityId={detail.estimate.id} />
     </div>
   );
 }

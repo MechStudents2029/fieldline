@@ -13,7 +13,10 @@ import {
   consents,
   contacts,
   costItems,
+  assemblies,
+  assemblyParts,
   documents,
+  estimateGroups,
   estimateMeasurements,
   estimateSections,
   estimates,
@@ -47,6 +50,7 @@ import {
 } from "@/lib/ai/nurture";
 import { suggestCostCode } from "@/lib/ai/cost-code";
 import { extractReceiptText, readReceiptMeta, type StoredReceipt } from "@/lib/ai/receipt";
+import { bindFormula, driveUnit, partQtyMilli } from "@/lib/estimate/assembly";
 import { applyCatalogQuantity, evaluateFormula, FormulaError, measurementName, measurementUnit, measuresFromValues, referencedNames } from "@/lib/estimate/formula";
 import { parseGridSync } from "@/lib/estimate/grid";
 import { countsTowardTotal, type Billing } from "@/lib/estimate/pricing";
@@ -471,7 +475,9 @@ export function updateLine(
       markupBps: patch.markupBps ?? line.markupBps,
       name: patch.name?.trim() || line.name,
       source: line.source === "ai" ? "manual" : line.source,
-      ...(patch.qty != null ? { qtyFormula: null, wasteBps: 0, roundToMilli: null } : {}),
+      ...(patch.qty != null
+        ? { qtyFormula: null, wasteBps: 0, roundToMilli: null, qtyOverridden: line.groupId ? 1 : line.qtyOverridden }
+        : {}),
     })
     .where(eq(lineItems.id, lineId))
     .run();
@@ -548,14 +554,28 @@ function linesUsingMeasurement(db: Writer, orgId: string, estimateId: string, na
     .from(lineItems)
     .where(and(eq(lineItems.orgId, orgId), eq(lineItems.estimateId, estimateId)))
     .all();
-  const count = lines.filter((line) => {
-    if (!line.qtyFormula) return false;
-    try {
-      return referencedNames(line.qtyFormula).includes(name);
-    } catch {
-      return false;
+  const measure = measurementRows(db, orgId, estimateId).find((row) => row.name === name);
+  const groups = db
+    .select()
+    .from(estimateGroups)
+    .where(and(eq(estimateGroups.orgId, orgId), eq(estimateGroups.estimateId, estimateId)))
+    .all();
+  const bound = new Set(measure ? groups.filter((group) => group.measurementId === measure.id).map((group) => group.id) : []);
+  const used = new Set<string>();
+  for (const line of lines) {
+    if (line.groupId && bound.has(line.groupId)) {
+      used.add(line.id);
+      continue;
     }
-  }).length;
+    if (!line.qtyFormula) continue;
+    try {
+      if (referencedNames(line.qtyFormula).includes(name)) used.add(line.id);
+    } catch {
+      continue;
+    }
+  }
+  const emptyGroups = measure ? groups.filter((group) => group.measurementId === measure.id && !lines.some((line) => line.groupId === group.id)).length : 0;
+  const count = used.size + emptyGroups;
   if (!count) return null;
   return count === 1 ? `1 line uses ${name}.` : `${count} lines use ${name}.`;
 }
@@ -568,7 +588,7 @@ function recalcFormulas(db: Writer, orgId: string, estimateId: string) {
     .where(and(eq(lineItems.orgId, orgId), eq(lineItems.estimateId, estimateId)))
     .all();
   for (const line of lines) {
-    if (!line.qtyFormula) continue;
+    if (!line.qtyFormula || line.qtyOverridden) continue;
     let qtyMilli: number;
     try {
       qtyMilli = evaluateFormula({
@@ -668,6 +688,299 @@ export function deleteMeasurement(actor: Actor, estimateId: string, measurementI
   db.update(estimates).set({ updatedAt: nowIso() }).where(eq(estimates.id, estimateId)).run();
 }
 
+export type AssemblyPartInput = {
+  name: string;
+  code?: string | null;
+  formula: string;
+  wasteBps: number;
+  roundToMilli?: number | null;
+  unit: string;
+  unitCostCents: number;
+};
+
+function checkedParts(parts: AssemblyPartInput[]) {
+  if (!Array.isArray(parts) || parts.length === 0 || parts.length > 40) throw new ServiceError("Add at least one part.");
+  return parts.map((part) => {
+    const name = part.name?.trim() ?? "";
+    if (!name || name.length > 180) throw new ServiceError("A part needs a name.");
+    let unit: string;
+    try {
+      unit = measurementUnit(part.unit);
+    } catch (error) {
+      throw new ServiceError(error instanceof FormulaError ? error.message : "Check the unit.");
+    }
+    if (!Number.isSafeInteger(part.wasteBps) || part.wasteBps < 0 || part.wasteBps > 10_000) throw new ServiceError("Check the formula.");
+    const roundToMilli = part.roundToMilli == null || part.roundToMilli === 0 ? null : part.roundToMilli;
+    if (roundToMilli != null && (!Number.isSafeInteger(roundToMilli) || roundToMilli <= 0)) throw new ServiceError("Check the formula.");
+    if (!Number.isSafeInteger(part.unitCostCents) || part.unitCostCents < 0) throw new ServiceError("Unit cost must be zero or a positive amount under $10,000,000.");
+    const code = part.code?.trim() || null;
+    try {
+      partQtyMilli({ formula: part.formula, wasteBps: part.wasteBps, roundToMilli }, "Qty", 1000);
+    } catch (error) {
+      throw new ServiceError(error instanceof FormulaError ? error.message : "Check the formula.");
+    }
+    return { name, unit, wasteBps: part.wasteBps, roundToMilli, unitCostCents: part.unitCostCents, code, formula: part.formula.trim() };
+  });
+}
+
+export function saveAssembly(
+  actor: Actor,
+  input: { id?: string | null; name: string; drive: string; parts: AssemblyPartInput[] },
+) {
+  assertMoney(actor);
+  const name = input.name?.trim() ?? "";
+  if (!name || name.length > 80) throw new ServiceError("Name the assembly.");
+  let drive: string;
+  try {
+    driveUnit(input.drive);
+    drive = input.drive;
+  } catch {
+    throw new ServiceError("Pick area, length, or count.");
+  }
+  const parts = checkedParts(input.parts);
+  const db = staffDb(actor);
+  const now = nowIso();
+  const existing = input.id
+    ? db.select().from(assemblies).where(and(eq(assemblies.id, input.id), eq(assemblies.orgId, actor.orgId))).get()
+    : undefined;
+  if (input.id && !existing) throw new ServiceError("Assembly not found.");
+  const assemblyId = existing?.id ?? id("asm");
+  db.transaction((tx) => {
+    if (existing) {
+      tx.update(assemblies).set({ name, drive, updatedAt: now }).where(eq(assemblies.id, existing.id)).run();
+      tx.delete(assemblyParts).where(and(eq(assemblyParts.assemblyId, existing.id), eq(assemblyParts.orgId, actor.orgId))).run();
+    } else {
+      tx.insert(assemblies)
+        .values({
+          id: assemblyId,
+          orgId: actor.orgId,
+          name,
+          drive,
+          archivedAt: null,
+          createdAt: now,
+          updatedAt: now,
+          createdBy: actor.userId,
+        })
+        .run();
+    }
+    parts.forEach((part, index) => {
+      const book = part.code
+        ? tx.select().from(priceBookItems).where(and(eq(priceBookItems.orgId, actor.orgId), eq(priceBookItems.code, part.code))).get()
+        : undefined;
+      tx.insert(assemblyParts)
+        .values({
+          id: id("asmp"),
+          orgId: actor.orgId,
+          assemblyId,
+          name: part.name,
+          priceBookItemId: book?.id ?? null,
+          costCode: part.code,
+          unit: part.unit,
+          unitCostCents: part.unitCostCents,
+          formula: part.formula,
+          wasteBps: part.wasteBps,
+          roundToMilli: part.roundToMilli,
+          sortOrder: index,
+        })
+        .run();
+    });
+  });
+  return assemblyId;
+}
+
+export function duplicateAssembly(actor: Actor, assemblyId: string) {
+  assertMoney(actor);
+  const db = staffDb(actor);
+  const assembly = db.select().from(assemblies).where(and(eq(assemblies.id, assemblyId), eq(assemblies.orgId, actor.orgId))).get();
+  if (!assembly || assembly.archivedAt) throw new ServiceError("Assembly not found.");
+  const parts = db
+    .select()
+    .from(assemblyParts)
+    .where(and(eq(assemblyParts.assemblyId, assemblyId), eq(assemblyParts.orgId, actor.orgId)))
+    .all();
+  const now = nowIso();
+  const nextId = id("asm");
+  db.transaction((tx) => {
+    tx.insert(assemblies)
+      .values({
+        id: nextId,
+        orgId: actor.orgId,
+        name: `${assembly.name} copy`.slice(0, 80),
+        drive: assembly.drive,
+        archivedAt: null,
+        createdAt: now,
+        updatedAt: now,
+        createdBy: actor.userId,
+      })
+      .run();
+    for (const part of parts) {
+      tx.insert(assemblyParts)
+        .values({ ...part, id: id("asmp"), assemblyId: nextId })
+        .run();
+    }
+  });
+  return nextId;
+}
+
+export function archiveAssembly(actor: Actor, assemblyId: string) {
+  assertMoney(actor);
+  const db = staffDb(actor);
+  const assembly = db.select().from(assemblies).where(and(eq(assemblies.id, assemblyId), eq(assemblies.orgId, actor.orgId))).get();
+  if (!assembly) throw new ServiceError("Assembly not found.");
+  db.update(assemblies).set({ archivedAt: nowIso(), updatedAt: nowIso() }).where(eq(assemblies.id, assembly.id)).run();
+}
+
+export function insertAssembly(
+  actor: Actor,
+  input: {
+    estimateId: string;
+    assemblyId: string;
+    measurementId?: string | null;
+    measurementName?: string;
+    measurementValue?: number;
+  },
+) {
+  assertMoney(actor);
+  const estimate = loadEditableEstimate(actor, input.estimateId);
+  const db = staffDb(actor);
+  const assembly = db.select().from(assemblies).where(and(eq(assemblies.id, input.assemblyId), eq(assemblies.orgId, actor.orgId))).get();
+  if (!assembly || assembly.archivedAt) throw new ServiceError("Assembly not found.");
+  const parts = db
+    .select()
+    .from(assemblyParts)
+    .where(and(eq(assemblyParts.assemblyId, assembly.id), eq(assemblyParts.orgId, actor.orgId)))
+    .all()
+    .sort((a, b) => a.sortOrder - b.sortOrder);
+  if (parts.length === 0) throw new ServiceError("Add at least one part.");
+  const unit = driveUnit(assembly.drive);
+  const existing = measurementRows(db, actor.orgId, estimate.id);
+  const measure = input.measurementId ? existing.find((row) => row.id === input.measurementId) : undefined;
+  if (input.measurementId && !measure) throw new ServiceError("Measurement not found.");
+  let createdName: string | null = null;
+  let createdValue = 0;
+  if (!measure) {
+    try {
+      createdName = measurementName(input.measurementName || "");
+    } catch (error) {
+      throw new ServiceError(error instanceof FormulaError ? error.message : "Check the measurement.");
+    }
+    if (existing.some((row) => row.name === createdName)) throw new ServiceError(`${createdName} is already on this estimate.`);
+    if (!Number.isFinite(input.measurementValue) || (input.measurementValue ?? 0) <= 0 || (input.measurementValue ?? 0) > 1_000_000) {
+      throw new ServiceError("Enter a number greater than zero.");
+    }
+    createdValue = qtyToMilli(input.measurementValue!);
+  }
+  const sections = db.select().from(estimateSections).where(eq(estimateSections.estimateId, estimate.id)).all();
+  const section = sections.sort((a, b) => a.sortOrder - b.sortOrder).at(-1);
+  const sectionId = section?.id ?? id("sec");
+  const groupId = id("grp");
+  const measureId = measure?.id ?? id("meas");
+  const measureName = measure?.name ?? createdName!;
+  const valueMilli = measure?.valueMilli ?? createdValue;
+  db.transaction((tx) => {
+    if (!section) {
+      tx.insert(estimateSections).values({ id: sectionId, orgId: actor.orgId, estimateId: estimate.id, name: assembly.name, sortOrder: 0 }).run();
+    }
+    if (!measure) {
+      tx.insert(estimateMeasurements)
+        .values({
+          id: measureId,
+          orgId: actor.orgId,
+          estimateId: estimate.id,
+          name: measureName,
+          valueMilli,
+          unit,
+          sortOrder: existing.length,
+        })
+        .run();
+    }
+    const prior = tx.select().from(lineItems).where(and(eq(lineItems.estimateId, estimate.id), eq(lineItems.sectionId, sectionId))).all();
+    const start = prior.reduce((max, line) => Math.max(max, line.sortOrder), -1) + 1;
+    const groups = tx
+      .select()
+      .from(estimateGroups)
+      .where(and(eq(estimateGroups.orgId, actor.orgId), eq(estimateGroups.estimateId, estimate.id)))
+      .all();
+    tx.insert(estimateGroups)
+      .values({
+        id: groupId,
+        orgId: actor.orgId,
+        estimateId: estimate.id,
+        sectionId,
+        assemblyId: assembly.id,
+        name: assembly.name,
+        measurementId: measureId,
+        presentAs: "one",
+        sortOrder: groups.length,
+      })
+      .run();
+    parts.forEach((part, index) => {
+      let qtyMilli: number;
+      let formula: string;
+      try {
+        formula = bindFormula(part.formula, measureName);
+        qtyMilli = partQtyMilli(part, measureName, valueMilli);
+      } catch (error) {
+        throw new ServiceError(error instanceof FormulaError ? error.message : "Check the formula.");
+      }
+      tx.insert(lineItems)
+        .values({
+          id: id("li"),
+          orgId: actor.orgId,
+          sectionId,
+          estimateId: estimate.id,
+          priceBookItemId: part.priceBookItemId,
+          name: part.name,
+          description: null,
+          qtyMilli,
+          unit: part.unit,
+          unitCostCents: part.unitCostCents,
+          markupBps: estimate.markupBps,
+          costCode: part.costCode,
+          source: "manual",
+          aiConfidenceMilli: null,
+          sourceNote: null,
+          sortOrder: start + index,
+          billing: "included",
+          qtyFormula: formula,
+          wasteBps: part.wasteBps,
+          roundToMilli: part.roundToMilli,
+          groupId,
+          qtyOverridden: 0,
+        })
+        .run();
+    });
+    tx.update(estimates).set({ updatedAt: nowIso() }).where(eq(estimates.id, estimate.id)).run();
+  });
+  return { groupId, measurementId: measureId };
+}
+
+export function ungroupAssembly(actor: Actor, groupId: string) {
+  assertMoney(actor);
+  const db = staffDb(actor);
+  const group = db.select().from(estimateGroups).where(and(eq(estimateGroups.id, groupId), eq(estimateGroups.orgId, actor.orgId))).get();
+  if (!group) throw new ServiceError("Assembly not found.");
+  loadEditableEstimate(actor, group.estimateId);
+  db.transaction((tx) => {
+    tx.update(lineItems).set({ groupId: null }).where(and(eq(lineItems.groupId, group.id), eq(lineItems.orgId, actor.orgId))).run();
+    tx.delete(estimateGroups).where(and(eq(estimateGroups.id, group.id), eq(estimateGroups.orgId, actor.orgId))).run();
+    tx.update(estimates).set({ updatedAt: nowIso() }).where(eq(estimates.id, group.estimateId)).run();
+  });
+  return group.estimateId;
+}
+
+export function setGroupPresentation(actor: Actor, groupId: string, presentAs: string) {
+  assertMoney(actor);
+  if (presentAs !== "one" && presentAs !== "parts") throw new ServiceError("Check the line.");
+  const db = staffDb(actor);
+  const group = db.select().from(estimateGroups).where(and(eq(estimateGroups.id, groupId), eq(estimateGroups.orgId, actor.orgId))).get();
+  if (!group) throw new ServiceError("Assembly not found.");
+  loadEditableEstimate(actor, group.estimateId);
+  db.update(estimateGroups).set({ presentAs }).where(and(eq(estimateGroups.id, group.id), eq(estimateGroups.orgId, actor.orgId))).run();
+  db.update(estimates).set({ updatedAt: nowIso() }).where(eq(estimates.id, group.estimateId)).run();
+  return group.estimateId;
+}
+
 export function syncEstimateGrid(actor: Actor, input: unknown) {
   assertMoney(actor);
   let parsed: ReturnType<typeof parseGridSync>;
@@ -710,11 +1023,14 @@ export function syncEstimateGrid(actor: Actor, input: unknown) {
         sectionIds.add(line.sectionId);
       }
       const row = byId.get(line.id);
-      const stored = formulaQty(actor.orgId, estimate.id, line);
+      const wantOverride = line.qtyOverridden === true;
+      const stored = wantOverride ? null : formulaQty(actor.orgId, estimate.id, line);
       const qtyMilli = stored?.qtyMilli ?? qtyToMilli(line.qty);
+      const groupId = line.groupId === undefined ? (row?.groupId ?? null) : line.groupId;
+      const qtyOverridden = wantOverride ? 1 : stored ? 0 : line.qtyOverridden === false ? 0 : (row?.qtyOverridden ?? 0);
       const formulaFields = stored
-        ? { qtyFormula: stored.formula, wasteBps: stored.wasteBps, roundToMilli: stored.roundToMilli }
-        : { qtyFormula: null, wasteBps: 0, roundToMilli: null };
+        ? { qtyFormula: stored.formula, wasteBps: stored.wasteBps, roundToMilli: stored.roundToMilli, qtyOverridden: 0, groupId }
+        : { qtyFormula: null, wasteBps: 0, roundToMilli: null, qtyOverridden, groupId };
       if (!row) {
         tx.insert(lineItems)
           .values({
@@ -799,38 +1115,68 @@ export function reviseEstimate(actor: Actor, estimateId: string) {
   const sections = db.select().from(estimateSections).where(eq(estimateSections.estimateId, estimateId)).all();
   const lines = db.select().from(lineItems).where(eq(lineItems.estimateId, estimateId)).all();
   const measures = measurementRows(db, actor.orgId, estimateId);
+  const groups = db
+    .select()
+    .from(estimateGroups)
+    .where(and(eq(estimateGroups.orgId, actor.orgId), eq(estimateGroups.estimateId, estimateId)))
+    .all();
   const previous = db.select().from(estimates).where(eq(estimates.leadId, estimate.leadId)).all();
   const nextId = id("est");
   const now = nowIso();
+  const version = previous.reduce((max, row) => Math.max(max, row.version), 0) + 1;
   db.transaction((tx) => {
     tx.insert(estimates)
       .values({
         ...estimate,
         id: nextId,
-        version: previous.reduce((max, row) => Math.max(max, row.version), 0) + 1,
+        version,
         status: "draft",
         createdAt: now,
         updatedAt: now,
         createdBy: actor.userId,
       })
       .run();
+    const sectionIds = new Map<string, string>();
     for (const section of sections) {
       const sectionId = id("sec");
+      sectionIds.set(section.id, sectionId);
       tx.insert(estimateSections)
         .values({ ...section, id: sectionId, estimateId: nextId })
         .run();
-      for (const line of lines.filter((item) => item.sectionId === section.id)) {
-        tx.insert(lineItems)
-          .values({ ...line, id: id("li"), sectionId, estimateId: nextId })
-          .run();
-      }
     }
+    const measureIds = new Map<string, string>();
     for (const row of measures) {
+      const measureId = id("meas");
+      measureIds.set(row.id, measureId);
       tx.insert(estimateMeasurements)
-        .values({ ...row, id: id("meas"), estimateId: nextId })
+        .values({ ...row, id: measureId, estimateId: nextId })
         .run();
     }
-    log(tx, actor.orgId, "lead", estimate.leadId, "estimate", `Revised estimate into v${previous.reduce((max, row) => Math.max(max, row.version), 0) + 1}.`, "user", actor.userId);
+    const groupIds = new Map<string, string>();
+    for (const group of groups) {
+      const sectionId = sectionIds.get(group.sectionId);
+      const measurementId = measureIds.get(group.measurementId);
+      if (!sectionId || !measurementId) continue;
+      const groupId = id("grp");
+      groupIds.set(group.id, groupId);
+      tx.insert(estimateGroups)
+        .values({ ...group, id: groupId, estimateId: nextId, sectionId, measurementId })
+        .run();
+    }
+    for (const line of lines) {
+      const sectionId = sectionIds.get(line.sectionId);
+      if (!sectionId) continue;
+      tx.insert(lineItems)
+        .values({
+          ...line,
+          id: id("li"),
+          sectionId,
+          estimateId: nextId,
+          groupId: line.groupId ? (groupIds.get(line.groupId) ?? null) : null,
+        })
+        .run();
+    }
+    log(tx, actor.orgId, "lead", estimate.leadId, "estimate", `Revised estimate into v${version}.`, "user", actor.userId);
   });
   return { estimateId: nextId };
 }
@@ -846,6 +1192,13 @@ export async function sendProposal(actor: Actor, estimateId: string, overrideMar
   const contact = db.select().from(contacts).where(eq(contacts.id, lead.contactId)).get()!;
   const sections = db.select().from(estimateSections).where(eq(estimateSections.estimateId, estimateId)).all();
   const lines = db.select().from(lineItems).where(eq(lineItems.estimateId, estimateId)).all();
+  const groups = db
+    .select()
+    .from(estimateGroups)
+    .where(and(eq(estimateGroups.orgId, actor.orgId), eq(estimateGroups.estimateId, estimateId)))
+    .all();
+  const measures = measurementRows(db, actor.orgId, estimateId);
+  const groupById = new Map(groups.map((group) => [group.id, group]));
   const counting = lines.filter((line) => countsTowardTotal((line.billing || "included") as Billing));
   if (counting.length === 0) throw new ServiceError("Add at least one line before sending.");
   let cost = 0;
@@ -868,15 +1221,24 @@ export async function sendProposal(actor: Actor, estimateId: string, overrideMar
       name: section.name,
       lines: lines
         .filter((line) => line.sectionId === section.id)
-        .map((line) => ({
-          name: line.name,
-          qtyMilli: line.qtyMilli,
-          unit: line.unit,
-          unitCostCents: line.unitCostCents,
-          markupBps: line.markupBps,
-          costCode: line.costCode,
-          billing: (line.billing || "included") as Billing,
-        })),
+        .map((line) => {
+          const group = line.groupId ? groupById.get(line.groupId) : undefined;
+          const measure = group ? measures.find((row) => row.id === group.measurementId) : undefined;
+          return {
+            name: line.name,
+            qtyMilli: line.qtyMilli,
+            unit: line.unit,
+            unitCostCents: line.unitCostCents,
+            markupBps: line.markupBps,
+            costCode: line.costCode,
+            billing: (line.billing || "included") as Billing,
+            groupId: group?.id ?? null,
+            groupName: group?.name ?? null,
+            presentAs: group ? (group.presentAs === "parts" ? "parts" : "one") : null,
+            groupQtyMilli: measure?.valueMilli ?? null,
+            groupUnit: measure?.unit ?? null,
+          };
+        }),
     })),
     taxBps: estimate.taxBps,
     scheduleParts: defaultSchedule(org),

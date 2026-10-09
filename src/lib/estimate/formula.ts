@@ -228,6 +228,30 @@ export function evaluateFormula(input: FormulaInput): number {
   return Number(qty);
 }
 
+/** Plain quantity: `410 sf × 1.10 → 451, rounded to 480 (15 × 32 sf)`. */
+export function formulaHint(input: FormulaInput & { unit?: string }): string {
+  try {
+    const names = referencedNames(input.expr);
+    const single = names.length === 1 && input.expr.trim() === names[0];
+    const measure = single ? input.measurements.find((row) => row.name === names[0]) : undefined;
+    const unit = (input.unit ?? "").trim();
+    const wasted = evaluateFormula({ ...input, roundToMilli: null });
+    const finalQty = evaluateFormula(input);
+    const head = measure
+      ? `${formatQty(measure.valueMilli)}${unit ? ` ${unit}` : ""}`
+      : input.expr.trim().replace(/\s*\*\s*/g, " × ");
+    const times = input.wasteBps > 0 ? `${head} × ${(1 + input.wasteBps / 10_000).toFixed(2)}` : head;
+    if (input.roundToMilli && input.roundToMilli > 0) {
+      const packs = Math.round((finalQty / input.roundToMilli) * 1000);
+      const pack = `${formatQty(packs)} × ${formatQty(input.roundToMilli)}${unit ? ` ${unit}` : ""}`;
+      return `${times} → ${formatQty(wasted)}, rounded to ${formatQty(finalQty)} (${pack})`;
+    }
+    return `${times} → ${formatQty(finalQty)}`;
+  } catch {
+    return formulaCaption(input.expr, input.wasteBps, input.roundToMilli);
+  }
+}
+
 export function formulaCaption(expr: string, wasteBps: number, roundToMilli: number | null): string {
   const trimmed = expr.trim();
   const single = /^[A-Za-z][A-Za-z0-9]*$/.test(trimmed);

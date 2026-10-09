@@ -1142,7 +1142,8 @@ html.mac-inspector-off .mac-inspector { display: none; }
   color: var(--fl-accent);
   font-size: 17px;
 }
-.estimate-mac { display: none; }
+.estimate-mac { display: block; }
+.estimate-grid-wrap { display: none; }
 .estimate-phone-measures { display: flex; flex-wrap: wrap; gap: 8px 16px; padding: 0 16px 8px; color: var(--mac-secondary); font-size: 13px; }
 .measure-block { margin-bottom: 12px; }
 .measure-table { width: 100%; border-collapse: collapse; }
@@ -1150,6 +1151,11 @@ html.mac-inspector-off .mac-inspector { display: none; }
 .measure-table td { padding: 2px 4px 2px 0; vertical-align: middle; }
 .measure-table input.ctl { width: 72px; max-width: 88px; }
 .measure-table select.ctl { width: auto; max-width: 72px; }
+.measure-actions { position: relative; width: 36px; text-align: right; }
+.measure-pop { display: none; position: absolute; top: 22px; right: 0; z-index: 3; }
+.measure-actions:hover .measure-pop,
+.measure-actions:focus-within .measure-pop,
+.measure-actions.is-open .measure-pop { display: inline-flex; }
 .measure-formula { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 8px 0; font-size: 13px; }
 .est-qty { display: flex; align-items: center; justify-content: flex-end; gap: 2px; min-width: 0; }
 .est-qty .est-cell { width: 100%; min-width: 0; padding: 0; text-align: right; }
@@ -1168,6 +1174,15 @@ html.mac-inspector-off .mac-inspector { display: none; }
   flex-direction: column;
   gap: 8px;
   padding: 0 16px;
+}
+@media (max-width: 767px) {
+  .estimate-side {
+    width: auto;
+    border-left: 0;
+    background: transparent;
+    padding: 0 16px 96px;
+  }
+  .estimate-side > :not(.estimate-comments) { display: none; }
 }
 @media (min-width: 768px) {
   .estimate-screen {
@@ -1206,6 +1221,8 @@ html.mac-inspector-off .mac-inspector { display: none; }
     min-height: 0;
     border-top: 0.5px solid var(--mac-separator);
   }
+  .estimate-grid-wrap { display: block; }
+  .estimate-side > :not(.estimate-comments) { display: revert; }
   .estimate-totals {
     order: 2;
     position: sticky;
@@ -1248,6 +1265,14 @@ html.mac-inspector-off .mac-inspector { display: none; }
   border-left: 0.5px solid var(--mac-separator);
   background: var(--mac-under);
   padding: 12px 14px 20px;
+}
+@media (max-width: 767px) {
+  .estimate-side {
+    width: auto;
+    border-left: 0;
+    background: transparent;
+    padding: 0 16px 96px;
+  }
 }
 .estimate-reprice {
   align-items: center;
@@ -1347,16 +1372,31 @@ html.mac-inspector-off .mac-inspector { display: none; }
 }
 .est-amount.is-muted { color: var(--mac-secondary); }
 .est-measure { font-size: 11px; white-space: nowrap; }
-.est-confidence {
-  display: inline-flex;
+.est-override { color: var(--mac-secondary); font-size: 11px; font-weight: 600; white-space: nowrap; }
+.est-assembly {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 26px;
+  margin: 2px 0 2px 22px;
+  padding: 0 6px;
   border-radius: 6px;
-  background: var(--mac-fill-2);
-  color: var(--mac-secondary);
-  padding: 0 5px;
-  font-size: 11px;
-  line-height: 16px;
+  background: var(--mac-fill);
+  font-size: 12px;
   font-weight: 600;
 }
+.est-assembly-name { min-width: 0; }
+.est-assembly-total { margin-left: auto; font-variant-numeric: tabular-nums; }
+.est-line.is-part { background: color-mix(in srgb, var(--mac-fill) 55%, transparent); }
+.est-assembly-add { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 4px 0 0 26px; }
+.est-assembly-form { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.estimate-comments { margin-top: 16px; }
+.assembly-editor { display: flex; flex-direction: column; gap: 10px; max-width: 880px; margin-top: 12px; }
+.assembly-head, .assembly-tools { display: flex; align-items: center; gap: 8px; }
+.assembly-head h1 { font-size: 15px; line-height: 20px; font-weight: 600; }
+.assembly-field { display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+.assembly-part { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.assembly-part .field { max-width: 280px; }
 .est-billing {
   width: 100%;
   padding: 0 2px;

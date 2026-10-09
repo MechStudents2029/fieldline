@@ -1,3 +1,4 @@
+import { suggestAssemblies, type AssemblySuggestion } from "@/lib/estimate/assembly";
 import { applyCatalogQuantity, measuresFromValues } from "@/lib/estimate/formula";
 
 export type PriceRef = {
@@ -39,6 +40,7 @@ export type DraftEstimate = {
   notes: string;
   model: string;
   measurements: DraftMeasurement[];
+  assemblies: AssemblySuggestion[];
 };
 
 /** A photo-only cue never outranks a written dimension. Estimators still have to check the site. */
@@ -480,6 +482,7 @@ export function draftEstimate(input: {
     notes: `${low} line${low === 1 ? "" : "s"} under 70% confidence.${measureNote} Prices come from your price book, not from a generic model.${photoNote} Review every line before you send.`,
     model: input.model ?? "fieldline-pricebook-v1",
     measurements,
+    assemblies: suggestAssemblies(input.scope),
   };
 }
 

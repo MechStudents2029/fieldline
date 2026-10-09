@@ -18,6 +18,8 @@ const lineSchema = z.object({
   formula: z.string().trim().max(80).nullable().optional(),
   wasteBps: z.number().int().min(0).max(10_000).optional(),
   roundToMilli: z.number().int().positive().max(1_000_000_000).nullable().optional(),
+  groupId: z.string().max(80).nullable().optional(),
+  qtyOverridden: z.boolean().optional(),
 });
 
 export const gridSyncSchema = z.object({

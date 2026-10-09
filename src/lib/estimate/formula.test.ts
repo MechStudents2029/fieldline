@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { evaluateFormula, formulaCaption, referencedNames } from "@/lib/estimate/formula";
+import { evaluateFormula, formulaCaption, formulaHint, referencedNames } from "@/lib/estimate/formula";
 
 const floor = (valueMilli: number) => [{ name: "Floor", valueMilli }];
 const both = [
@@ -37,5 +37,23 @@ describe("quantity formulas", () => {
     expect(qty("Floor * 1.10", floor(100_000), 0, 10_000)).toBe(110_000);
     expect(formulaCaption("Walls", 1000, 32_000)).toBe("Walls x 1.10, round up to 32");
     expect(formulaCaption("Floor * 1.10", 0, 10_000)).toBe("Floor x 1.10, round up to 10");
+    expect(
+      formulaHint({
+        expr: "Walls",
+        wasteBps: 1000,
+        roundToMilli: 32_000,
+        measurements: [{ name: "Walls", valueMilli: 410_000 }],
+        unit: "sf",
+      }),
+    ).toBe("410 sf × 1.10 → 451, rounded to 480 (15 × 32 sf)");
+    expect(
+      formulaHint({
+        expr: "Walls",
+        wasteBps: 1000,
+        roundToMilli: null,
+        measurements: [{ name: "Walls", valueMilli: 410_000 }],
+        unit: "sf",
+      }),
+    ).toBe("410 sf × 1.10 → 451");
   });
 });

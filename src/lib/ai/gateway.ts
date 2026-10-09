@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { suggestAssemblies } from "@/lib/estimate/assembly";
 import {
   draftEstimate,
   measurementsFromScope,
@@ -128,6 +129,7 @@ export async function estimateFromScope(input: {
       notes: result.object.notes,
       model: process.env.AI_ESTIMATE_MODEL || "gateway",
       measurements: measurementsFromScope(input.scope),
+      assemblies: suggestAssemblies(input.scope),
     };
   } catch {
     return local();

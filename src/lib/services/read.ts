@@ -5,6 +5,8 @@ import { officeClaim } from "@/lib/db/rls-context";
 import { supabaseAuthConfigured } from "@/lib/supabase/env";
 import {
   activities,
+  assemblies,
+  assemblyParts,
   bills,
   budgetLines,
   changeOrderLines,
@@ -12,6 +14,7 @@ import {
   contacts,
   costItems,
   documents,
+  estimateGroups,
   estimateMeasurements,
   estimateSections,
   estimates,
@@ -254,6 +257,12 @@ export function estimateDetail(orgId: string, estimateId: string) {
     .where(eq(lineItems.estimateId, estimateId))
     .orderBy(asc(lineItems.sortOrder))
     .all();
+  const groups = db
+    .select()
+    .from(estimateGroups)
+    .where(and(eq(estimateGroups.estimateId, estimateId), eq(estimateGroups.orgId, orgId)))
+    .orderBy(asc(estimateGroups.sortOrder))
+    .all();
   let cost = 0;
   let price = 0;
   const priced = lines.map((line) => {
@@ -281,6 +290,7 @@ export function estimateDetail(orgId: string, estimateId: string) {
     contact,
     sections,
     measurements,
+    groups,
     lines: priced,
     photos,
     depositBps: org?.depositBps ?? 4000,
@@ -491,6 +501,31 @@ export function listInvoices(orgId: string) {
     .where(eq(invoices.orgId, orgId))
     .orderBy(desc(invoices.createdAt))
     .all();
+}
+
+export function listAssemblies(orgId: string) {
+  const db = officeDb(orgId);
+  if (!db) return [];
+  return db
+    .select()
+    .from(assemblies)
+    .where(and(eq(assemblies.orgId, orgId), isNull(assemblies.archivedAt)))
+    .orderBy(asc(assemblies.name))
+    .all();
+}
+
+export function assemblyDetail(orgId: string, assemblyId: string) {
+  const db = officeDb(orgId);
+  if (!db) return null;
+  const assembly = db.select().from(assemblies).where(and(eq(assemblies.id, assemblyId), eq(assemblies.orgId, orgId))).get();
+  if (!assembly || assembly.archivedAt) return null;
+  const parts = db
+    .select()
+    .from(assemblyParts)
+    .where(and(eq(assemblyParts.assemblyId, assemblyId), eq(assemblyParts.orgId, orgId)))
+    .orderBy(asc(assemblyParts.sortOrder))
+    .all();
+  return { assembly, parts };
 }
 
 export function listPriceBook(orgId: string, q?: string) {

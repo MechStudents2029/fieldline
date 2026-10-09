@@ -5,10 +5,17 @@
 ### Measurements and quantity formulas
 
 - An estimate has a Measurements list: name, number, and unit (sf, lf, ea, sq, cy). A lead’s square footage becomes Floor. Vasquez kitchen starts with Floor 240 sf, Walls 410 sf, Backsplash 38 sf, and Base 62 lf.
-- A line can take its quantity from a formula over those measurements, with a waste percent and an optional round-up to the purchase unit. The quantity shows an fx mark. The formula reads in one line, such as Walls x 1.10, round up to 32.
+- A line can take its quantity from a formula over those measurements, with a waste percent and an optional round-up to the purchase unit. The quantity shows an fx mark. The formula reads in the numbers it produced, such as 410 sf × 1.10 → 451, rounded to 480 (15 × 32 sf).
 - Changing a measurement recalculates every line that uses it, and the cost, price, total, and margin. Typed quantities stay put. Deleting a measurement that lines use is blocked and names the count. A bad formula is refused with a plain message.
 - A sent proposal stores the computed quantity. The client sees numbers only. Price-book items and cost-code template lines can carry a default formula and waste, and a new line with that code picks them up when the measurements exist.
 - The estimate draft uses those measurements. It marks a line needs-measure only when a formula’s measurement is missing.
+
+### Assemblies
+
+- A price-book assembly has a name, a driving measurement (area, length, or count), and parts. Each part is a catalog item or a free line, with a formula on that measurement, a waste percent, and an optional round-up. Rivera starts with Tile shower wall, Interior wall paint, and Base cabinet run. Assemblies can be edited, duplicated, or archived.
+- Add assembly on an estimate picks the assembly and a measurement, new or already on the job. The parts land as a collapsible group with the assembly name, the measurement, and the group total. Changing the measurement recalculates the group. A line can be overridden, removed, or the group can be ungrouped into ordinary lines. Deleting a measurement that a group uses is blocked.
+- A sent proposal stores the numbers. Each group shows as one line with the group total, or as its parts when that group is set to parts. The draft can name a matching assembly. It does not insert the parts.
+- Comments sit in the estimate side pane. Measurement rows use an actions menu. A low-confidence line keeps that percent on the item, not as a pill.
 
 ### Purchase order detail
 
