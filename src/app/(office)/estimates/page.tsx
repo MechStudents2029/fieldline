@@ -36,10 +36,10 @@ export default async function EstimatesPage() {
                   </Link>
                 </td>
                 <td className="px-2">{row.contact.name}</td>
-                <td className="px-2">
+                <td className="fit px-2" data-fit="status">
                   {row.estimate.status === "draft" || row.estimate.status === "sent" ? <span className="fl-pill">{row.estimate.status}</span> : row.estimate.status}
                 </td>
-                <td className="px-2 text-right num">{formatWhole(row.priceCents)}</td>
+                <td className="fit num px-2 text-right" data-fit="amount">{formatWhole(row.priceCents)}</td>
               </tr>
             ))}
           </tbody>

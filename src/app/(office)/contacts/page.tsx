@@ -81,8 +81,8 @@ export default async function ContactsPage({ searchParams }: { searchParams: Pro
                   </Link>
                 </td>
                 <td className="px-2">{contact.company || contact.email || contact.city}</td>
-                <td className="px-2">{contact.type}</td>
-                <td className="px-2">
+                <td className="fit px-2" data-fit="status">{contact.type}</td>
+                <td className="fit px-2" data-fit="status">
                   {compliance[contact.id] ? (
                     <span className="fl-pill" data-compliance={compliance[contact.id].state}>
                       {compliance[contact.id].label}

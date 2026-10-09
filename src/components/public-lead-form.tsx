@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import type { ActionState } from "@/app/actions";
 import { submitPublicLeadAction } from "@/app/actions";
+import { FileButton } from "@/components/file-button";
 import { BUDGET_BANDS, TIMELINES, type FieldFlags } from "@/lib/lead-form/rules";
 
 export function PublicLeadForm({
@@ -104,7 +105,7 @@ export function PublicLeadForm({
       {fields.photos ? (
         <label className="text-sm">
           Photos
-          <input name="photos" type="file" accept="image/jpeg,image/png,image/webp" multiple className="mt-1 block w-full text-sm" />
+          <FileButton name="photos" label="Photos" accept="image/jpeg,image/png,image/webp" multiple empty="Photos" />
         </label>
       ) : null}
       {state?.error ? (

@@ -79,9 +79,9 @@ export default async function RfisPage({
                 </td>
                 <td className="clip" title={item.projectName}>{item.projectName}</td>
                 <td>{item.assigneeName}</td>
-                <td className="num">{item.dueOn ? formatCalendarDay(item.dueOn) : "—"}</td>
+                <td className="fit num" data-fit="date">{item.dueOn ? formatCalendarDay(item.dueOn) : "—"}</td>
                 <td className="num">{item.ageDays}</td>
-                <td>
+                <td className="fit" data-fit="status">
                   <span className="fl-pill">{item.statusLabel}</span>
                 </td>
                 <td className="num">{item.impact}</td>

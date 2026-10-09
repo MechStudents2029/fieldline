@@ -251,12 +251,12 @@ export function TimeReview({ review }: { review: TimeReview }) {
                     </span>
                   </td>
                   {row.hours.map((cell) => (
-                    <td key={cell.day} className={`px-2 text-right num ${toneClass(cell.tone)}`}>
+                    <td key={cell.day} data-fit="amount" className={`fit px-2 text-right num ${toneClass(cell.tone)}`}>
                       {hours(cell.hours)}
                     </td>
                   ))}
-                  <td className={`px-2 text-right num ${toneClass(row.totalTone)}`}>{row.total.toFixed(1)}</td>
-                  <td className="px-2">{row.status === "Submitted" ? <span className="fl-pill">Submitted</span> : row.status}</td>
+                  <td data-fit="amount" className={`fit px-2 text-right num ${toneClass(row.totalTone)}`}>{row.total.toFixed(1)}</td>
+                  <td data-fit="status" className="fit px-2">{row.status === "Submitted" ? <span className="fl-pill">Submitted</span> : row.status}</td>
                 </tr>
               ))}
             </tbody>
@@ -401,7 +401,7 @@ function EntryRow({
       <td className="px-2">
         <input type="checkbox" aria-label={`Select ${label}`} disabled={entry.status !== "pending" || busy} checked={checked} onChange={onToggle} />
       </td>
-      <td className="num px-2">{entry.dayLabel}</td>
+      <td className="fit num px-2" data-fit="date">{entry.dayLabel}</td>
       <td className="px-2">
         {entry.locked ? (
           entry.projectName
@@ -450,8 +450,8 @@ function EntryRow({
           <input form={formId} name="breakMinutes" aria-label="Break minutes" type="number" min={0} defaultValue={entry.breakMinutes} className="h-6 w-14 bg-transparent text-right text-[13px] num" />
         )}
       </td>
-      <td className={`px-2 text-right num ${entry.flags.includes("overlap") || entry.flags.includes("open_long") ? "font-semibold text-[var(--mac-danger)]" : ""}`}>{entry.hoursLabel}</td>
-      <td className="px-2">{entry.status === "pending" ? <span className="fl-pill">Submitted</span> : entry.status === "approved" ? "Approved" : "On site"}</td>
+      <td data-fit="amount" className={`fit px-2 text-right num ${entry.flags.includes("overlap") || entry.flags.includes("open_long") ? "font-semibold text-[var(--mac-danger)]" : ""}`}>{entry.hoursLabel}</td>
+      <td data-fit="status" className="fit px-2">{entry.status === "pending" ? <span className="fl-pill">Submitted</span> : entry.status === "approved" ? "Approved" : "On site"}</td>
       <td className="px-2">
         {entry.note ? <span>{entry.note}</span> : null}
         {entry.locked ? null : <input form={formId} name="note" aria-label="Note" defaultValue={entry.note ?? ""} className="sr-only" />}

@@ -9,16 +9,18 @@ export function ActionForm({
   className,
   onSubmit,
   id,
+  dataBar,
 }: {
   action: (state: ActionState, formData: FormData) => Promise<ActionState>;
   children: React.ReactNode;
   className?: string;
   onSubmit?: (event: React.FormEvent<HTMLFormElement>) => void;
   id?: string;
+  dataBar?: string;
 }) {
   const [state, formAction, pending] = useActionState(action, null);
   return (
-    <form id={id} action={formAction} onSubmit={onSubmit} className={className} aria-busy={pending}>
+    <form id={id} action={formAction} onSubmit={onSubmit} className={className} data-bar={dataBar} aria-busy={pending}>
       {children}
       {state?.error ? (
         <p role="alert" className="text-sm text-destructive">

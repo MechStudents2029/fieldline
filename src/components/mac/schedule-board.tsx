@@ -327,7 +327,7 @@ export function ScheduleBoard({ board, openJobId }: { board: Board; openJobId: s
         ) : null}
       </div>
       {draft ? (
-        <aside role="dialog" aria-label="Schedule item" className="absolute inset-y-0 right-0 z-20 flex w-[320px] flex-col gap-3 overflow-hidden border-l border-[var(--mac-separator)] bg-[var(--mac-window)] p-4">
+        <aside role="dialog" aria-label="Schedule item" data-pane="schedule" className="absolute inset-y-0 right-0 z-20 flex w-[320px] flex-col gap-3 overflow-hidden border-l border-[var(--mac-separator)] bg-[var(--mac-window)] p-4">
           <div className="flex shrink-0 items-center justify-between bg-[var(--mac-window)]">
             <h2 className="mac-t15">{draft.id ? "Item" : "New item"}</h2>
             <button type="button" className="mac-glass-btn" onClick={() => setDraft(null)} aria-label="Close">

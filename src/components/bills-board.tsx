@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { Fragment, useState } from "react";
+import { Fragment, useRef, useState } from "react";
 import { requestWaiversAction } from "@/app/actions";
+import { SelectionBar } from "@/components/selection-bar";
 import { formatMoney } from "@/lib/money";
 import { WAIVER_TYPES, waiverTypeLabel } from "@/lib/waivers/format";
 
@@ -41,6 +42,7 @@ function statusLabel(status: string) {
 }
 
 export function BillsBoard({ office, rows, summaries }: { office: boolean; rows: BillRow[]; summaries: VendorRow[] }) {
+  const formRef = useRef<HTMLFormElement>(null);
   const [count, setCount] = useState(0);
   function sync(form: HTMLFormElement | null) {
     if (!form) return;
@@ -50,24 +52,31 @@ export function BillsBoard({ office, rows, summaries }: { office: boolean; rows:
     <div className="flex flex-col gap-6">
       <form
         action={office ? requestWaiversAction : undefined}
+        ref={formRef}
         className="flex flex-col"
         onChange={(event) => sync(event.currentTarget)}
       >
-        {office && count > 0 ? (
-          <div role="region" aria-label="Waiver request" className="flex flex-wrap items-center gap-2 px-4 py-2">
-            <span className="text-sm">{count} selected</span>
-            <select name="type" aria-label="Waiver type" className="field" defaultValue="conditional_progress">
-              {WAIVER_TYPES.map((type) => (
-                <option key={type} value={type}>
-                  {waiverTypeLabel(type)}
-                </option>
-              ))}
-            </select>
-            <button type="submit" className="mac-primary">
-              Request waiver
-            </button>
-          </div>
-        ) : null}
+        <SelectionBar
+          label="Waiver request"
+          count={office ? count : 0}
+          onClear={() => {
+            formRef.current?.querySelectorAll<HTMLInputElement>('input[name="billId"]').forEach((box) => {
+              box.checked = false;
+            });
+            setCount(0);
+          }}
+        >
+          <select name="type" aria-label="Waiver type" className="ctl" defaultValue="conditional_progress">
+            {WAIVER_TYPES.map((type) => (
+              <option key={type} value={type}>
+                {waiverTypeLabel(type)}
+              </option>
+            ))}
+          </select>
+          <button type="submit" className="mac-primary">
+            Request waiver
+          </button>
+        </SelectionBar>
         <div className="overflow-x-auto md:px-4">
           <table className="mac-table" aria-label="Bills">
             <thead>
@@ -105,11 +114,11 @@ export function BillsBoard({ office, rows, summaries }: { office: boolean; rows:
                   <td className="px-2" title={bill.projectName}>
                     {bill.projectName}
                   </td>
-                  <td className="px-2">
+                  <td className="fit px-2" data-fit="status">
                     <span className="fl-pill">{statusLabel(bill.status)}</span>
                   </td>
                   <td className="px-2">{bill.waiverRequested ? <span className="fl-pill">{bill.waiverLabel}</span> : bill.waiverLabel}</td>
-                  <td className="px-2 text-right num">{formatMoney(bill.amountCents)}</td>
+                  <td className="fit num px-2 text-right" data-fit="amount">{formatMoney(bill.amountCents)}</td>
                 </tr>
               ))}
             </tbody>
@@ -139,16 +148,16 @@ export function BillsBoard({ office, rows, summaries }: { office: boolean; rows:
                       <td>
                         <Link href={`/bills?vendor=${vendor.contactId}`}>{vendor.company || vendor.name}</Link>
                       </td>
-                      <td className="num text-right">{formatMoney(vendor.billedCents)}</td>
-                      <td className="num text-right">{formatMoney(vendor.paidCents)}</td>
-                      <td className="num text-right">{formatMoney(vendor.outstandingCents)}</td>
-                      <td className="num text-right">{formatMoney(vendor.committedCents)}</td>
-                      <td className="num text-right">{formatMoney(vendor.openBalanceCents)}</td>
+                      <td className="fit num text-right" data-fit="amount">{formatMoney(vendor.billedCents)}</td>
+                      <td className="fit num text-right" data-fit="amount">{formatMoney(vendor.paidCents)}</td>
+                      <td className="fit num text-right" data-fit="amount">{formatMoney(vendor.outstandingCents)}</td>
+                      <td className="fit num text-right" data-fit="amount">{formatMoney(vendor.committedCents)}</td>
+                      <td className="fit num text-right" data-fit="amount">{formatMoney(vendor.openBalanceCents)}</td>
                     </tr>
                     {vendor.codes.map((code) => (
                       <tr key={`${vendor.contactId}-${code.code}`} title={`Budget ${formatMoney(code.budgetCents)}`}>
                         <td className="pl-8 text-[var(--mac-secondary)]">{code.code}</td>
-                        <td className="num text-right">{formatMoney(code.billedCents)}</td>
+                        <td className="fit num text-right" data-fit="amount">{formatMoney(code.billedCents)}</td>
                         <td />
                         <td />
                         <td />

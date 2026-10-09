@@ -38,9 +38,9 @@ export function RfiSection({ board }: { board: JobRfiBoard }) {
                   <Link href={item.href}>{item.title}</Link>
                 </td>
                 <td>{item.assigneeName}</td>
-                <td className="num">{item.dueOn ? formatCalendarDay(item.dueOn) : "—"}</td>
+                <td className="fit num" data-fit="date">{item.dueOn ? formatCalendarDay(item.dueOn) : "—"}</td>
                 <td className="num">{item.ageDays}</td>
-                <td>
+                <td className="fit" data-fit="status">
                   <Pill>{item.statusLabel}</Pill>
                 </td>
                 <td className="num">{item.impact}</td>

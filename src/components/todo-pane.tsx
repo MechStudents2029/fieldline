@@ -59,7 +59,7 @@ export function TodoPane({
   }
 
   return (
-    <aside className="flex w-full shrink-0 flex-col gap-3 border-t border-[var(--mac-separator)] bg-[var(--mac-window)] p-4 md:w-[360px] md:border-l md:border-t-0" aria-label="To-do" data-due={todo.dueAt || ""} data-status={todo.status}>
+    <aside data-pane="todo" className="flex w-full shrink-0 flex-col gap-3 border-t border-[var(--mac-separator)] bg-[var(--mac-window)] p-4 md:w-[360px] md:border-l md:border-t-0" aria-label="To-do" data-due={todo.dueAt || ""} data-status={todo.status}>
       <div className="flex items-start justify-between gap-2">
         <h2 className="mac-t15">{todo.title}</h2>
         {todo.progress ? <span className="num mac-t13 text-[var(--mac-secondary)]">{todo.progress}</span> : null}

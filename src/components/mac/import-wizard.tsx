@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { commitImportAction, previewImportAction, undoImportAction } from "@/app/actions";
+import { FileButton } from "@/components/file-button";
 import { ImportParseError, MAX_IMPORT_BYTES, parseCsv, type CsvTable } from "@/lib/import/csv";
 import { FIELD_LABEL, autoMap, fieldsFor, type ImportKind } from "@/lib/import/map";
 import { formatWhen } from "@/lib/format";
@@ -106,13 +107,12 @@ export function ImportWizard({ kind, history }: { kind: ImportKind; history: Imp
         {error ? <p className="mac-t13 text-[var(--mac-danger)]">{error}</p> : null}
         {step === "paste" ? (
           <div className="flex flex-col gap-3">
-            <input
-              type="file"
+            <FileButton
+              name="spreadsheet"
+              label="Spreadsheet file"
               accept=".csv,text/csv,text/plain"
-              aria-label="Spreadsheet file"
-              className="mac-t13"
-              onChange={(event) => {
-                const file = event.target.files?.[0];
+              empty="File"
+              onPick={(file) => {
                 if (!file) return;
                 if (file.size > MAX_IMPORT_BYTES) {
                   setError("File is over 1 MB.");

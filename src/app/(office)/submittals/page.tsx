@@ -96,9 +96,9 @@ export default async function SubmittalsPage({ searchParams }: { searchParams: P
                   </td>
                   <td>{item.division}</td>
                   <td>{item.assigneeName}</td>
-                  <td className={`num ${item.overdue ? "text-[var(--mac-danger)]" : ""}`}>{item.dueOn ? formatCalendarDay(item.dueOn) : "—"}</td>
+                  <td className={`fit num ${item.overdue ? "text-[var(--mac-danger)]" : ""}`} data-fit="date">{item.dueOn ? formatCalendarDay(item.dueOn) : "—"}</td>
                   <td className="num">{item.ageDays}</td>
-                  <td>{pendingSubmittal(item.status) ? <span className="fl-pill">{item.statusLabel}</span> : <span className="text-[var(--mac-secondary)]">{item.statusLabel}</span>}</td>
+                  <td className="fit" data-fit="status">{pendingSubmittal(item.status) ? <span className="fl-pill">{item.statusLabel}</span> : <span className="text-[var(--mac-secondary)]">{item.statusLabel}</span>}</td>
                   <td className="num">{item.revision}</td>
                 </tr>
               ))}

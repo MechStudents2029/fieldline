@@ -56,12 +56,12 @@ export default async function WipJobPage({
             {row.codes.map((code) => (
               <tr key={code.code}>
                 <td className="px-2.5">{code.code}</td>
-                <td className="num px-2.5 text-right">{formatWhole(code.revisedBudgetCents)}</td>
-                <td className="num px-2.5 text-right">{formatWhole(code.committedOpenCents)}</td>
-                <td className="num px-2.5 text-right">{formatWhole(code.costToDateCents)}</td>
-                <td className="num px-2.5 text-right">{formatWhole(code.projectedCents)}</td>
-                <td className="num px-2.5 text-right">{formatPercent(code.percentBps)}</td>
-                <td className="num px-2.5 text-right">{formatWhole(code.costToCompleteCents)}</td>
+                <td className="fit num px-2.5 text-right" data-fit="amount">{formatWhole(code.revisedBudgetCents)}</td>
+                <td className="fit num px-2.5 text-right" data-fit="amount">{formatWhole(code.committedOpenCents)}</td>
+                <td className="fit num px-2.5 text-right" data-fit="amount">{formatWhole(code.costToDateCents)}</td>
+                <td className="fit num px-2.5 text-right" data-fit="amount">{formatWhole(code.projectedCents)}</td>
+                <td className="fit num px-2.5 text-right" data-fit="amount">{formatPercent(code.percentBps)}</td>
+                <td className="fit num px-2.5 text-right" data-fit="amount">{formatWhole(code.costToCompleteCents)}</td>
               </tr>
             ))}
           </tbody>

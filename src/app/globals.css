@@ -491,10 +491,6 @@
     padding-inline: 12px;
     font-size: 13px;
   }
-  .field {
-    height: 28px;
-    font-size: 13px;
-  }
 }
 
 .field {
@@ -506,6 +502,91 @@
   padding-inline: 0.75rem;
   font-size: 1rem;
 }
+
+/* Laptop controls are 24px and only as wide as their label. .field stays a full form row. */
+:root {
+  --ctl-h: 24px;
+  --ctl-max: 260px;
+}
+
+.ctl,
+select.ctl,
+button.ctl {
+  box-sizing: border-box;
+  height: 32px;
+  width: auto;
+  max-width: min(var(--ctl-max), 100%);
+  flex: 0 0 auto;
+  border: 0;
+  border-radius: 6px;
+  background: var(--mac-fill);
+  color: var(--mac-label);
+  padding: 0 8px;
+  font-size: 13px;
+  line-height: 16px;
+  white-space: nowrap;
+}
+select.ctl {
+  field-sizing: content;
+  padding-right: 22px;
+}
+.ctl-bar {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+  padding: 0 16px;
+  overflow-x: auto;
+}
+.ctl-line {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-size: 13px;
+}
+.ctl-count { font-size: 13px; white-space: nowrap; }
+.ctl-dot { color: var(--mac-secondary); }
+
+@media (min-width: 768px) {
+  .field {
+    height: 28px;
+    padding-inline: 8px;
+    border-radius: 6px;
+    font-size: 13px;
+  }
+  .ctl,
+  select.ctl,
+  button.ctl,
+  [data-bar] select:not(.field),
+  [data-pane] select:not(.field),
+  [data-sheet] select:not(.field) {
+    height: var(--ctl-h);
+    max-height: var(--ctl-h);
+    max-width: var(--ctl-max);
+    width: auto;
+    flex: 0 0 auto;
+    border: 0;
+    border-radius: 6px;
+    background: var(--mac-fill);
+    color: var(--mac-label);
+    padding: 0 8px;
+    font-size: 13px;
+    line-height: 24px;
+    white-space: nowrap;
+  }
+  select.ctl,
+  [data-bar] select:not(.field),
+  [data-pane] select:not(.field),
+  [data-sheet] select:not(.field) {
+    field-sizing: content;
+    padding-right: 22px;
+  }
+}
+
+.fit { white-space: nowrap; font-variant-numeric: tabular-nums; }
 
 :root {
   --mac-accent: #0a7a6f;
@@ -604,7 +685,7 @@
   font-weight: 600;
   white-space: nowrap;
 }
-.file-pick { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 4px; }
+.file-pick { display: inline-flex; flex-wrap: nowrap; align-items: center; gap: 6px; margin: 0; max-width: 100%; }
 .file-pick-input {
   position: absolute;
   left: -10000px;
@@ -614,12 +695,29 @@
 }
 .file-pick-btn,
 .file-pick-clear {
-  min-height: 36px;
+  box-sizing: border-box;
+  height: 44px;
+  min-height: 44px;
+  border: 0;
   border-radius: 8px;
   background: var(--fl-fill);
   padding: 0 12px;
   font-size: 15px;
+  line-height: 20px;
   color: inherit;
+  white-space: nowrap;
+}
+@media (min-width: 768px) {
+  .file-pick-btn,
+  .file-pick-clear {
+    height: var(--ctl-h);
+    min-height: var(--ctl-h);
+    border-radius: 6px;
+    background: var(--mac-fill);
+    padding: 0 8px;
+    font-size: 13px;
+    line-height: 16px;
+  }
 }
 .mac-t26 { font-size: 26px; line-height: 32px; font-weight: 600; letter-spacing: -0.4px; }
 .mac-t22 { font-size: 22px; line-height: 26px; font-weight: 600; letter-spacing: -0.3px; }
@@ -670,7 +768,8 @@
   box-shadow: inset 0 -0.5px 0 var(--mac-separator);
 }
 .mac-table th button { white-space: nowrap; }
-.mac-table td { height: 28px; padding: 0 10px; }
+.mac-table td { height: 28px; padding: 0 10px; white-space: nowrap; }
+.mac-table td.wrap { white-space: normal; }
 .mac-table td.clip,
 .mac-table th.clip {
   max-width: 180px;
@@ -723,7 +822,7 @@
   font-size: 13px;
   line-height: 16px;
 }
-.list-select { width: auto; max-width: none; field-sizing: content; padding: 0 22px 0 8px; }
+.list-select { width: auto; max-width: var(--ctl-max); field-sizing: content; padding: 0 22px 0 8px; }
 .list-search { width: 140px; padding: 0 8px; }
 .list-link,
 .list-clear {

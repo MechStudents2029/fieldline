@@ -8,18 +8,21 @@ export function FileButton({
   accept,
   multiple,
   empty = "Photo",
+  onPick,
 }: {
   name: string;
   label: string;
   accept: string;
   multiple?: boolean;
   empty?: string;
+  onPick?: (file: File | null) => void;
 }) {
   const ref = useRef<HTMLInputElement>(null);
   const [names, setNames] = useState<string[]>([]);
   function clear() {
     if (ref.current) ref.current.value = "";
     setNames([]);
+    onPick?.(null);
   }
   return (
     <div className="file-pick">
@@ -32,7 +35,11 @@ export function FileButton({
         multiple={multiple}
         aria-label={label}
         tabIndex={-1}
-        onChange={(event) => setNames([...(event.target.files ?? [])].map((file) => file.name))}
+        onChange={(event) => {
+          const files = [...(event.target.files ?? [])];
+          setNames(files.map((file) => file.name));
+          onPick?.(files[0] ?? null);
+        }}
       />
       <button type="button" className="file-pick-btn" onClick={() => ref.current?.click()}>
         {names.length ? names.join(", ") : empty}

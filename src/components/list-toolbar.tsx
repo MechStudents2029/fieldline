@@ -68,7 +68,7 @@ export function ListToolbar({
     >
       <summary className="list-filter-toggle" role="button">Filter</summary>
       <div className="list-row">
-        <form method="get" action={path} className="list-bar">
+        <form method="get" action={path} className="list-bar" data-bar="filters">
           {hidden.map(([name, value]) => (
             <input key={name} type="hidden" name={name} value={value} />
           ))}
