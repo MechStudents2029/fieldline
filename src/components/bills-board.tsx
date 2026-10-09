@@ -68,7 +68,7 @@ export function BillsBoard({
     if (!form) return;
     setCount(form.querySelectorAll('input[name="billId"]:checked').length);
   }
-  const columns = office ? 7 : 6;
+  const columns = office ? (pay ? 5 : 6) : pay ? 4 : 5;
   return (
     <div className="flex flex-col gap-6">
       {pay && payState?.error ? (
@@ -146,9 +146,8 @@ export function BillsBoard({
                 {office ? <th className="px-2" /> : null}
                 <th className="px-2">Bill</th>
                 <th className="px-2">Job</th>
-                <th className="px-2">Status</th>
-                <th className="px-2">Waiver</th>
-                <th className="px-2"> </th>
+                {pay ? <th className="px-2">Blocked by</th> : <th className="px-2">Status</th>}
+                {pay ? null : <th className="px-2">Waiver</th>}
                 <th className="px-2 text-right">Amount</th>
               </tr>
             </thead>
@@ -183,13 +182,16 @@ export function BillsBoard({
                   <td className="px-2" title={bill.projectName}>
                     {bill.projectName}
                   </td>
-                  <td className="fit px-2" data-fit="status">
-                    <span className="fl-pill">{statusLabel(bill.status)}</span>
-                  </td>
-                  <td className="px-2">{bill.waiverRequested ? <span className="fl-pill">{bill.waiverLabel}</span> : bill.waiverLabel}</td>
-                  <td className="fit px-2" data-fit="status">
-                    {bill.reason ? <span className="fl-pill">{bill.reason}</span> : null}
-                  </td>
+                  {pay ? (
+                    <td className="fit px-2" data-fit="status">
+                      {bill.reason ? <span className="fl-pill fl-pill-sm">{bill.reason}</span> : null}
+                    </td>
+                  ) : (
+                    <td className="fit px-2" data-fit="status">
+                      <span className="fl-pill fl-pill-sm">{statusLabel(bill.status)}</span>
+                    </td>
+                  )}
+                  {pay ? null : <td className="px-2">{bill.waiverLabel}</td>}
                   <td className="fit num px-2 text-right" data-fit="amount">{formatMoney(pay ? bill.netCents : bill.amountCents)}</td>
                 </tr>
               ))}
@@ -227,8 +229,20 @@ export function BillsBoard({
                 {summaries.map((vendor) => (
                   <Fragment key={vendor.contactId}>
                     <tr>
-                      <td>
+                      <td className="vendor-cell">
                         <Link href={`/bills?vendor=${vendor.contactId}`}>{vendor.company || vendor.name}</Link>
+                        {vendor.codes.length > 0 ? (
+                          <details className="vendor-codes">
+                            <summary aria-label={`Cost codes ${vendor.company || vendor.name}`}>{vendor.codes.length}</summary>
+                            <ul>
+                              {vendor.codes.map((code) => (
+                                <li key={`${vendor.contactId}-${code.code}`}>
+                                  {code.code} <span className="num">{formatMoney(code.billedCents)}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </details>
+                        ) : null}
                       </td>
                       <td className="fit num text-right" data-fit="amount">{formatMoney(vendor.billedCents)}</td>
                       <td className="fit num text-right" data-fit="amount">{formatMoney(vendor.paidCents)}</td>
@@ -237,17 +251,6 @@ export function BillsBoard({
                       <td className="fit num text-right" data-fit="amount">{formatMoney(vendor.openBalanceCents)}</td>
                       <td className="fit num text-right" data-fit="amount">{formatMoney(vendor.retainedCents)}</td>
                     </tr>
-                    {vendor.codes.map((code) => (
-                      <tr key={`${vendor.contactId}-${code.code}`} title={`Budget ${formatMoney(code.budgetCents)}`}>
-                        <td className="pl-8 text-[var(--mac-secondary)]">{code.code}</td>
-                        <td className="fit num text-right" data-fit="amount">{formatMoney(code.billedCents)}</td>
-                        <td />
-                        <td />
-                        <td />
-                        <td />
-                        <td />
-                      </tr>
-                    ))}
                   </Fragment>
                 ))}
               </tbody>

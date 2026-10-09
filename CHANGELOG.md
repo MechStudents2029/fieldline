@@ -2,6 +2,13 @@
 
 ## 2026-10-09
 
+### Purchase order detail
+
+- A purchase order opens as a compact header: number, status, vendor, and job, with Edit, New bill, Print, and a more menu for close, void, and release. Amount, committed, billed, open, retainage, and the plan are key-value rows. Lines show billed and remaining. Linked bills sit in their own table. Edit is a sheet with Save and Cancel.
+- New bill on that order starts with the vendor, the job, and each line’s remaining amount. Retainage comes from the order. A line past the remainder uses the same over-purchase-order warning.
+- Bills, change orders, and bids use the same header. Ready to pay has one Blocked by column and one pill on a row. Vendor cost codes sit in a disclosure under the vendor.
+- Okonkwo PO-1055 lists HP-510 and HP-511, with $3,000 billed and $2,000 remaining on the shower line.
+
 ### Ready to pay
 
 - Bills has a Ready to pay view. A bill is ready when it is approved, the required waiver is signed for the company’s Off, Warn, or Block setting, and required certificates are current when that setting blocks. Approved bills that are not ready show one reason, such as Waiver unsigned, COI expired, or Over PO. The totals row is the count and the net dollars.

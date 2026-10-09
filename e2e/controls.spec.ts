@@ -22,6 +22,10 @@ const routes = [
   "/settings/files",
   "/import",
   "/projects/proj_okonkwo/files",
+  "/purchase-orders/po_ok_retain",
+  "/bills/bill_ok_ret_ready",
+  "/bids/bid_ok_valve",
+  "/projects/proj_okonkwo/orders/co_ok_1",
   "/portal/demo_portal_okonkwo",
   "/v/demo_vendor_harbor_m3p8qx7k",
 ];
@@ -52,7 +56,7 @@ async function lines(locator: Locator) {
 }
 
 async function assertCompact(page: Page, route: string) {
-  const selects = page.locator("[data-bar] select:visible, [data-pane] select:not(.field):visible, [data-sheet] select:not(.field):visible");
+  const selects = page.locator("[data-bar] select:visible, [data-pane] select:not(.field):visible, [data-sheet] select:not(.field):visible, [data-detail] select:not(.field):visible");
   const selectCount = await selects.count();
   for (let index = 0; index < selectCount; index += 1) {
     const select = selects.nth(index);
@@ -77,7 +81,7 @@ async function assertCompact(page: Page, route: string) {
     expect(shown, `${route} file ${(await input.getAttribute("aria-label")) || index}`).toBe(false);
   }
 
-  const buttons = page.locator("[data-bar] button:visible, [data-sheet] button:visible, [data-pane='file'] button:visible, .file-pick-btn:visible");
+  const buttons = page.locator("[data-bar] button:visible, [data-sheet] button:visible, [data-pane='file'] button:visible, [data-detail] button:visible, .file-pick-btn:visible");
   const buttonCount = await buttons.count();
   for (let index = 0; index < buttonCount; index += 1) {
     const button = buttons.nth(index);
@@ -174,4 +178,29 @@ test("compact controls stay on one row", async ({ page }) => {
   await page.emulateMedia({ colorScheme: "dark" });
   await shot(page, "settings-controls-dark");
   await page.emulateMedia({ colorScheme: "light" });
+
+  for (const route of ["/purchase-orders/po_ok_retain", "/bills/bill_ok_ret_ready", "/bids/bid_ok_valve", "/projects/proj_okonkwo/orders/co_ok_1"]) {
+    await page.goto(route);
+    const header = page.locator("[data-detail='header']");
+    const title = header.getByRole("heading", { level: 1 });
+    const fontSize = await title.evaluate((el) => Number.parseFloat(getComputedStyle(el).fontSize));
+    expect(fontSize, route).toBeLessThanOrEqual(16);
+    const pill = header.locator("[data-status]");
+    const pillBox = await pill.boundingBox();
+    const headerBox = await header.boundingBox();
+    expect(pillBox && headerBox, route).toBeTruthy();
+    expect(pillBox!.y, `${route} status`).toBeGreaterThanOrEqual(8);
+    expect(pillBox!.x, `${route} status`).toBeGreaterThanOrEqual(8);
+    expect(pillBox!.y + pillBox!.height, `${route} status`).toBeLessThanOrEqual(headerBox!.y + headerBox!.height + 1);
+    await expect(page.locator("[data-detail-edit]"), route).toHaveCount(0);
+  }
+  await page.goto("/purchase-orders/po_ok_retain");
+  await expect(page.getByText("Saving keeps")).toHaveCount(0);
+  await expect(page.getByLabel("Scope")).toHaveCount(0);
+  await page.getByRole("button", { name: "Edit" }).click();
+  await expect(page.locator("[data-detail-edit]")).toHaveCount(1);
+  await expect(page.getByLabel("Scope")).toBeVisible();
+  await assertCompact(page, "purchase order edit");
+  await page.getByRole("button", { name: "Cancel" }).click();
+  await expect(page.locator("[data-detail-edit]")).toHaveCount(0);
 });

@@ -3,7 +3,7 @@ import { awardBidAction, referencePlanAction, saveBidLinesAction } from "@/app/a
 import { ActionForm } from "@/components/action-form";
 import { MissingRecord } from "@/components/missing-record";
 import { LinkedRfis } from "@/components/linked-rfis";
-import { Toolbar } from "@/components/mac/toolbar";
+import { DetailHeader } from "@/components/detail-header";
 import { requireSession } from "@/lib/auth/session";
 import { formatCalendarDay } from "@/lib/format";
 import { formatMoney, formatQty, formatWhole } from "@/lib/money";
@@ -30,24 +30,18 @@ export default async function BidPage({ params }: { params: Promise<{ id: string
       <LinkedRfis rows={relatedRfis(session, "bid", bid.id)} />
     </div>
     <div className="md:flex md:min-h-0 md:flex-1 md:flex-col">
-      <div className="hidden md:block">
-        <Toolbar
-          title={bid.title}
-          subtitle={`${bid.statusLabel} · ${formatCalendarDay(bid.dueOn)}`}
-          search={false}
-          leading={<Link href={`/projects/${bid.projectId}/bids`}>‹</Link>}
-        />
-      </div>
+      <DetailHeader
+        title={bid.title}
+        status={bid.statusLabel}
+        meta={
+          <>
+            <Link href={`/projects/${bid.projectId}/bids`}>Bids</Link>
+            {" · "}
+            <span className="num">{formatCalendarDay(bid.dueOn)}</span>
+          </>
+        }
+      />
       <div className="flex flex-col gap-4 px-4 py-4 md:px-6">
-        <div className="md:hidden">
-          <Link href={`/projects/${bid.projectId}/bids`} className="text-[var(--fl-accent)]">
-            ‹ Bids
-          </Link>
-          <h1 className="fl-title mt-2">{bid.title}</h1>
-          <p className="fl-footnote text-[var(--fl-secondary)]">
-            {bid.statusLabel} · {formatCalendarDay(bid.dueOn)}
-          </p>
-        </div>
         {plans.length > 0 ? (
           <ul aria-label="Plans">
             {plans.map((plan) => (
@@ -62,7 +56,7 @@ export default async function BidPage({ params }: { params: Promise<{ id: string
           <ActionForm action={referencePlanAction.bind(null, bid.projectId, "bid", bid.id)} className="flex flex-wrap items-end gap-2">
             <label className="text-sm">
               Plan
-              <select name="groupId" aria-label="Plan" className="field mt-1">
+              <select name="groupId" aria-label="Plan" className="ctl">
                 {choices.map((choice) => (
                   <option key={choice.groupId} value={choice.groupId}>
                     {choice.name}
@@ -70,7 +64,7 @@ export default async function BidPage({ params }: { params: Promise<{ id: string
                 ))}
               </select>
             </label>
-            <button type="submit">Add plan</button>
+            <button type="submit" className="ctl">Add plan</button>
           </ActionForm>
         ) : null}
         {bid.scope ? <p className="mac-t13">{bid.scope}</p> : null}

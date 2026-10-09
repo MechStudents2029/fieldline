@@ -10,8 +10,13 @@ function shot(page: Page, name: string) {
 
 async function payReady(page: Page) {
   await page.goto("/bills?ready=1");
+  await expect(page.getByRole("columnheader", { name: "Blocked by" })).toBeVisible();
+  await expect(page.getByRole("columnheader", { name: "Waiver" })).toHaveCount(0);
   await expect(page.getByRole("row", { name: /HP-510/ })).toBeVisible();
   await expect(page.getByRole("row", { name: /HP-511/ })).toContainText("Waiver unsigned");
+  await expect(page.getByRole("row", { name: /HP-511/ })).not.toContainText("Missing");
+  await expect(page.getByRole("row", { name: /HP-511/ }).locator(".fl-pill")).toHaveCount(1);
+  await expect(page.getByRole("row", { name: /HP-510/ }).locator(".fl-pill")).toHaveCount(0);
   await expect(page.getByRole("row", { name: /HP-510/ })).not.toContainText("Waiver unsigned");
   await expect(page.locator("[data-ready-totals]")).toHaveText("1 · $1,800.00");
   await expect(page.getByRole("checkbox", { name: "Pay HP-511" })).toBeDisabled();
