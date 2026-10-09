@@ -95,6 +95,7 @@ import {
 import { awardBid, createBid, declineVendorBid, saveBidLines, submitVendorBid } from "@/lib/services/bids";
 import { answerClientRfi, answerRfi, answerVendorRfi, closeRfi, createRfi, draftChangeFromRfi, shiftRfiSchedule, voidRfi } from "@/lib/services/rfis";
 import { clientReviewSubmittal, createSubmittal, reviewSubmittal, submitSubmittal, vendorCreateSubmittal, vendorSubmitSubmittal } from "@/lib/services/submittals";
+import { requestUnconditional, requestWaiver, requestWaivers, saveLienSettings, signVendorWaiver, uploadPaperWaiver, voidWaiver } from "@/lib/services/waivers";
 import { deleteComment, editComment, markAllRead, postComment, setNotifyPreference } from "@/lib/services/comments";
 import { addStarterPriceBook, setSetupDismissed } from "@/lib/services/onboarding";
 import { acceptExistingAccount, acceptNewAccount, changeMemberRole, createInvite, INVITE_EMAIL, previewInvite, removeMember, revokeInvite } from "@/lib/services/team";
@@ -1457,13 +1458,97 @@ export async function unapproveBillAction(billId: string, _prev: ActionState, fo
 export async function payBillAction(billId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
   try {
     const user = await actor();
-    markBillPaid(user, billId, {
+    const paid = markBillPaid(user, billId, {
       paidOn: String(formData.get("paidOn") || ""),
       method: String(formData.get("method") || ""),
       reference: String(formData.get("reference") || ""),
     });
     refreshBill(String(formData.get("projectId") || ""), billId);
-    return { ok: "Marked paid." };
+    return { ok: paid.warning ? `Marked paid. ${paid.warning}` : "Marked paid." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function requestWaiversAction(formData: FormData): Promise<void> {
+  const user = await actor();
+  requestWaivers(user, formData.getAll("billId").map(String), String(formData.get("type") || ""));
+  revalidatePath("/bills");
+  revalidatePath("/");
+}
+
+export async function requestWaiverAction(billId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    requestWaiver(user, billId, {
+      type: String(formData.get("type") || ""),
+      amount: String(formData.get("amount") || ""),
+      throughDate: String(formData.get("throughDate") || ""),
+    });
+    refreshBill(String(formData.get("projectId") || ""), billId);
+    return { ok: "Waiver requested." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function requestUnconditionalAction(billId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    requestUnconditional(user, billId);
+    refreshBill(String(formData.get("projectId") || ""), billId);
+    return { ok: "Unconditional waiver requested." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function uploadWaiverAction(waiverId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const file = await namedUpload(formData, "file");
+    if (!file) return { error: "Choose the signed waiver." };
+    uploadPaperWaiver(user, waiverId, file);
+    revalidatePath("/bills");
+    revalidatePath(`/waivers/${waiverId}/print`);
+    return { ok: "Marked signed." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function voidWaiverAction(waiverId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    voidWaiver(user, waiverId);
+    refreshBill(String(formData.get("projectId") || ""), String(formData.get("billId") || ""));
+    return { ok: "Waiver voided." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function saveLienSettingsAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const bodies: Record<string, string> = {};
+    for (const key of ["conditional_progress", "unconditional_progress", "conditional_final", "unconditional_final"]) {
+      bodies[key] = String(formData.get(key) || "");
+    }
+    saveLienSettings(user, { mode: String(formData.get("mode") || ""), bodies });
+    revalidatePath("/settings/lien-waivers");
+    return { ok: "Saved." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function signVendorWaiverAction(token: string, waiverId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    signVendorWaiver({ token, waiverId, name: String(formData.get("name") || ""), ip: await requestIp() });
+    refreshVendor(token);
+    revalidatePath(`/waivers/${waiverId}/print`);
+    return { ok: "Signed." };
   } catch (error) {
     return failure(error);
   }

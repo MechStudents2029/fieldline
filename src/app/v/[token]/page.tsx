@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { VendorPortalView } from "@/components/vendor-portal-view";
+import { vendorPortalWaivers } from "@/lib/services/waivers";
 import { vendorBidPortal } from "@/lib/services/bids";
 import { vendorPortalRfis } from "@/lib/services/rfis";
 import { vendorPortalSubmittals } from "@/lib/services/submittals";
@@ -13,5 +14,5 @@ export default async function VendorPortalPage({ params }: { params: Promise<{ t
   const home = vendorPortal(token);
   if (!home) notFound();
   const bids = vendorBidPortal(token) ?? [];
-  return <VendorPortalView token={token} home={home} bids={bids} rfis={vendorPortalRfis(token)} todos={vendorTodos(token)} submittals={vendorPortalSubmittals(token)} />;
+  return <VendorPortalView token={token} home={home} bids={bids} rfis={vendorPortalRfis(token)} todos={vendorTodos(token)} submittals={vendorPortalSubmittals(token)} waivers={vendorPortalWaivers(token) ?? []} />;
 }

@@ -27,14 +27,27 @@ async function officeAndVendor(page: Page, shots: boolean) {
   await expect(page.locator("a:visible", { hasText: "Submittals awaiting your review" })).toBeVisible();
   await page.goto("/submittals");
   const width = page.viewportSize()?.width ?? 1440;
+  const openList = width >= 768 ? page.getByRole("table", { name: "Submittals" }) : page.getByRole("list", { name: "Submittal list" });
+  await expect(openList).toContainText("Shower valve cut sheet");
+  await expect(openList).toContainText("Tile sample");
   if (width >= 768) {
     await expect(page.getByRole("button", { name: "Show" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Filter" })).toHaveCount(0);
-    await page.getByLabel("Overdue").selectOption("1");
+    const overdue = page.getByLabel("Overdue");
+    expect(await overdue.evaluate((el) => el.scrollWidth > el.clientWidth + 1)).toBe(false);
+    if (shots) {
+      await shot(page, "submittals-light");
+      await page.emulateMedia({ colorScheme: "dark" });
+      await shot(page, "submittals-dark");
+      await page.emulateMedia({ colorScheme: "light" });
+    }
+    await overdue.selectOption("1");
   } else {
     await expect(page.getByLabel("Overdue")).toBeHidden();
     await page.getByRole("button", { name: "Filter" }).click();
-    await page.getByLabel("Overdue").selectOption("1");
+    const overdue = page.getByLabel("Overdue");
+    expect(await overdue.evaluate((el) => el.scrollWidth > el.clientWidth + 1)).toBe(false);
+    await overdue.selectOption("1");
   }
   await expect(page).toHaveURL(/overdue=1/);
   if (width >= 768) {
@@ -43,12 +56,6 @@ async function officeAndVendor(page: Page, shots: boolean) {
   } else {
     await expect(page.getByRole("list", { name: "Submittal list" })).toContainText("Shower valve cut sheet");
     await expect(page.getByRole("list", { name: "Submittal list" })).not.toContainText("Tile sample");
-  }
-  if (shots) {
-    await shot(page, "submittals-light");
-    await page.emulateMedia({ colorScheme: "dark" });
-    await shot(page, "submittals-dark");
-    await page.emulateMedia({ colorScheme: "light" });
   }
   await page.getByRole("link", { name: "Shower valve cut sheet" }).click();
   await expect(page.getByRole("heading", { name: /SUB-001/ })).toBeVisible();

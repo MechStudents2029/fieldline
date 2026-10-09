@@ -163,7 +163,10 @@ begin
     'submittals',
     'submittal_revisions',
     'submittal_files',
-    'submittal_attempts'
+    'submittal_attempts',
+    'lien_waiver_templates',
+    'lien_waivers',
+    'lien_waiver_attempts'
   ]
   loop
     execute format('alter table public.%I enable row level security', tbl);
@@ -225,7 +228,10 @@ begin
     'bid_prices',
     'bid_awards',
     'draws',
-    'pay_app_lines'
+    'pay_app_lines',
+    'lien_waiver_templates',
+    'lien_waivers',
+    'lien_waiver_attempts'
   ]
   loop
     execute format('drop policy if exists %I on public.%I', tbl || '_member', tbl);

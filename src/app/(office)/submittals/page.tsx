@@ -9,7 +9,7 @@ import { canEditCrm } from "@/lib/permissions";
 import { LIST_FILTERS, listSavedViews, viewHref } from "@/lib/services/saved-views";
 import { listProjects } from "@/lib/services/read";
 import { orgSubmittals } from "@/lib/services/submittals";
-import { SUBMITTAL_STATUSES, SUBMITTAL_STATUS_LABEL, pendingSubmittal } from "@/lib/submittals/format";
+import { SUBMITTAL_STATUSES, SUBMITTAL_STATUS_LABEL, defaultSubmittalList, pendingSubmittal } from "@/lib/submittals/format";
 
 export default async function SubmittalsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const session = await requireSession();
@@ -27,8 +27,9 @@ export default async function SubmittalsPage({ searchParams }: { searchParams: P
     division: filters.division || null,
     waiting: filters.waiting === "1",
   });
+  const open = defaultSubmittalList(items, { status: filters.status, overdue: filters.overdue === "1", waiting: filters.waiting === "1" });
   const needle = (filters.q || "").toLowerCase();
-  const shown = needle ? items.filter((item) => `${item.title} ${item.projectName} ${item.label} ${item.division}`.toLowerCase().includes(needle)) : items;
+  const shown = needle ? open.filter((item) => `${item.title} ${item.projectName} ${item.label} ${item.division}`.toLowerCase().includes(needle)) : open;
   const catalog = orgSubmittals(session, {});
   const jobs = listProjects(session.orgId).map((row) => ({ id: row.project.id, name: row.project.name }));
   const assignees = [...new Map(catalog.filter((item) => item.assigneeValue).map((item) => [item.assigneeValue, item.assigneeName])).entries()].map(([value, label]) => ({ value, label }));
@@ -48,8 +49,8 @@ export default async function SubmittalsPage({ searchParams }: { searchParams: P
           }
         />
       </div>
-      <div className="flex flex-col gap-4 px-4 py-4 md:px-6">
-        <h1 className="fl-large-title md:hidden">Submittals</h1>
+      <div className="flex flex-col gap-4 py-4">
+        <h1 className="fl-large-title px-4 md:hidden">Submittals</h1>
         <ListToolbar
           path="/submittals"
           list="submittals"
@@ -68,7 +69,7 @@ export default async function SubmittalsPage({ searchParams }: { searchParams: P
             { name: "waiting", label: "Review", value: filters.waiting || "", any: "Any", options: [{ value: "1", label: "Waiting" }] },
           ]}
         />
-        <div className="hidden overflow-x-auto md:block">
+        <div className="hidden overflow-x-auto px-4 md:block">
           <table className="mac-table" aria-label="Submittals">
             <thead>
               <tr>

@@ -62,6 +62,8 @@ import {
   submittalFiles,
   submittalRevisions,
   submittals,
+  lienWaiverTemplates,
+  lienWaivers,
   commentFiles,
   commentMentions,
   comments,
@@ -97,10 +99,12 @@ import { hashPassword, newSalt } from "@/lib/auth/password";
 import { canonicalJson, sha256 } from "@/lib/esign/hash";
 import { publicSnapshot } from "@/lib/selections/money";
 import { daysAgo, daysFromNow, nowIso } from "@/lib/ids";
-import { achFeeCents, qtyToMilli } from "@/lib/money";
+import { achFeeCents, formatMoney, qtyToMilli } from "@/lib/money";
 import { CONSENT_VERSION, DEMO_PASSWORD } from "@/lib/product";
 import { linkedDeadline } from "@/lib/todos/deadline";
 import { hashVendorToken, DEMO_HARBOR_PORTAL_TOKEN } from "@/lib/vendor/token";
+import { DEFAULT_WAIVER_BODIES, renderWaiver } from "@/lib/waivers/format";
+import { formatCalendarDay } from "@/lib/format";
 import { proposalNudgeCopy } from "@/lib/ai/nurture";
 import {
   defaultFields,
@@ -109,7 +113,7 @@ import {
   WEBSITE_FORM_SOURCE,
 } from "@/lib/lead-form/rules";
 
-export const SEED_VERSION = "25";
+export const SEED_VERSION = "26";
 
 const ORG = "org_rivera";
 const NORTH = "org_northline";
@@ -176,6 +180,7 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
         warrantyMonths: 12,
         vendorComplianceMode: "warn",
         vendorRequiredTypes: "general_liability,workers_comp",
+        lienWaiverMode: "warn",
         createdAt: created,
         updatedAt: now,
       },
@@ -200,6 +205,7 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
         warrantyMonths: 12,
         vendorComplianceMode: "warn",
         vendorRequiredTypes: "general_liability,workers_comp",
+        lienWaiverMode: "warn",
         createdAt: created,
         updatedAt: now,
       },
@@ -1315,6 +1321,52 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
         updatedAt: daysAgo(10),
         createdBy: "user_sam",
       },
+      {
+        id: "bill_harbor_paid",
+        orgId: ORG,
+        projectId: "proj_okonkwo",
+        vendorContactId: "c_harbor",
+        billNumber: "HP-220",
+        billDate: addCalendarDays(billToday, -14),
+        amountCents: 48000,
+        dueDate: addCalendarDays(billToday, -6),
+        status: "paid",
+        memo: "Rough valve, paid",
+        voidReason: null,
+        paidAt: addCalendarDays(billToday, -4),
+        payMethod: "check",
+        payReference: "2201",
+        documentId: null,
+        purchaseOrderId: null,
+        approvedAt: daysAgo(12),
+        lowConfidence: 0,
+        createdAt: daysAgo(14),
+        updatedAt: daysAgo(4),
+        createdBy: "user_sam",
+      },
+      {
+        id: "bill_ok_harbor_req",
+        orgId: ORG,
+        projectId: "proj_okonkwo",
+        vendorContactId: "c_harbor",
+        billNumber: "HP-442",
+        billDate: addCalendarDays(billToday, -2),
+        amountCents: 96000,
+        dueDate: billDueSoon,
+        status: "approved",
+        memo: "Trim balance",
+        voidReason: null,
+        paidAt: null,
+        payMethod: null,
+        payReference: null,
+        documentId: null,
+        purchaseOrderId: null,
+        approvedAt: daysAgo(1),
+        lowConfidence: 0,
+        createdAt: daysAgo(2),
+        updatedAt: daysAgo(1),
+        createdBy: "user_sam",
+      },
     ])
     .run();
   db.insert(billLines)
@@ -1323,6 +1375,8 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
       { id: "bln_ok_harbor", orgId: ORG, billId: "bill_ok_harbor", costCode: "PLB-SHOWER", description: "Valve and trim", amountCents: 150000, costItemId: "cost_bill_hp", sortOrder: 0 },
       { id: "bln_dz_summit", orgId: ORG, billId: "bill_dz_summit", costCode: "DECK-BOARD", description: "Extra boards", amountCents: 125000, costItemId: "cost_bill_sl", sortOrder: 0 },
       { id: "bln_br_brighton", orgId: ORG, billId: "bill_br_brighton", costCode: "ELE-KIT", description: "Rough electrical", amountCents: 700000, costItemId: "cost_bill_be", sortOrder: 0 },
+      { id: "bln_harbor_paid", orgId: ORG, billId: "bill_harbor_paid", costCode: "PLB-SHOWER", description: "Rough valve", amountCents: 48000, costItemId: null, sortOrder: 0 },
+      { id: "bln_harbor_req", orgId: ORG, billId: "bill_ok_harbor_req", costCode: "PLB-SHOWER", description: "Trim balance", amountCents: 96000, costItemId: null, sortOrder: 0 },
     ])
     .run();
   db.insert(billEvents)
@@ -1331,6 +1385,75 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
       { id: "bev_ok_harbor", orgId: ORG, billId: "bill_ok_harbor", actorId: "user_sam", type: "approved", reason: null, beforeJson: null, afterJson: JSON.stringify({ status: "approved", costItemIds: ["cost_bill_hp"] }), createdAt: daysAgo(4) },
       { id: "bev_dz_summit", orgId: ORG, billId: "bill_dz_summit", actorId: "user_sam", type: "paid", reason: null, beforeJson: null, afterJson: JSON.stringify({ status: "paid", method: "check", reference: "4412" }), createdAt: daysAgo(8) },
       { id: "bev_br_brighton", orgId: ORG, billId: "bill_br_brighton", actorId: "user_sam", type: "approved", reason: null, beforeJson: null, afterJson: JSON.stringify({ status: "approved", costItemIds: ["cost_bill_be"] }), createdAt: daysAgo(10) },
+    ])
+    .run();
+
+  const harborPaidThrough = addCalendarDays(billToday, -14);
+  const harborReqThrough = addCalendarDays(billToday, -2);
+  const harborPaidBody = renderWaiver(DEFAULT_WAIVER_BODIES.conditional_progress, {
+    vendor: "Harbor Plumbing",
+    job: "Okonkwo primary bath",
+    amount: formatMoney(48000),
+    through: formatCalendarDay(harborPaidThrough),
+    bill: "HP-220",
+    company: "Rivera Remodeling & Trade",
+  });
+  const harborReqBody = renderWaiver(DEFAULT_WAIVER_BODIES.conditional_progress, {
+    vendor: "Harbor Plumbing",
+    job: "Okonkwo primary bath",
+    amount: formatMoney(96000),
+    through: formatCalendarDay(harborReqThrough),
+    bill: "HP-442",
+    company: "Rivera Remodeling & Trade",
+  });
+  db.insert(lienWaiverTemplates)
+    .values(
+      (["conditional_progress", "unconditional_progress", "conditional_final", "unconditional_final"] as const).flatMap((type) => [
+        { id: `lwt_rivera_${type}`, orgId: ORG, type, body: DEFAULT_WAIVER_BODIES[type], updatedAt: daysAgo(1) },
+        { id: `lwt_north_${type}`, orgId: NORTH, type, body: DEFAULT_WAIVER_BODIES[type], updatedAt: daysAgo(1) },
+      ]),
+    )
+    .run();
+  db.insert(lienWaivers)
+    .values([
+      {
+        id: "lw_harbor_paid",
+        orgId: ORG,
+        billId: "bill_harbor_paid",
+        projectId: "proj_okonkwo",
+        vendorContactId: "c_harbor",
+        type: "conditional_progress",
+        status: "signed",
+        amountCents: 48000,
+        throughDate: harborPaidThrough,
+        body: harborPaidBody,
+        signedName: "Pete Alvarez",
+        signedAt: daysAgo(2),
+        signedText: harborPaidBody,
+        documentId: null,
+        createdAt: daysAgo(3),
+        updatedAt: daysAgo(2),
+        createdBy: "user_sam",
+      },
+      {
+        id: "lw_harbor_req",
+        orgId: ORG,
+        billId: "bill_ok_harbor_req",
+        projectId: "proj_okonkwo",
+        vendorContactId: "c_harbor",
+        type: "conditional_progress",
+        status: "requested",
+        amountCents: 96000,
+        throughDate: harborReqThrough,
+        body: harborReqBody,
+        signedName: null,
+        signedAt: null,
+        signedText: null,
+        documentId: null,
+        createdAt: daysAgo(1),
+        updatedAt: daysAgo(1),
+        createdBy: "user_maya",
+      },
     ])
     .run();
 

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { requestWaiversAction } from "@/app/actions";
 import { ListToolbar } from "@/components/list-toolbar";
 import { Toolbar } from "@/components/mac/toolbar";
 import { requireSession } from "@/lib/auth/session";
@@ -10,6 +11,8 @@ import { canEditCrm, canManageMoney, canSeeMoney } from "@/lib/permissions";
 import { listBills, vendorBillSummaries } from "@/lib/services/bills";
 import { listContacts, listProjects } from "@/lib/services/read";
 import { LIST_FILTERS, listSavedViews, viewHref } from "@/lib/services/saved-views";
+import { WAIVER_TYPES, waiverTypeLabel } from "@/lib/waivers/format";
+import { waiverBadges } from "@/lib/services/waivers";
 
 export default async function BillsPage({
   searchParams,
@@ -34,20 +37,37 @@ export default async function BillsPage({
     const needle = (filters.q || "").toLowerCase();
     return !needle || `${bill.billNumber} ${bill.vendorName} ${bill.projectName}`.toLowerCase().includes(needle);
   });
+  const badges = new Map(waiverBadges(session).map((row) => [row.billId, row]));
+  const waiver = filters.waiver || "";
+  const listed = waiver ? rows.filter((bill) => badges.get(bill.id)?.state === waiver) : rows;
   const summaries = vendorBillSummaries(session.orgId, session.role).filter((row) => !filters.vendor || row.contactId === filters.vendor);
+  const office = canManageMoney(session.role);
   const jobs = listProjects(session.orgId);
   const vendors = listContacts(session.orgId).filter((contact) => contact.type === "sub" || contact.type === "vendor");
   return (
     <div className="flex flex-col gap-5">
       <div className="hidden md:block">
-        <Toolbar title="Bills" primary={canManageMoney(session.role) ? "New bill" : undefined} primaryHref={canManageMoney(session.role) ? "/bills/new" : undefined} search={false} />
+        <Toolbar
+          title="Bills"
+          primary={office ? "New bill" : undefined}
+          primaryHref={office ? "/bills/new" : undefined}
+          search={false}
+          trailing={<a href="/api/export/bills">CSV</a>}
+        />
       </div>
       <h1 className="fl-large-title md:hidden">Bills</h1>
-      {canManageMoney(session.role) ? (
-        <Link href="/bills/new" className="mac-primary w-fit md:hidden">
-          New bill
-        </Link>
-      ) : null}
+      {office ? (
+        <span className="flex items-center gap-3 md:hidden">
+          <Link href="/bills/new" className="mac-primary w-fit">
+            New bill
+          </Link>
+          <a href="/api/export/bills">CSV</a>
+        </span>
+      ) : (
+        <a href="/api/export/bills" className="md:hidden">
+          CSV
+        </a>
+      )}
       <ListToolbar
         path="/bills"
         list="bills"
@@ -61,45 +81,76 @@ export default async function BillsPage({
           { name: "job", label: "Job", value: filters.job || "", any: "Any", options: jobs.map((row) => ({ value: row.project.id, label: row.project.name })) },
           { name: "vendor", label: "Vendor", value: filters.vendor || "", any: "Any", options: vendors.map((contact) => ({ value: contact.id, label: contact.company || contact.name })) },
           { name: "status", label: "Status", value: filters.status || "", any: "Any", options: [{ value: "draft", label: "Draft" }, { value: "approved", label: "Approved" }, { value: "paid", label: "Paid" }, { value: "void", label: "Void" }, { value: "overdue", label: "Overdue" }, { value: "upcoming", label: "Due soon" }] },
+          { name: "waiver", label: "Waiver", value: filters.waiver || "", any: "Any", options: [{ value: "missing", label: "Missing" }, { value: "requested", label: "Requested" }, { value: "signed", label: "Signed" }] },
         ]}
       />
-      <div className="overflow-x-auto">
-        <table className="mac-table">
-          <thead>
-            <tr>
-              <th className="px-2">Bill</th>
-              <th className="px-2">Job</th>
-              <th className="px-2">Status</th>
-              <th className="px-2 text-right">Amount</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.length === 0 ? (
+      <form action={office ? requestWaiversAction : undefined} className="flex flex-col gap-3">
+        {office ? (
+          <div className="flex flex-wrap items-center gap-2 px-4">
+            <label className="text-sm">
+              Type
+              <select name="type" aria-label="Waiver type" className="field ml-2" defaultValue="conditional_progress">
+                {WAIVER_TYPES.map((type) => (
+                  <option key={type} value={type}>
+                    {waiverTypeLabel(type)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button type="submit" className="mac-primary">
+              Request waiver
+            </button>
+          </div>
+        ) : null}
+        <div className="overflow-x-auto md:px-4">
+          <table className="mac-table" aria-label="Bills">
+            <thead>
               <tr>
-                <td className="px-2" colSpan={4}>No bills match these filters.</td>
+                {office ? <th className="px-2" /> : null}
+                <th className="px-2">Bill</th>
+                <th className="px-2">Job</th>
+                <th className="px-2">Status</th>
+                <th className="px-2">Waiver</th>
+                <th className="px-2 text-right">Amount</th>
               </tr>
-            ) : null}
-            {rows.map((bill) => (
-              <tr key={bill.id}>
-                <td className="px-2">
-                  <Link href={`/bills/${bill.id}`} className="font-medium">
-                    <span className="num">{bill.billNumber}</span> · {bill.vendorName}
-                  </Link>
-                  {bill.timing === "overdue" ? " · Overdue" : ""}
-                  {bill.timing === "upcoming" ? " · Due soon" : ""}
-                </td>
-                <td className="clip" title={bill.projectName}>
-                  {bill.projectName}
-                  {bill.dueDate ? <span className="num"> · {formatCalendarDay(bill.dueDate)}</span> : ""}
-                </td>
-                <td className="px-2">{bill.status === "draft" ? <span className="fl-pill">{bill.status}</span> : bill.status}</td>
-                <td className="px-2 text-right num">{formatMoney(bill.amountCents)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      <section className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
+            </thead>
+            <tbody>
+              {listed.length === 0 ? (
+                <tr>
+                  <td className="px-2" colSpan={office ? 6 : 5}>No bills match these filters.</td>
+                </tr>
+              ) : null}
+              {listed.map((bill) => {
+                const badge = badges.get(bill.id);
+                return (
+                  <tr key={bill.id}>
+                    {office ? (
+                      <td className="px-2">
+                        <input type="checkbox" name="billId" value={bill.id} aria-label={`Waiver ${bill.billNumber}`} disabled={bill.status === "void" || bill.status === "draft"} />
+                      </td>
+                    ) : null}
+                    <td className="px-2">
+                      <Link href={`/bills/${bill.id}`} className="font-medium">
+                        <span className="num">{bill.billNumber}</span> · {bill.vendorName}
+                      </Link>
+                      {bill.timing === "overdue" ? " · Overdue" : ""}
+                      {bill.timing === "upcoming" ? " · Due soon" : ""}
+                    </td>
+                    <td className="clip" title={bill.projectName}>
+                      {bill.projectName}
+                      {bill.dueDate ? <span className="num"> · {formatCalendarDay(bill.dueDate)}</span> : ""}
+                    </td>
+                    <td className="px-2">{bill.status === "draft" ? <span className="fl-pill">{bill.status}</span> : bill.status}</td>
+                    <td className="px-2">{badge?.state === "requested" ? <span className="fl-pill">{badge.label}</span> : badge?.label ?? "Missing"}</td>
+                    <td className="px-2 text-right num">{formatMoney(bill.amountCents)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </form>
+      <section className="mx-4 rounded-xl bg-card p-4 ring-1 ring-foreground/10 md:mx-4">
         <h2 className="mac-t15">Vendors</h2>
         {summaries.length === 0 ? <p className="mt-3 text-sm text-muted-foreground">No approved or paid bills yet.</p> : null}
         <ul className="mt-3 space-y-4">

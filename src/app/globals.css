@@ -716,7 +716,7 @@
   font-size: 13px;
   line-height: 16px;
 }
-.list-select { max-width: 220px; padding: 0 8px; }
+.list-select { width: auto; max-width: none; field-sizing: content; padding: 0 22px 0 8px; }
 .list-search { width: 140px; padding: 0 8px; }
 .list-link,
 .list-clear {

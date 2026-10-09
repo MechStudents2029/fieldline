@@ -45,6 +45,15 @@ export function isOpenSubmittal(status: string): boolean {
   return OPEN.has(status);
 }
 
+/** Default list is open submittals. A status, overdue, or waiting filter keeps that slice instead. */
+export function defaultSubmittalList<T extends { status: string }>(
+  items: T[],
+  filters: { status?: string | null; overdue?: boolean; waiting?: boolean },
+): T[] {
+  if (filters.status || filters.overdue || filters.waiting) return items;
+  return items.filter((item) => isOpenSubmittal(item.status));
+}
+
 export function isOverdueSubmittal(status: string, dueOn: string | null, today: string): boolean {
   return isOpenSubmittal(status) && Boolean(dueOn) && (dueOn as string) < today;
 }

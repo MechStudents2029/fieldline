@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026-10-09
+
+### Lien waivers
+
+- Four waiver types: conditional progress, unconditional progress, conditional final, and unconditional final. Settings holds the company wording for each. The seeded lines are templates.
+- Request one from a bill, or several from Bills. The amount starts as the bill amount and the through date starts as the bill date. Status is Requested, Signed, or Void.
+- Harbor’s portal lists only Harbor’s open requests. A typed name stores the name, the time, and the exact text. That text does not change after signing. The office can also file a signed paper copy. Print is a letter page.
+- Mark paid can be Off, Warn, or Block when the conditional waiver is unsigned. Warn is the default. After a bill is marked paid, one click requests the matching unconditional waiver. A final waiver is the one for a closed job or the vendor’s last open bill. Mark paid still sends no money.
+- The bill shows the waiver, the vendor shows open requests, and Today counts waivers still unsigned on bills that are paid or due within 7 days. Bills filters Missing, Requested, and Signed. The CSV includes that status.
+- HP-220 is Harbor’s signed conditional progress waiver. HP-442 is requested and unsigned, due this week. SL-1904 is paid on the closed Diaz job with no unconditional waiver.
+
+### Submittals list
+
+- The company list opens on open submittals, so SUB-001 and SUB-002 both show. Overdue still narrows the list when you set it.
+- The Overdue control fits its label. The filter row lines up with the title and the table on Submittals, RFIs, Bills, and Clients.
+
 ## 2026-10-08
 
 ### Submittals

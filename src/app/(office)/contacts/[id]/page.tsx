@@ -5,10 +5,13 @@ import { FileButton } from "@/components/file-button";
 import { MissingRecord } from "@/components/missing-record";
 import { VendorLink } from "@/components/vendor-link";
 import { requireSession } from "@/lib/auth/session";
-import { formatDateTime } from "@/lib/format";
+import { formatCalendarDay, formatDateTime } from "@/lib/format";
+import { formatMoney } from "@/lib/money";
+import { canSeeMoney } from "@/lib/permissions";
 import { CERT_TYPES } from "@/lib/vendor/compliance";
 import { contactDetail } from "@/lib/services/read";
 import { vendorOffice } from "@/lib/services/vendor-portal";
+import { outstandingWaivers } from "@/lib/services/waivers";
 
 export default async function ContactPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -16,6 +19,7 @@ export default async function ContactPage({ params }: { params: Promise<{ id: st
   const detail = contactDetail(session.orgId, id);
   if (!detail) return <MissingRecord orgName={session.orgName} kind="contact" />;
   const vendor = vendorOffice(session, id);
+  const waivers = canSeeMoney(session.role) ? outstandingWaivers(session, id) : [];
   return (
     <div className="flex flex-col gap-4">
       <div>
@@ -67,6 +71,24 @@ export default async function ContactPage({ params }: { params: Promise<{ id: st
               </button>
             </ActionForm>
           ) : null}
+        </section>
+      ) : null}
+      {waivers.length > 0 ? (
+        <section aria-label="Outstanding waivers">
+          <h2 className="mac-t13 font-semibold">Waivers</h2>
+          <ul className="mt-2 space-y-2 text-sm">
+            {waivers.map((row) => (
+              <li key={row.id}>
+                <Link href={`/bills/${row.billId}`} className="font-medium">
+                  {row.billNumber}
+                </Link>
+                {" · "}
+                {row.typeLabel}
+                {row.pending ? <span className="fl-pill ml-2">{row.statusLabel}</span> : ` · ${row.statusLabel}`}
+                <span className="num"> · {formatMoney(row.amountCents)} · {formatCalendarDay(row.throughDate)}</span>
+              </li>
+            ))}
+          </ul>
         </section>
       ) : null}
       <section>

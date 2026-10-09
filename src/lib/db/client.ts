@@ -111,6 +111,7 @@ export function ensureReady(holder: Holder) {
   ensureTodos(holder);
   ensureSavedViews(holder);
   ensureSubmittals(holder);
+  ensureLienWaivers(holder);
   const version = holder.sqlite.prepare("select value from app_meta where key = ?").get("seed_version") as
     | { value: string }
     | undefined;
@@ -1526,6 +1527,53 @@ function ensureSubmittals(holder: Holder) {
   holder.sqlite.exec("create unique index if not exists submittal_revisions_rev on submittal_revisions (org_id, submittal_id, revision)");
   holder.sqlite.exec("create index if not exists submittal_files_sub on submittal_files (org_id, submittal_id)");
   holder.sqlite.exec("create index if not exists submittal_attempts_org on submittal_attempts (org_id, created_at)");
+}
+
+function ensureLienWaivers(holder: Holder) {
+  const pk = holder.dialect === "postgres" ? "text primary key" : "text primary key not null";
+  ensureColumn(holder, "organizations", "lien_waiver_mode", "text not null default 'warn'");
+  if (!tableExists(holder.sqlite, "lien_waiver_templates", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists lien_waiver_templates (
+      id ${pk},
+      org_id text not null,
+      type text not null,
+      body text not null,
+      updated_at text not null
+    )`);
+  }
+  if (!tableExists(holder.sqlite, "lien_waivers", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists lien_waivers (
+      id ${pk},
+      org_id text not null,
+      bill_id text not null,
+      project_id text not null,
+      vendor_contact_id text not null,
+      type text not null,
+      status text not null,
+      amount_cents integer not null,
+      through_date text not null,
+      body text not null,
+      signed_name text,
+      signed_at text,
+      signed_text text,
+      document_id text,
+      created_at text not null,
+      updated_at text not null,
+      created_by text
+    )`);
+  }
+  if (!tableExists(holder.sqlite, "lien_waiver_attempts", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists lien_waiver_attempts (
+      id ${pk},
+      org_id text not null,
+      ip text not null,
+      created_at text not null
+    )`);
+  }
+  holder.sqlite.exec("create unique index if not exists lien_waiver_templates_org_type on lien_waiver_templates (org_id, type)");
+  holder.sqlite.exec("create index if not exists lien_waivers_org_bill on lien_waivers (org_id, bill_id)");
+  holder.sqlite.exec("create index if not exists lien_waivers_vendor on lien_waivers (org_id, vendor_contact_id)");
+  holder.sqlite.exec("create index if not exists lien_waiver_attempts_org on lien_waiver_attempts (org_id, created_at)");
 }
 
 function ensureComments(holder: Holder) {
