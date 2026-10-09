@@ -14,9 +14,17 @@ const pdf = { name: "E-201.pdf", mimeType: "application/pdf", buffer: Buffer.fro
 
 async function openPlan(page: Page, name: RegExp, current: boolean) {
   const width = page.viewportSize()?.width ?? 1440;
+  const pane = page.getByRole("complementary", { name: "File" });
+  if (width < 768 && (await pane.isVisible().catch(() => false))) {
+    const heading = (await pane.getByRole("heading").first().textContent()) || "";
+    if (name.test(heading)) {
+      await pane.getByRole("button", { name: current ? / · Current/ : /Superseded/ }).click();
+      return;
+    }
+    await page.getByRole("button", { name: "‹ Files" }).click();
+  }
   if (width >= 768) {
-    const row = page.getByRole("row", { name }).filter({ hasText: current ? "Current" : "Superseded" });
-    await row.click();
+    await page.getByRole("row", { name }).filter({ hasText: current ? "Current" : "Superseded" }).click();
   } else {
     await page.getByRole("button", { name }).filter({ hasText: current ? "Current" : "Superseded" }).click();
   }
@@ -56,7 +64,7 @@ async function jobFiles(page: Page, shots: boolean) {
     await shot(page, "job-files-dark");
     await page.emulateMedia({ colorScheme: "light" });
   }
-  await page.getByRole("button", { name: "Upload" }).click();
+  await page.getByRole("button", { name: "Upload", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Upload" });
   await expect(dialog.getByLabel("Folder").locator("option:checked")).toHaveText("Plans");
   if (shots) {
@@ -66,9 +74,10 @@ async function jobFiles(page: Page, shots: boolean) {
     await page.emulateMedia({ colorScheme: "light" });
   }
   await dialog.getByLabel("File").setInputFiles(pdf);
-  await dialog.getByRole("button", { name: "Upload" }).click();
-  await expect(list).toContainText("E-201");
+  await dialog.getByRole("button", { name: "Upload", exact: true }).click();
   await expect(dialog).toHaveCount(0);
+  if (width < 768) await page.getByRole("button", { name: "‹ Files" }).click();
+  await expect(list).toContainText("E-201");
   await openPlan(page, /E-201/, true);
   await pane.getByLabel("Visibility E-201").selectOption("client");
   await expect(pane.getByRole("status")).toHaveText("Saved.");
