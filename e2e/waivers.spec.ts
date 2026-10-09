@@ -55,8 +55,9 @@ async function requestSignAndPay(page: Page, shots: boolean) {
   await expect(page.getByRole("table", { name: "Bills" })).toContainText("Signed");
   await expect(page.getByRole("table", { name: "Bills" })).toContainText("Requested");
   if (width < 768) await page.getByRole("button", { name: "Filter" }).click();
-  await expect(page.getByLabel("Waiver")).toBeVisible();
+  await expect(page.getByLabel("Waiver", { exact: true })).toBeVisible();
   if (shots) {
+    await page.getByRole("row", { name: /HP-220/ }).scrollIntoViewIfNeeded();
     await shot(page, "bills-waivers-light");
     await page.emulateMedia({ colorScheme: "dark" });
     await shot(page, "bills-waivers-dark");
@@ -72,6 +73,7 @@ async function requestSignAndPay(page: Page, shots: boolean) {
   await expect(card).toContainText("waives lien rights");
   await expect(card).not.toContainText("SL-1904");
   if (shots) {
+    await card.scrollIntoViewIfNeeded();
     await shot(page, "vendor-waiver-light");
     await page.emulateMedia({ colorScheme: "dark" });
     await shot(page, "vendor-waiver-dark");
@@ -87,11 +89,11 @@ async function requestSignAndPay(page: Page, shots: boolean) {
   await page.getByLabel("Paid on").fill("2026-10-09");
   await page.getByLabel("Payment reference").fill("4455");
   await page.getByRole("button", { name: "Mark paid" }).click();
-  await expect(page.getByText("Marked paid.")).toBeVisible();
+  await expect(page.getByText(/Paid Oct 9/)).toBeVisible();
   await expect(page.getByText("Lien waiver is not signed.")).toHaveCount(0);
   await page.getByRole("button", { name: "Request unconditional waiver" }).click();
-  await expect(page.getByText("Unconditional waiver requested.")).toBeVisible();
   await expect(page.getByLabel("Lien waivers")).toContainText("Unconditional progress");
+  await expect(page.getByLabel("Lien waivers")).toContainText("Requested");
   const print = page.getByRole("link", { name: "Print" }).first();
   await print.click();
   await expect(page.getByRole("heading", { name: "Conditional progress" })).toBeVisible();
