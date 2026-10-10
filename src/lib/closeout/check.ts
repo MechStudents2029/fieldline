@@ -8,10 +8,12 @@ export type CloseoutFacts = {
   draftBills: number;
   openPurchaseOrders: number;
   unapprovedTime: number;
+  permitsOpen: number;
+  inspectionsOpen: number;
 };
 
 export type CloseoutBlocker = {
-  key: "punch" | "invoice" | "changes" | "bills" | "orders" | "time";
+  key: "punch" | "invoice" | "changes" | "bills" | "orders" | "time" | "permits" | "inspections";
   label: string;
   count: number;
 };
@@ -52,6 +54,8 @@ export function closeoutChecklist(facts: CloseoutFacts): CloseoutBlocker[] {
     { key: "bills", label: "Bills", count: facts.draftBills },
     { key: "orders", label: "Purchase orders", count: facts.openPurchaseOrders },
     { key: "time", label: "Time", count: facts.unapprovedTime },
+    { key: "permits", label: "Permits", count: facts.permitsOpen },
+    { key: "inspections", label: "Inspections", count: facts.inspectionsOpen },
   ];
 }
 

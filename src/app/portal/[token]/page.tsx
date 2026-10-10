@@ -4,7 +4,7 @@ import { approveCoAction, chooseSelectionAction, portalMessageAction } from "@/a
 import { ActionForm } from "@/components/action-form";
 import { FileButton } from "@/components/file-button";
 import { PhotoLightbox } from "@/components/portal/photo-lightbox";
-import { formatDate } from "@/lib/format";
+import { formatCalendarDay, formatDate } from "@/lib/format";
 import { formatMoney } from "@/lib/money";
 import { CONSENT_TEXT } from "@/lib/product";
 import {
@@ -28,6 +28,7 @@ import { clientPortalSubmittals } from "@/lib/services/submittals";
 import { SubmittalPortal } from "@/components/submittal-portal";
 import { portalSelections, type PortalSelection } from "@/lib/services/selections";
 import { clientPortalFiles } from "@/lib/services/files";
+import { portalPassedInspections } from "@/lib/services/permits";
 
 export const dynamic = "force-dynamic";
 
@@ -60,6 +61,7 @@ export default async function PortalPage({ params }: { params: Promise<{ token: 
     orders: data.orders,
     payments: data.payments,
   });
+  const passed = portalPassedInspections(token);
   const steps = portalTimeline({
     signedAt: data.proposal?.status === "signed" ? data.proposal.signedAt : null,
     depositPaidAt: depositPaidAt({ invoices: data.invoices, payments: data.payments }),
@@ -138,7 +140,7 @@ export default async function PortalPage({ params }: { params: Promise<{ token: 
       ) : null}
 
       <div className="home-split">
-        {steps.length > 0 ? (
+        {steps.length > 0 || passed.length > 0 ? (
           <aside className="home-progress" aria-label="Progress">
             <h2>Progress</h2>
             <ol>
@@ -146,6 +148,12 @@ export default async function PortalPage({ params }: { params: Promise<{ token: 
                 <li key={step.id}>
                   <span>{step.label}</span>
                   <span className="home-money">{formatDate(step.date)}</span>
+                </li>
+              ))}
+              {passed.map((row) => (
+                <li key={`${row.name}-${row.date}`}>
+                  <span>{row.name}</span>
+                  <span className="home-money">{formatCalendarDay(row.date)}</span>
                 </li>
               ))}
             </ol>

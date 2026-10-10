@@ -7,7 +7,10 @@ import {
   changeOrders,
   contacts,
   draws,
+  inspectionGates,
+  inspections,
   jobTemplates,
+  permits,
   memberships,
   projects,
   punchItems,
@@ -19,7 +22,10 @@ import {
   templateAttempts,
   templateChecks,
   templateDraws,
+  templateInspectionGates,
+  templateInspections,
   templateLines,
+  templatePermits,
   templateSelections,
   templateTaskLinks,
   templateTasks,
@@ -31,6 +37,7 @@ import { id, nowIso, token } from "@/lib/ids";
 import { canEditCrm, canSeeMoney, type Role } from "@/lib/permissions";
 import { lineCents, percentsFromAmounts, rescalePercents } from "@/lib/templates/rescale";
 import { dateFromOffset, endFromDuration, inclusiveWorkdays, workdayOffset } from "@/lib/schedule/workdays";
+import { latestByRoot } from "@/lib/permits/rules";
 import { ServiceError } from "@/lib/services/errors";
 import type { Actor } from "@/lib/services/read";
 import { applyTemplateTodos } from "@/lib/services/todos";
@@ -64,6 +71,13 @@ export type TemplateTodoDraft = {
   checks: { title: string }[];
 };
 
+export type TemplatePermitDraft = {
+  key: string;
+  permitType: string;
+  jurisdiction: string;
+  inspections: { key: string; name: string; offsetWorkdays: number; scheduleKey: string | null; gates: string[] }[];
+};
+
 export type TemplateDraft = {
   name: string;
   jobType: string;
@@ -83,6 +97,7 @@ export type TemplateDraft = {
   selections: { title: string; area: string | null; allowanceCents: number }[];
   checks: { title: string; kind: string }[];
   todos?: TemplateTodoDraft[];
+  permits?: TemplatePermitDraft[];
 };
 
 export type PartCounts = {
@@ -208,7 +223,22 @@ function loadBundle(db: AppDatabase, orgId: string, templateId: string) {
     .from(templateTodoChecks)
     .where(and(eq(templateTodoChecks.orgId, orgId), eq(templateTodoChecks.templateId, templateId)))
     .all();
-  return { template, tasks, links, lines, drawRows, selectionRows, checks, todos, todoChecks };
+  const permitRows = db
+    .select()
+    .from(templatePermits)
+    .where(and(eq(templatePermits.orgId, orgId), eq(templatePermits.templateId, templateId)))
+    .all();
+  const inspectionRows = db
+    .select()
+    .from(templateInspections)
+    .where(and(eq(templateInspections.orgId, orgId), eq(templateInspections.templateId, templateId)))
+    .all();
+  const inspectionGateRows = db
+    .select()
+    .from(templateInspectionGates)
+    .where(and(eq(templateInspectionGates.orgId, orgId), eq(templateInspectionGates.templateId, templateId)))
+    .all();
+  return { template, tasks, links, lines, drawRows, selectionRows, checks, todos, todoChecks, permitRows, inspectionRows, inspectionGateRows };
 }
 
 export function listTemplates(actor: Actor) {
@@ -287,6 +317,11 @@ export function templateDetail(actor: Actor, templateId: string) {
         .filter((row) => row.todoId === todo.id)
         .sort((a, b) => a.sortOrder - b.sortOrder)
         .map((row) => ({ title: row.title })),
+    })),
+    inspections: bundle.inspectionRows.map((row) => ({
+      name: row.name,
+      offset: row.offsetWorkdays,
+      gates: bundle.inspectionGateRows.filter((gate) => gate.inspectionKey === row.itemKey).map((gate) => gate.taskKey),
     })),
     trades: [...new Set(bundle.tasks.map((task) => task.trade).filter((trade): trade is string => Boolean(trade)))].sort(),
   };
@@ -408,6 +443,43 @@ function writeDraft(tx: AppDatabase, actor: Actor, templateId: string, draft: Te
         .run();
     });
   });
+  (draft.permits ?? []).forEach((permit) => {
+    tx.insert(templatePermits)
+      .values({
+        id: id("tperm"),
+        orgId: actor.orgId,
+        templateId,
+        itemKey: permit.key,
+        permitType: permit.permitType,
+        jurisdiction: (permit.jurisdiction || "").slice(0, 80),
+      })
+      .run();
+    permit.inspections.forEach((inspection) => {
+      tx.insert(templateInspections)
+        .values({
+          id: id("tinsp"),
+          orgId: actor.orgId,
+          templateId,
+          itemKey: inspection.key,
+          permitKey: permit.key,
+          name: cleanName(inspection.name, "inspection"),
+          offsetWorkdays: inspection.offsetWorkdays,
+          scheduleKey: inspection.scheduleKey,
+        })
+        .run();
+      for (const taskKey of inspection.gates) {
+        tx.insert(templateInspectionGates)
+          .values({
+            id: id("tgate"),
+            orgId: actor.orgId,
+            templateId,
+            inspectionKey: inspection.key,
+            taskKey,
+          })
+          .run();
+      }
+    });
+  });
 }
 
 function clearDraft(tx: AppDatabase, orgId: string, templateId: string) {
@@ -419,6 +491,9 @@ function clearDraft(tx: AppDatabase, orgId: string, templateId: string) {
   tx.delete(templateChecks).where(and(eq(templateChecks.orgId, orgId), eq(templateChecks.templateId, templateId))).run();
   tx.delete(templateTodoChecks).where(and(eq(templateTodoChecks.orgId, orgId), eq(templateTodoChecks.templateId, templateId))).run();
   tx.delete(templateTodos).where(and(eq(templateTodos.orgId, orgId), eq(templateTodos.templateId, templateId))).run();
+  tx.delete(templateInspectionGates).where(and(eq(templateInspectionGates.orgId, orgId), eq(templateInspectionGates.templateId, templateId))).run();
+  tx.delete(templateInspections).where(and(eq(templateInspections.orgId, orgId), eq(templateInspections.templateId, templateId))).run();
+  tx.delete(templatePermits).where(and(eq(templatePermits.orgId, orgId), eq(templatePermits.templateId, templateId))).run();
 }
 
 export function createTemplate(actor: Actor, draft: TemplateDraft) {
@@ -560,6 +635,27 @@ export function saveJobAsTemplate(actor: Actor, projectId: string, input: { name
         .filter((link) => link.itemId === item.id && keys.has(link.predecessorId))
         .map((link) => ({ key: keys.get(link.predecessorId) ?? "", lag: link.lagWorkdays })),
     }));
+    const permitRows = db.select().from(permits).where(and(eq(permits.orgId, actor.orgId), eq(permits.projectId, projectId))).all();
+    const inspectionRows = db.select().from(inspections).where(and(eq(inspections.orgId, actor.orgId), eq(inspections.projectId, projectId))).all();
+    const gateRows = db.select().from(inspectionGates).where(eq(inspectionGates.orgId, actor.orgId)).all();
+    const latest = latestByRoot(inspectionRows);
+    draft.permits = permitRows.map((permit, index) => ({
+      key: `p${index}`,
+      permitType: permit.permitType,
+      jurisdiction: permit.jurisdiction,
+      inspections: latest
+        .filter((row) => row.permitId === permit.id)
+        .map((inspection, inspectionIndex) => ({
+          key: `i${index}_${inspectionIndex}`,
+          name: inspection.name,
+          offsetWorkdays: inspection.scheduledOn ? workdayOffset(anchor, inspection.scheduledOn, mask) : 0,
+          scheduleKey: inspection.scheduleItemId ? keys.get(inspection.scheduleItemId) ?? null : null,
+          gates: gateRows
+            .filter((gate) => gate.inspectionId === inspection.id)
+            .map((gate) => keys.get(gate.scheduleItemId))
+            .filter((key): key is string => Boolean(key)),
+        })),
+    }));
   }
   if (parts.has("estimate")) {
     draft.lines = db
@@ -629,7 +725,7 @@ export function saveJobAsTemplate(actor: Actor, projectId: string, input: { name
     }));
   }
   const total =
-    draft.tasks.length + draft.lines.length + draft.draws.length + draft.selections.length + draft.checks.length + (draft.todos?.length ?? 0);
+    draft.tasks.length + draft.lines.length + draft.draws.length + draft.selections.length + draft.checks.length + (draft.todos?.length ?? 0) + (draft.permits?.length ?? 0);
   if (total === 0) throw new ServiceError("That template has nothing to copy.");
   return createTemplate(actor, draft);
 }
@@ -718,6 +814,60 @@ function applyParts(
           lagWorkdays: link.lagWorkdays,
         })
         .run();
+    }
+    for (const permit of bundle.permitRows) {
+      const permitId = id("perm");
+      tx.insert(permits)
+        .values({
+          id: permitId,
+          orgId: actor.orgId,
+          projectId,
+          permitType: permit.permitType,
+          number: "",
+          jurisdiction: permit.jurisdiction,
+          status: "not_applied",
+          appliedOn: null,
+          issuedOn: null,
+          expiresOn: null,
+          feeCents: null,
+          costCode: null,
+          costItemId: null,
+          showPassed: 0,
+          createdAt: now,
+          updatedAt: now,
+          createdBy: actor.userId,
+        })
+        .run();
+      for (const inspection of bundle.inspectionRows.filter((row) => row.permitKey === permit.itemKey)) {
+        const inspectionId = id("insp");
+        const day = dateFromOffset(anchor, inspection.offsetWorkdays, mask);
+        tx.insert(inspections)
+          .values({
+            id: inspectionId,
+            orgId: actor.orgId,
+            projectId,
+            permitId,
+            rootId: inspectionId,
+            attempt: 1,
+            name: inspection.name,
+            scheduleItemId: inspection.scheduleKey ? taskIds.get(inspection.scheduleKey) ?? null : null,
+            requestedOn: null,
+            scheduledOn: day,
+            inspector: null,
+            result: "pending",
+            resultOn: null,
+            notes: "",
+            createdAt: now,
+            updatedAt: now,
+            createdBy: actor.userId,
+          })
+          .run();
+        for (const gate of bundle.inspectionGateRows.filter((row) => row.inspectionKey === inspection.itemKey)) {
+          const itemId = taskIds.get(gate.taskKey);
+          if (!itemId) continue;
+          tx.insert(inspectionGates).values({ id: id("gate"), orgId: actor.orgId, inspectionId, scheduleItemId: itemId }).run();
+        }
+      }
     }
   }
   if (parts.has("estimate")) {

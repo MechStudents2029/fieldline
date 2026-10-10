@@ -39,6 +39,7 @@ export function VendorPortalView({
   bids,
   rfis = [],
   todos = [],
+  inspections = [],
   submittals = { items: [], jobs: [] },
   waivers = [],
   files = [],
@@ -48,6 +49,7 @@ export function VendorPortalView({
   bids: VendorBidCard[];
   rfis?: PortalRfi[];
   todos?: VendorTodo[];
+  inspections?: { name: string; date: string; result: string }[];
   submittals?: { items: PortalSubmittal[]; jobs: { id: string; name: string }[] };
   waivers?: PortalWaiver[];
   files?: VendorFileJob[];
@@ -329,6 +331,23 @@ export function VendorPortalView({
             ))}
           </ul>
         </section>
+        {inspections.length > 0 ? (
+          <section aria-label="Inspections">
+            <h2>Inspections</h2>
+            <ul className="home-stack">
+              {inspections.map((row) => (
+                <li key={`${row.name}-${row.date}`} className="home-card">
+                  <p className="home-copy">{row.name}</p>
+                  <p className="home-sub">
+                    {row.date ? formatCalendarDay(row.date) : ""}
+                    {row.date ? " · " : ""}
+                    {row.result}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
         <section aria-label="Schedule">
           <h2>Schedule</h2>
           {home.schedule.length === 0 ? <p className="home-sub">No days</p> : null}

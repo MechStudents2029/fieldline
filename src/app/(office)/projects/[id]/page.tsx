@@ -18,6 +18,7 @@ import { canEditCrm, canEditSchedule } from "@/lib/permissions";
 import { projectBills } from "@/lib/services/bills";
 import { projectPurchaseOrders } from "@/lib/services/purchase-orders";
 import { captionFromMetadata, listPriceBook, listProjects, pipelineBoard, projectDetail } from "@/lib/services/read";
+import { jobInspectionMarks, scheduleGateLabels } from "@/lib/services/permits";
 import { jobSchedule } from "@/lib/services/schedule";
 import { scheduleCompare } from "@/lib/services/schedule-plan";
 import { listWorkExceptions } from "@/lib/services/work-calendar";
@@ -61,6 +62,8 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
   const crew = board.office?.clockedIn.filter((row) => row.projectName === detail.project.name) ?? [];
   const todayKey = officeToday(board.timeZone);
   const schedule = jobSchedule(session, detail.project.id);
+  const marks = jobInspectionMarks(session, detail.project.id);
+  const gates = scheduleGateLabels(session.orgId);
   const compare = scheduleCompare(session, detail.project.id);
   const compareById = new Map(compare.items.map((item) => [item.id, item]));
   const jobDays = listWorkExceptions(session, detail.project.id);
@@ -477,6 +480,24 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
             ) : null}
           </span>
         </div>
+        {marks.length > 0 ? (
+          <ul className="fl-group" aria-label="Inspections">
+            {marks.map((mark) => (
+              <li key={mark.id}>
+                <Link href={`/projects/${detail.project.id}/permits?inspection=${mark.id}`} className="fl-cell fl-press">
+                  <span className="min-w-0 flex-1">
+                    <span className="fl-body block truncate">
+                      {mark.name}
+                      {mark.attempt > 1 ? ` ${mark.attempt}` : ""}
+                    </span>
+                    <span className="fl-footnote text-[var(--fl-secondary)]">{mark.date ? formatCalendarDay(mark.date) : "—"}</span>
+                  </span>
+                  <span className="fl-pill">{mark.resultLabel}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        ) : null}
         <ul className="fl-group">
           {schedule.length === 0 ? <li className="fl-cell">No items</li> : null}
           {schedule.map((item) => {
@@ -491,6 +512,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
                   {item.endDate !== item.startDate ? ` – ${formatCalendarDay(item.endDate)}` : ""} · {item.who}
                   {base?.baselineEnd ? ` · Baseline ${formatCalendarDay(base.baselineStart || base.baselineEnd)}${base.baselineEnd !== base.baselineStart ? ` – ${formatCalendarDay(base.baselineEnd)}` : ""}` : ""}
                   {base?.variance != null && base.variance !== 0 ? ` · ${formatWorkdayVariance(base.variance)}` : ""}
+                  {gates.get(item.id) ? ` · ${gates.get(item.id)}` : ""}
                 </span>
                 <LinkedRfis rows={(rfiBoard?.items ?? []).filter((rfi) => rfi.relatedType === "schedule" && rfi.relatedId === item.id && rfi.status !== "void")} />
               </span>

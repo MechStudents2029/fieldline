@@ -119,6 +119,7 @@ export function ensureReady(holder: Holder) {
   ensureClientUpdates(holder);
   ensureCostPlus(holder);
   ensureSchedulePlan(holder);
+  ensurePermits(holder);
   const version = holder.sqlite.prepare("select value from app_meta where key = ?").get("seed_version") as
     | { value: string }
     | undefined;
@@ -1949,6 +1950,110 @@ function ensureSchedulePlan(holder: Holder) {
     )`);
   }
   holder.sqlite.exec("create index if not exists schedule_delays_project on schedule_delays (org_id, project_id)");
+}
+
+function ensurePermits(holder: Holder) {
+  const pk = holder.dialect === "postgres" ? "text primary key" : "text primary key not null";
+  ensureColumn(holder, "organizations", "inspection_gate", "text not null default 'warn'");
+  if (!tableExists(holder.sqlite, "permits", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists permits (
+      id ${pk},
+      org_id text not null,
+      project_id text not null,
+      permit_type text not null,
+      number text not null default '',
+      jurisdiction text not null default '',
+      status text not null,
+      applied_on text,
+      issued_on text,
+      expires_on text,
+      fee_cents integer,
+      cost_code text,
+      cost_item_id text,
+      show_passed integer not null default 0,
+      created_at text not null,
+      updated_at text not null,
+      created_by text
+    )`);
+  }
+  holder.sqlite.exec("create index if not exists permits_project on permits (org_id, project_id)");
+  if (!tableExists(holder.sqlite, "inspections", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists inspections (
+      id ${pk},
+      org_id text not null,
+      project_id text not null,
+      permit_id text not null,
+      root_id text not null,
+      attempt integer not null,
+      name text not null,
+      schedule_item_id text,
+      requested_on text,
+      scheduled_on text,
+      inspector text,
+      result text not null,
+      result_on text,
+      notes text not null default '',
+      created_at text not null,
+      updated_at text not null,
+      created_by text
+    )`);
+  }
+  holder.sqlite.exec("create index if not exists inspections_permit on inspections (org_id, permit_id)");
+  holder.sqlite.exec("create index if not exists inspections_project on inspections (org_id, project_id)");
+  if (!tableExists(holder.sqlite, "inspection_gates", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists inspection_gates (
+      id ${pk},
+      org_id text not null,
+      inspection_id text not null,
+      schedule_item_id text not null
+    )`);
+  }
+  holder.sqlite.exec("create unique index if not exists inspection_gates_item on inspection_gates (org_id, inspection_id, schedule_item_id)");
+  if (!tableExists(holder.sqlite, "record_files", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists record_files (
+      id ${pk},
+      org_id text not null,
+      target_type text not null,
+      target_id text not null,
+      job_file_id text not null,
+      created_at text not null
+    )`);
+  }
+  holder.sqlite.exec("create unique index if not exists record_files_target on record_files (org_id, target_type, target_id, job_file_id)");
+  if (!tableExists(holder.sqlite, "template_permits", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists template_permits (
+      id ${pk},
+      org_id text not null,
+      template_id text not null,
+      item_key text not null,
+      permit_type text not null,
+      jurisdiction text not null default ''
+    )`);
+  }
+  holder.sqlite.exec("create index if not exists template_permits_template on template_permits (org_id, template_id)");
+  if (!tableExists(holder.sqlite, "template_inspections", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists template_inspections (
+      id ${pk},
+      org_id text not null,
+      template_id text not null,
+      item_key text not null,
+      permit_key text not null,
+      name text not null,
+      offset_workdays integer not null,
+      schedule_key text
+    )`);
+  }
+  holder.sqlite.exec("create index if not exists template_inspections_template on template_inspections (org_id, template_id)");
+  if (!tableExists(holder.sqlite, "template_inspection_gates", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists template_inspection_gates (
+      id ${pk},
+      org_id text not null,
+      template_id text not null,
+      inspection_key text not null,
+      task_key text not null
+    )`);
+  }
+  holder.sqlite.exec("create index if not exists template_inspection_gates_template on template_inspection_gates (org_id, template_id)");
 }
 
 export function resetDatabase(): AppDatabase {

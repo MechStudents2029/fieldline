@@ -2,7 +2,20 @@
 
 ## 2026-10-10
 
+### Permits
+
+- A job holds permits: type, number, jurisdiction, status, applied, issued, and expiry dates, and an optional fee. The fee posts one job cost to the chosen cost code. Office edits. Field sees the number and status.
+- Inspections sit on a permit. A failed or partial result turns the correction notes into to-dos. Request re-inspection opens the next attempt and keeps the earlier ones.
+- An inspection can gate later schedule items. Settings chooses Off, Warn, or Block. Warn is the default. The schedule shows the gate on the item and the inspection as a milestone, on the job, the crew board, and the calendar feed.
+- Today counts inspections in the next three workdays, failed inspections with no re-inspection, and permits that expire within 30 days.
+- Bathroom and Kitchen templates carry a building permit and an inspection sequence. Closeout counts a permit that is not Closed and an inspection that has not passed.
+- The client portal can list passed inspections, name and date. The vendor portal lists an inspection when it gates that vendor’s item, date and result.
+- Brooks has an issued building permit, a passed framing inspection, a failed rough plumbing inspection with two to-dos and a pending re-inspection that gates drywall, and a permit that expires in three weeks.
+
 ### Schedule
+
+- The variance report wraps the job name, hides reason columns that are zero on every row, and lists jobs with a baseline. All jobs shows the rest.
+- Each schedule item shows a baseline tick. The variance in workdays is on the item.
 
 - Settings holds company non-workdays and extra workdays. A job can add its own. Lags, cascades, template starts, to-do offsets, and RFI shifts use those days. The schedule grid shades non-workdays. Rivera has US federal holidays for this year and next, and Brooks works one Saturday.
 - Set baseline freezes each item and the job finish. Setting it again keeps the earlier baseline, with who and when. The job schedule shows baseline against current and the variance in workdays.

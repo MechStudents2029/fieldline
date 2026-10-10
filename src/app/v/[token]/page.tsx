@@ -6,6 +6,7 @@ import { vendorBidPortal } from "@/lib/services/bids";
 import { vendorPortalRfis } from "@/lib/services/rfis";
 import { vendorPortalSubmittals } from "@/lib/services/submittals";
 import { vendorPortal } from "@/lib/services/vendor-portal";
+import { vendorInspectionRows } from "@/lib/services/permits";
 import { vendorTodos } from "@/lib/services/todos";
 
 export const dynamic = "force-dynamic";
@@ -22,6 +23,7 @@ export default async function VendorPortalPage({ params }: { params: Promise<{ t
       bids={bids}
       rfis={vendorPortalRfis(token)}
       todos={vendorTodos(token)}
+      inspections={vendorInspectionRows(token)}
       submittals={vendorPortalSubmittals(token)}
       waivers={vendorPortalWaivers(token) ?? []}
       files={vendorPortalFiles(token) ?? []}

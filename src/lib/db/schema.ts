@@ -24,6 +24,7 @@ export const organizations = sqliteTable("organizations", {
   warrantyMonths: integer("warranty_months").notNull().default(12),
   vendorComplianceMode: text("vendor_compliance_mode").notNull().default("warn"),
   lienWaiverMode: text("lien_waiver_mode").notNull().default("warn"),
+  inspectionGate: text("inspection_gate").notNull().default("warn"),
   vendorRequiredTypes: text("vendor_required_types").notNull().default("general_liability,workers_comp"),
   paymentTermsDays: integer("payment_terms_days").notNull().default(7),
   defaultRetainageBps: integer("default_retainage_bps").notNull().default(0),
@@ -2130,4 +2131,116 @@ export const clientUpdateVersions = sqliteTable(
     createdBy: text("created_by"),
   },
   (t) => [index("client_update_versions_update").on(t.orgId, t.updateId)],
+);
+
+export const permits = sqliteTable(
+  "permits",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    projectId: text("project_id").notNull(),
+    permitType: text("permit_type").notNull(),
+    number: text("number").notNull().default(""),
+    jurisdiction: text("jurisdiction").notNull().default(""),
+    status: text("status").notNull(),
+    appliedOn: text("applied_on"),
+    issuedOn: text("issued_on"),
+    expiresOn: text("expires_on"),
+    feeCents: integer("fee_cents"),
+    costCode: text("cost_code"),
+    costItemId: text("cost_item_id"),
+    showPassed: integer("show_passed").notNull().default(0),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    createdBy: text("created_by"),
+  },
+  (t) => [index("permits_project").on(t.orgId, t.projectId)],
+);
+
+export const inspections = sqliteTable(
+  "inspections",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    projectId: text("project_id").notNull(),
+    permitId: text("permit_id").notNull(),
+    rootId: text("root_id").notNull(),
+    attempt: integer("attempt").notNull(),
+    name: text("name").notNull(),
+    scheduleItemId: text("schedule_item_id"),
+    requestedOn: text("requested_on"),
+    scheduledOn: text("scheduled_on"),
+    inspector: text("inspector"),
+    result: text("result").notNull(),
+    resultOn: text("result_on"),
+    notes: text("notes").notNull().default(""),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    createdBy: text("created_by"),
+  },
+  (t) => [index("inspections_permit").on(t.orgId, t.permitId), index("inspections_project").on(t.orgId, t.projectId)],
+);
+
+export const inspectionGates = sqliteTable(
+  "inspection_gates",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    inspectionId: text("inspection_id").notNull(),
+    scheduleItemId: text("schedule_item_id").notNull(),
+  },
+  (t) => [uniqueIndex("inspection_gates_item").on(t.orgId, t.inspectionId, t.scheduleItemId)],
+);
+
+export const recordFiles = sqliteTable(
+  "record_files",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    targetType: text("target_type").notNull(),
+    targetId: text("target_id").notNull(),
+    jobFileId: text("job_file_id").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [uniqueIndex("record_files_target").on(t.orgId, t.targetType, t.targetId, t.jobFileId)],
+);
+
+export const templatePermits = sqliteTable(
+  "template_permits",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    templateId: text("template_id").notNull(),
+    itemKey: text("item_key").notNull(),
+    permitType: text("permit_type").notNull(),
+    jurisdiction: text("jurisdiction").notNull().default(""),
+  },
+  (t) => [index("template_permits_template").on(t.orgId, t.templateId)],
+);
+
+export const templateInspections = sqliteTable(
+  "template_inspections",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    templateId: text("template_id").notNull(),
+    itemKey: text("item_key").notNull(),
+    permitKey: text("permit_key").notNull(),
+    name: text("name").notNull(),
+    offsetWorkdays: integer("offset_workdays").notNull(),
+    scheduleKey: text("schedule_key"),
+  },
+  (t) => [index("template_inspections_template").on(t.orgId, t.templateId)],
+);
+
+export const templateInspectionGates = sqliteTable(
+  "template_inspection_gates",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    templateId: text("template_id").notNull(),
+    inspectionKey: text("inspection_key").notNull(),
+    taskKey: text("task_key").notNull(),
+  },
+  (t) => [index("template_inspection_gates_template").on(t.orgId, t.templateId)],
 );

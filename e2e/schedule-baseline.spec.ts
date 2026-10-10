@@ -42,6 +42,8 @@ test("baseline, a delay reason, and the variance report", async ({ page }) => {
 
   await page.goto("/reports/schedule");
   await expect(page.getByRole("heading", { name: "Schedule variance" })).toBeVisible();
+  await expect(page.getByRole("cell", { name: "Brooks family room addition" })).toBeVisible();
+  await expect(page.getByRole("columnheader", { name: "Client" })).toHaveCount(0);
   await expect(page.getByRole("row", { name: /Brooks family room addition/ })).toContainText("+1 wd");
   await shot(page, "schedule-variance-light");
   await page.emulateMedia({ colorScheme: "dark" });

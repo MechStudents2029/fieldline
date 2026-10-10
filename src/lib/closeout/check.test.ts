@@ -9,6 +9,8 @@ const clear: CloseoutFacts = {
   draftBills: 0,
   openPurchaseOrders: 0,
   unapprovedTime: 0,
+  permitsOpen: 0,
+  inspectionsOpen: 0,
 };
 
 describe("closeout checklist", () => {
@@ -21,6 +23,8 @@ describe("closeout checklist", () => {
       draftBills: 2,
       openPurchaseOrders: 1,
       unapprovedTime: 3,
+      permitsOpen: 1,
+      inspectionsOpen: 2,
     });
     expect(rows.map((row) => [row.key, row.count])).toEqual([
       ["punch", 3],
@@ -29,6 +33,8 @@ describe("closeout checklist", () => {
       ["bills", 2],
       ["orders", 1],
       ["time", 3],
+      ["permits", 1],
+      ["inspections", 2],
     ]);
     expect(openBlockers(clear)).toEqual([]);
   });

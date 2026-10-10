@@ -86,6 +86,21 @@ export default async function TemplatePage({ params }: { params: Promise<{ id: s
           </li>
         ))}
       </ul>
+      {detail.inspections.length > 0 ? (
+        <ul className="fl-group" aria-label="Inspections">
+          {detail.inspections.map((row) => (
+            <li key={`${row.name}-${row.offset}`} className="fl-cell">
+              <span className="min-w-0 flex-1">
+                <span className="fl-body block">{row.name}</span>
+                <span className="fl-footnote text-[var(--mac-secondary)]">
+                  Day {row.offset}
+                  {row.gates.length ? ` · ${row.gates.join(", ")}` : ""}
+                </span>
+              </span>
+            </li>
+          ))}
+        </ul>
+      ) : null}
       {office ? (
         <ActionForm action={renameTemplateAction} className="flex flex-col gap-2">
           <input type="hidden" name="templateId" value={detail.id} />
