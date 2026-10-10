@@ -23,8 +23,8 @@ test("permits, a failed inspection, the gate, and the variance report", async ({
   await page.emulateMedia({ colorScheme: "light" });
 
   await page.goto("/projects/proj_brooks/permits?inspection=insp_br_rough");
-  await expect(page.getByText("Replace the vent stack")).toBeVisible();
-  await expect(page.getByText("Strap the supply")).toBeVisible();
+  await expect(page.getByRole("list", { name: "To-dos" })).toContainText("Replace the vent stack");
+  await expect(page.getByRole("list", { name: "To-dos" })).toContainText("Strap the supply");
   await expect(page.getByRole("button", { name: "To-dos" })).toBeVisible();
   await shot(page, "inspection-detail-light");
   await page.emulateMedia({ colorScheme: "dark" });
@@ -32,7 +32,7 @@ test("permits, a failed inspection, the gate, and the variance report", async ({
   await page.emulateMedia({ colorScheme: "light" });
 
   await page.goto("/schedule?span=14");
-  const drywall = page.getByRole("button", { name: /Drywall/ });
+  const drywall = page.getByRole("button", { name: /Drywall/ }).first();
   await drywall.scrollIntoViewIfNeeded();
   await expect(drywall).toBeVisible();
   await expect(page.locator(".baseline-tick").first()).toBeVisible();
@@ -79,15 +79,15 @@ test("permits, a failed inspection, the gate, and the variance report", async ({
   await page.getByLabel("Result").selectOption("failed");
   await page.getByLabel("Notes").fill("Replace the trap\nStrap the line");
   await page.getByRole("button", { name: "Save" }).click();
-  await page.getByRole("link", { name: "Rough plumbing" }).click();
+  await page.getByRole("link", { name: /^Rough plumbing/ }).click();
   await page.getByRole("button", { name: "To-dos" }).click();
-  await expect(page.getByText("Replace the trap")).toBeVisible();
-  await expect(page.getByText("Strap the line")).toBeVisible();
+  await expect(page.getByRole("list", { name: "To-dos" })).toContainText("Replace the trap");
+  await expect(page.getByRole("list", { name: "To-dos" })).toContainText("Strap the line");
 
   await page.goto("/schedule?span=14");
-  await page.getByRole("button", { name: /Drywall/ }).click();
+  await page.getByRole("button", { name: /Drywall/ }).first().click();
   await page.getByLabel("Status").selectOption("done");
   await page.getByRole("button", { name: "Save" }).click();
-  await expect(page.getByRole("alert")).toContainText("has not passed");
+  await expect(page.getByRole("alert").filter({ hasText: "has not passed" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Move anyway" })).toBeVisible();
 });

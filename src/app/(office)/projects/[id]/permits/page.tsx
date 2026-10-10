@@ -26,8 +26,8 @@ export default async function PermitsPage({
   if (!board) notFound();
   const selected = board.permits.flatMap((permit) => permit.inspections).find((row) => row.id === query.inspection) ?? null;
   const editing = board.permits.find((permit) => permit.id === query.permit) ?? null;
-  const showNew = query.new === "permit" || Boolean(editing);
   const showInspection = query.new === "inspection" && !selected;
+  const showNew = !showInspection && !selected && (query.new === "permit" || Boolean(editing));
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <Toolbar
