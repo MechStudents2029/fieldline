@@ -43,6 +43,7 @@ import {
 } from "@/lib/services/time";
 import type { TimeUndo } from "@/lib/services/time";
 import { moveScheduleItem, rotateCalendarFeed, saveScheduleItem, type ScheduleStatus } from "@/lib/services/schedule";
+import { attachRecordFile, inspectionTodos, requestReinspection, saveInspection, savePermit, scheduleGateStatus, setInspectionGateMode } from "@/lib/services/permits";
 import { setScheduleBaseline } from "@/lib/services/schedule-plan";
 import { addWorkException, removeWorkException } from "@/lib/services/work-calendar";
 import { previewScheduleShift, shiftScheduleDates } from "@/lib/services/schedule-shift";
@@ -227,6 +228,8 @@ export type ActionState = {
   confirm?: string;
   needsReason?: boolean;
   delayDays?: number;
+  needsGate?: boolean;
+  gateReason?: string;
 } | null;
 
 export type BillDraftState = {
@@ -970,6 +973,8 @@ export async function settingsAction(_prev: ActionState, formData: FormData): Pr
     if (warrantyMonths != null && String(warrantyMonths).trim()) setWarrantyMonths(user, Number(warrantyMonths));
     const vendorMode = formData.get("vendorComplianceMode");
     if (vendorMode != null) setVendorCompliance(user, String(vendorMode), formData.getAll("requiredType").map(String));
+    const inspectionGate = formData.get("inspectionGate");
+    if (inspectionGate != null) setInspectionGateMode(user, String(inspectionGate));
     const drawTitles = formData.getAll("drawTitle").map(String);
     if (drawTitles.length > 0) {
       const drawPercents = formData.getAll("drawPercent").map(String);
@@ -2019,8 +2024,11 @@ export async function saveScheduleAction(_prev: ActionState, formData: FormData)
       const preview = previewScheduleShift(user, existing, input.startDate, input.endDate);
       if (preview.needsReason && !delay) return { needsReason: true, delayDays: preview.days, confirm: preview.count > 1 ? preview.label : undefined };
       if (!preview.needsReason && preview.count > 1 && formData.get("confirmShift") !== "1") return { confirm: preview.label };
+      const gate = scheduleGateStatus(user, existing, { startDate: input.startDate, status: input.status });
+      if (gate.action === "block") return { error: gate.reason ?? "This inspection has not passed." };
+      if (gate.action === "warn" && formData.get("confirmGate") !== "1") return { needsGate: true, gateReason: gate.reason ?? undefined };
     }
-    saveScheduleItem(user, { ...input, links: scheduleLinks(formData) }, existing || undefined, delay);
+    saveScheduleItem(user, { ...input, links: scheduleLinks(formData) }, existing || undefined, delay, formData.get("confirmGate") === "1");
     refreshSchedule(input.projectId);
     return { ok: "Saved." };
   } catch (error) {
@@ -2028,11 +2036,12 @@ export async function saveScheduleAction(_prev: ActionState, formData: FormData)
   }
 }
 
-export async function previewScheduleShiftAction(input: { id: string; startDate: string; endDate: string }): Promise<{ count: number; label: string; error?: string; needsReason?: boolean; days?: number }> {
+export async function previewScheduleShiftAction(input: { id: string; startDate: string; endDate: string }): Promise<{ count: number; label: string; error?: string; needsReason?: boolean; days?: number; needsGate?: boolean; gateReason?: string }> {
   try {
     const user = await actor();
     const preview = previewScheduleShift(user, input.id, input.startDate, input.endDate);
-    return { count: preview.count, label: preview.label, needsReason: preview.needsReason, days: preview.days };
+    const gate = scheduleGateStatus(user, input.id, { startDate: input.startDate, status: "planned" });
+    return { count: preview.count, label: preview.label, needsReason: preview.needsReason, days: preview.days, needsGate: gate.action === "warn", gateReason: gate.reason ?? undefined };
   } catch (error) {
     if (error instanceof ServiceError) return { count: 0, label: "", error: error.message };
     throw error;
@@ -2057,13 +2066,16 @@ export async function shiftScheduleDatesAction(_prev: ActionState, formData: For
   }
 }
 
-export async function moveScheduleAction(input: { id: string; startDate: string; endDate: string; assigneeId: string | null; reason?: string; note?: string }): Promise<ActionState> {
+export async function moveScheduleAction(input: { id: string; startDate: string; endDate: string; assigneeId: string | null; reason?: string; note?: string; confirmGate?: boolean }): Promise<ActionState> {
   try {
     const user = await actor();
     const delay = input.reason ? { reason: input.reason, note: input.note || "" } : null;
     const preview = previewScheduleShift(user, input.id, input.startDate, input.endDate);
+    const gate = scheduleGateStatus(user, input.id, { startDate: input.startDate, status: "planned" });
+    if (gate.action === "block") return { error: gate.reason ?? "This inspection has not passed." };
+    if (gate.action === "warn" && !input.confirmGate) return { needsGate: true, gateReason: gate.reason ?? undefined };
     if (preview.needsReason && !delay) return { needsReason: true, delayDays: preview.days, confirm: preview.count > 1 ? preview.label : undefined };
-    moveScheduleItem(user, input.id, input, delay);
+    moveScheduleItem(user, input.id, input, delay, Boolean(input.confirmGate));
     refreshSchedule("");
     return { ok: "Saved." };
   } catch (error) {
@@ -3573,6 +3585,107 @@ export async function unpublishClientUpdateAction(projectId: string, updateId: s
     unpublishClientUpdate(user, updateId, String(formData.get("reason") || ""), await requestIp());
     refreshUpdate(projectId, updateId);
     return { ok: "Unpublished." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+function refreshPermits(projectId: string) {
+  revalidatePath(`/projects/${projectId}/permits`);
+  revalidatePath(`/projects/${projectId}`);
+  revalidatePath("/schedule");
+  revalidatePath("/");
+}
+
+export async function savePermitAction(projectId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const feeRaw = String(formData.get("fee") || "").trim();
+    const fee = feeRaw ? parseMoneyToCents(feeRaw) : null;
+    if (feeRaw && fee == null) return { error: "Enter the fee in dollars." };
+    const saved = savePermit(
+      user,
+      projectId,
+      {
+        permitType: String(formData.get("permitType") || ""),
+        number: String(formData.get("number") || ""),
+        jurisdiction: String(formData.get("jurisdiction") || ""),
+        status: String(formData.get("status") || ""),
+        appliedOn: String(formData.get("appliedOn") || ""),
+        issuedOn: String(formData.get("issuedOn") || ""),
+        expiresOn: String(formData.get("expiresOn") || ""),
+        feeCents: fee,
+        costCode: String(formData.get("costCode") || ""),
+        showPassed: formData.get("showPassed") === "1",
+      },
+      String(formData.get("permitId") || "") || undefined,
+    );
+    const fileId = String(formData.get("fileId") || "");
+    if (fileId) attachRecordFile(user, "permit", saved.id, fileId);
+    refreshPermits(projectId);
+    return { ok: "Saved." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function saveInspectionAction(projectId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const saved = saveInspection(
+      user,
+      projectId,
+      {
+        permitId: String(formData.get("permitId") || ""),
+        name: String(formData.get("name") || ""),
+        scheduleItemId: String(formData.get("scheduleItemId") || ""),
+        requestedOn: String(formData.get("requestedOn") || ""),
+        scheduledOn: String(formData.get("scheduledOn") || ""),
+        inspector: String(formData.get("inspector") || ""),
+        result: String(formData.get("result") || ""),
+        notes: String(formData.get("notes") || ""),
+        gateItemIds: formData.getAll("gate").map(String),
+      },
+      String(formData.get("inspectionId") || "") || undefined,
+    );
+    const fileId = String(formData.get("fileId") || "");
+    if (fileId) attachRecordFile(user, "inspection", saved.id, fileId);
+    refreshPermits(projectId);
+    return { ok: "Saved." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function reinspectAction(projectId: string, inspectionId: string, _prev: ActionState, _formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const next = requestReinspection(user, inspectionId);
+    refreshPermits(projectId);
+    redirect(`/projects/${projectId}/permits?inspection=${next.id}`);
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function inspectionTodosAction(projectId: string, inspectionId: string, _prev: ActionState, _formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const result = inspectionTodos(user, inspectionId);
+    refreshPermits(projectId);
+    revalidatePath("/todos");
+    return { ok: `${result.ids.length}` };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function setInspectionGateAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    setInspectionGateMode(user, String(formData.get("inspectionGate") || ""));
+    revalidatePath("/settings");
+    return { ok: "Saved." };
   } catch (error) {
     return failure(error);
   }

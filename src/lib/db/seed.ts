@@ -47,7 +47,10 @@ import {
   scheduleLinks,
   templateChecks,
   templateDraws,
+  templateInspectionGates,
+  templateInspections,
   templateLines,
+  templatePermits,
   templateSelections,
   templateTaskLinks,
   templateTasks,
@@ -81,8 +84,12 @@ import {
   lienWaivers,
   fileFolderDefaults,
   fileFolders,
+  inspectionGates,
+  inspections,
   jobFiles,
+  permits,
   planRefs,
+  recordFiles,
   commentFiles,
   commentMentions,
   comments,
@@ -138,7 +145,7 @@ import {
   WEBSITE_FORM_SOURCE,
 } from "@/lib/lead-form/rules";
 
-export const SEED_VERSION = "34";
+export const SEED_VERSION = "35";
 
 const ORG = "org_rivera";
 const NORTH = "org_northline";
@@ -1302,6 +1309,7 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
       { id: "cost_bill_hp511", orgId: ORG, projectId: "proj_okonkwo", budgetLineId: null, costCode: "PLB-SHOWER", amountCents: 100000, vendorName: "Harbor Plumbing", memo: "Bill HP-511", source: "bill", aiExtracted: 0, documentId: null, createdAt: daysAgo(2), updatedAt: daysAgo(2), createdBy: "user_sam" },
       { id: "cost_bill_sl", orgId: ORG, projectId: "proj_diaz", budgetLineId: null, costCode: "DECK-BOARD", amountCents: 125000, vendorName: "Summit Lumber", memo: "Bill SL-1904", source: "bill", aiExtracted: 0, documentId: null, createdAt: daysAgo(12), updatedAt: daysAgo(8), createdBy: "user_sam" },
       { id: "cost_bill_be", orgId: ORG, projectId: "proj_brooks", budgetLineId: null, costCode: "ELE-KIT", amountCents: 700000, vendorName: "Brighton Electric", memo: "Bill BE-77", source: "bill", aiExtracted: 0, documentId: null, createdAt: daysAgo(10), updatedAt: daysAgo(10), createdBy: "user_sam" },
+      { id: "cost_br_permit", orgId: ORG, projectId: "proj_brooks", budgetLineId: null, costCode: "GC-SUPER", amountCents: 18500, vendorName: "Austin", memo: "Permit B-2026-014", source: "permit", aiExtracted: 0, documentId: null, createdAt: daysAgo(20), updatedAt: daysAgo(20), createdBy: "user_maya" },
     ])
     .run();
 
@@ -2163,6 +2171,7 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
     { id: "sch_dz_punch", projectId: "proj_diaz", title: "Punch list", start: scheduleDay(2), end: scheduleDay(2), time: null, status: "done", note: null, assignees: [] },
     { id: "sch_chen_measure", projectId: "proj_chen", title: "Measure", start: scheduleDay(8), end: scheduleDay(8), time: "09:00", status: "planned", note: null, assignees: ["user_sam"] },
     { id: "sch_br_delivery", projectId: "proj_brooks", title: "Window delivery", start: scheduleDay(10), end: scheduleDay(10), time: null, status: "confirmed", note: null, assignees: ["user_dana"] },
+    { id: "sch_br_drywall", projectId: "proj_brooks", title: "Drywall", start: scheduleDay(8), end: scheduleDay(9), time: null, status: "planned", note: null, assignees: ["user_luis"], vendorContactId: "c_harbor" },
   ];
   db.insert(scheduleItems)
     .values(
@@ -2244,6 +2253,159 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
     .values([
       { id: "delay_br_weather", orgId: ORG, projectId: "proj_brooks", itemId: "sch_br_delivery", days: 3, reason: "weather", note: "Storm held the crane", actorId: "user_maya", createdAt: daysAgo(4) },
       { id: "delay_br_material", orgId: ORG, projectId: "proj_brooks", itemId: "sch_br_delivery", days: 2, reason: "material", note: null, actorId: "user_maya", createdAt: daysAgo(2) },
+    ])
+    .run();
+
+  db.insert(permits)
+    .values({
+      id: "perm_br_bldg",
+      orgId: ORG,
+      projectId: "proj_brooks",
+      permitType: "building",
+      number: "B-2026-014",
+      jurisdiction: "Austin",
+      status: "issued",
+      appliedOn: daysAgo(40).slice(0, 10),
+      issuedOn: daysAgo(20).slice(0, 10),
+      expiresOn: addCalendarDays(today, 21),
+      feeCents: 18500,
+      costCode: "GC-SUPER",
+      costItemId: "cost_br_permit",
+      showPassed: 1,
+      createdAt: daysAgo(40),
+      updatedAt: daysAgo(1),
+      createdBy: "user_maya",
+    })
+    .run();
+  db.insert(inspections)
+    .values([
+      {
+        id: "insp_br_frame",
+        orgId: ORG,
+        projectId: "proj_brooks",
+        permitId: "perm_br_bldg",
+        rootId: "insp_br_frame",
+        attempt: 1,
+        name: "Framing",
+        scheduleItemId: "sch_br_frame",
+        requestedOn: scheduleDay(0),
+        scheduledOn: scheduleDay(1),
+        inspector: "Alex Kim",
+        result: "passed",
+        resultOn: scheduleDay(1),
+        notes: "",
+        createdAt: daysAgo(12),
+        updatedAt: daysAgo(8),
+        createdBy: "user_maya",
+      },
+      {
+        id: "insp_br_rough",
+        orgId: ORG,
+        projectId: "proj_brooks",
+        permitId: "perm_br_bldg",
+        rootId: "insp_br_rough",
+        attempt: 1,
+        name: "Rough plumbing",
+        scheduleItemId: null,
+        requestedOn: scheduleDay(3),
+        scheduledOn: scheduleDay(4),
+        inspector: "Pat Nguyen",
+        result: "failed",
+        resultOn: scheduleDay(4),
+        notes: "Replace the vent stack\nStrap the supply",
+        createdAt: daysAgo(6),
+        updatedAt: daysAgo(2),
+        createdBy: "user_maya",
+      },
+      {
+        id: "insp_br_rough_2",
+        orgId: ORG,
+        projectId: "proj_brooks",
+        permitId: "perm_br_bldg",
+        rootId: "insp_br_rough",
+        attempt: 2,
+        name: "Rough plumbing",
+        scheduleItemId: null,
+        requestedOn: scheduleDay(5),
+        scheduledOn: scheduleDay(8),
+        inspector: null,
+        result: "pending",
+        resultOn: null,
+        notes: "",
+        createdAt: daysAgo(1),
+        updatedAt: daysAgo(1),
+        createdBy: "user_maya",
+      },
+      {
+        id: "insp_br_insul",
+        orgId: ORG,
+        projectId: "proj_brooks",
+        permitId: "perm_br_bldg",
+        rootId: "insp_br_insul",
+        attempt: 1,
+        name: "Insulation",
+        scheduleItemId: null,
+        requestedOn: scheduleDay(2),
+        scheduledOn: scheduleDay(3),
+        inspector: "Alex Kim",
+        result: "failed",
+        resultOn: scheduleDay(3),
+        notes: "Add baffles at the eaves",
+        createdAt: daysAgo(5),
+        updatedAt: daysAgo(4),
+        createdBy: "user_maya",
+      },
+    ])
+    .run();
+  db.insert(inspectionGates)
+    .values({ id: "gate_br_drywall", orgId: ORG, inspectionId: "insp_br_rough_2", scheduleItemId: "sch_br_drywall" })
+    .run();
+  db.insert(tasks)
+    .values([
+      {
+        id: "task_br_corr_1",
+        orgId: ORG,
+        title: "Replace the vent stack",
+        assigneeUserId: "user_luis",
+        dueAt: null,
+        relatedType: "project",
+        relatedId: "proj_brooks",
+        status: "open",
+        notes: "Rough plumbing",
+        priority: "normal",
+        tags: "inspection:insp_br_rough",
+        scheduleItemId: null,
+        deadlineEdge: null,
+        deadlineOffset: null,
+        deadlineUnlinked: 0,
+        remindDays: null,
+        remindedFor: null,
+        createdAt: daysAgo(2),
+        updatedAt: daysAgo(2),
+        createdBy: "user_maya",
+      },
+      {
+        id: "task_br_corr_2",
+        orgId: ORG,
+        title: "Strap the supply",
+        assigneeUserId: "user_luis",
+        dueAt: null,
+        relatedType: "project",
+        relatedId: "proj_brooks",
+        status: "open",
+        notes: "Rough plumbing",
+        priority: "normal",
+        tags: "inspection:insp_br_rough",
+        scheduleItemId: null,
+        deadlineEdge: null,
+        deadlineOffset: null,
+        deadlineUnlinked: 0,
+        remindDays: null,
+        remindedFor: null,
+        createdAt: daysAgo(2),
+        updatedAt: daysAgo(2),
+        createdBy: "user_maya",
+      },
     ])
     .run();
 
@@ -3804,4 +3966,53 @@ function seedTemplates(db: AppDatabase, now: string) {
       )
       .run();
   }
+  db.insert(fileFolders)
+    .values({ id: "ff_br_photos", orgId: ORG, projectId: "proj_brooks", name: "Photos", kind: "photos", visibility: "team", vendorContactId: null, sortOrder: 0, archivedAt: null, createdAt: now, updatedAt: now })
+    .run();
+  db.insert(jobFiles)
+    .values({
+      id: "jf_br_frame",
+      orgId: ORG,
+      projectId: "proj_brooks",
+      folderId: "ff_br_photos",
+      documentId: "doc_b1",
+      name: "Addition framing",
+      revisionGroupId: "grp_br_frame",
+      revision: 1,
+      isCurrent: 1,
+      visibilityOverride: null,
+      shareHistory: 0,
+      byteSize: 12000,
+      uploadedByName: "Maya Rivera",
+      uploadedByUserId: "user_maya",
+      uploadedByContactId: null,
+      deletedAt: null,
+      createdAt: now,
+    })
+    .run();
+  db.insert(recordFiles)
+    .values({ id: "rfile_br_frame", orgId: ORG, targetType: "inspection", targetId: "insp_br_frame", jobFileId: "jf_br_frame", createdAt: now })
+    .run();
+  db.insert(templatePermits)
+    .values([
+      { id: "tperm_bath", orgId: ORG, templateId: "tpl_bath", itemKey: "bldg", permitType: "building", jurisdiction: "" },
+      { id: "tperm_kit", orgId: ORG, templateId: "tpl_kitchen", itemKey: "bldg", permitType: "building", jurisdiction: "" },
+    ])
+    .run();
+  db.insert(templateInspections)
+    .values([
+      { id: "tinsp_bath_rough", orgId: ORG, templateId: "tpl_bath", itemKey: "rough", permitKey: "bldg", name: "Rough plumbing", offsetWorkdays: 4, scheduleKey: "plumb" },
+      { id: "tinsp_bath_final", orgId: ORG, templateId: "tpl_bath", itemKey: "final", permitKey: "bldg", name: "Final", offsetWorkdays: 8, scheduleKey: "walk" },
+      { id: "tinsp_kit_plumb", orgId: ORG, templateId: "tpl_kitchen", itemKey: "plumb", permitKey: "bldg", name: "Rough plumbing", offsetWorkdays: 4, scheduleKey: "plumb" },
+      { id: "tinsp_kit_elec", orgId: ORG, templateId: "tpl_kitchen", itemKey: "elec", permitKey: "bldg", name: "Rough electrical", offsetWorkdays: 4, scheduleKey: "elec" },
+      { id: "tinsp_kit_final", orgId: ORG, templateId: "tpl_kitchen", itemKey: "final", permitKey: "bldg", name: "Final", offsetWorkdays: 11, scheduleKey: "splash" },
+    ])
+    .run();
+  db.insert(templateInspectionGates)
+    .values([
+      { id: "tgate_bath_tile", orgId: ORG, templateId: "tpl_bath", inspectionKey: "rough", taskKey: "tile" },
+      { id: "tgate_kit_plumb", orgId: ORG, templateId: "tpl_kitchen", inspectionKey: "plumb", taskKey: "cabs" },
+      { id: "tgate_kit_elec", orgId: ORG, templateId: "tpl_kitchen", inspectionKey: "elec", taskKey: "cabs" },
+    ])
+    .run();
 }

@@ -8,6 +8,7 @@ import { canEditSchedule, type Role } from "@/lib/permissions";
 import { scheduleConflicts } from "@/lib/schedule/conflicts";
 import { buildScheduleIcs } from "@/lib/schedule/ics";
 import { formatWorkdayVariance } from "@/lib/schedule/delays";
+import { enforceScheduleGate, feedInspectionEvents, scheduleGateLabels, scheduleMilestones } from "@/lib/services/permits";
 import { inclusiveDays, scheduleWindow, type ScheduleSpan } from "@/lib/schedule/range";
 import { isWorkday, workdayOffset } from "@/lib/schedule/workdays";
 import { feedTokenMatches, hashFeedToken, newFeedSecret } from "@/lib/schedule/token";
@@ -51,6 +52,9 @@ export type ScheduleChip = {
   conflict: boolean;
   rfiDue: boolean;
   variance: string | null;
+  gate: string | null;
+  kind: "item" | "inspection";
+  baseline: boolean;
 };
 
 export type ScheduleBoard = {
@@ -63,7 +67,7 @@ export type ScheduleBoard = {
     userId: string | null;
     name: string;
     initials: string;
-    cells: { date: string; items: ScheduleChip[] }[];
+    cells: { date: string; items: ScheduleChip[]; marks: { id: string; title: string }[] }[];
   }[];
   counts: { items: number; people: number; conflicts: number };
   jobs: { id: string; name: string }[];
@@ -224,6 +228,7 @@ export function scheduleBoard(actor: Actor, query: { on?: string; span?: string 
         .all()
     : [];
   const varianceOf = new Map<string, string | null>();
+  const baselineOf = new Map<string, { end: string; label: string }>();
   for (const row of itemRows) {
     const base = frozen.find((item) => item.itemId === row.id);
     if (!base) {
@@ -236,8 +241,12 @@ export function scheduleBoard(actor: Actor, query: { on?: string; span?: string 
       jobCalendars.set(row.projectId, calendar);
     }
     const days = workdayOffset(base.endDate, row.endDate, calendar);
-    varianceOf.set(row.id, days === 0 ? null : formatWorkdayVariance(days));
+    const label = formatWorkdayVariance(days);
+    varianceOf.set(row.id, days === 0 ? null : label);
+    baselineOf.set(row.id, { end: base.endDate, label });
   }
+  const gateLabels = scheduleGateLabels(actor.orgId);
+  const milestones = scheduleMilestones(actor.orgId);
   const crew = loadCrew(db, actor.orgId);
   const people = new Map(crew.map((person) => [person.id, person.name]));
   const chipFor = (row: (typeof itemRows)[number], userId: string | null, day: string): ScheduleChip => ({
@@ -254,29 +263,72 @@ export function scheduleBoard(actor: Actor, query: { on?: string; span?: string 
     conflict: userId != null && conflictKey.has(`${userId}|${day}|${row.id}`),
     rfiDue: lateRfi.has(row.id),
     variance: varianceOf.get(row.id) ?? null,
+    gate: gateLabels.get(row.id) ?? null,
+    kind: "item",
+    baseline: baselineOf.has(row.id),
   });
+  const milestoneChips = (userId: string | null, date: string): ScheduleChip[] =>
+    milestones
+      .filter((mark) => mark.date === date)
+      .filter((mark) => {
+        const owners = mark.itemIds.flatMap((itemId) => byItem.get(itemId) ?? []);
+        if (userId == null) return owners.length === 0;
+        return owners.includes(userId);
+      })
+      .map((mark) => ({
+        id: mark.id,
+        projectId: mark.projectId,
+        jobName: names.get(mark.projectId) ?? "Job",
+        title: mark.name,
+        startDate: mark.date,
+        endDate: mark.date,
+        startTime: null,
+        status: "planned" as const,
+        note: null,
+        assigneeIds: [],
+        conflict: false,
+        rfiDue: false,
+        variance: null,
+        gate: null,
+        kind: "inspection" as const,
+        baseline: false,
+      }));
+  const marksFor = (userId: string | null, date: string) =>
+    itemRows
+      .filter((row) => {
+        const owners = byItem.get(row.id) ?? [];
+        const mine = userId == null ? owners.length === 0 : owners.includes(userId);
+        const base = baselineOf.get(row.id);
+        return mine && base && base.end === date && (date < row.startDate || date > row.endDate);
+      })
+      .map((row) => ({ id: row.id, title: `Baseline ${baselineOf.get(row.id)?.label ?? "0 wd"}` }));
+  const cellsFor = (userId: string | null) =>
+    window.days.map((date) => ({
+      date,
+      items: [
+        ...itemRows
+          .filter((row) => {
+            const owners = byItem.get(row.id) ?? [];
+            const mine = userId == null ? owners.length === 0 : owners.includes(userId);
+            return mine && row.startDate <= date && date <= row.endDate;
+          })
+          .map((row) => chipFor(row, userId, date)),
+        ...milestoneChips(userId, date),
+      ],
+      marks: marksFor(userId, date),
+    }));
   const rows = [
     ...crew.map((person) => ({
       userId: person.id,
       name: person.name,
       initials: initials(person.name),
-      cells: window.days.map((date) => ({
-        date,
-        items: itemRows
-          .filter((row) => (byItem.get(row.id) ?? []).includes(person.id) && row.startDate <= date && date <= row.endDate)
-          .map((row) => chipFor(row, person.id, date)),
-      })),
+      cells: cellsFor(person.id),
     })),
     {
       userId: null,
       name: "Unassigned",
       initials: "—",
-      cells: window.days.map((date) => ({
-        date,
-        items: itemRows
-          .filter((row) => (byItem.get(row.id) ?? []).length === 0 && row.startDate <= date && date <= row.endDate)
-          .map((row) => chipFor(row, null, date)),
-      })),
+      cells: cellsFor(null),
     },
   ];
   const booked = new Set(assigneeRows.map((row) => row.userId));
@@ -433,7 +485,7 @@ function replaceAssignees(db: ReturnType<typeof officeOrThrow>, actor: Actor, it
     .run();
 }
 
-export function saveScheduleItem(actor: Actor, input: ScheduleInput, itemId?: string, delay: DelayInput | null = null) {
+export function saveScheduleItem(actor: Actor, input: ScheduleInput, itemId?: string, delay: DelayInput | null = null, confirmGate = false) {
   assertEditor(actor);
   const db = officeOrThrow(actor);
   const title = cleanTitle(input.title);
@@ -459,6 +511,7 @@ export function saveScheduleItem(actor: Actor, input: ScheduleInput, itemId?: st
         .get()
     : null;
   if (itemId && !existing) throw new ServiceError("That schedule item is not in your company.");
+  if (existing) enforceScheduleGate(actor, existing.id, { startDate, status }, confirmGate);
   const savedId = existing?.id ?? id("sch");
   if (existing && input.links) replaceScheduleLinks(actor, savedId, input.links);
   const dateChanged = Boolean(existing && (existing.startDate !== startDate || existing.endDate !== endDate));
@@ -505,7 +558,7 @@ export function saveScheduleItem(actor: Actor, input: ScheduleInput, itemId?: st
   return savedId;
 }
 
-export function moveScheduleItem(actor: Actor, itemId: string, input: { startDate: string; endDate: string; assigneeId: string | null }, delay: DelayInput | null = null) {
+export function moveScheduleItem(actor: Actor, itemId: string, input: { startDate: string; endDate: string; assigneeId: string | null }, delay: DelayInput | null = null, confirmGate = false) {
   assertEditor(actor);
   const db = officeOrThrow(actor);
   const existing = db
@@ -517,6 +570,7 @@ export function moveScheduleItem(actor: Actor, itemId: string, input: { startDat
   const startDate = cleanDate(input.startDate, "start");
   const endDate = cleanDate(input.endDate, "end");
   if (endDate < startDate) throw new ServiceError("End is on or after the start.");
+  enforceScheduleGate(actor, itemId, { startDate, status: existing.status }, confirmGate);
   const needs = delayRequirement(actor, itemId, endDate);
   const reason = needs ? cleanDelay(delay) : null;
   const plan = buildSchedulePlan(actor, itemId, startDate, endDate);
@@ -600,6 +654,7 @@ export function scheduleFeedIcs(token: string): string | null {
         startDate: row.item.startDate,
         endDate: row.item.endDate,
         description: row.item.note,
-      })),
+      }))
+      .concat(feedInspectionEvents(feed.orgId, feed.userId).map((row) => ({ ...row, description: null }))),
   );
 }

@@ -167,6 +167,14 @@ export default async function SettingsPage() {
             <input name="warrantyMonths" type="number" min={1} max={120} defaultValue={org.warrantyMonths} className="field mt-1" />
           </label>
           <label className="text-sm">
+            Inspection gate
+            <select name="inspectionGate" defaultValue={org.inspectionGate} aria-label="Inspection gate" className="field mt-1">
+              <option value="off">Off</option>
+              <option value="warn">Warn</option>
+              <option value="block">Block</option>
+            </select>
+          </label>
+          <label className="text-sm">
             PO compliance
             <select name="vendorComplianceMode" defaultValue={org.vendorComplianceMode} aria-label="PO compliance" className="field mt-1">
               <option value="warn">Warn</option>

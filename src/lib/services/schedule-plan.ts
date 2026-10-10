@@ -256,10 +256,11 @@ export function slippedSchedule(orgId: string): { count: number; href: string | 
   return { count, href: count > 0 ? "/reports/schedule" : null };
 }
 
-export function scheduleVarianceCsv(actor: Actor): { filename: string; body: string } {
+export function scheduleVarianceCsv(actor: Actor, baselineOnly = false): { filename: string; body: string } {
   const report = scheduleVariance(actor);
+  const rows = baselineOnly ? report.rows.filter((row) => row.baselineFinish) : report.rows;
   const header = ["Job", "Baseline finish", "Current finish", "Variance", "Weather", "Client decision", "Change order", "Material", "Sub", "Inspection", "Other"];
-  const lines = report.rows.map((row) =>
+  const lines = rows.map((row) =>
     [
       row.name,
       row.baselineFinish ?? "",

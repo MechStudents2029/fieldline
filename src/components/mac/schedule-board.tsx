@@ -28,6 +28,8 @@ type Pending = {
   assigneeId: string | null;
   label?: string;
   days?: number;
+  confirmGate?: boolean;
+  gate?: boolean;
 };
 
 export function ScheduleBoard({ board, openJobId }: { board: Board; openJobId: string | null }) {
@@ -49,6 +51,7 @@ export function ScheduleBoard({ board, openJobId }: { board: Board; openJobId: s
   });
   const [pending, setPending] = useState<Pending | null>(null);
   const [delayAsk, setDelayAsk] = useState<Pending | null>(null);
+  const [gateReason, setGateReason] = useState<string | null>(null);
   const [delayReason, setDelayReason] = useState("");
   const [delayNote, setDelayNote] = useState("");
   const [confirmMove, setConfirmMove] = useState<{ label: string; start: string; end: string } | null>(null);
@@ -118,6 +121,11 @@ export function ScheduleBoard({ board, openJobId }: { board: Board; openJobId: s
       setAskReason(true);
       setSheetDays(result.delayDays ?? 0);
       setConfirmMove(result.confirm ? { label: result.confirm, start, end } : null);
+      setError(null);
+      return;
+    }
+    if (result?.needsGate) {
+      setGateReason(result.gateReason ?? "This inspection has not passed.");
       setError(null);
       return;
     }
@@ -198,6 +206,12 @@ export function ScheduleBoard({ board, openJobId }: { board: Board; openJobId: s
     setBusy(false);
     if (preview.error) {
       setError(preview.error);
+      return;
+    }
+    if (preview.needsGate && !next.confirmGate) {
+      setError(null);
+      setDelayAsk(null);
+      setPending({ ...next, gate: true, label: preview.gateReason ?? "This inspection has not passed." });
       return;
     }
     if (preview.needsReason) {
@@ -316,7 +330,21 @@ export function ScheduleBoard({ board, openJobId }: { board: Board; openJobId: s
                         <button type="button" aria-label={`Add ${row.name} ${cell.date}`} className="absolute inset-0" onClick={() => openCreate(row.userId, cell.date)} />
                       ) : null}
                       <div className="relative z-10 flex flex-col gap-1 p-1">
-                        {cell.items.map((item) => (
+                        {cell.marks.map((mark) => (
+                          <span key={mark.id} className="baseline-tick" title={mark.title} />
+                        ))}
+                        {cell.items.map((item) =>
+                          item.kind === "inspection" ? (
+                            <a
+                              key={item.id}
+                              href={`/projects/${item.projectId}/permits?inspection=${item.id}`}
+                              className="rounded-md bg-[var(--mac-fill)] px-1.5 py-1 text-left"
+                              title="Inspection"
+                            >
+                              <span className="block truncate text-[11px] font-semibold leading-4">{item.jobName}</span>
+                              <span className="block truncate text-[11px] leading-4 text-[var(--mac-secondary)]">Inspection · {item.title}</span>
+                            </a>
+                          ) : (
                           <button
                             key={item.id}
                             type="button"
@@ -326,7 +354,8 @@ export function ScheduleBoard({ board, openJobId }: { board: Board; openJobId: s
                             data-end={item.endDate}
                             data-user={row.userId ?? ""}
                             aria-label={`${item.jobName} ${item.title}${item.conflict ? " Conflict" : ""}`}
-                            className={`rounded-md bg-[var(--mac-fill)] px-1.5 py-1 text-left ${cell.date === board.today ? "ring-1 ring-[var(--mac-accent)]" : ""}`}
+                            title={item.baseline ? `Baseline ${item.variance ?? "0 wd"}` : undefined}
+                            className={`rounded-md bg-[var(--mac-fill)] px-1.5 py-1 text-left ${item.gate ? "is-gate" : ""} ${cell.date === board.today ? "ring-1 ring-[var(--mac-accent)]" : ""}`}
                             onClick={() => openEdit(item)}
                             onDragStart={(event) => {
                               event.dataTransfer.setData("text/plain", JSON.stringify({ id: item.id, start: item.startDate, end: item.endDate }));
@@ -336,12 +365,15 @@ export function ScheduleBoard({ board, openJobId }: { board: Board; openJobId: s
                             <span className="block truncate text-[11px] font-semibold leading-4">{item.jobName}</span>
                             <span className="block truncate text-[11px] leading-4 text-[var(--mac-secondary)]">
                               {item.title}
+                              {item.gate ? <span> · {item.gate}</span> : null}
                               {item.variance ? <span className="num"> · {item.variance}</span> : null}
                             </span>
+                            {item.baseline ? <span className="baseline-tick" /> : null}
                             {item.conflict ? <span className="mt-0.5 inline-flex rounded bg-[var(--mac-danger)]/10 px-1 text-[10px] font-semibold text-[var(--mac-danger)]">Conflict</span> : null}
                             {item.rfiDue ? <span className="mt-0.5 inline-flex rounded bg-[var(--mac-fill)] px-1 text-[10px] text-[var(--mac-secondary)]">RFI</span> : null}
                           </button>
-                        ))}
+                          ),
+                        )}
                         {board.canEdit && cell.items.length > 0 ? (
                           <button type="button" aria-label={`Add ${row.name} ${cell.date}`} className="text-left text-[10px] text-[var(--mac-secondary)]" onClick={() => openCreate(row.userId, cell.date)}>
                             Add
@@ -367,9 +399,18 @@ export function ScheduleBoard({ board, openJobId }: { board: Board; openJobId: s
           <span className="num">{board.counts.conflicts}</span> {conflictLabel.replace(/^\d+\s/, "")}
         </span>
         {pending && board.canEdit ? (
-          <button type="button" data-mac-primary className="mac-primary ml-auto" onClick={() => void saveMove()} disabled={busy}>
-            {pending.label ?? "Save"}
-          </button>
+          <span className="ml-auto inline-flex items-center gap-2">
+            {pending.gate ? <span role="alert">{pending.label}</span> : null}
+            <button
+              type="button"
+              data-mac-primary
+              className="mac-primary"
+              onClick={() => void (pending.gate ? stageMove({ ...pending, confirmGate: true, gate: false }) : saveMove())}
+              disabled={busy}
+            >
+              {pending.gate ? "Move anyway" : (pending.label ?? "Save")}
+            </button>
+          </span>
         ) : null}
         {error && !draft ? (
           <span role="alert" className="text-[var(--mac-danger)]">
@@ -502,6 +543,12 @@ export function ScheduleBoard({ board, openJobId }: { board: Board; openJobId: s
                 {confirmMove.label}
               </p>
             ) : null}
+            {gateReason ? (
+              <>
+                <input type="hidden" name="confirmGate" value="1" />
+                <p role="alert" className="text-[13px]">{gateReason}</p>
+              </>
+            ) : null}
             {askReason ? (
               <>
                 <input type="hidden" name="confirmShift" value="1" />
@@ -535,7 +582,7 @@ export function ScheduleBoard({ board, openJobId }: { board: Board; openJobId: s
             ) : null}
             {board.canEdit ? (
               <button type="submit" data-mac-primary className="mac-primary" disabled={busy}>
-                {confirmMove?.label ?? "Save"}
+                {gateReason ? "Move anyway" : (confirmMove?.label ?? "Save")}
               </button>
             ) : null}
           </form>

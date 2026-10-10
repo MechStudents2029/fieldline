@@ -23,7 +23,7 @@ export function DataTable({
   initialSort = null,
   footer,
 }: {
-  columns: { key: string; header: string; align?: "right"; fit?: boolean; clip?: boolean }[];
+  columns: { key: string; header: string; align?: "right"; fit?: boolean; clip?: boolean; wrap?: boolean }[];
   rows?: TableRow[];
   groups?: TableGroup[];
   status?: string;
@@ -172,7 +172,7 @@ function GroupBlock({
   onMenu,
 }: {
   group: TableGroup;
-  columns: { key: string; header: string; align?: "right"; fit?: boolean; clip?: boolean }[];
+  columns: { key: string; header: string; align?: "right"; fit?: boolean; clip?: boolean; wrap?: boolean }[];
   closed: boolean;
   sorted: TableRow[];
   flat: TableRow[];
@@ -211,7 +211,7 @@ function GroupBlock({
                   const cell = row.cells[column.key];
                   const text = cell?.text ?? "";
                   const fit = columnFit(column);
-                  const className = `${fit ? "fit" : ""} ${column.align === "right" || column.fit ? "num" : ""} ${column.clip ? "clip" : ""} ${column.align === "right" ? "text-right" : ""} ${cell?.tone === "late" ? "text-[var(--mac-danger)]" : ""}`;
+                  const className = `${fit ? "fit" : ""} ${column.align === "right" || column.fit ? "num" : ""} ${column.clip ? "clip" : ""} ${column.wrap ? "wrap" : ""} ${column.align === "right" ? "text-right" : ""} ${cell?.tone === "late" ? "text-[var(--mac-danger)]" : ""}`;
                   return (
                     <td key={column.key} data-fit={fit} className={className} title={column.clip ? text : undefined} style={cell?.tone === "late" ? { color: "var(--mac-danger)" } : undefined}>
                       {columnIndex === 0 && row.href ? (

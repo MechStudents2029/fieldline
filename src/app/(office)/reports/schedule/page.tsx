@@ -16,24 +16,33 @@ function varianceCell(days: number | null) {
   return { text: days == null ? "—" : formatWorkdayVariance(days), sort: days ?? -9999, tone: days != null && days >= 5 ? ("late" as const) : undefined };
 }
 
-export default async function ScheduleVariancePage() {
+const REASONS = [
+  ["weather", "Weather"],
+  ["client", "Client"],
+  ["change_order", "Change order"],
+  ["material", "Material"],
+  ["sub", "Sub"],
+  ["inspection", "Inspection"],
+  ["other", "Other"],
+] as const;
+
+export default async function ScheduleVariancePage({ searchParams }: { searchParams: Promise<{ all?: string }> }) {
   const session = await requireSession();
   if (!canEditCrm(session.role)) notFound();
+  const all = (await searchParams).all === "1";
   const report = scheduleVariance(session);
+  const shown = all ? report.rows : report.rows.filter((row) => row.baselineFinish);
+  const active = REASONS.filter(([key]) => shown.some((row) => row.delays[key] > 0));
+  const csvHref = all ? "/api/export/schedule?all=1" : "/api/export/schedule";
+  const printHref = all ? "/reports/schedule/print?all=1" : "/reports/schedule/print";
   const columns = [
-    { key: "job", header: "Job", clip: true },
+    { key: "job", header: "Job", wrap: true },
     { key: "baseline", header: "Baseline" },
     { key: "current", header: "Current" },
     { key: "variance", header: "Variance", align: "right" as const },
-    { key: "weather", header: "Weather", align: "right" as const },
-    { key: "client", header: "Client", align: "right" as const },
-    { key: "change", header: "Change order", align: "right" as const },
-    { key: "material", header: "Material", align: "right" as const },
-    { key: "sub", header: "Sub", align: "right" as const },
-    { key: "inspection", header: "Inspection", align: "right" as const },
-    { key: "other", header: "Other", align: "right" as const },
+    ...active.map(([key, header]) => ({ key, header, align: "right" as const })),
   ];
-  const rows: TableRow[] = report.rows.map((row) => ({
+  const rows: TableRow[] = shown.map((row) => ({
     id: row.projectId,
     href: `/projects/${row.projectId}#schedule`,
     cells: {
@@ -41,28 +50,23 @@ export default async function ScheduleVariancePage() {
       baseline: { text: row.baselineFinish ? formatCalendarDay(row.baselineFinish) : "—", sort: row.baselineFinish ?? "" },
       current: { text: row.currentFinish ? formatCalendarDay(row.currentFinish) : "—", sort: row.currentFinish ?? "" },
       variance: varianceCell(row.variance),
-      weather: { text: String(row.delays.weather), sort: row.delays.weather },
-      client: { text: String(row.delays.client), sort: row.delays.client },
-      change: { text: String(row.delays.change_order), sort: row.delays.change_order },
-      material: { text: String(row.delays.material), sort: row.delays.material },
-      sub: { text: String(row.delays.sub), sort: row.delays.sub },
-      inspection: { text: String(row.delays.inspection), sort: row.delays.inspection },
-      other: { text: String(row.delays.other), sort: row.delays.other },
+      ...Object.fromEntries(active.map(([key]) => [key, { text: String(row.delays[key]), sort: row.delays[key] }])),
     },
   }));
   return (
     <>
       <div className="mx-auto flex max-w-lg flex-col gap-4 md:hidden">
-        <LargeTitle title="Schedule variance" subtitle={`${report.rows.length} jobs`} />
+        <LargeTitle title="Schedule variance" subtitle={`${shown.length} jobs`} />
         <div className="flex gap-3 text-[13px]">
-          <Link href="/api/export/schedule">CSV</Link>
-          <Link href="/reports/schedule/print">Print</Link>
+          <Link href={all ? "/reports/schedule" : "/reports/schedule?all=1"}>{all ? "Baseline" : "All jobs"}</Link>
+          <Link href={csvHref}>CSV</Link>
+          <Link href={printHref}>Print</Link>
         </div>
-        {report.rows.length === 0 ? (
-          <EmptyState title="No jobs" />
+        {shown.length === 0 ? (
+          <EmptyState title={all ? "No jobs" : "No baseline"} />
         ) : (
           <GroupedList label="Jobs">
-            {report.rows.map((row) => (
+            {shown.map((row) => (
               <GroupedRow
                 key={row.projectId}
                 href={`/projects/${row.projectId}#schedule`}
@@ -77,23 +81,26 @@ export default async function ScheduleVariancePage() {
       <div className="hidden min-h-0 flex-1 flex-col md:flex">
         <Toolbar
           title="Schedule variance"
-          subtitle={`${report.rows.length} jobs`}
+          subtitle={`${shown.length} jobs`}
           search={false}
           trailing={
             <span className="flex items-center gap-2">
-              <a href="/api/export/schedule" className="mac-glass-btn">
+              <a href={all ? "/reports/schedule" : "/reports/schedule?all=1"} className="mac-glass-btn">
+                {all ? "Baseline" : "All jobs"}
+              </a>
+              <a href={csvHref} className="mac-glass-btn">
                 CSV
               </a>
-              <a href="/reports/schedule/print" className="mac-glass-btn">
+              <a href={printHref} className="mac-glass-btn">
                 Print
               </a>
             </span>
           }
         />
-        {report.rows.length === 0 ? (
-          <EmptyState title="No jobs" />
+        {shown.length === 0 ? (
+          <EmptyState title={all ? "No jobs" : "No baseline"} />
         ) : (
-          <DataTable columns={columns} rows={rows} initialSort={{ key: "variance", dir: "desc" }} status={`${report.rows.length} jobs`} />
+          <DataTable columns={columns} rows={rows} initialSort={{ key: "variance", dir: "desc" }} status={`${shown.length} jobs`} />
         )}
       </div>
     </>

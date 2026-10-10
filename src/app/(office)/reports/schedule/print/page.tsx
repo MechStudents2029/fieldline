@@ -9,10 +9,22 @@ import { scheduleVariance } from "@/lib/services/schedule-plan";
 
 export const dynamic = "force-dynamic";
 
-export default async function ScheduleVariancePrintPage() {
+export default async function ScheduleVariancePrintPage({ searchParams }: { searchParams: Promise<{ all?: string }> }) {
   const session = await requireSession();
   if (!canEditCrm(session.role)) notFound();
+  const all = (await searchParams).all === "1";
   const report = scheduleVariance(session);
+  const rows = all ? report.rows : report.rows.filter((row) => row.baselineFinish);
+  const reasonColumns = [
+    ["weather", "Weather"],
+    ["client", "Client"],
+    ["change_order", "Change order"],
+    ["material", "Material"],
+    ["sub", "Sub"],
+    ["inspection", "Inspection"],
+    ["other", "Other"],
+  ] as const;
+  const active = reasonColumns.filter(([key]) => rows.some((row) => row.delays[key] > 0));
   return (
     <div className="bg-white px-6 py-6 text-[12px] text-black">
       <style>{`
@@ -36,12 +48,12 @@ export default async function ScheduleVariancePrintPage() {
       <header className="mb-4">
         <p className="text-[11px] uppercase tracking-wide">{session.orgName}</p>
         <h1 className="text-[22px] font-semibold">Schedule variance</h1>
-        <p>{report.rows.length} jobs</p>
+        <p>{rows.length} jobs</p>
       </header>
       <table className="w-full text-left">
         <thead>
           <tr>
-            {["Job", "Baseline", "Current", "Variance", "Weather", "Client", "Change order", "Material", "Sub", "Inspection", "Other"].map((header) => (
+            {["Job", "Baseline", "Current", "Variance", ...active.map(([, header]) => header)].map((header) => (
               <th key={header} className="py-1 pr-2 text-left font-semibold">
                 {header}
               </th>
@@ -49,19 +61,15 @@ export default async function ScheduleVariancePrintPage() {
           </tr>
         </thead>
         <tbody>
-          {report.rows.map((row) => (
+          {rows.map((row) => (
             <tr key={row.projectId}>
               <td className="py-1 pr-2">{row.name}</td>
               <td className="py-1 pr-2">{row.baselineFinish ? formatCalendarDay(row.baselineFinish) : "—"}</td>
               <td className="py-1 pr-2">{row.currentFinish ? formatCalendarDay(row.currentFinish) : "—"}</td>
               <td className="num py-1 pr-2">{row.variance == null ? "—" : formatWorkdayVariance(row.variance)}</td>
-              <td className="num py-1 pr-2">{row.delays.weather}</td>
-              <td className="num py-1 pr-2">{row.delays.client}</td>
-              <td className="num py-1 pr-2">{row.delays.change_order}</td>
-              <td className="num py-1 pr-2">{row.delays.material}</td>
-              <td className="num py-1 pr-2">{row.delays.sub}</td>
-              <td className="num py-1 pr-2">{row.delays.inspection}</td>
-              <td className="num py-1 pr-2">{row.delays.other}</td>
+              {active.map(([key]) => (
+                <td key={key} className="num py-1 pr-2">{row.delays[key]}</td>
+              ))}
             </tr>
           ))}
         </tbody>

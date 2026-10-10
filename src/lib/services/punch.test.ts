@@ -70,6 +70,8 @@ describe("punch list and warranty", () => {
       ["bills", 1],
       ["orders", 2],
       ["time", 3],
+      ["permits", 0],
+      ["inspections", 0],
     ]);
     expect(diaz?.closeout.closed).toBe(true);
     expect(diaz?.closeout.blocked).toBe(false);

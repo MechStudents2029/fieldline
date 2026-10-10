@@ -66,7 +66,7 @@ describe("vendor portal", () => {
     expect(home?.paidCents).toBe(48_000);
     expect(home?.orders.map((order) => order.number)).toEqual(["PO-1044", "PO-1055"]);
     expect(home?.orders[0]?.response).toBe("issued");
-    expect(home?.schedule.map((row) => row.title)).toEqual(["Set the valve"]);
+    expect(home?.schedule.map((row) => row.title)).toEqual(["Set the valve", "Drywall"]);
     expect(home?.schedule[0]?.address).toContain("901 Mandana");
     expect(home?.punch.map((row) => row.title)).toEqual(["Replace the escutcheon"]);
     expect(home?.certificates.find((row) => row.type === "general_liability")?.state).toBe("expiring");
