@@ -16,6 +16,12 @@ import {
   unpublishClientUpdate,
 } from "@/lib/services/client-updates";
 import {
+  checkIn,
+  checkOut,
+  reverseEquipmentCost,
+  saveEquipment,
+} from "@/lib/services/equipment";
+import {
   linkLogPhoto,
   openDailyLog,
   publishDailyLog,
@@ -1406,8 +1412,9 @@ export async function saveLogAction(logId: string, _prev: ActionState, formData:
   try {
     const user = await actor();
     const input = logInput(formData);
-    if (String(formData.get("intent") || "") === "publish") publishDailyLog(user, logId, input);
-    else saveDailyLog(user, logId, input);
+    const equipmentIds = formData.get("equipmentSet") ? formData.getAll("equipmentId").map(String) : undefined;
+    if (String(formData.get("intent") || "") === "publish") publishDailyLog(user, logId, input, Date.now(), equipmentIds);
+    else saveDailyLog(user, logId, input, equipmentIds);
     const log = getDb().select().from(dailyLogs).where(eq(dailyLogs.id, logId)).get();
     if (log) refreshLog(log.projectId, log.id);
     return { ok: String(formData.get("intent") || "") === "publish" ? "Published." : "Draft saved." };
@@ -1830,6 +1837,89 @@ export async function placePinAction(projectId: string, fileId: string, formData
   });
   revalidatePath(`/projects/${projectId}`);
   redirect(`/projects/${projectId}/plans/${fileId}`);
+}
+
+function equipmentPhoto(formData: FormData) {
+  const file = formData.get("photo");
+  if (!(file instanceof File) || file.size === 0) return null;
+  return file.arrayBuffer().then(async (buffer) => ({ filename: file.name || "photo.jpg", bytes: Buffer.from(buffer) }));
+}
+
+function moneyField(formData: FormData, name: string) {
+  const raw = String(formData.get(name) || "").trim();
+  if (!raw) return null;
+  const cents = parseMoneyToCents(raw);
+  if (cents == null) throw new ServiceError("Cost is a dollar amount.");
+  return cents;
+}
+
+function hoursField(formData: FormData) {
+  const raw = String(formData.get("hours") || "").trim();
+  if (!raw) return null;
+  if (!/^\d+$/.test(raw)) throw new ServiceError("Enter the hours.");
+  return Number(raw);
+}
+
+export async function saveEquipmentAction(equipmentId: string, formData: FormData): Promise<void> {
+  const user = await actor();
+  const photo = await equipmentPhoto(formData);
+  const interval = String(formData.get("serviceInterval") || "").trim();
+  const saved = saveEquipment(
+    user,
+    {
+      name: String(formData.get("name") || ""),
+      category: String(formData.get("category") || ""),
+      makeModel: String(formData.get("makeModel") || ""),
+      serial: String(formData.get("serial") || ""),
+      tag: String(formData.get("tag") || ""),
+      purchasedOn: String(formData.get("purchasedOn") || ""),
+      costCents: moneyField(formData, "cost"),
+      rateCents: moneyField(formData, "rate"),
+      rateUnit: String(formData.get("rateUnit") || ""),
+      status: String(formData.get("status") || "available"),
+      serviceInterval: interval ? Number(interval) : null,
+      serviceUnit: String(formData.get("serviceUnit") || ""),
+      lastServiceOn: String(formData.get("lastServiceOn") || ""),
+      notes: String(formData.get("notes") || ""),
+      photo,
+    },
+    equipmentId || undefined,
+  );
+  revalidatePath("/equipment");
+  redirect(`/equipment?item=${saved.id}`);
+}
+
+export async function checkOutEquipmentAction(equipmentId: string, formData: FormData): Promise<void> {
+  const user = await actor();
+  const back = String(formData.get("back") || "");
+  checkOut(user, {
+    equipmentId: equipmentId || String(formData.get("equipmentId") || ""),
+    projectId: String(formData.get("projectId") || "") || null,
+    userId: String(formData.get("userId") || "") || null,
+    expectedReturn: String(formData.get("expectedReturn") || ""),
+    transfer: formData.get("transfer") === "1",
+    hours: hoursField(formData),
+    costCents: moneyField(formData, "cost"),
+  });
+  revalidatePath("/equipment");
+  revalidatePath("/projects");
+  redirect(back || `/equipment?item=${equipmentId || String(formData.get("equipmentId") || "")}`);
+}
+
+export async function checkInEquipmentAction(equipmentId: string, formData: FormData): Promise<void> {
+  const user = await actor();
+  const back = String(formData.get("back") || "");
+  checkIn(user, { equipmentId, hours: hoursField(formData), costCents: moneyField(formData, "cost") });
+  revalidatePath("/equipment");
+  revalidatePath("/projects");
+  redirect(back || `/equipment?item=${equipmentId}`);
+}
+
+export async function reverseEquipmentCostAction(assignmentId: string, formData: FormData): Promise<void> {
+  const user = await actor();
+  reverseEquipmentCost(user, assignmentId);
+  revalidatePath("/equipment");
+  redirect(String(formData.get("back") || "/equipment"));
 }
 
 export async function reviewPinsAction(projectId: string, fileId: string): Promise<void> {

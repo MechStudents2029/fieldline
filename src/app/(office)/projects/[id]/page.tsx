@@ -24,6 +24,7 @@ import { scheduleCompare } from "@/lib/services/schedule-plan";
 import { listWorkExceptions } from "@/lib/services/work-calendar";
 import { LinkedRfis } from "@/components/linked-rfis";
 import { CommentThread } from "@/components/comment-thread";
+import { JobEquipment } from "@/components/job-equipment";
 import { PunchSection } from "@/components/punch-section";
 import { RfiSection } from "@/components/rfi-section";
 import { SubmittalSection } from "@/components/submittal-section";
@@ -176,6 +177,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
           </div>
         </div>
       ) : null}
+      <JobEquipment actor={session} projectId={detail.project.id} />
       <CommentThread entityType="project" entityId={detail.project.id} />
       {punch ? (
         <PunchSection

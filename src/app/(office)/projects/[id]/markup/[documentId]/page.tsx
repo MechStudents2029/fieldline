@@ -27,7 +27,16 @@ export default async function PhotoMarkupPage({ params }: { params: Promise<{ id
             ‹ {board.projectName}
           </Link>
         }
-        trailing={board.markup ? <span className="fl-pill">Marked up</span> : null}
+        trailing={
+          <>
+            {board.markup ? <span className="fl-pill">Marked up</span> : null}
+            {board.canEdit ? (
+              <button type="submit" form="markup-save" className="mac-primary">
+                Save
+              </button>
+            ) : null}
+          </>
+        }
       />
       <div className="flex flex-col gap-3 px-4 pb-8">
         {board.markup ? (

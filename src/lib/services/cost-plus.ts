@@ -34,7 +34,7 @@ import { addCalendarDays, localDay } from "@/lib/time/calendar";
 
 type Writer = Pick<AppDatabase, "insert" | "select" | "update" | "delete">;
 
-export type CostKind = "bill" | "receipt" | "time";
+export type CostKind = "bill" | "receipt" | "time" | "equipment";
 export type CostState = "unbilled" | "billed" | "nonbillable";
 
 export type CostRow = {
@@ -178,6 +178,23 @@ function rawCosts(db: Writer, orgId: string, projectId: string): RawCost[] {
       occurredOn: localDay(Date.parse(entry.clockInAt), zone),
       costCents: billableLaborCents(minutes, rate),
       billRateCents: rate,
+    });
+  }
+  const gear = db
+    .select()
+    .from(costItems)
+    .where(and(eq(costItems.orgId, orgId), eq(costItems.projectId, projectId), eq(costItems.source, "equipment")))
+    .all();
+  for (const item of gear) {
+    rows.push({
+      key: `equipment:${item.id}`,
+      kind: "equipment",
+      sourceId: item.id,
+      costCode: item.costCode || "EQ-TOOLS",
+      label: item.memo?.trim() || "Equipment",
+      occurredOn: localDay(Date.parse(item.createdAt), zone),
+      costCents: item.amountCents,
+      billRateCents: null,
     });
   }
   return rows.sort((a, b) => a.occurredOn.localeCompare(b.occurredOn) || a.label.localeCompare(b.label));

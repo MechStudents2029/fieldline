@@ -36,8 +36,13 @@ test("photo markup, a plan pin, and the inspection edit sheet", async ({ page })
 
   await page.goto("/projects/proj_okonkwo/plans/jf_ok_a101_r2");
   await expect(page.getByRole("link", { name: /Pin 1 Caulk the curb/ })).toBeVisible();
-  await expect(page.getByRole("link", { name: /Pin 3 Valve height/ })).toBeVisible();
+  const pin3 = page.getByRole("link", { name: /Pin 3 Valve height/ }).first();
+  await expect(pin3).toBeVisible();
+  const pinBox = await pin3.boundingBox();
+  expect(pinBox).toBeTruthy();
+  expect(pinBox!.y + pinBox!.height).toBeLessThanOrEqual(900);
   await expect(page.getByText("Check before tile.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Save" })).toBeVisible();
   await shot(page, "plan-pins-light");
   await page.emulateMedia({ colorScheme: "dark" });
   await shot(page, "plan-pins-dark");
@@ -64,6 +69,12 @@ test("photo markup, a plan pin, and the inspection edit sheet", async ({ page })
   await page.goto("/projects/proj_brooks/permits?inspection=insp_br_rough");
   const detail = page.getByRole("complementary", { name: "Rough plumbing" });
   await expect(detail.getByText("Replace the vent stack")).toBeVisible();
+  await expect(detail.getByText("Oct 9")).toBeVisible();
+  await expect(detail.getByText("Schedule item")).toHaveCount(0);
+  await expect(detail.getByText("Gates", { exact: true })).toHaveCount(0);
+  await expect(detail.getByText("File", { exact: true })).toHaveCount(0);
+  await expect(detail.getByText("Name", { exact: true })).toHaveCount(0);
+  await expect(detail.getByText("Result", { exact: true })).toHaveCount(0);
   await expect(detail.getByRole("textbox", { name: "Notes" })).toHaveCount(0);
   await shot(page, "inspection-detail-light");
   await page.emulateMedia({ colorScheme: "dark" });

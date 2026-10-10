@@ -90,6 +90,8 @@ import {
   markups,
   permits,
   planPins,
+  equipment,
+  equipmentAssignments,
   planRefs,
   recordFiles,
   commentFiles,
@@ -148,7 +150,7 @@ import {
   WEBSITE_FORM_SOURCE,
 } from "@/lib/lead-form/rules";
 
-export const SEED_VERSION = "36";
+export const SEED_VERSION = "37";
 
 const ORG = "org_rivera";
 const NORTH = "org_northline";
@@ -3368,6 +3370,32 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
       { id: "view_todos_luis", orgId: ORG, userId: "user_luis", listKey: "todos", name: "High", queryJson: JSON.stringify({ priority: "high" }), sortKey: null, sortDir: null, shared: 0, createdAt: now, updatedAt: now },
       { id: "view_bills_overdue", orgId: ORG, userId: "user_sam", listKey: "bills", name: "Overdue", queryJson: JSON.stringify({ status: "overdue" }), sortKey: null, sortDir: null, shared: 0, createdAt: now, updatedAt: now },
       { id: "view_pos_issued", orgId: ORG, userId: "user_sam", listKey: "purchase-orders", name: "Issued", queryJson: JSON.stringify({ status: "issued" }), sortKey: null, sortDir: null, shared: 0, createdAt: now, updatedAt: now },
+    ])
+    .run();
+
+  const serviceDue = addCalendarDays(today, -88);
+  db.insert(equipment)
+    .values([
+      { id: "eq_saw", orgId: ORG, name: "Track saw", category: "Tools", makeModel: "Makita SP6000", serial: "MK-441", tag: "T-101", purchasedOn: "2024-03-12", costCents: 64900, rateCents: 4500, rateUnit: "day", status: "available", locationKind: "yard", projectId: null, userId: null, notes: "", documentId: null, serviceInterval: 90, serviceUnit: "day", lastServiceOn: serviceDue, hoursSinceService: 0, lastSeenProjectId: null, lastSeenAt: null, createdAt: daysAgo(40), updatedAt: daysAgo(9), createdBy: "user_maya" },
+      { id: "eq_laser", orgId: ORG, name: "Laser level", category: "Tools", makeModel: "Bosch GLL", serial: "BS-19", tag: "T-102", purchasedOn: "2025-01-08", costCents: 21900, rateCents: null, rateUnit: null, status: "available", locationKind: "yard", projectId: null, userId: null, notes: "", documentId: null, serviceInterval: null, serviceUnit: null, lastServiceOn: null, hoursSinceService: 0, lastSeenProjectId: null, lastSeenAt: null, createdAt: daysAgo(30), updatedAt: daysAgo(2), createdBy: "user_maya" },
+      { id: "eq_mixer", orgId: ORG, name: "Mud mixer", category: "Equipment", makeModel: "QEP", serial: "MX-7", tag: "T-103", purchasedOn: "2023-06-01", costCents: 89000, rateCents: 1800, rateUnit: "hour", status: "on_job", locationKind: "job", projectId: "proj_okonkwo", userId: "user_dana", notes: "", documentId: null, serviceInterval: null, serviceUnit: null, lastServiceOn: null, hoursSinceService: 12, lastSeenProjectId: "proj_okonkwo", lastSeenAt: daysAgo(1), createdAt: daysAgo(20), updatedAt: daysAgo(4), createdBy: "user_maya" },
+      { id: "eq_compactor", orgId: ORG, name: "Plate compactor", category: "Equipment", makeModel: "Wacker", serial: "PC-2", tag: "T-104", purchasedOn: "2022-11-15", costCents: 210000, rateCents: 7500, rateUnit: "day", status: "on_job", locationKind: "job", projectId: "proj_brooks", userId: "user_luis", notes: "", documentId: null, serviceInterval: null, serviceUnit: null, lastServiceOn: null, hoursSinceService: 0, lastSeenProjectId: "proj_brooks", lastSeenAt: daysAgo(2), createdAt: daysAgo(60), updatedAt: daysAgo(2), createdBy: "user_maya" },
+      { id: "eq_scaffold", orgId: ORG, name: "Scaffold set", category: "Access", makeModel: "Werner", serial: "SC-8", tag: "T-105", purchasedOn: "2021-04-20", costCents: 154000, rateCents: null, rateUnit: null, status: "with_person", locationKind: "person", projectId: null, userId: "user_sam", notes: "", documentId: null, serviceInterval: null, serviceUnit: null, lastServiceOn: null, hoursSinceService: 0, lastSeenProjectId: null, lastSeenAt: null, createdAt: daysAgo(80), updatedAt: daysAgo(3), createdBy: "user_maya" },
+      { id: "eq_nailer", orgId: ORG, name: "Finish nailer", category: "Tools", makeModel: "Metabo", serial: "FN-3", tag: "T-106", purchasedOn: "2024-08-02", costCents: 32900, rateCents: null, rateUnit: null, status: "in_service", locationKind: "yard", projectId: null, userId: null, notes: "Driver jammed.", documentId: null, serviceInterval: null, serviceUnit: null, lastServiceOn: null, hoursSinceService: 0, lastSeenProjectId: null, lastSeenAt: null, createdAt: daysAgo(15), updatedAt: daysAgo(1), createdBy: "user_sam" },
+      { id: "eq_ladder", orgId: ORG, name: "Extension ladder", category: "Access", makeModel: "Louisville", serial: "LD-12", tag: "T-107", purchasedOn: "2020-05-05", costCents: 28000, rateCents: null, rateUnit: null, status: "lost", locationKind: "yard", projectId: null, userId: null, notes: "Last on Chen.", documentId: null, serviceInterval: null, serviceUnit: null, lastServiceOn: null, hoursSinceService: 0, lastSeenProjectId: "proj_chen", lastSeenAt: daysAgo(18), createdAt: daysAgo(100), updatedAt: daysAgo(6), createdBy: "user_maya" },
+      { id: "eq_blower", orgId: ORG, name: "Blower", category: "Tools", makeModel: "Stihl", serial: "BL-1", tag: "T-108", purchasedOn: "2019-09-09", costCents: 16000, rateCents: null, rateUnit: null, status: "retired", locationKind: "yard", projectId: null, userId: null, notes: "", documentId: null, serviceInterval: null, serviceUnit: null, lastServiceOn: null, hoursSinceService: 0, lastSeenProjectId: null, lastSeenAt: null, createdAt: daysAgo(200), updatedAt: daysAgo(30), createdBy: "user_maya" },
+      { id: "eq_trailer", orgId: ORG, name: "Dump trailer", category: "Trailers", makeModel: "Big Tex", serial: "DT-4", tag: "T-109", purchasedOn: "2021-02-02", costCents: 640000, rateCents: 12000, rateUnit: "day", status: "on_job", locationKind: "job", projectId: "proj_diaz", userId: "user_dana", notes: "", documentId: null, serviceInterval: null, serviceUnit: null, lastServiceOn: null, hoursSinceService: 0, lastSeenProjectId: "proj_diaz", lastSeenAt: daysAgo(40), createdAt: daysAgo(90), updatedAt: daysAgo(40), createdBy: "user_maya" },
+      { id: "eq_heater", orgId: ORG, name: "Job heater", category: "Climate", makeModel: "Mr. Heater", serial: "HT-6", tag: "T-110", purchasedOn: "2025-11-01", costCents: 18900, rateCents: 2500, rateUnit: "day", status: "on_job", locationKind: "job", projectId: "proj_chen", userId: null, notes: "", documentId: null, serviceInterval: null, serviceUnit: null, lastServiceOn: null, hoursSinceService: 0, lastSeenProjectId: "proj_chen", lastSeenAt: daysAgo(1), createdAt: daysAgo(12), updatedAt: daysAgo(1), createdBy: "user_luis" },
+    ])
+    .run();
+  db.insert(equipmentAssignments)
+    .values([
+      { id: "asn_saw_old", orgId: ORG, equipmentId: "eq_saw", projectId: "proj_brooks", userId: "user_dana", expectedReturn: addCalendarDays(today, -10), checkedOutAt: daysAgo(12), checkedInAt: daysAgo(9), fromLabel: "Yard", toLabel: "Brooks family room addition · Dana Cho", hours: null, costCents: null, costItemId: null, costState: "", createdAt: daysAgo(12), createdBy: "user_maya" },
+      { id: "asn_mixer", orgId: ORG, equipmentId: "eq_mixer", projectId: "proj_okonkwo", userId: "user_dana", expectedReturn: yesterday, checkedOutAt: daysAgo(4), checkedInAt: null, fromLabel: "Yard", toLabel: "Okonkwo primary bath · Dana Cho", hours: null, costCents: null, costItemId: null, costState: "", createdAt: daysAgo(4), createdBy: "user_maya" },
+      { id: "asn_compactor", orgId: ORG, equipmentId: "eq_compactor", projectId: "proj_brooks", userId: "user_luis", expectedReturn: addCalendarDays(today, 5), checkedOutAt: daysAgo(2), checkedInAt: null, fromLabel: "Yard", toLabel: "Brooks family room addition · Luis Ortega", hours: null, costCents: null, costItemId: null, costState: "", createdAt: daysAgo(2), createdBy: "user_sam" },
+      { id: "asn_scaffold", orgId: ORG, equipmentId: "eq_scaffold", projectId: null, userId: "user_sam", expectedReturn: addCalendarDays(today, 2), checkedOutAt: daysAgo(3), checkedInAt: null, fromLabel: "Yard", toLabel: "Sam Patel", hours: null, costCents: null, costItemId: null, costState: "", createdAt: daysAgo(3), createdBy: "user_maya" },
+      { id: "asn_trailer", orgId: ORG, equipmentId: "eq_trailer", projectId: "proj_diaz", userId: "user_dana", expectedReturn: null, checkedOutAt: daysAgo(40), checkedInAt: null, fromLabel: "Yard", toLabel: "Diaz deck replacement · Dana Cho", hours: null, costCents: null, costItemId: null, costState: "", createdAt: daysAgo(40), createdBy: "user_maya" },
+      { id: "asn_heater", orgId: ORG, equipmentId: "eq_heater", projectId: "proj_chen", userId: null, expectedReturn: addCalendarDays(today, 3), checkedOutAt: daysAgo(1), checkedInAt: null, fromLabel: "Yard", toLabel: "Chen powder room", hours: null, costCents: null, costItemId: null, costState: "", createdAt: daysAgo(1), createdBy: "user_luis" },
     ])
     .run();
 

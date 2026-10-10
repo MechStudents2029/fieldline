@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { ArrowUpRight, Circle, Hand, Minus, MousePointer2, Pencil, Plus, Redo2, Square, Trash2, Type, Undo2, MapPin } from "lucide-react";
 import { MARKUP_COLOR_HEX, MARKUP_COLORS, type MarkupColor, type MarkupLayer, type MarkupShape, type MarkupTool } from "@/lib/markup/layer";
 
 export type StagePin = {
@@ -155,6 +156,9 @@ export function MarkupStage({
   const [typeFilter, setTypeFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [showOriginal, setShowOriginal] = useState(false);
+  const frameRef = useRef<HTMLDivElement>(null);
+  const [bitmap, setBitmap] = useState<{ w: number; h: number } | null>(null);
+  const fitted = useRef(false);
 
   useEffect(() => {
     const canvas = baseRef.current;
@@ -173,11 +177,15 @@ export function MarkupStage({
         canvas.width = image.naturalWidth || 800;
         canvas.height = image.naturalHeight || 520;
         canvas.getContext("2d")?.drawImage(image, 0, 0);
+        fitted.current = false;
+        setBitmap({ w: canvas.width, h: canvas.height });
         fit();
       };
       image.src = src;
     } else {
       drawPlan(canvas, title);
+      fitted.current = false;
+      setBitmap({ w: canvas.width, h: canvas.height });
       fit();
       void (async () => {
         try {
@@ -194,6 +202,8 @@ export function MarkupStage({
           const ctx = canvas.getContext("2d");
           if (!ctx) return;
           await page.render({ canvasContext: ctx, viewport }).promise;
+          fitted.current = false;
+          setBitmap({ w: canvas.width, h: canvas.height });
           fit();
         } catch {
           if (!cancel) drawPlan(canvas, title);
@@ -204,6 +214,23 @@ export function MarkupStage({
       cancel = true;
     };
   }, [kind, src, title]);
+
+  useLayoutEffect(() => {
+    if (mode !== "plan") return;
+    const frame = frameRef.current;
+    if (!frame) return;
+    const apply = () => {
+      if (!bitmap || fitted.current || frame.clientWidth < 8 || frame.clientHeight < 8) return;
+      const scale = Math.min(frame.clientWidth / bitmap.w, frame.clientHeight / bitmap.h);
+      if (!Number.isFinite(scale) || scale <= 0) return;
+      fitted.current = true;
+      setZoom(Number(scale.toFixed(3)));
+    };
+    apply();
+    const observer = new ResizeObserver(apply);
+    observer.observe(frame);
+    return () => observer.disconnect();
+  }, [bitmap, mode]);
 
   useEffect(() => {
     shapesRef.current = shapes;
@@ -349,23 +376,29 @@ export function MarkupStage({
 
   const visiblePins = pins.filter((pin) => (typeFilter === "all" || pin.linkType === typeFilter) && (statusFilter === "all" || pin.tone === statusFilter));
 
-  const tools: { id: MarkupTool | "select" | "pan" | "pin"; label: string }[] = [
-    { id: "select", label: "Select" },
-    { id: "pen", label: "Pen" },
-    { id: "arrow", label: "Arrow" },
-    { id: "rect", label: "Rectangle" },
-    { id: "ellipse", label: "Ellipse" },
-    { id: "text", label: "Text" },
-    ...(mode === "plan" ? [{ id: "pan" as const, label: "Pan" }, { id: "pin" as const, label: "Pin" }] : []),
+  const tools: { id: MarkupTool | "select" | "pan" | "pin"; label: string; icon: React.ReactNode }[] = [
+    { id: "select", label: "Select", icon: <MousePointer2 size={14} /> },
+    { id: "pen", label: "Pen", icon: <Pencil size={14} /> },
+    { id: "arrow", label: "Arrow", icon: <ArrowUpRight size={14} /> },
+    { id: "rect", label: "Rectangle", icon: <Square size={14} /> },
+    { id: "ellipse", label: "Ellipse", icon: <Circle size={14} /> },
+    { id: "text", label: "Text", icon: <Type size={14} /> },
+    ...(mode === "plan"
+      ? [
+          { id: "pan" as const, label: "Pan", icon: <Hand size={14} /> },
+          { id: "pin" as const, label: "Pin", icon: <MapPin size={14} /> },
+        ]
+      : []),
   ];
+  const planBox = mode === "plan" && bitmap ? { width: Math.max(1, Math.round(bitmap.w * zoom)), height: Math.max(1, Math.round(bitmap.h * zoom)) } : null;
 
   return (
-    <div className={`grid gap-4 ${mode === "plan" ? "lg:grid-cols-[minmax(0,1fr)_260px]" : ""}`}>
-      <div className="flex min-w-0 flex-col gap-2">
-        <div data-bar="markup" className="flex flex-wrap items-center gap-1">
+    <div className={`grid min-h-0 gap-3 ${mode === "plan" ? "h-full min-h-0 flex-1 overflow-hidden lg:grid-cols-[minmax(0,1fr)_220px]" : ""}`}>
+      <div className={`flex min-h-0 min-w-0 flex-col gap-2 ${mode === "plan" ? "h-full" : ""}`}>
+        <div data-bar="markup" className="flex flex-nowrap items-center gap-1 overflow-x-auto">
           {tools.map((item) => (
-            <button key={item.id} type="button" className="ctl" aria-pressed={tool === item.id} disabled={readOnly && item.id !== "pan"} onClick={() => setTool(item.id)}>
-              {item.label}
+            <button key={item.id} type="button" className="ctl" aria-label={item.label} title={item.label} aria-pressed={tool === item.id} disabled={readOnly && item.id !== "pan"} onClick={() => setTool(item.id)}>
+              {item.icon}
             </button>
           ))}
           {MARKUP_COLORS.map((item) => (
@@ -373,23 +406,23 @@ export function MarkupStage({
               <span className="inline-block size-3 rounded-full border border-[var(--mac-separator)]" style={{ background: MARKUP_COLOR_HEX[item] }} />
             </button>
           ))}
-          <button type="button" className="ctl" onClick={undo} disabled={readOnly}>
-            Undo
+          <button type="button" className="ctl" aria-label="Undo" title="Undo" onClick={undo} disabled={readOnly}>
+            <Undo2 size={14} />
           </button>
-          <button type="button" className="ctl" onClick={redo} disabled={readOnly}>
-            Redo
+          <button type="button" className="ctl" aria-label="Redo" title="Redo" onClick={redo} disabled={readOnly}>
+            <Redo2 size={14} />
           </button>
-          <button type="button" className="ctl" onClick={removeSelected} disabled={readOnly || !selected}>
-            Delete
+          <button type="button" className="ctl" aria-label="Delete" title="Delete" onClick={removeSelected} disabled={readOnly || !selected}>
+            <Trash2 size={14} />
           </button>
           {mode === "plan" ? (
             <>
-              <button type="button" className="ctl" aria-label="Zoom out" onClick={() => setZoom((value) => Math.max(0.6, Number((value - 0.2).toFixed(2))))}>
-                −
+              <button type="button" className="ctl" aria-label="Zoom out" title="Zoom out" onClick={() => { fitted.current = true; setZoom((value) => Math.max(0.15, Number((value - 0.1).toFixed(2)))); }}>
+                <Minus size={14} />
               </button>
               <span className="num mac-t11">{Math.round(zoom * 100)}</span>
-              <button type="button" className="ctl" aria-label="Zoom in" onClick={() => setZoom((value) => Math.min(2.4, Number((value + 0.2).toFixed(2))))}>
-                +
+              <button type="button" className="ctl" aria-label="Zoom in" title="Zoom in" onClick={() => { fitted.current = true; setZoom((value) => Math.min(2.4, Number((value + 0.1).toFixed(2)))); }}>
+                <Plus size={14} />
               </button>
             </>
           ) : null}
@@ -398,20 +431,17 @@ export function MarkupStage({
               {showOriginal ? "Marked up" : "Original"}
             </button>
           ) : null}
-          {!readOnly && saveAction ? (
-            <form action={saveAction} onSubmit={prepare}>
-              <input type="hidden" name="layer" defaultValue="" />
-              <input type="hidden" name="flat" defaultValue="" />
-              <button type="submit" className="mac-primary">
-                Save
-              </button>
-            </form>
-          ) : null}
         </div>
         {tool === "text" && !readOnly ? <input aria-label="Text" value={text} onChange={(event) => setText(event.target.value)} className="field max-w-xs" placeholder="Text" /> : null}
-        <div className="overflow-hidden rounded-lg bg-[var(--mac-fill)]" data-viewport={mode}>
-          <div className="relative origin-top-left" style={mode === "plan" ? { transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` } : undefined}>
-            <canvas ref={baseRef} className="block w-full" />
+        {!readOnly && saveAction ? (
+          <form id="markup-save" action={saveAction} onSubmit={prepare} className="hidden">
+            <input type="hidden" name="layer" defaultValue="" />
+            <input type="hidden" name="flat" defaultValue="" />
+          </form>
+        ) : null}
+        <div ref={frameRef} className={`overflow-hidden rounded-lg bg-[var(--mac-fill)] ${mode === "plan" ? "min-h-0 flex-1" : ""}`} data-viewport={mode}>
+          <div className="relative" style={planBox ? { width: planBox.width, height: planBox.height, transform: `translate(${pan.x}px, ${pan.y}px)` } : undefined}>
+            <canvas ref={baseRef} className={mode === "plan" ? "block max-w-none" : "block w-full"} style={planBox ? { width: planBox.width, height: planBox.height } : undefined} />
             <canvas
               ref={drawRef}
               data-canvas={mode}
@@ -439,7 +469,7 @@ export function MarkupStage({
         </div>
       </div>
       {mode === "plan" ? (
-        <aside data-pane="pins" aria-label="Pins" className="flex flex-col gap-2">
+        <aside data-pane="pins" aria-label="Pins" className="flex min-h-0 flex-col gap-2 overflow-auto">
           {unreviewed > 0 && reviewAction ? (
             <form action={reviewAction} className="flex items-center gap-2">
               <span className="num mac-t13">{unreviewed}</span>
@@ -450,7 +480,7 @@ export function MarkupStage({
           ) : null}
           <label className="mac-t13">
             Type
-            <select aria-label="Type" className="field mt-1" value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)}>
+            <select aria-label="Type" className="ctl mt-1" value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)}>
               <option value="all">All</option>
               <option value="punch">Punch</option>
               <option value="rfi">RFI</option>
@@ -459,7 +489,7 @@ export function MarkupStage({
           </label>
           <label className="mac-t13">
             Status
-            <select aria-label="Status" className="field mt-1" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
+            <select aria-label="Status" className="ctl mt-1" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
               <option value="all">All</option>
               <option value="open">Open</option>
               <option value="done">Done</option>

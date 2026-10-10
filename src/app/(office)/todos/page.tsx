@@ -5,6 +5,7 @@ import { ActionForm } from "@/components/action-form";
 import { EmptyState } from "@/components/empty-state";
 import { ListToolbar } from "@/components/list-toolbar";
 import { Toolbar } from "@/components/mac/toolbar";
+import { FieldEquipment } from "@/components/field-equipment";
 import { TodoPane } from "@/components/todo-pane";
 import { requireSession } from "@/lib/auth/session";
 import { formatCalendarDay } from "@/lib/format";
@@ -110,6 +111,7 @@ export default async function TodosPage({ searchParams }: { searchParams: Promis
         ) : null}
       </div>
       {toolbar}
+      {session.role === "field" ? <FieldEquipment actor={session} /> : null}
       {one(query.new) && office ? (
         <div role="dialog" aria-label="New to-do" className="mx-4 mb-3 max-w-xl rounded-md border border-[var(--mac-separator)] p-3">
         <ActionForm action={createTodoAction} className="flex flex-col gap-2">

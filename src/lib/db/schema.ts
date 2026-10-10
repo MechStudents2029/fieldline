@@ -2288,3 +2288,72 @@ export const planPins = sqliteTable(
   },
   (t) => [index("plan_pins_file").on(t.orgId, t.jobFileId)],
 );
+
+/** Company tool or machine. Money fields are cents. One open assignment at a time. */
+export const equipment = sqliteTable(
+  "equipment",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    name: text("name").notNull(),
+    category: text("category").notNull(),
+    makeModel: text("make_model").notNull().default(""),
+    serial: text("serial").notNull().default(""),
+    tag: text("tag").notNull().default(""),
+    purchasedOn: text("purchased_on"),
+    costCents: integer("cost_cents"),
+    rateCents: integer("rate_cents"),
+    rateUnit: text("rate_unit"),
+    status: text("status").notNull(),
+    locationKind: text("location_kind").notNull(),
+    projectId: text("project_id"),
+    userId: text("user_id"),
+    notes: text("notes").notNull().default(""),
+    documentId: text("document_id"),
+    serviceInterval: integer("service_interval"),
+    serviceUnit: text("service_unit"),
+    lastServiceOn: text("last_service_on"),
+    hoursSinceService: integer("hours_since_service").notNull().default(0),
+    lastSeenProjectId: text("last_seen_project_id"),
+    lastSeenAt: text("last_seen_at"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    createdBy: text("created_by"),
+  },
+  (t) => [index("equipment_org").on(t.orgId)],
+);
+
+export const equipmentAssignments = sqliteTable(
+  "equipment_assignments",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    equipmentId: text("equipment_id").notNull(),
+    projectId: text("project_id"),
+    userId: text("user_id"),
+    expectedReturn: text("expected_return"),
+    checkedOutAt: text("checked_out_at").notNull(),
+    checkedInAt: text("checked_in_at"),
+    fromLabel: text("from_label").notNull(),
+    toLabel: text("to_label").notNull(),
+    hours: integer("hours"),
+    costCents: integer("cost_cents"),
+    costItemId: text("cost_item_id"),
+    costState: text("cost_state").notNull().default(""),
+    createdAt: text("created_at").notNull(),
+    createdBy: text("created_by"),
+  },
+  (t) => [index("equipment_assignments_item").on(t.orgId, t.equipmentId)],
+);
+
+export const dailyLogEquipment = sqliteTable(
+  "daily_log_equipment",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    logId: text("log_id").notNull(),
+    equipmentId: text("equipment_id").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [uniqueIndex("daily_log_equipment_once").on(t.orgId, t.logId, t.equipmentId), index("daily_log_equipment_log").on(t.orgId, t.logId)],
+);

@@ -16,6 +16,7 @@ import { id, nowIso } from "@/lib/ids";
 import { canAddFieldNotes, canManageMoney, type Role } from "@/lib/permissions";
 import { ServiceError } from "@/lib/services/errors";
 import type { Actor } from "@/lib/services/read";
+import { tagLogEquipment } from "@/lib/services/equipment";
 import { calendarForOrg, formatHours, timeBoard, workedMinutes } from "@/lib/services/time";
 import { addCalendarDays, localDay } from "@/lib/time/calendar";
 
@@ -115,7 +116,7 @@ export function openDailyLog(actor: Actor, projectId: string, logDate: string, n
   return db.select().from(dailyLogs).where(eq(dailyLogs.id, logId)).get()!;
 }
 
-export function saveDailyLog(actor: Actor, logId: string, input: LogInput) {
+export function saveDailyLog(actor: Actor, logId: string, input: LogInput, equipmentIds?: string[]) {
   const db = officeOrThrow(actor);
   const log = requireEditable(db, actor, logId);
   const next = normalize(input, log.notes);
@@ -127,15 +128,16 @@ export function saveDailyLog(actor: Actor, logId: string, input: LogInput) {
       .run();
     record(tx, actor, log.id, "edited", snapshot(log), snapshot({ ...log, ...next }), null, stamp);
   });
+  if (equipmentIds) tagLogEquipment(actor, logId, equipmentIds);
 }
 
-export function publishDailyLog(actor: Actor, logId: string, input: LogInput, now = Date.now()) {
+export function publishDailyLog(actor: Actor, logId: string, input: LogInput, now = Date.now(), equipmentIds?: string[]) {
   const db = officeOrThrow(actor);
   const log = requireEditable(db, actor, logId);
   const next = normalize(input, log.notes);
   if (!next.notes) throw new ServiceError("Add a note before publishing.");
   if (log.status === "published") {
-    saveDailyLog(actor, logId, input);
+    saveDailyLog(actor, logId, input, equipmentIds);
     return;
   }
   const stamp = new Date(now).toISOString();
@@ -160,6 +162,7 @@ export function publishDailyLog(actor: Actor, logId: string, input: LogInput, no
       })
       .run();
   });
+  if (equipmentIds) tagLogEquipment(actor, logId, equipmentIds);
 }
 
 export function setLogVisibility(actor: Actor, logId: string, visibility: string) {

@@ -16,7 +16,7 @@ export default async function PlanPage({ params }: { params: Promise<{ id: strin
   const board = planBoard(session, id, fileId);
   if (!board) notFound();
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
       <Toolbar
         title={board.name}
         subtitle={`Rev ${board.revision}`}
@@ -26,9 +26,18 @@ export default async function PlanPage({ params }: { params: Promise<{ id: strin
             ‹ Files
           </Link>
         }
-        trailing={board.readOnly ? <span className="fl-pill">Superseded</span> : board.markup ? <span className="fl-pill">Marked up</span> : null}
+        trailing={
+          <>
+            {board.readOnly ? <span className="fl-pill">Superseded</span> : board.markup ? <span className="fl-pill">Marked up</span> : null}
+            {!board.readOnly && board.canEdit ? (
+              <button type="submit" form="markup-save" className="mac-primary">
+                Save
+              </button>
+            ) : null}
+          </>
+        }
       />
-      <div className="flex flex-col gap-3 px-4 pb-8">
+      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden px-4 pb-4">
         {board.markup ? (
           <p className="mac-t11 text-[var(--mac-secondary)]">
             {board.markup.author} · {formatDateTime(board.markup.at)}

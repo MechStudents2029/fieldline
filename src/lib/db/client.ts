@@ -121,6 +121,7 @@ export function ensureReady(holder: Holder) {
   ensureSchedulePlan(holder);
   ensurePermits(holder);
   ensureMarkup(holder);
+  ensureEquipment(holder);
   const version = holder.sqlite.prepare("select value from app_meta where key = ?").get("seed_version") as
     | { value: string }
     | undefined;
@@ -2097,6 +2098,72 @@ function ensureMarkup(holder: Holder) {
     )`);
   }
   holder.sqlite.exec("create index if not exists plan_pins_file on plan_pins (org_id, job_file_id)");
+}
+
+function ensureEquipment(holder: Holder) {
+  const pk = holder.dialect === "postgres" ? "text primary key" : "text primary key not null";
+  if (!tableExists(holder.sqlite, "equipment", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists equipment (
+      id ${pk},
+      org_id text not null,
+      name text not null,
+      category text not null,
+      make_model text not null default '',
+      serial text not null default '',
+      tag text not null default '',
+      purchased_on text,
+      cost_cents integer,
+      rate_cents integer,
+      rate_unit text,
+      status text not null,
+      location_kind text not null,
+      project_id text,
+      user_id text,
+      notes text not null default '',
+      document_id text,
+      service_interval integer,
+      service_unit text,
+      last_service_on text,
+      hours_since_service integer not null default 0,
+      last_seen_project_id text,
+      last_seen_at text,
+      created_at text not null,
+      updated_at text not null,
+      created_by text
+    )`);
+  }
+  holder.sqlite.exec("create index if not exists equipment_org on equipment (org_id)");
+  if (!tableExists(holder.sqlite, "equipment_assignments", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists equipment_assignments (
+      id ${pk},
+      org_id text not null,
+      equipment_id text not null,
+      project_id text,
+      user_id text,
+      expected_return text,
+      checked_out_at text not null,
+      checked_in_at text,
+      from_label text not null,
+      to_label text not null,
+      hours integer,
+      cost_cents integer,
+      cost_item_id text,
+      cost_state text not null default '',
+      created_at text not null,
+      created_by text
+    )`);
+  }
+  holder.sqlite.exec("create index if not exists equipment_assignments_item on equipment_assignments (org_id, equipment_id)");
+  if (!tableExists(holder.sqlite, "daily_log_equipment", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists daily_log_equipment (
+      id ${pk},
+      org_id text not null,
+      log_id text not null,
+      equipment_id text not null,
+      created_at text not null
+    )`);
+  }
+  holder.sqlite.exec("create unique index if not exists daily_log_equipment_once on daily_log_equipment (org_id, log_id, equipment_id)");
 }
 
 export function resetDatabase(): AppDatabase {
