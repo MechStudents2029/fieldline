@@ -18,13 +18,22 @@ import { formatCalendarDay, formatWarrantyDay } from "@/lib/format";
 import { formatMoney } from "@/lib/money";
 import type { PunchBoard } from "@/lib/services/punch";
 import type { RfiListItem } from "@/lib/services/rfis";
+import type { RecordVisual } from "@/lib/services/markup";
 import { LinkedRfis } from "@/components/linked-rfis";
 
 function Pill({ children }: { children: string }) {
   return <span className="fl-pill">{children}</span>;
 }
 
-export function PunchSection({ board, rfis = {} }: { board: PunchBoard; rfis?: Record<string, RfiListItem[]> }) {
+export function PunchSection({
+  board,
+  rfis = {},
+  visuals = {},
+}: {
+  board: PunchBoard;
+  rfis?: Record<string, RfiListItem[]>;
+  visuals?: Record<string, RecordVisual>;
+}) {
   const { counts, closeout } = board;
   return (
     <section id="punch" aria-label="Punch list" data-today={board.today} className="mb-6">
@@ -48,6 +57,11 @@ export function PunchSection({ board, rfis = {} }: { board: PunchBoard; rfis?: R
           <p className="mac-t11 text-[var(--mac-secondary)]">Verified</p>
         </div>
       </div>
+      <div className="mb-2 flex justify-end">
+        <Link href={`/projects/${board.projectId}/punch/print`} className="mac-t13 text-[var(--mac-accent)]">
+          Print
+        </Link>
+      </div>
       <ul className="mb-4 flex flex-col">
         {board.items.map((item) => (
           <li key={item.id} className="flex flex-wrap items-center gap-2 border-b border-[var(--mac-separator)] py-2">
@@ -56,6 +70,10 @@ export function PunchSection({ board, rfis = {} }: { board: PunchBoard; rfis?: R
               <Link href={`/projects/${board.projectId}/punch/${item.id}`} className="mac-t13 text-[var(--mac-accent)]">
                 Comments
               </Link>
+              {visuals[item.id]?.cropHref ? (
+                <img src={visuals[item.id]?.cropHref ?? ""} alt="" className="mt-1 h-16 w-24 rounded-md object-cover" />
+              ) : null}
+              {visuals[item.id]?.marked ? <span className="fl-pill">Marked up</span> : null}
               <p className="mac-t11 text-[var(--mac-secondary)]">
                 {[item.location, item.assigneeName, board.showMoney ? item.costCode : ""].filter(Boolean).join(" · ")}
                 {item.dueDate ? <span className="num"> · {formatCalendarDay(item.dueDate)}</span> : null}

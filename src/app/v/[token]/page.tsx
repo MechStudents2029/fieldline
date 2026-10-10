@@ -6,6 +6,7 @@ import { vendorBidPortal } from "@/lib/services/bids";
 import { vendorPortalRfis } from "@/lib/services/rfis";
 import { vendorPortalSubmittals } from "@/lib/services/submittals";
 import { vendorPortal } from "@/lib/services/vendor-portal";
+import { vendorPortalPins } from "@/lib/services/markup";
 import { vendorInspectionRows } from "@/lib/services/permits";
 import { vendorTodos } from "@/lib/services/todos";
 
@@ -27,6 +28,7 @@ export default async function VendorPortalPage({ params }: { params: Promise<{ t
       submittals={vendorPortalSubmittals(token)}
       waivers={vendorPortalWaivers(token) ?? []}
       files={vendorPortalFiles(token) ?? []}
+      pins={vendorPortalPins(token)}
     />
   );
 }

@@ -1,10 +1,11 @@
+import Link from "next/link";
 import { deleteCommentAction, editCommentAction, postCommentAction } from "@/app/actions";
 import { ActionForm } from "@/components/action-form";
 import { CommentComposer } from "@/components/comment-composer";
 import { requireSession } from "@/lib/auth/session";
 import { commentThread } from "@/lib/services/comments";
 
-export async function CommentThread({ entityType, entityId }: { entityType: string; entityId: string }) {
+export async function CommentThread({ entityType, entityId, projectId }: { entityType: string; entityId: string; projectId?: string }) {
   const session = await requireSession();
   const thread = commentThread(session, entityType, entityId);
   if (!thread) return null;
@@ -30,9 +31,16 @@ export async function CommentThread({ entityType, entityId }: { entityType: stri
               )}
             </p>
             {comment.files.map((file) => (
-              <a key={file.id} className="mac-t13 text-[var(--mac-accent)]" href={`/api/files/${file.id}`}>
-                {file.filename}
-              </a>
+              <span key={file.id} className="flex items-center gap-2">
+                <a className="mac-t13 text-[var(--mac-accent)]" href={`/api/files/${file.id}`}>
+                  {file.filename}
+                </a>
+                {projectId ? (
+                  <Link href={`/projects/${projectId}/markup/${file.id}`} className="mac-t13 text-[var(--mac-accent)]">
+                    Mark up
+                  </Link>
+                ) : null}
+              </span>
             ))}
             {comment.canEdit ? (
               <details className="mt-1">

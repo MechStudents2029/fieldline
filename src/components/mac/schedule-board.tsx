@@ -298,10 +298,11 @@ export function ScheduleBoard({ board, openJobId }: { board: Board; openJobId: s
         <table className="mac-table mac-schedule w-full">
           <thead>
             <tr>
-              <th className="px-2 text-left">Person</th>
+              <th className="person-col px-2 text-left">Person</th>
               {board.days.map((day) => (
                 <th key={day.date} className={`px-1 text-left ${day.off ? "is-off" : ""} ${day.isToday ? "text-[var(--mac-accent)]" : ""}`}>
-                  {day.label}
+                  <span className="block">{day.label}</span>
+                  {day.offLabel ? <span className="off-label">{day.offLabel}</span> : null}
                 </th>
               ))}
             </tr>
@@ -309,7 +310,7 @@ export function ScheduleBoard({ board, openJobId }: { board: Board; openJobId: s
           <tbody>
             {board.rows.map((row) => (
               <tr key={row.userId ?? "unassigned"} data-mac-row={row.name}>
-                <td className="px-2 align-top">
+                <td className="person-col px-2 align-top">
                   <span className="inline-flex items-center gap-2">
                     <span className="inline-flex size-5 items-center justify-center rounded-full bg-[var(--mac-fill)] text-[10px] font-semibold">{row.initials}</span>
                     {row.name}
@@ -369,6 +370,7 @@ export function ScheduleBoard({ board, openJobId }: { board: Board; openJobId: s
                               {item.variance ? <span className="num"> · {item.variance}</span> : null}
                             </span>
                             {item.baseline ? <span className="baseline-tick" /> : null}
+                            {item.gate ? <span className="held-pill">Held</span> : null}
                             {item.conflict ? <span className="mt-0.5 inline-flex rounded bg-[var(--mac-danger)]/10 px-1 text-[10px] font-semibold text-[var(--mac-danger)]">Conflict</span> : null}
                             {item.rfiDue ? <span className="mt-0.5 inline-flex rounded bg-[var(--mac-fill)] px-1 text-[10px] text-[var(--mac-secondary)]">RFI</span> : null}
                           </button>

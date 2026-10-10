@@ -43,6 +43,7 @@ export function VendorPortalView({
   submittals = { items: [], jobs: [] },
   waivers = [],
   files = [],
+  pins = [],
 }: {
   token: string;
   home: VendorPortalHome;
@@ -53,6 +54,7 @@ export function VendorPortalView({
   submittals?: { items: PortalSubmittal[]; jobs: { id: string; name: string }[] };
   waivers?: PortalWaiver[];
   files?: VendorFileJob[];
+  pins?: { linkType: string; linkId: string; cropDocumentId: string | null }[];
 }) {
   return (
     <main className="home mx-auto min-h-screen w-full max-w-5xl px-4 py-8 lg:px-8" data-today={home.today}>
@@ -373,6 +375,9 @@ export function VendorPortalView({
                   <div>
                     <p className="home-copy">{item.title}</p>
                     <p className="home-sub">{[item.location, item.dueDate ? formatCalendarDay(item.dueDate) : ""].filter(Boolean).join(" · ")}</p>
+                    {pins.find((pin) => pin.linkType === "punch" && pin.linkId === item.id)?.cropDocumentId ? (
+                      <img src={`/api/files/${pins.find((pin) => pin.linkType === "punch" && pin.linkId === item.id)?.cropDocumentId}?vendor=${encodeURIComponent(token)}`} alt="" className="mt-2 h-24 w-36 rounded-lg object-cover" />
+                    ) : null}
                   </div>
                   <span className="home-pill">{item.statusLabel}</span>
                 </div>
@@ -409,7 +414,12 @@ export function VendorPortalView({
             ))}
           </ul>
         </section>
-        <RfiPortal token={token} items={rfis} side="vendor" />
+        <RfiPortal
+          token={token}
+          items={rfis}
+          side="vendor"
+          crops={Object.fromEntries(pins.filter((pin) => pin.linkType === "rfi" && pin.cropDocumentId).map((pin) => [pin.linkId, pin.cropDocumentId]))}
+        />
         <SubmittalPortal token={token} items={submittals.items} jobs={submittals.jobs} side="vendor" />
         <section aria-label="Certificates">
           <h2>Certificates</h2>

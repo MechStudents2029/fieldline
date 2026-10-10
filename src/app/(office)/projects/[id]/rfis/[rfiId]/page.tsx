@@ -6,6 +6,7 @@ import { CommentThread } from "@/components/comment-thread";
 import { FileButton } from "@/components/file-button";
 import { requireSession } from "@/lib/auth/session";
 import { formatCalendarDay, formatDateTime } from "@/lib/format";
+import { recordVisual } from "@/lib/services/markup";
 import { rfiDetail } from "@/lib/services/rfis";
 
 export default async function RfiPage({ params }: { params: Promise<{ id: string; rfiId: string }> }) {
@@ -14,6 +15,7 @@ export default async function RfiPage({ params }: { params: Promise<{ id: string
   const rfi = rfiDetail(session, rfiId);
   if (!rfi || !rfi.href.includes(`/projects/${id}/`)) notFound();
   const dollars = rfi.costCents == null ? "" : (rfi.costCents / 100).toFixed(2);
+  const visual = recordVisual(session, id, "rfi", rfiId);
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 px-4 py-6">
       <Link href={`/projects/${id}#rfis`} className="text-sm text-[var(--fl-accent)]">
@@ -32,6 +34,7 @@ export default async function RfiPage({ params }: { params: Promise<{ id: string
         {rfi.impact ? ` · ${rfi.impact}` : ""}
       </p>
       <p>{rfi.question}</p>
+      {visual.cropHref ? <img src={visual.cropHref} alt="" className="h-28 w-40 rounded-lg object-cover" /> : null}
       {rfi.internalNote ? <p className="text-sm text-[var(--mac-secondary)]">Internal · {rfi.internalNote}</p> : null}
       {rfi.changeOrderLabel ? <p className="text-sm">{rfi.changeOrderLabel} · Draft</p> : null}
       <ul className="flex flex-col gap-2">

@@ -8,7 +8,17 @@ function photoSrc(id: string, token: string) {
   return `/api/files/${id}?portal=${encodeURIComponent(token)}`;
 }
 
-export function PortalWarrantySection({ token, home, startedAt }: { token: string; home: PortalWarranty; startedAt: number }) {
+export function PortalWarrantySection({
+  token,
+  home,
+  startedAt,
+  visuals = {},
+}: {
+  token: string;
+  home: PortalWarranty;
+  startedAt: number;
+  visuals?: Record<string, { cropDocumentId: string | null; flatDocumentId: string | null }>;
+}) {
   return (
     <>
       {home.punch.length > 0 ? (
@@ -19,8 +29,10 @@ export function PortalWarrantySection({ token, home, startedAt }: { token: strin
               <li key={item.id} className="home-card">
                 <p className="home-copy">{item.title}</p>
                 <p className="home-sub">{[item.location, item.statusLabel].filter(Boolean).join(" · ")}</p>
-                {item.beforeDocumentId ? <img src={photoSrc(item.beforeDocumentId, token)} alt="" className="mt-2 max-h-40 rounded-lg" /> : null}
-                {item.afterDocumentId ? <img src={photoSrc(item.afterDocumentId, token)} alt="" className="mt-2 max-h-40 rounded-lg" /> : null}
+                {visuals[item.id]?.cropDocumentId ? <img src={photoSrc(visuals[item.id]!.cropDocumentId!, token)} alt="" className="mt-2 h-24 w-36 rounded-lg object-cover" /> : null}
+                {visuals[item.id]?.flatDocumentId ? <span className="home-pill">Marked up</span> : null}
+                {item.beforeDocumentId ? <img src={photoSrc(visuals[item.id]?.flatDocumentId || item.beforeDocumentId, token)} alt="" className="mt-2 max-h-40 rounded-lg" /> : null}
+                {item.afterDocumentId && item.afterDocumentId !== item.beforeDocumentId ? <img src={photoSrc(item.afterDocumentId, token)} alt="" className="mt-2 max-h-40 rounded-lg" /> : null}
               </li>
             ))}
           </ul>

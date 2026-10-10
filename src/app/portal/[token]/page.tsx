@@ -28,6 +28,7 @@ import { clientPortalSubmittals } from "@/lib/services/submittals";
 import { SubmittalPortal } from "@/components/submittal-portal";
 import { portalSelections, type PortalSelection } from "@/lib/services/selections";
 import { clientPortalFiles } from "@/lib/services/files";
+import { clientPortalMarkups, clientPortalPins } from "@/lib/services/markup";
 import { portalPassedInspections } from "@/lib/services/permits";
 
 export const dynamic = "force-dynamic";
@@ -72,6 +73,16 @@ export default async function PortalPage({ params }: { params: Promise<{ token: 
   const costInvoices = new Map(portalCostInvoices(token).map((invoice) => [invoice.id, invoice]));
   const selections = portalSelections(token) ?? [];
   const warranty = portalWarranty(token);
+  const portalPins = clientPortalPins(token);
+  const portalMarks = clientPortalMarkups(token);
+  const markedFlat = new Map(portalMarks.map((row) => [row.sourceDocumentId, row.flatDocumentId]));
+  const punchVisuals = Object.fromEntries(
+    (warranty?.punch ?? []).map((item) => {
+      const pin = portalPins.find((row) => row.linkType === "punch" && row.linkId === item.id);
+      const flat = [item.beforeDocumentId, item.afterDocumentId].map((id) => (id ? markedFlat.get(id) : undefined)).find(Boolean) ?? null;
+      return [item.id, { cropDocumentId: pin?.cropDocumentId ?? null, flatDocumentId: flat }];
+    }),
+  );
   const pendingSelections = selections.filter((selection) => selection.status === "released");
   const action = needsYouAction({ orders: data.orders, invoices: data.invoices });
   const featuredId = action?.kind === "change-order" ? action.id : null;
@@ -161,10 +172,15 @@ export default async function PortalPage({ params }: { params: Promise<{ token: 
         ) : null}
 
         <div className="home-main">
-          <RfiPortal token={token} items={clientPortalRfis(token)} side="client" />
+          <RfiPortal
+            token={token}
+            items={clientPortalRfis(token)}
+            side="client"
+            crops={Object.fromEntries(portalPins.filter((pin) => pin.linkType === "rfi" && pin.cropDocumentId).map((pin) => [pin.linkId, pin.cropDocumentId]))}
+          />
           <SubmittalPortal token={token} items={clientPortalSubmittals(token)} jobs={[]} side="client" />
           {warranty && (warranty.closed || warranty.punch.length > 0) ? (
-            <PortalWarrantySection token={token} home={warranty} startedAt={portalStarted()} />
+            <PortalWarrantySection token={token} home={warranty} startedAt={portalStarted()} visuals={punchVisuals} />
           ) : null}
           {listed.length > 0 ? (
             <section aria-label="Change orders">
@@ -350,7 +366,7 @@ export default async function PortalPage({ params }: { params: Promise<{ token: 
                       <PhotoLightbox
                         photos={log.photos.map((photo) => ({
                           id: photo.id,
-                          src: photoSrc(photo.id, token),
+                          src: photoSrc(markedFlat.get(photo.id) ?? photo.id, token),
                           alt: photo.caption || "Photo",
                         }))}
                       />
@@ -386,7 +402,7 @@ export default async function PortalPage({ params }: { params: Promise<{ token: 
                         <PhotoLightbox
                           photos={photos.map((photo) => ({
                             id: photo.id,
-                            src: photoSrc(photo.id, token),
+                            src: photoSrc(markedFlat.get(photo.id) ?? photo.id, token),
                             alt: "Photo",
                           }))}
                         />

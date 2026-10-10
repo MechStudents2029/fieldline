@@ -122,6 +122,7 @@ import {
   uploadJobFile,
   uploadVendorJobFile,
 } from "@/lib/services/files";
+import { placePin, reviewPins, saveMarkup } from "@/lib/services/markup";
 import { deleteComment, editComment, markAllRead, postComment, setNotifyPreference } from "@/lib/services/comments";
 import { addStarterPriceBook, setSetupDismissed } from "@/lib/services/onboarding";
 import { acceptExistingAccount, acceptNewAccount, changeMemberRole, createInvite, INVITE_EMAIL, previewInvite, removeMember, revokeInvite } from "@/lib/services/team";
@@ -1764,6 +1765,78 @@ export async function uploadJobFileAction(projectId: string, _prev: ActionState,
   } catch (error) {
     return failure(error);
   }
+}
+
+function pngField(formData: FormData, field: string) {
+  const raw = String(formData.get(field) || "");
+  const body = raw.replace(/^data:image\/png;base64,/, "");
+  if (!body) return null;
+  const bytes = Buffer.from(body, "base64");
+  if (!bytes.length) return null;
+  return { filename: `${field}.png`, bytes };
+}
+
+export async function saveMarkupAction(projectId: string, targetType: string, targetId: string, formData: FormData): Promise<void> {
+  const user = await actor();
+  const flat = pngField(formData, "flat");
+  if (!flat) throw new ServiceError("That markup could not be saved.");
+  const layer = JSON.parse(String(formData.get("layer") || "{\"shapes\":[]}")) as unknown;
+  saveMarkup(user, { projectId, targetType, targetId, layer, flat });
+  revalidatePath(`/projects/${projectId}`);
+  redirect(targetType === "plan" ? `/projects/${projectId}/plans/${targetId}` : `/projects/${projectId}/markup/${targetId}`);
+}
+
+export async function placePinAction(projectId: string, fileId: string, formData: FormData): Promise<void> {
+  const user = await actor();
+  const link = String(formData.get("link") || "");
+  const title = String(formData.get("title") || "").trim();
+  const note = String(formData.get("note") || "");
+  let linkType = "";
+  let linkId = "";
+  if (link.startsWith("new:")) {
+    const kind = link.slice(4);
+    if (title.length < 2) throw new ServiceError("Name the item.");
+    if (kind === "punch") {
+      linkType = "punch";
+      linkId = addPunchItem(user, projectId, { title, location: "", dueDate: null, costCode: null, assigneeUserId: null, assigneeContactId: null, shared: false });
+    } else if (kind === "rfi") {
+      linkType = "rfi";
+      linkId = createRfi(user, projectId, {
+        title,
+        question: title,
+        dueOn: new Date().toISOString().slice(0, 10),
+        assignee: `user:${user.userId}`,
+        related: null,
+        internalNote: null,
+      });
+    } else {
+      linkType = "todo";
+      linkId = createTodo(user, { title, projectId });
+    }
+  } else {
+    const split = link.indexOf(":");
+    linkType = link.slice(0, split);
+    linkId = link.slice(split + 1);
+  }
+  placePin(user, {
+    projectId,
+    jobFileId: fileId,
+    xMilli: Number(formData.get("xMilli")),
+    yMilli: Number(formData.get("yMilli")),
+    linkType,
+    linkId,
+    note,
+    crop: pngField(formData, "crop"),
+  });
+  revalidatePath(`/projects/${projectId}`);
+  redirect(`/projects/${projectId}/plans/${fileId}`);
+}
+
+export async function reviewPinsAction(projectId: string, fileId: string): Promise<void> {
+  const user = await actor();
+  reviewPins(user, { projectId, jobFileId: fileId });
+  revalidatePath(`/projects/${projectId}/plans/${fileId}`);
+  redirect(`/projects/${projectId}/plans/${fileId}`);
 }
 
 export async function reviseJobFileAction(projectId: string, fileId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {

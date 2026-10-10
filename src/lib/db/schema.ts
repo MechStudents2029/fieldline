@@ -2244,3 +2244,47 @@ export const templateInspectionGates = sqliteTable(
   },
   (t) => [index("template_inspection_gates_template").on(t.orgId, t.templateId)],
 );
+
+/** One current drawing layer per photo or plan page. The source document stays as uploaded. */
+export const markups = sqliteTable(
+  "markups",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    projectId: text("project_id").notNull(),
+    targetType: text("target_type").notNull(),
+    targetId: text("target_id").notNull(),
+    sourceDocumentId: text("source_document_id").notNull(),
+    page: integer("page").notNull().default(1),
+    layerJson: text("layer_json").notNull(),
+    flatDocumentId: text("flat_document_id").notNull(),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    createdBy: text("created_by"),
+    updatedBy: text("updated_by"),
+  },
+  (t) => [uniqueIndex("markups_target").on(t.orgId, t.targetType, t.targetId, t.page)],
+);
+
+/** Numbered pin on a plan revision. copiedFromId is set when a new revision carries the pin forward. */
+export const planPins = sqliteTable(
+  "plan_pins",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    projectId: text("project_id").notNull(),
+    jobFileId: text("job_file_id").notNull(),
+    number: integer("number").notNull(),
+    xMilli: integer("x_milli").notNull(),
+    yMilli: integer("y_milli").notNull(),
+    linkType: text("link_type").notNull(),
+    linkId: text("link_id").notNull(),
+    note: text("note").notNull().default(""),
+    cropDocumentId: text("crop_document_id"),
+    copiedFromId: text("copied_from_id"),
+    reviewed: integer("reviewed").notNull().default(1),
+    createdAt: text("created_at").notNull(),
+    createdBy: text("created_by"),
+  },
+  (t) => [index("plan_pins_file").on(t.orgId, t.jobFileId)],
+);

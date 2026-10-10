@@ -152,6 +152,9 @@ function FilePane({
         <p className="text-sm text-[var(--mac-secondary)]">{file.folderName}</p>
       </div>
       <a href={`/api/files/${file.documentId}`}>Open</a>
+      <a href={file.plans ? `/projects/${projectId}/plans/${file.id}` : `/projects/${projectId}/markup/${file.documentId}`} className="ctl w-fit">
+        {file.plans ? "Plan" : "Mark up"}
+      </a>
       {file.plans ? (
         <div>
           <p className="mac-t11 text-[var(--mac-secondary)]">Revisions</p>

@@ -52,6 +52,7 @@ import { canManageMoney, canManageSettings, type Role } from "@/lib/permissions"
 import { rfiLabel } from "@/lib/rfis/format";
 import { attachmentExtension, attachmentUploadError } from "@/lib/security";
 import { ServiceError } from "@/lib/services/errors";
+import { carryPlanPins, clientMayReadVisual } from "@/lib/services/markup";
 import type { Actor } from "@/lib/services/read";
 import { submittalLabel } from "@/lib/submittals/format";
 import { hashVendorToken, vendorTokenMatches } from "@/lib/vendor/token";
@@ -517,6 +518,7 @@ export function reviseJobFile(actor: Actor, input: { projectId: string; fileId: 
       createdAt: now,
     })
     .run();
+  carryPlanPins(db, actor.orgId, current.id, fileId, actor.userId);
   writeAudit(db, actor.orgId, actor.userId, "file.revision", fileId, { groupId: current.revisionGroupId, revision: current.revision + 1 });
   return { id: fileId, revision: current.revision + 1 };
 }
@@ -969,6 +971,7 @@ export function fieldMayReadDocument(db: AppDatabase, orgId: string, documentId:
 export function clientMayReadDocument(db: AppDatabase, documentId: string): boolean {
   const document = db.select().from(documents).where(eq(documents.id, documentId)).get();
   if (!document || document.deletedAt) return false;
+  if (document.type === "markup" || document.type === "plan_crop") return clientMayReadVisual(db, documentId);
   if (MONEY_DOC_TYPES.has(document.type)) return false;
   const file = db.select().from(jobFiles).where(and(eq(jobFiles.orgId, document.orgId), eq(jobFiles.documentId, documentId))).get();
   if (!file) return true;
