@@ -2,7 +2,7 @@ import { and, desc, eq } from "drizzle-orm";
 import { clientUpdateFromFacts, clientUpdateModelSchema } from "@/lib/ai/client-update";
 import { getDb, type AppDatabase } from "@/lib/db/client";
 import { officeDb } from "@/lib/db/office";
-import { auditLogs, clientUpdateVersions, clientUpdates, organizations, projects } from "@/lib/db/schema";
+import { auditLogs, changeOrders, clientUpdateVersions, clientUpdates, dailyLogs, documents, invoices, organizations, projects, scheduleItems, selections } from "@/lib/db/schema";
 import { id, nowIso } from "@/lib/ids";
 import { canEditCrm, type Role } from "@/lib/permissions";
 import { ServiceError } from "@/lib/services/errors";
@@ -133,7 +133,62 @@ export function clientUpdateDetail(actor: Actor, projectId: string, updateId: st
     seen.add(photo.id);
     return true;
   });
-  return { project, update: row, versions, photos: unique, sources: parseDraft(row.sourcesJson) };
+  const sources = parseDraft(row.sourcesJson);
+  return { project, update: row, versions, photos: unique, sources, sourceCards: sourceCards(db, actor.orgId, projectId, sources) };
+}
+
+export type SourceCard = { key: string; section: string; title: string; date: string | null; href: string };
+
+function firstLine(value: string | null | undefined, fallback: string) {
+  const line = (value || "").split("\n")[0]?.trim() || "";
+  return (line || fallback).slice(0, 80);
+}
+
+function sourceCards(db: AppDatabase, orgId: string, projectId: string, draft: ClientUpdateDraft | null): SourceCard[] {
+  if (!draft) return [];
+  const cards: SourceCard[] = [];
+  for (const part of draft.sections) {
+    for (const line of part.sentences) {
+      const ref = line.source;
+      if (!ref) continue;
+      let title = firstLine(line.text, "Record");
+      let date: string | null = null;
+      let href = `/projects/${projectId}`;
+      if (ref.kind === "log") {
+        const log = db.select().from(dailyLogs).where(and(eq(dailyLogs.id, ref.id), eq(dailyLogs.orgId, orgId), eq(dailyLogs.projectId, projectId))).get();
+        title = firstLine(log?.notes, "Daily log");
+        date = log?.logDate ?? null;
+        href = log ? `/projects/${projectId}/logs/${log.id}` : `/projects/${projectId}/logs`;
+      } else if (ref.kind === "schedule") {
+        const item = db.select().from(scheduleItems).where(and(eq(scheduleItems.id, ref.id), eq(scheduleItems.orgId, orgId), eq(scheduleItems.projectId, projectId))).get();
+        title = item?.title || "Schedule";
+        date = item?.endDate || item?.startDate || null;
+        href = item ? `/schedule/items/${item.id}` : "/schedule";
+      } else if (ref.kind === "change_order") {
+        const order = db.select().from(changeOrders).where(and(eq(changeOrders.id, ref.id), eq(changeOrders.orgId, orgId), eq(changeOrders.projectId, projectId))).get();
+        title = order ? `CO ${order.number} ${order.title}` : "Change order";
+        date = (order?.approvedAt || order?.sentAt || "").slice(0, 10) || null;
+        href = order ? `/projects/${projectId}/orders/${order.id}` : `/projects/${projectId}`;
+      } else if (ref.kind === "invoice") {
+        const invoice = db.select().from(invoices).where(and(eq(invoices.id, ref.id), eq(invoices.orgId, orgId), eq(invoices.projectId, projectId))).get();
+        title = invoice ? `Invoice ${invoice.number}` : "Invoice";
+        date = invoice?.issueDate.slice(0, 10) ?? null;
+        href = "/invoices";
+      } else if (ref.kind === "selection") {
+        const pick = db.select().from(selections).where(and(eq(selections.id, ref.id), eq(selections.orgId, orgId), eq(selections.projectId, projectId))).get();
+        title = pick?.title || "Selection";
+        date = pick?.dueDate ?? null;
+        href = `/projects/${projectId}/selections`;
+      } else if (ref.kind === "photo") {
+        const photo = db.select().from(documents).where(and(eq(documents.id, ref.id), eq(documents.orgId, orgId))).get();
+        title = firstLine(line.text, "Photo");
+        date = photo?.createdAt.slice(0, 10) ?? null;
+        href = `/projects/${projectId}/files`;
+      }
+      cards.push({ key: `${part.key}-${ref.kind}-${ref.id}-${line.text}`, section: part.title, title, date, href });
+    }
+  }
+  return cards;
 }
 
 export function createClientUpdate(actor: Actor, projectId: string, range: DayRange | null, ip: string | null) {

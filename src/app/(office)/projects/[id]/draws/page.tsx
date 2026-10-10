@@ -55,16 +55,30 @@ export default async function DrawsPage({ params }: { params: Promise<{ id: stri
               <select name="mode" defaultValue={board.billingMode} aria-label="Billing" className="field mt-1">
                 <option value="draws">Draws</option>
                 <option value="progress">Progress</option>
+                <option value="cost_plus">Cost-plus</option>
               </select>
             </label>
             <label className="text-sm">
               Retainage %
               <input name="retainage" defaultValue={(board.retainageBps / 100).toFixed(0)} aria-label="Retainage" className="field mt-1 w-20" />
             </label>
+            <label className="text-sm">
+              Markup %
+              <input name="markup" defaultValue={(board.markupBps / 100).toFixed(1)} aria-label="Markup" className="field mt-1 w-20" />
+            </label>
+            <label className="text-sm">
+              Tax %
+              <input name="tax" defaultValue={(board.taxBps / 100).toFixed(2)} aria-label="Tax" className="field mt-1 w-20" />
+            </label>
             <button type="submit" className="mac-glass-btn">
               Apply
             </button>
           </ActionForm>
+        ) : null}
+        {board.billingMode === "cost_plus" ? (
+          <p className="mac-t13">
+            <Link href={`/projects/${id}/costs`}>Costs</Link>
+          </p>
         ) : null}
         {board.billingMode === "draws" ? (
           <>

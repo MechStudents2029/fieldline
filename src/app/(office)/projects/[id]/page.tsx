@@ -27,6 +27,7 @@ import { punchBoard } from "@/lib/services/punch";
 import { jobRfis } from "@/lib/services/rfis";
 import { jobSubmittals } from "@/lib/services/submittals";
 import { bidComposer } from "@/lib/services/bids";
+import { costPlusSummary } from "@/lib/services/cost-plus";
 import { drawSchedule } from "@/lib/services/draws";
 import { selectionBoard } from "@/lib/services/selections";
 import { timeBoard } from "@/lib/services/time";
@@ -62,7 +63,8 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
   const rfiBoard = jobRfis(session, detail.project.id);
   const submittalBoard = jobSubmittals(session, detail.project.id);
   const bidCount = detail.money ? (bidComposer(session, detail.project.id)?.bids.length ?? 0) : 0;
-  const billing = detail.money ? drawSchedule(session, detail.project.id)?.billing : null;
+  const billing = detail.money && detail.project.billingMode !== "cost_plus" ? drawSchedule(session, detail.project.id)?.billing : null;
+  const costPlus = detail.money && detail.project.billingMode === "cost_plus" ? costPlusSummary(session.orgId, detail.project.id) : null;
   const ranked = money ? [...money.byCode].sort((a, b) => (b.percentOfBudget ?? 0) - (a.percentOfBudget ?? 0)).slice(0, 2) : [];
   const paid = detail.invoices.reduce((sum, invoice) => sum + invoice.amountPaidCents, 0);
   const projectRows = listProjects(session.orgId);
@@ -540,6 +542,18 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
               ))}
               <div><dt>Total</dt><dd className="num font-semibold">{formatWhole(money.contractCents)}</dd></div>
             </dl>
+            {costPlus ? (
+              <>
+                <p className="mac-t11 font-semibold text-[var(--mac-secondary)]">Billing</p>
+                <dl className="mac-kv">
+                  <div><dt>Unbilled</dt><dd className="num">{formatWhole(costPlus.unbilledCostCents)}</dd></div>
+                  <div><dt>Billed</dt><dd className="num">{formatWhole(costPlus.billedCents)}</dd></div>
+                </dl>
+                <Link href={`/projects/${detail.project.id}/costs`} className="mac-glass-btn">
+                  Costs
+                </Link>
+              </>
+            ) : null}
             {billing ? (
               <>
                 <p className="mac-t11 font-semibold text-[var(--mac-secondary)]">Billing</p>

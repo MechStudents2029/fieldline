@@ -150,6 +150,8 @@ export function invoiceTypeLabel(type: string): string {
       return "Pay application";
     case "retainage":
       return "Retainage";
+    case "cost_plus":
+      return "Cost-plus";
     default:
       return type ? type.charAt(0).toUpperCase() + type.slice(1) : "";
   }

@@ -188,5 +188,6 @@ export function gatherClientUpdateFacts(db: AppDatabase, orgId: string, projectI
       if (!pick.dueDate || !inRange(pick.dueDate, range.start, range.end)) return [];
       return [{ id: pick.id, title: pick.title, dueDate: pick.dueDate }];
     }),
+    asOf: localDay(Date.now(), timeZone),
   };
 }

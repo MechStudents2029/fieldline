@@ -961,7 +961,7 @@ export function portalByToken(token: string) {
       sentAt: order.sentAt,
       approvedAt: order.approvedAt,
     })),
-    invoices: invoiceRows,
+    invoices: invoiceRows.filter((invoice) => !(invoice.type === "cost_plus" && invoice.status === "draft")),
     payments: paymentRows.map((payment) => ({
       id: payment.id,
       orgId: payment.orgId,

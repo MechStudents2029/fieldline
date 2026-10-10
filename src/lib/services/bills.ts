@@ -23,6 +23,7 @@ import { id, nowIso } from "@/lib/ids";
 import { overageByCode } from "@/lib/margin/commitment";
 import { positiveMoneyError } from "@/lib/money";
 import { canManageMoney, canSeeMoney, type Role } from "@/lib/permissions";
+import { assertBillFree } from "@/lib/services/cost-plus";
 import { ServiceError } from "@/lib/services/errors";
 import { assessBill } from "@/lib/services/pay-ready";
 import { vendorCommitmentTotals } from "@/lib/services/purchase-orders";
@@ -548,6 +549,7 @@ export function unapproveBill(actor: Actor, billId: string, reason: string) {
   const bill = loadBill(db, actor.orgId, billId);
   if (!bill) throw new ServiceError("Bill not found.");
   if (bill.status !== "approved") throw new ServiceError("Only an approved bill can be moved back to draft.");
+  assertBillFree(db, actor.orgId, bill.id);
   const why = reason.trim();
   if (why.length < 2) throw new ServiceError("Enter a reason for taking this bill off the job.");
   const before = snapshot(bill, loadLines(db, actor.orgId, bill.id));
@@ -633,6 +635,7 @@ export function voidBill(actor: Actor, billId: string, reason: string) {
   const bill = loadBill(db, actor.orgId, billId);
   if (!bill) throw new ServiceError("Bill not found.");
   if (bill.status === "void") throw new ServiceError("This bill is already void.");
+  assertBillFree(db, actor.orgId, bill.id);
   const why = reason.trim();
   if (why.length < 2) throw new ServiceError("Enter a reason for voiding this bill.");
   const before = snapshot(bill, loadLines(db, actor.orgId, bill.id));

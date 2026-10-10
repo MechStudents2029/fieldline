@@ -34,6 +34,7 @@ export type ClientUpdateFacts = {
   changeOrders: { id: string; number: number; title: string; status: "approved" | "sent"; priceDeltaCents: number }[];
   invoices: { id: string; number: string; status: "sent" | "paid"; totalCents: number }[];
   selections: { id: string; title: string; dueDate: string }[];
+  asOf: string;
 };
 
 const TITLES: Record<UpdateSectionKey, string> = {
@@ -58,6 +59,36 @@ function weatherLine(log: ClientUpdateFacts["logs"][number]): string {
   const sky = log.weatherSky?.trim() || "";
   const temps = log.weatherHighF != null && log.weatherLowF != null ? `${log.weatherHighF}°/${log.weatherLowF}°` : "";
   return sentence([sky, temps].filter(Boolean).join(", "));
+}
+
+function lowerFirst(title: string): string {
+  const trimmed = title.trim();
+  if (!trimmed) return "the work";
+  return trimmed.charAt(0).toLowerCase() + trimmed.slice(1);
+}
+
+function startedLine(title: string, day: string): string {
+  const when = formatCalendarDay(day);
+  if (/walk/i.test(title)) return sentence(`We walked the job with you on ${when}`);
+  if (/^(set|install|hang|frame|paint|grout)\b/i.test(title)) return sentence(`We ${lowerFirst(title)} on ${when}`);
+  return sentence(`We started the ${lowerFirst(title)} on ${when}`);
+}
+
+function finishedLine(title: string, day: string): string {
+  return sentence(`We finished ${lowerFirst(title)} on ${formatCalendarDay(day)}`);
+}
+
+function upcomingLine(title: string, day: string): string {
+  const when = formatCalendarDay(day);
+  if (/walk/i.test(title)) return sentence(`We'll walk the job with you on ${when}`);
+  return sentence(`We'll start the ${lowerFirst(title)} on ${when}`);
+}
+
+function decisionLine(title: string, due: string, asOf: string): string {
+  const when = formatCalendarDay(due);
+  const pick = /pick\b/i.test(title) ? lowerFirst(title) : `${lowerFirst(title)} pick`;
+  if (due < asOf) return sentence(`We still need your ${pick} (was due ${when})`);
+  return sentence(`We need your ${pick} by ${when}`);
 }
 
 function section(key: UpdateSectionKey, sentences: DraftSentence[]): DraftSection {
@@ -94,17 +125,17 @@ export function draftClientUpdate(facts: ClientUpdateFacts): ClientUpdateDraft {
     }
   }
   for (const item of completed) {
-    thisWeek.push({ text: sentence(`${item.title} finished ${formatCalendarDay(item.endDate)}`), source: { kind: "schedule", id: item.id } });
+    thisWeek.push({ text: finishedLine(item.title, item.endDate), source: { kind: "schedule", id: item.id } });
   }
   for (const item of started) {
-    thisWeek.push({ text: sentence(`${item.title} started ${formatCalendarDay(item.startDate)}`), source: { kind: "schedule", id: item.id } });
+    thisWeek.push({ text: startedLine(item.title, item.startDate), source: { kind: "schedule", id: item.id } });
   }
   for (const item of upcoming) {
-    nextWeek.push({ text: sentence(`${item.title} is set for ${formatCalendarDay(item.startDate)}`), source: { kind: "schedule", id: item.id } });
+    nextWeek.push({ text: upcomingLine(item.title, item.startDate), source: { kind: "schedule", id: item.id } });
   }
 
   const decisions: DraftSentence[] = selections.map((item) => ({
-    text: sentence(`${item.title} is due ${formatCalendarDay(item.dueDate)}`),
+    text: decisionLine(item.title, item.dueDate, facts.asOf),
     source: { kind: "selection", id: item.id },
   }));
 
@@ -139,4 +170,36 @@ export function draftClientUpdate(facts: ClientUpdateFacts): ClientUpdateDraft {
 
 export function renderUpdateBody(draft: ClientUpdateDraft): string {
   return draft.sections.map((part) => `${part.title}\n${part.sentences.map((row) => row.text).join("\n")}`).join("\n\n");
+}
+
+export function sectionTitle(key: UpdateSectionKey): string {
+  return TITLES[key];
+}
+
+export function splitUpdateBody(body: string): Record<UpdateSectionKey, string> {
+  const parts = Object.fromEntries(UPDATE_SECTION_KEYS.map((key) => [key, ""])) as Record<UpdateSectionKey, string>;
+  const lines = body.replace(/\r\n/g, "\n").split("\n");
+  let current: UpdateSectionKey | null = null;
+  const bucket: string[] = [];
+  const flush = () => {
+    if (!current) return;
+    parts[current] = bucket.join("\n").trim();
+    bucket.length = 0;
+  };
+  for (const line of lines) {
+    const key = UPDATE_SECTION_KEYS.find((item) => TITLES[item] === line.trim());
+    if (key) {
+      flush();
+      current = key;
+      continue;
+    }
+    if (current) bucket.push(line);
+  }
+  flush();
+  if (!UPDATE_SECTION_KEYS.some((key) => parts[key])) parts.this_week = body.trim();
+  return parts;
+}
+
+export function joinUpdateSections(parts: Record<UpdateSectionKey, string>): string {
+  return UPDATE_SECTION_KEYS.map((key) => `${TITLES[key]}\n${parts[key].trim() || "Nothing to report."}`).join("\n\n");
 }

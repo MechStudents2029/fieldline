@@ -8,6 +8,7 @@ import { registerCompany } from "@/lib/auth/signup";
 import { clearSession, getSession, setSession } from "@/lib/auth/session";
 import { receiptAutoPostAllowed } from "@/lib/ai/receipt";
 import { parseMoneyToCents, qtyToMilli } from "@/lib/money";
+import { joinUpdateSections } from "@/lib/updates/draft";
 import {
   createClientUpdate,
   publishClientUpdate,
@@ -155,6 +156,7 @@ import {
   setBillingMode,
   voidBilling,
 } from "@/lib/services/draws";
+import { createCostInvoice, openCostInvoice, saveCostMarkups, setCostBillable } from "@/lib/services/cost-plus";
 import {
   addCost,
   addPortalMessage,
@@ -842,9 +844,12 @@ export async function createPayAppAction(projectId: string, _prev: ActionState, 
 export async function setBillingModeAction(projectId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
   try {
     const user = await actor();
-    const mode = String(formData.get("mode") || "draws") === "progress" ? "progress" : "draws";
+    const rawMode = String(formData.get("mode") || "draws");
+    const mode = rawMode === "progress" ? "progress" : rawMode === "cost_plus" ? "cost_plus" : "draws";
     const retainage = Math.round(Number(formData.get("retainage") || 0) * 100);
-    setBillingMode(user, projectId, mode, retainage);
+    const markupBps = Math.round(Number(formData.get("markup") || 0) * 100);
+    const taxBps = Math.round(Number(formData.get("tax") || 0) * 100);
+    setBillingMode(user, projectId, mode, retainage, { markupBps, taxBps });
     revalidatePath(`/projects/${projectId}/draws`);
     return { ok: "Saved." };
   } catch (error) {
@@ -857,6 +862,8 @@ export async function voidBillingAction(invoiceId: string, projectId: string, _p
     const user = await actor();
     voidBilling(user, invoiceId);
     revalidatePath(`/projects/${projectId}/draws`);
+    revalidatePath(`/projects/${projectId}/costs`);
+    revalidatePath(`/projects/${projectId}/invoices/${invoiceId}`);
     return { ok: "Void." };
   } catch (error) {
     return failure(error);
@@ -3418,10 +3425,76 @@ export async function saveClientUpdateAction(projectId: string, updateId: string
   try {
     const user = await actor();
     const photos = formData.getAll("photoId").map((value) => String(value));
-    saveClientUpdate(user, updateId, String(formData.get("body") || ""), photos, await requestIp());
+    const sections = {
+      this_week: String(formData.get("this_week") || ""),
+      next_week: String(formData.get("next_week") || ""),
+      decisions: String(formData.get("decisions") || ""),
+      money: String(formData.get("money") || ""),
+      photos: String(formData.get("photos") || ""),
+    };
+    const body = formData.has("this_week") ? joinUpdateSections(sections) : String(formData.get("body") || "");
+    saveClientUpdate(user, updateId, body, photos, await requestIp());
     if (String(formData.get("intent") || "") === "publish") publishClientUpdate(user, updateId, await requestIp());
     refreshUpdate(projectId, updateId);
     return { ok: String(formData.get("intent") || "") === "publish" ? "Published." : "Saved." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function createCostInvoiceAction(projectId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const keys = formData.getAll("cost").map((value) => String(value));
+    const created = createCostInvoice(user, projectId, {
+      keys,
+      presentAs: String(formData.get("presentAs") || "grouped"),
+      markupDisplay: String(formData.get("markupDisplay") || "baked"),
+    });
+    revalidatePath(`/projects/${projectId}/costs`);
+    redirect(`/projects/${projectId}/invoices/${created.invoiceId}`);
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function openCostInvoiceAction(projectId: string, invoiceId: string, _prev: ActionState, _formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    openCostInvoice(user, invoiceId);
+    revalidatePath(`/projects/${projectId}/invoices/${invoiceId}`);
+    revalidatePath(`/portal`);
+    return { ok: "Open." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function setCostBillableAction(projectId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    setCostBillable(user, projectId, String(formData.get("key") || ""), String(formData.get("billable") || "") === "1");
+    revalidatePath(`/projects/${projectId}/costs`);
+    return { ok: "Saved." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function saveCostMarkupsAction(projectId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const markupBps = Math.round(Number(formData.get("markup") || 0) * 100);
+    const taxBps = Math.round(Number(formData.get("tax") || 0) * 100);
+    const codes = formData.getAll("code").map((value) => {
+      const costCode = String(value);
+      const raw = String(formData.get(`markup_${costCode}`) || "");
+      const markup = raw.trim() === "" ? null : Math.round(Number(raw) * 100);
+      return { costCode, markupBps: markup };
+    });
+    saveCostMarkups(user, projectId, { markupBps, taxBps, codes });
+    revalidatePath(`/projects/${projectId}/costs`);
+    return { ok: "Saved." };
   } catch (error) {
     return failure(error);
   }

@@ -424,6 +424,8 @@ export const projects = sqliteTable(
     closeOverrideReason: text("close_override_reason"),
     billingMode: text("billing_mode").notNull().default("draws"),
     retainageBps: integer("retainage_bps").notNull().default(0),
+    markupBps: integer("markup_bps").notNull().default(0),
+    taxBps: integer("tax_bps").notNull().default(0),
     templateId: text("template_id"),
     templateVersion: integer("template_version"),
     templateName: text("template_name"),
@@ -500,6 +502,8 @@ export const invoices = sqliteTable(
     payToken: text("pay_token").notNull().unique(),
     applicationNumber: integer("application_number"),
     retainageCents: integer("retainage_cents").notNull().default(0),
+    presentAs: text("present_as").notNull().default("grouped"),
+    markupDisplay: text("markup_display").notNull().default("baked"),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
     createdBy: text("created_by"),
@@ -831,6 +835,7 @@ export const laborRates = sqliteTable(
     orgId: text("org_id").notNull(),
     userId: text("user_id").notNull(),
     hourlyCostCents: integer("hourly_cost_cents").notNull(),
+    hourlyBillCents: integer("hourly_bill_cents"),
     updatedAt: text("updated_at").notNull(),
     updatedBy: text("updated_by"),
   },
@@ -2010,6 +2015,42 @@ export const clientUpdates = sqliteTable(
     createdBy: text("created_by"),
   },
   (t) => [index("client_updates_project").on(t.orgId, t.projectId)],
+);
+
+/** Per cost-code markup on a cost-plus job. Missing codes use the job default. */
+export const costCodeMarkups = sqliteTable(
+  "cost_code_markups",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    projectId: text("project_id").notNull(),
+    costCode: text("cost_code").notNull(),
+    markupBps: integer("markup_bps").notNull(),
+  },
+  (t) => [uniqueIndex("cost_code_markups_code").on(t.orgId, t.projectId, t.costCode)],
+);
+
+/** One row ties a bill line, receipt, or time entry to a single invoice, or marks it non-billable. */
+export const invoiceCosts = sqliteTable(
+  "invoice_costs",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    projectId: text("project_id").notNull(),
+    invoiceId: text("invoice_id"),
+    sourceKind: text("source_kind").notNull(),
+    sourceId: text("source_id").notNull(),
+    costCode: text("cost_code").notNull(),
+    label: text("label").notNull(),
+    occurredOn: text("occurred_on").notNull(),
+    costCents: integer("cost_cents").notNull(),
+    markupBps: integer("markup_bps").notNull(),
+    markupCents: integer("markup_cents").notNull(),
+    priceCents: integer("price_cents").notNull(),
+    nonBillable: integer("non_billable").notNull().default(0),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [uniqueIndex("invoice_costs_source").on(t.orgId, t.sourceKind, t.sourceId), index("invoice_costs_invoice").on(t.orgId, t.invoiceId)],
 );
 
 export const clientUpdateVersions = sqliteTable(

@@ -29,6 +29,7 @@ import { defaultSchedule } from "@/lib/domain/snapshot";
 import { daysFromNow, id, nowIso, token } from "@/lib/ids";
 import { canManageMoney, canManageSettings, canSeeMoney, type Role } from "@/lib/permissions";
 import { ServiceError } from "@/lib/services/errors";
+import { releaseInvoiceCosts } from "@/lib/services/cost-plus";
 import type { Actor } from "@/lib/services/read";
 import { addCalendarDays, localDay } from "@/lib/time/calendar";
 
@@ -54,8 +55,10 @@ export type DrawBoard = {
   projectId: string;
   projectName: string;
   contractCents: number;
-  billingMode: "draws" | "progress";
+  billingMode: "draws" | "progress" | "cost_plus";
   retainageBps: number;
+  markupBps: number;
+  taxBps: number;
   termsDays: number;
   showMoney: boolean;
   canEdit: boolean;
@@ -237,7 +240,7 @@ export function attachApprovedChange(
   input: { orgId: string; projectId: string; changeOrderId: string; number: number; title: string; amountCents: number; invoiceId: string },
 ) {
   const project = tx.select().from(projects).where(and(eq(projects.id, input.projectId), eq(projects.orgId, input.orgId))).get();
-  if (!project || project.billingMode === "progress") return;
+  if (!project || project.billingMode === "progress" || project.billingMode === "cost_plus") return;
   const existing = tx.select().from(draws).where(and(eq(draws.projectId, input.projectId), eq(draws.orgId, input.orgId))).all();
   if (existing.length === 0) return;
   const now = nowIso();
@@ -309,7 +312,7 @@ function position(db: Writer, orgId: string, projectId: string, contractCents: n
       .all()
       .filter((line) => ids.includes(line.invoiceId))
       .reduce((sum, line) => sum + line.thisCents, 0);
-  } else if (mode !== "progress") {
+  } else if (mode === "draws") {
     const { today } = companyToday(db, orgId);
     const rows = db.select().from(draws).where(and(eq(draws.orgId, orgId), eq(draws.projectId, projectId))).all();
     if (rows.length > 0) {
@@ -344,6 +347,8 @@ export function drawSchedule(actor: Actor, projectId: string): DrawBoard | null 
       contractCents: 0,
       billingMode: "draws",
       retainageBps: 0,
+      markupBps: 0,
+      taxBps: 0,
       termsDays: 0,
       showMoney: false,
       canEdit: false,
@@ -388,8 +393,10 @@ export function drawSchedule(actor: Actor, projectId: string): DrawBoard | null 
     projectId,
     projectName: project.name,
     contractCents: project.contractValueCents,
-    billingMode: project.billingMode === "progress" ? "progress" : "draws",
+    billingMode: project.billingMode === "progress" ? "progress" : project.billingMode === "cost_plus" ? "cost_plus" : "draws",
     retainageBps: project.retainageBps,
+    markupBps: project.markupBps,
+    taxBps: project.taxBps,
     termsDays,
     showMoney: true,
     canEdit: canManageMoney(actor.role as Role),
@@ -501,6 +508,8 @@ export function billDraw(actor: Actor, drawId: string) {
   const db = office(actor);
   const draw = db.select().from(draws).where(and(eq(draws.id, drawId), eq(draws.orgId, actor.orgId))).get();
   if (!draw) throw new ServiceError("Draw not found.");
+  const job = db.select().from(projects).where(and(eq(projects.id, draw.projectId), eq(projects.orgId, actor.orgId))).get();
+  if (job?.billingMode === "cost_plus") throw new ServiceError("This job bills cost-plus.");
   if (draw.invoiceId) {
     const current = db.select().from(invoices).where(eq(invoices.id, draw.invoiceId)).get();
     if (current && current.status !== "void") throw new ServiceError("That draw is already invoiced.");
@@ -563,16 +572,26 @@ export function readyToBill(orgId: string) {
   };
 }
 
-export function setBillingMode(actor: Actor, projectId: string, mode: "draws" | "progress", retainageBps: number) {
+export function setBillingMode(
+  actor: Actor,
+  projectId: string,
+  mode: "draws" | "progress" | "cost_plus",
+  retainageBps: number,
+  markup?: { markupBps: number; taxBps: number },
+) {
   const db = office(actor);
   const project = db.select().from(projects).where(and(eq(projects.id, projectId), eq(projects.orgId, actor.orgId))).get();
   if (!project) throw new ServiceError("Job not found.");
   if (retainageBps < 0 || retainageBps > 10000) throw new ServiceError("Retainage is 0 to 100%.");
+  const markupBps = markup?.markupBps ?? project.markupBps;
+  const taxBps = markup?.taxBps ?? project.taxBps;
+  if (markupBps < 0 || markupBps > 50000) throw new ServiceError("Markup is 0 to 500%.");
+  if (taxBps < 0 || taxBps > 10000) throw new ServiceError("Tax is 0 to 100%.");
   db.update(projects)
-    .set({ billingMode: mode, retainageBps, updatedAt: nowIso() })
+    .set({ billingMode: mode, retainageBps, markupBps, taxBps, updatedAt: nowIso() })
     .where(and(eq(projects.id, projectId), eq(projects.orgId, actor.orgId)))
     .run();
-  audit(db, actor.orgId, actor.userId, "billing.mode", "project", projectId, { mode, retainageBps });
+  audit(db, actor.orgId, actor.userId, "billing.mode", "project", projectId, { mode, retainageBps, markupBps, taxBps });
 }
 
 function sovLines(db: Writer, orgId: string, projectId: string): SovRow[] {
@@ -686,6 +705,7 @@ export function createPayApp(
   const db = office(actor);
   const project = db.select().from(projects).where(and(eq(projects.id, projectId), eq(projects.orgId, actor.orgId))).get();
   if (!project) throw new ServiceError("Job not found.");
+  if (project.billingMode === "cost_plus") throw new ServiceError("This job bills cost-plus.");
   if (project.billingMode !== "progress") throw new ServiceError("This job bills by draws.");
   const lines = sovLines(db, actor.orgId, projectId);
   let built;
@@ -754,6 +774,7 @@ export function voidBilling(actor: Actor, invoiceId: string) {
   const now = nowIso();
   db.transaction((tx) => {
     tx.update(invoices).set({ status: "void", updatedAt: now }).where(eq(invoices.id, invoice.id)).run();
+    releaseInvoiceCosts(tx, actor.orgId, invoice.id);
     const linked = tx.select().from(draws).where(and(eq(draws.orgId, actor.orgId), eq(draws.invoiceId, invoice.id))).all();
     for (const draw of linked) {
       tx.update(draws).set({ invoiceId: null, updatedAt: now }).where(eq(draws.id, draw.id)).run();
@@ -877,7 +898,7 @@ export function portalBilling(tokenValue: string) {
   const applications = invoiceRows.filter((invoice) => invoice.status !== "void" && invoice.applicationNumber != null);
   const lineRows = db.select().from(payAppLines).where(eq(payAppLines.orgId, project.orgId)).all();
   return {
-    mode: project.billingMode === "progress" ? "progress" : "draws",
+    mode: project.billingMode === "progress" ? "progress" : project.billingMode === "cost_plus" ? "cost_plus" : "draws",
     retainedCents: heldRetainage(db, project.orgId, project.id),
     draws: rows.map((draw) => {
       const invoice = invoiceRows.find((row) => row.id === draw.invoiceId && row.status !== "void");

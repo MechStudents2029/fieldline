@@ -9,6 +9,7 @@ import { formatCalendarDay, formatDateTime } from "@/lib/format";
 import { clientUpdateDetail } from "@/lib/services/client-updates";
 import { ServiceError } from "@/lib/services/errors";
 import { calendarForOrg } from "@/lib/services/time";
+import { splitUpdateBody, UPDATE_SECTION_KEYS, sectionTitle } from "@/lib/updates/draft";
 
 export const dynamic = "force-dynamic";
 
@@ -39,6 +40,7 @@ export default async function ClientUpdateEditorPage({ params }: { params: Promi
   }
   const selected = new Set(storedPhotos);
   const range = `${formatCalendarDay(detail.update.rangeStart)} – ${formatCalendarDay(detail.update.rangeEnd)}`;
+  const sections = splitUpdateBody(detail.update.body);
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <Toolbar
@@ -64,8 +66,17 @@ export default async function ClientUpdateEditorPage({ params }: { params: Promi
         }
       />
       <div className="grid gap-4 px-4 py-4 md:grid-cols-[minmax(0,1fr)_280px]">
-        <ActionForm id="update-form" action={saveClientUpdateAction.bind(null, id, updateId)} className="flex flex-col gap-3">
-          <textarea className="update-body" name="body" aria-label="Update" defaultValue={detail.update.body} />
+        <ActionForm id="update-form" action={saveClientUpdateAction.bind(null, id, updateId)} className="flex flex-col gap-4">
+          {UPDATE_SECTION_KEYS.map((key) => {
+            const value = sections[key];
+            const rows = Math.max(2, value.split("\n").length);
+            return (
+              <label key={key} className="update-block">
+                <span className="update-label">{sectionTitle(key)}</span>
+                <textarea name={key} aria-label={sectionTitle(key)} rows={rows} defaultValue={value} />
+              </label>
+            );
+          })}
         </ActionForm>
         <aside className="flex flex-col gap-4" aria-label="Update details">
           <section className="flex flex-col gap-2">
@@ -78,17 +89,17 @@ export default async function ClientUpdateEditorPage({ params }: { params: Promi
               </label>
             ))}
           </section>
-          <section className="flex flex-col gap-1">
+          <section className="flex flex-col gap-2">
             <h2 className="mac-t11 font-semibold text-[var(--mac-secondary)]">Sources</h2>
-            {detail.sources?.sections.flatMap((part) =>
-              part.sentences
-                .filter((row) => row.source)
-                .map((row) => (
-                  <p key={`${part.key}-${row.source?.id}-${row.text}`} className="truncate mac-t11 text-[var(--mac-secondary)]" title={row.text}>
-                    {part.title} · {row.source?.kind} {row.source?.id}
-                  </p>
-                )),
-            )}
+            {detail.sourceCards.length === 0 ? <p className="mac-t11 text-[var(--mac-secondary)]">None</p> : null}
+            {detail.sourceCards.map((card) => (
+              <p key={card.key} className="mac-t11">
+                <Link href={card.href} className="text-[var(--mac-label)]">
+                  {card.title}
+                </Link>
+                {card.date ? <span className="text-[var(--mac-secondary)]"> · {formatCalendarDay(card.date)}</span> : null}
+              </p>
+            ))}
           </section>
           <section className="flex flex-col gap-1">
             <h2 className="mac-t11 font-semibold text-[var(--mac-secondary)]">Versions</h2>
