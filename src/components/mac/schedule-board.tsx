@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { moveScheduleAction, previewScheduleShiftAction, saveScheduleAction } from "@/app/actions";
 import { Segmented, Toolbar } from "@/components/mac/toolbar";
+import { DELAY_REASONS } from "@/lib/schedule/delays";
 import { shiftSpan } from "@/lib/schedule/range";
 import type { ScheduleBoard as Board, ScheduleChip } from "@/lib/services/schedule";
 import { addCalendarDays } from "@/lib/time/calendar";
@@ -26,6 +27,7 @@ type Pending = {
   endDate: string;
   assigneeId: string | null;
   label?: string;
+  days?: number;
 };
 
 export function ScheduleBoard({ board, openJobId }: { board: Board; openJobId: string | null }) {
@@ -46,7 +48,12 @@ export function ScheduleBoard({ board, openJobId }: { board: Board; openJobId: s
     };
   });
   const [pending, setPending] = useState<Pending | null>(null);
+  const [delayAsk, setDelayAsk] = useState<Pending | null>(null);
+  const [delayReason, setDelayReason] = useState("");
+  const [delayNote, setDelayNote] = useState("");
   const [confirmMove, setConfirmMove] = useState<{ label: string; start: string; end: string } | null>(null);
+  const [askReason, setAskReason] = useState(false);
+  const [sheetDays, setSheetDays] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -107,6 +114,13 @@ export function ScheduleBoard({ board, openJobId }: { board: Board; openJobId: s
     if (confirmMove && confirmMove.start === start && confirmMove.end === end) data.set("confirmShift", "1");
     const result = await saveScheduleAction(null, data);
     setBusy(false);
+    if (result?.needsReason) {
+      setAskReason(true);
+      setSheetDays(result.delayDays ?? 0);
+      setConfirmMove(result.confirm ? { label: result.confirm, start, end } : null);
+      setError(null);
+      return;
+    }
     if (result?.confirm) {
       setConfirmMove({ label: result.confirm, start, end });
       setError(null);
@@ -186,6 +200,14 @@ export function ScheduleBoard({ board, openJobId }: { board: Board; openJobId: s
       setError(preview.error);
       return;
     }
+    if (preview.needsReason) {
+      setError(null);
+      setDelayReason("");
+      setDelayNote("");
+      setDelayAsk({ ...next, label: preview.count > 1 ? preview.label : undefined, days: preview.days });
+      setPending(null);
+      return;
+    }
     if (preview.count > 1) {
       setError(null);
       setPending({ ...next, label: preview.label });
@@ -199,6 +221,32 @@ export function ScheduleBoard({ board, openJobId }: { board: Board; openJobId: s
       return;
     }
     setPending(null);
+    router.refresh();
+  }
+
+  async function saveDelay() {
+    if (!delayAsk || busy || !board.canEdit) return;
+    if (!delayReason) {
+      setError("Pick a reason.");
+      return;
+    }
+    if (delayReason === "other" && !delayNote.trim()) {
+      setError("Add a short note.");
+      return;
+    }
+    setBusy(true);
+    const result = await moveScheduleAction({ ...delayAsk, reason: delayReason, note: delayNote });
+    setBusy(false);
+    if (result?.needsReason) {
+      setError("Pick a reason.");
+      return;
+    }
+    if (!result || result.error) {
+      setError(result?.error ?? "Could not save.");
+      return;
+    }
+    setDelayAsk(null);
+    setError(null);
     router.refresh();
   }
 
@@ -238,7 +286,7 @@ export function ScheduleBoard({ board, openJobId }: { board: Board; openJobId: s
             <tr>
               <th className="px-2 text-left">Person</th>
               {board.days.map((day) => (
-                <th key={day.date} className={`px-1 text-left ${day.isToday ? "text-[var(--mac-accent)]" : ""}`}>
+                <th key={day.date} className={`px-1 text-left ${day.off ? "is-off" : ""} ${day.isToday ? "text-[var(--mac-accent)]" : ""}`}>
                   {day.label}
                 </th>
               ))}
@@ -258,7 +306,7 @@ export function ScheduleBoard({ board, openJobId }: { board: Board; openJobId: s
                   return (
                     <td
                       key={cell.date}
-                      className={`relative h-[72px] align-top ${lifted ? "outline outline-1 outline-[var(--mac-accent)]" : ""}`}
+                      className={`relative h-[72px] align-top ${board.days.find((day) => day.date === cell.date)?.off ? "is-off" : ""} ${lifted ? "outline outline-1 outline-[var(--mac-accent)]" : ""}`}
                       onDragOver={(event) => {
                         if (board.canEdit) event.preventDefault();
                       }}
@@ -286,7 +334,10 @@ export function ScheduleBoard({ board, openJobId }: { board: Board; openJobId: s
                             }}
                           >
                             <span className="block truncate text-[11px] font-semibold leading-4">{item.jobName}</span>
-                            <span className="block truncate text-[11px] leading-4 text-[var(--mac-secondary)]">{item.title}</span>
+                            <span className="block truncate text-[11px] leading-4 text-[var(--mac-secondary)]">
+                              {item.title}
+                              {item.variance ? <span className="num"> · {item.variance}</span> : null}
+                            </span>
                             {item.conflict ? <span className="mt-0.5 inline-flex rounded bg-[var(--mac-danger)]/10 px-1 text-[10px] font-semibold text-[var(--mac-danger)]">Conflict</span> : null}
                             {item.rfiDue ? <span className="mt-0.5 inline-flex rounded bg-[var(--mac-fill)] px-1 text-[10px] text-[var(--mac-secondary)]">RFI</span> : null}
                           </button>
@@ -326,6 +377,37 @@ export function ScheduleBoard({ board, openJobId }: { board: Board; openJobId: s
           </span>
         ) : null}
       </div>
+      {delayAsk ? (
+        <aside role="dialog" aria-label="Delay" data-sheet="delay" className="absolute inset-y-0 right-0 z-30 flex w-[320px] flex-col gap-3 border-l border-[var(--mac-separator)] bg-[var(--mac-window)] p-4">
+          <div className="flex items-center justify-between">
+            <h2 className="mac-t15">Delay</h2>
+            <button type="button" className="mac-glass-btn" onClick={() => setDelayAsk(null)} aria-label="Close">
+              Close
+            </button>
+          </div>
+          <p className="num mac-t22">+{delayAsk.days ?? 0} wd</p>
+          {delayAsk.label ? <p className="mac-t13 text-[var(--mac-secondary)]">{delayAsk.label}</p> : null}
+          <label className="text-[13px]">
+            Reason
+            <select aria-label="Reason" className="field mt-1" value={delayReason} onChange={(event) => setDelayReason(event.target.value)}>
+              <option value="">Reason</option>
+              {DELAY_REASONS.map((reason) => (
+                <option key={reason.id} value={reason.id}>
+                  {reason.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="text-[13px]">
+            Note
+            <input aria-label="Note" className="field mt-1" value={delayNote} onChange={(event) => setDelayNote(event.target.value)} />
+          </label>
+          {error ? <p role="alert" className="text-[13px] text-[var(--mac-danger)]">{error}</p> : null}
+          <button type="button" data-mac-primary className="mac-primary" disabled={busy} onClick={() => void saveDelay()}>
+            Save
+          </button>
+        </aside>
+      ) : null}
       {draft ? (
         <aside role="dialog" aria-label="Schedule item" data-pane="schedule" className="absolute inset-y-0 right-0 z-20 flex w-[320px] flex-col gap-3 overflow-hidden border-l border-[var(--mac-separator)] bg-[var(--mac-window)] p-4">
           <div className="flex shrink-0 items-center justify-between bg-[var(--mac-window)]">
@@ -419,6 +501,27 @@ export function ScheduleBoard({ board, openJobId }: { board: Board; openJobId: s
               <p role="status" className="text-[13px]">
                 {confirmMove.label}
               </p>
+            ) : null}
+            {askReason ? (
+              <>
+                <input type="hidden" name="confirmShift" value="1" />
+                <p className="num text-[13px]">+{sheetDays} wd</p>
+                <label className="text-[13px]">
+                  Reason
+                  <select name="reason" aria-label="Reason" className="field mt-1" required defaultValue="">
+                    <option value="">Reason</option>
+                    {DELAY_REASONS.map((reason) => (
+                      <option key={reason.id} value={reason.id}>
+                        {reason.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="text-[13px]">
+                  Note
+                  <input name="note" aria-label="Note" className="field mt-1" />
+                </label>
+              </>
             ) : null}
             {error ? (
               <p role="alert" className="text-[13px] text-[var(--mac-danger)]">

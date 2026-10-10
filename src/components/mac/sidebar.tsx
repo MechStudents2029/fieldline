@@ -102,6 +102,7 @@ export function Sidebar({
             <>
               <p className="px-2 pb-1 pt-3 mac-t11 font-semibold text-[var(--mac-secondary)]">Reports</p>
               {item("/reports/wip", "WIP", <BarChart3 size={16} strokeWidth={1.6} />)}
+              {item("/reports/schedule", "Variance", <Calendar size={16} strokeWidth={1.6} />)}
             </>
           ) : null}
           <p className="px-2 pb-1 pt-3 mac-t11 font-semibold text-[var(--mac-secondary)]">People</p>

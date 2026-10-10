@@ -26,4 +26,31 @@ describe("workday offsets", () => {
     expect(addWorkdays("2026-10-09", 1, WITH_SATURDAY)).toBe("2026-10-10");
     expect(workdayOffset("2026-10-09", "2026-10-12", WITH_SATURDAY)).toBe(2);
   });
+
+  it("skips a holiday and honors an extra workday", () => {
+    const holiday = {
+      mask: WEEKDAYS,
+      exceptions: [{ kind: "off" as const, start: "2026-10-12", end: "2026-10-12", yearly: false }],
+    };
+    expect(addWorkdays("2026-10-09", 1, holiday)).toBe("2026-10-13");
+    expect(inclusiveWorkdays("2026-10-09", "2026-10-13", holiday)).toBe(2);
+    const saturday = {
+      mask: WEEKDAYS,
+      exceptions: [{ kind: "work" as const, start: "2026-10-10", end: "2026-10-10", yearly: false }],
+    };
+    expect(addWorkdays("2026-10-09", 1, saturday)).toBe("2026-10-10");
+    const yearly = {
+      mask: WEEKDAYS,
+      exceptions: [{ kind: "off" as const, start: "2026-07-04", end: "2026-07-04", yearly: true }],
+    };
+    expect(addWorkdays("2028-07-03", 1, yearly)).toBe("2028-07-05");
+    const override = {
+      mask: WEEKDAYS,
+      exceptions: [
+        { kind: "off" as const, start: "2026-10-12", end: "2026-10-12", yearly: false },
+        { kind: "work" as const, start: "2026-10-12", end: "2026-10-12", yearly: false },
+      ],
+    };
+    expect(addWorkdays("2026-10-09", 1, override)).toBe("2026-10-12");
+  });
 });

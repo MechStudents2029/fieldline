@@ -34,7 +34,7 @@ import { dateFromOffset, endFromDuration, inclusiveWorkdays, workdayOffset } fro
 import { ServiceError } from "@/lib/services/errors";
 import type { Actor } from "@/lib/services/read";
 import { applyTemplateTodos } from "@/lib/services/todos";
-import { workdaysForOrg } from "@/lib/services/time";
+import { workCalendarFor } from "@/lib/services/work-calendar";
 
 export const TEMPLATE_PARTS = ["schedule", "estimate", "draws", "selections", "punch", "todos"] as const;
 export type TemplatePart = (typeof TEMPLATE_PARTS)[number];
@@ -533,7 +533,7 @@ export function saveJobAsTemplate(actor: Actor, projectId: string, input: { name
   if (!project) throw new ServiceError("That job is not in your company.");
   const parts = new Set(input.parts);
   if (parts.size === 0) throw new ServiceError("Pick at least one part.");
-  const mask = workdaysForOrg(actor.orgId);
+  const mask = workCalendarFor(actor.orgId, projectId);
   const draft: TemplateDraft = { name: input.name, jobType: input.jobType, tasks: [], lines: [], draws: [], selections: [], checks: [], todos: [] };
   let scheduleKeys = new Map<string, string>();
   if (parts.has("schedule")) {
@@ -669,7 +669,7 @@ function applyParts(
 ): ApplyResult {
   const bundle = loadBundle(tx, actor.orgId, templateId);
   if (!bundle) throw new ServiceError("That template is not in your company.");
-  const mask = workdaysForOrg(actor.orgId);
+  const mask = workCalendarFor(actor.orgId, projectId);
   const vendors = vendorMap(tx, actor.orgId, trades);
   const now = nowIso();
   let schedule = 0;

@@ -125,7 +125,7 @@ describe("job templates", () => {
       trades: {},
     });
     const demo = getDb().select().from(scheduleItems).where(eq(scheduleItems.projectId, created.projectId)).all().find((item) => item.title === "Demo");
-    expect(demo?.startDate).toBe("2026-10-12");
+    expect(demo?.startDate).toBe("2026-10-13");
     getDb().update(organizations).set({ workdaysMask: 62 | 64 }).where(eq(organizations.id, "org_rivera")).run();
     const saturday = createJobFromTemplate(maya, {
       templateId: "tpl_bath",

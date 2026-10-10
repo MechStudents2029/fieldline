@@ -2,6 +2,17 @@
 
 ## 2026-10-10
 
+### Schedule
+
+- Settings holds company non-workdays and extra workdays. A job can add its own. Lags, cascades, template starts, to-do offsets, and RFI shifts use those days. The schedule grid shades non-workdays. Rivera has US federal holidays for this year and next, and Brooks works one Saturday.
+- Set baseline freezes each item and the job finish. Setting it again keeps the earlier baseline, with who and when. The job schedule shows baseline against current and the variance in workdays.
+- Moving an item past its baseline asks for a reason. A cascade logs that reason once, on the root item. Delays stay off the portal and out of client updates. Field cannot edit.
+- Schedule variance lists each open job: baseline finish, current finish, variance, and delay days by reason, with CSV and print. Today counts jobs 5 or more workdays past baseline. Brooks has a baseline and two delays.
+
+### Costs
+
+- Markup, tax, and cost-code percents sit on one line. Edit markup opens a sheet. The date range uses the list date filter. Billed and non-billable rows leave the checkbox cell empty. Non-billable sits on the selection bar. The invoice preview is a pane with lines, markup, tax, and total.
+
 ### Cost-plus
 
 - A job can bill cost-plus, with a markup percent and a tax percent. A cost code can use its own markup. Draws and progress jobs stay as they are.

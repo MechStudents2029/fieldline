@@ -10,7 +10,9 @@ import { ServiceError } from "@/lib/services/errors";
 import type { Actor } from "@/lib/services/read";
 import { linkedDeadline } from "@/lib/todos/deadline";
 import { refreshLinkedTodos } from "@/lib/services/todos";
-import { calendarForOrg, workdaysForOrg } from "@/lib/services/time";
+import { cleanDelay, delayRequirement, writeDelay } from "@/lib/services/schedule-plan";
+import { calendarForOrg } from "@/lib/services/time";
+import { workCalendarFor } from "@/lib/services/work-calendar";
 
 export type ScheduleLinkInput = { predecessorId: string; lag: number };
 
@@ -52,16 +54,16 @@ export function buildSchedulePlan(actor: Actor, itemId: string, startDate: strin
     .map((row) => ({ itemId: row.itemId, predecessorId: row.predecessorId, lag: row.lagWorkdays }));
   if (hasCycle(edges)) throw new ServiceError("That link would loop.");
   try {
-    return cascadeShift(nodes, edges, itemId, startDate, endDate, workdaysForOrg(actor.orgId));
+    return cascadeShift(nodes, edges, itemId, startDate, endDate, workCalendarFor(actor.orgId, item.projectId));
   } catch (error) {
     if (error instanceof Error && error.message === "cycle") throw new ServiceError("That link would loop.");
     throw error;
   }
 }
 
-function todoMoves(db: ReturnType<typeof dbFor>, orgId: string, shifts: ScheduleShift[]): number {
+function todoMoves(db: ReturnType<typeof dbFor>, orgId: string, projectId: string, shifts: ScheduleShift[]): number {
   if (shifts.length === 0) return 0;
-  const mask = workdaysForOrg(orgId);
+  const mask = workCalendarFor(orgId, projectId);
   const moved = new Map(shifts.map((shift) => [shift.id, shift]));
   return db
     .select()
@@ -80,8 +82,11 @@ function todoMoves(db: ReturnType<typeof dbFor>, orgId: string, shifts: Schedule
 
 export function previewScheduleShift(actor: Actor, itemId: string, startDate: string, endDate: string) {
   const shifts = buildSchedulePlan(actor, itemId, startDate, endDate);
-  const count = shifts.length + todoMoves(dbFor(actor), actor.orgId, shifts);
-  return { count, label: movesLabel(count), shifts };
+  const db = dbFor(actor);
+  const item = db.select().from(scheduleItems).where(and(eq(scheduleItems.orgId, actor.orgId), eq(scheduleItems.id, itemId))).get();
+  const count = shifts.length + (item ? todoMoves(db, actor.orgId, item.projectId, shifts) : 0);
+  const delay = delayRequirement(actor, itemId, endDate);
+  return { count, label: movesLabel(count), shifts, needsReason: Boolean(delay), days: delay?.days ?? 0 };
 }
 
 export function writeScheduleShifts(db: AppDatabase, actor: Actor, shifts: ScheduleShift[]) {
@@ -93,7 +98,8 @@ export function writeScheduleShifts(db: AppDatabase, actor: Actor, shifts: Sched
       .where(and(eq(scheduleItems.orgId, actor.orgId), eq(scheduleItems.id, shift.id)))
       .run();
   }
-  const todos = refreshLinkedTodos(db, actor.orgId, shifts, workdaysForOrg(actor.orgId));
+  const first = db.select().from(scheduleItems).where(and(eq(scheduleItems.orgId, actor.orgId), eq(scheduleItems.id, shifts[0]!.id))).get();
+  const todos = refreshLinkedTodos(db, actor.orgId, shifts, workCalendarFor(actor.orgId, first?.projectId ?? null));
   const count = shifts.length + todos;
   db.insert(auditLogs)
     .values({
@@ -110,12 +116,18 @@ export function writeScheduleShifts(db: AppDatabase, actor: Actor, shifts: Sched
     .run();
 }
 
-export function shiftScheduleDates(actor: Actor, itemId: string, startDate: string, endDate: string) {
+export function shiftScheduleDates(actor: Actor, itemId: string, startDate: string, endDate: string, delay: { reason: string; note?: string | null } | null = null) {
   const db = dbFor(actor);
+  const item = db.select().from(scheduleItems).where(and(eq(scheduleItems.orgId, actor.orgId), eq(scheduleItems.id, itemId))).get();
+  if (!item) throw new ServiceError("That schedule item is not in your company.");
+  const needs = delayRequirement(actor, itemId, endDate);
+  const reason = needs ? cleanDelay(delay) : null;
   const shifts = buildSchedulePlan(actor, itemId, startDate, endDate);
-  const count = shifts.length + todoMoves(db, actor.orgId, shifts);
+  const count = shifts.length + todoMoves(db, actor.orgId, item.projectId, shifts);
   db.transaction((tx) => {
-    writeScheduleShifts(tx as unknown as AppDatabase, actor, shifts);
+    const writer = tx as unknown as AppDatabase;
+    writeScheduleShifts(writer, actor, shifts);
+    if (needs && reason) writeDelay(writer, actor, item.projectId, itemId, needs.days, reason);
   });
   return { count, label: movesLabel(count), shifts };
 }
@@ -187,8 +199,8 @@ export function replaceScheduleLinks(actor: Actor, itemId: string, links: Schedu
 }
 
 /** Move a linked item by whole workdays and keep its workday length. Used by the RFI schedule impact. */
-export function workdaySpan(actor: Actor, startDate: string, endDate: string, days: number) {
-  const mask = workdaysForOrg(actor.orgId);
+export function workdaySpan(actor: Actor, startDate: string, endDate: string, days: number, projectId?: string | null) {
+  const mask = workCalendarFor(actor.orgId, projectId ?? null);
   const duration = Math.max(1, inclusiveWorkdays(startDate, endDate, mask));
   const start = addWorkdays(startDate, days, mask);
   return { startDate: start, endDate: endFromDuration(start, duration, mask) };

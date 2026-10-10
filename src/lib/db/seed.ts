@@ -5,6 +5,7 @@ import { eq } from "drizzle-orm";
 import { resolveDataDir } from "@/lib/db/paths";
 import type { AppDatabase } from "@/lib/db/client";
 import { addMonths } from "@/lib/closeout/check";
+import { usFederalHolidays } from "@/lib/schedule/holidays";
 import { addCalendarDays, localDay, localWeek, zonedTimeToUtc } from "@/lib/time/calendar";
 import { CATALOG_FORMULAS, northlineCatalog, riveraCatalog } from "@/lib/db/catalog";
 import {
@@ -51,7 +52,11 @@ import {
   templateTaskLinks,
   templateTasks,
   savedViews,
+  scheduleBaselineItems,
+  scheduleBaselines,
+  scheduleDelays,
   scheduleItems,
+  workdayExceptions,
   selectionChoices,
   selectionEvents,
   selections,
@@ -133,7 +138,7 @@ import {
   WEBSITE_FORM_SOURCE,
 } from "@/lib/lead-form/rules";
 
-export const SEED_VERSION = "33";
+export const SEED_VERSION = "34";
 
 const ORG = "org_rivera";
 const NORTH = "org_northline";
@@ -2189,6 +2194,57 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
         })),
       ),
     )
+    .run();
+
+  const holidayYear = Number(today.slice(0, 4));
+  const holidays = [...usFederalHolidays(holidayYear), ...usFederalHolidays(holidayYear + 1).filter((row) => !row.yearly)];
+  db.insert(workdayExceptions)
+    .values([
+      ...holidays.map((row, index) => ({
+        id: `wex_fed_${row.date}_${index}`,
+        orgId: ORG,
+        projectId: null,
+        title: row.title,
+        kind: "off" as const,
+        startDate: row.date,
+        endDate: row.date,
+        yearly: row.yearly ? 1 : 0,
+        createdAt: now,
+        createdBy: "user_maya",
+      })),
+      {
+        id: "wex_br_sat",
+        orgId: ORG,
+        projectId: "proj_brooks",
+        title: "Saturday delivery",
+        kind: "work",
+        startDate: scheduleDay(5),
+        endDate: scheduleDay(5),
+        yearly: 0,
+        createdAt: now,
+        createdBy: "user_maya",
+      },
+    ])
+    .run();
+  db.insert(scheduleBaselines)
+    .values([
+      { id: "base_br_old", orgId: ORG, projectId: "proj_brooks", finishDate: scheduleDay(-2), current: 0, setAt: daysAgo(20), setBy: "user_maya" },
+      { id: "base_br", orgId: ORG, projectId: "proj_brooks", finishDate: scheduleDay(1), current: 1, setAt: daysAgo(3), setBy: "user_maya" },
+    ])
+    .run();
+  db.insert(scheduleBaselineItems)
+    .values([
+      { id: "bitem_br_frame_old", orgId: ORG, baselineId: "base_br_old", itemId: "sch_br_frame", startDate: scheduleDay(-4), endDate: scheduleDay(-2) },
+      { id: "bitem_br_del_old", orgId: ORG, baselineId: "base_br_old", itemId: "sch_br_delivery", startDate: scheduleDay(-2), endDate: scheduleDay(-2) },
+      { id: "bitem_br_frame", orgId: ORG, baselineId: "base_br", itemId: "sch_br_frame", startDate: scheduleDay(0), endDate: scheduleDay(1) },
+      { id: "bitem_br_del", orgId: ORG, baselineId: "base_br", itemId: "sch_br_delivery", startDate: scheduleDay(1), endDate: scheduleDay(1) },
+    ])
+    .run();
+  db.insert(scheduleDelays)
+    .values([
+      { id: "delay_br_weather", orgId: ORG, projectId: "proj_brooks", itemId: "sch_br_delivery", days: 3, reason: "weather", note: "Storm held the crane", actorId: "user_maya", createdAt: daysAgo(4) },
+      { id: "delay_br_material", orgId: ORG, projectId: "proj_brooks", itemId: "sch_br_delivery", days: 2, reason: "material", note: null, actorId: "user_maya", createdAt: daysAgo(2) },
+    ])
     .run();
 
   const walkDue = linkedDeadline(tomorrow, -1);

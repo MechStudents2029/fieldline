@@ -43,6 +43,8 @@ import {
 } from "@/lib/services/time";
 import type { TimeUndo } from "@/lib/services/time";
 import { moveScheduleItem, rotateCalendarFeed, saveScheduleItem, type ScheduleStatus } from "@/lib/services/schedule";
+import { setScheduleBaseline } from "@/lib/services/schedule-plan";
+import { addWorkException, removeWorkException } from "@/lib/services/work-calendar";
 import { previewScheduleShift, shiftScheduleDates } from "@/lib/services/schedule-shift";
 import { createJobFromTemplate, importTemplate, renameTemplate, saveJobAsTemplate, type TemplatePart } from "@/lib/services/templates";
 import {
@@ -223,6 +225,8 @@ export type ActionState = {
   feedUrl?: string;
   vendorUrl?: string;
   confirm?: string;
+  needsReason?: boolean;
+  delayDays?: number;
 } | null;
 
 export type BillDraftState = {
@@ -2010,11 +2014,13 @@ export async function saveScheduleAction(_prev: ActionState, formData: FormData)
     const user = await actor();
     const input = scheduleInput(formData);
     const existing = String(formData.get("itemId") || "");
-    if (existing && formData.get("confirmShift") !== "1") {
+    const delay = formData.get("reason") ? { reason: String(formData.get("reason") || ""), note: String(formData.get("note") || "") } : null;
+    if (existing) {
       const preview = previewScheduleShift(user, existing, input.startDate, input.endDate);
-      if (preview.count > 1) return { confirm: preview.label };
+      if (preview.needsReason && !delay) return { needsReason: true, delayDays: preview.days, confirm: preview.count > 1 ? preview.label : undefined };
+      if (!preview.needsReason && preview.count > 1 && formData.get("confirmShift") !== "1") return { confirm: preview.label };
     }
-    saveScheduleItem(user, { ...input, links: scheduleLinks(formData) }, existing || undefined);
+    saveScheduleItem(user, { ...input, links: scheduleLinks(formData) }, existing || undefined, delay);
     refreshSchedule(input.projectId);
     return { ok: "Saved." };
   } catch (error) {
@@ -2022,11 +2028,11 @@ export async function saveScheduleAction(_prev: ActionState, formData: FormData)
   }
 }
 
-export async function previewScheduleShiftAction(input: { id: string; startDate: string; endDate: string }): Promise<{ count: number; label: string; error?: string }> {
+export async function previewScheduleShiftAction(input: { id: string; startDate: string; endDate: string }): Promise<{ count: number; label: string; error?: string; needsReason?: boolean; days?: number }> {
   try {
     const user = await actor();
     const preview = previewScheduleShift(user, input.id, input.startDate, input.endDate);
-    return { count: preview.count, label: preview.label };
+    return { count: preview.count, label: preview.label, needsReason: preview.needsReason, days: preview.days };
   } catch (error) {
     if (error instanceof ServiceError) return { count: 0, label: "", error: error.message };
     throw error;
@@ -2039,11 +2045,11 @@ export async function shiftScheduleDatesAction(_prev: ActionState, formData: For
     const itemId = String(formData.get("itemId") || "");
     const startDate = String(formData.get("startDate") || "");
     const endDate = String(formData.get("endDate") || "");
-    if (formData.get("confirmShift") !== "1") {
-      const preview = previewScheduleShift(user, itemId, startDate, endDate);
-      if (preview.count > 1) return { confirm: preview.label };
-    }
-    const result = shiftScheduleDates(user, itemId, startDate, endDate);
+    const delay = formData.get("reason") ? { reason: String(formData.get("reason") || ""), note: String(formData.get("note") || "") } : null;
+    const preview = previewScheduleShift(user, itemId, startDate, endDate);
+    if (preview.needsReason && !delay) return { needsReason: true, delayDays: preview.days, confirm: preview.count > 1 ? preview.label : undefined };
+    if (!preview.needsReason && preview.count > 1 && formData.get("confirmShift") !== "1") return { confirm: preview.label };
+    const result = shiftScheduleDates(user, itemId, startDate, endDate, delay);
     refreshSchedule("");
     return { ok: result.count > 1 ? result.label : "Saved." };
   } catch (error) {
@@ -2051,11 +2057,59 @@ export async function shiftScheduleDatesAction(_prev: ActionState, formData: For
   }
 }
 
-export async function moveScheduleAction(input: { id: string; startDate: string; endDate: string; assigneeId: string | null }): Promise<ActionState> {
+export async function moveScheduleAction(input: { id: string; startDate: string; endDate: string; assigneeId: string | null; reason?: string; note?: string }): Promise<ActionState> {
   try {
     const user = await actor();
-    moveScheduleItem(user, input.id, input);
+    const delay = input.reason ? { reason: input.reason, note: input.note || "" } : null;
+    const preview = previewScheduleShift(user, input.id, input.startDate, input.endDate);
+    if (preview.needsReason && !delay) return { needsReason: true, delayDays: preview.days, confirm: preview.count > 1 ? preview.label : undefined };
+    moveScheduleItem(user, input.id, input, delay);
     refreshSchedule("");
+    return { ok: "Saved." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function setBaselineAction(projectId: string, _prev: ActionState, _formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    setScheduleBaseline(user, projectId);
+    refreshSchedule(projectId);
+    return { ok: "Saved." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function addWorkExceptionAction(projectId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const job = projectId || String(formData.get("projectId") || "");
+    addWorkException(user, {
+      projectId: job || null,
+      title: String(formData.get("title") || ""),
+      kind: String(formData.get("kind") || "off"),
+      startDate: String(formData.get("startDate") || ""),
+      endDate: String(formData.get("endDate") || ""),
+      yearly: formData.get("yearly") === "1",
+    });
+    if (job) revalidatePath(`/projects/${job}`);
+    revalidatePath("/settings");
+    revalidatePath("/schedule");
+    return { ok: "Saved." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function removeWorkExceptionAction(projectId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    removeWorkException(user, String(formData.get("id") || ""));
+    if (projectId) revalidatePath(`/projects/${projectId}`);
+    revalidatePath("/settings");
+    revalidatePath("/schedule");
     return { ok: "Saved." };
   } catch (error) {
     return failure(error);
@@ -3474,6 +3528,19 @@ export async function setCostBillableAction(projectId: string, _prev: ActionStat
   try {
     const user = await actor();
     setCostBillable(user, projectId, String(formData.get("key") || ""), String(formData.get("billable") || "") === "1");
+    revalidatePath(`/projects/${projectId}/costs`);
+    return { ok: "Saved." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function setCostsBillableAction(projectId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const keys = formData.getAll("key").map((value) => String(value)).filter(Boolean);
+    if (keys.length === 0) throw new ServiceError("Select a cost.");
+    for (const key of keys) setCostBillable(user, projectId, key, false);
     revalidatePath(`/projects/${projectId}/costs`);
     return { ok: "Saved." };
   } catch (error) {
