@@ -21,59 +21,18 @@ export default async function AutomationsPage({ searchParams }: { searchParams: 
   const logId = one(query.log);
   const previewId = one(query.preview);
   const zone = calendarForOrg(session.orgId).timeZone;
-  if (logId) {
-    const log = runsFor(session, logId);
-    return (
-      <div className="flex min-h-0 flex-1 flex-col">
-        <Toolbar title={log.name} subtitle="Runs" search={false} trailing={<Link href="/settings/automations" className="ctl">Rules</Link>} />
-        <div className="min-h-0 flex-1 overflow-auto px-4">
-          {log.runs.length === 0 ? <p className="mac-t13 text-[var(--mac-secondary)]">No runs</p> : null}
-          <table className="mac-table w-full" aria-label="Runs">
-            <thead>
-              <tr>
-                <th>Time</th>
-                <th>Record</th>
-                <th>Actions</th>
-                <th>Result</th>
-              </tr>
-            </thead>
-            <tbody>
-              {log.runs.map((run) => (
-                <tr key={run.id} data-mac-row={run.record}>
-                  <td className="num">{formatDateTime(run.at, zone)}</td>
-                  <td>{run.record}</td>
-                  <td className="wrap">{run.actions.join(", ")}</td>
-                  <td>
-                    <span className="fl-pill">{run.result}</span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    );
-  }
   const rules = listRules(session);
   const editing = ruleId && ruleId !== "new" ? ruleView(session, ruleId) : null;
   const draft = ruleId === "new" ? null : editing;
   const options = formOptions(session.orgId);
   const targets = draft ? previewChoices(session.orgId, draft.trigger) : [];
   const preview = draft && previewId ? previewRule(session, draft.id, previewId).lines : [];
+  const log = logId ? runsFor(session, logId) : null;
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <Toolbar
-        title="Automations"
-        subtitle={`${rules.length}`}
-        search={false}
-        primary={ruleId ? undefined : "New"}
-        primaryHref={ruleId ? undefined : "/settings/automations?rule=new"}
-        trailing={ruleId ? <Link href="/settings/automations" className="ctl">Rules</Link> : null}
-      />
-      {ruleId ? (
-        <AutomationSheet rule={draft} options={options} targets={targets} preview={preview} />
-      ) : (
-        <div className="min-h-0 flex-1 overflow-auto px-4">
+      <Toolbar title="Automations" subtitle={`${rules.length}`} search={false} primary="New" primaryHref="/settings/automations?rule=new" />
+      <div className="flex min-h-0 flex-1">
+        <div className="min-w-0 flex-1 overflow-auto px-4">
           {rules.length === 0 ? <p className="mac-t13 text-[var(--mac-secondary)]">No rules</p> : null}
           <table className="mac-table w-full" aria-label="Automations">
             <thead>
@@ -99,8 +58,8 @@ export default async function AutomationsPage({ searchParams }: { searchParams: 
                       <form action={toggleAutomationAction}>
                         <input type="hidden" name="id" value={rule.id} />
                         <input type="hidden" name="enabled" value={rule.enabled ? "0" : "1"} />
-                        <button type="submit" className="ctl">
-                          {rule.enabled ? "On" : "Off"}
+                        <button type="submit" className="ctl switch" role="switch" aria-checked={rule.enabled} aria-label={rule.enabled ? "On" : "Off"}>
+                          <span />
                         </button>
                       </form>
                       <Link href={`/settings/automations?log=${rule.id}`} className="ctl">
@@ -113,7 +72,41 @@ export default async function AutomationsPage({ searchParams }: { searchParams: 
             </tbody>
           </table>
         </div>
-      )}
+        {ruleId ? <AutomationSheet rule={draft} options={options} targets={targets} preview={preview} /> : null}
+        {log ? (
+          <aside data-detail="log" aria-label="Run log" className="flex w-full shrink-0 flex-col gap-3 border-l border-[var(--mac-separator)] p-4 md:w-[420px]">
+            <div className="flex items-center justify-between gap-2">
+              <p className="mac-t15">{log.name}</p>
+              <Link href="/settings/automations" className="ctl">
+                Close
+              </Link>
+            </div>
+            {log.runs.length === 0 ? <p className="mac-t13 text-[var(--mac-secondary)]">No runs</p> : null}
+            <table className="mac-table w-full" aria-label="Runs">
+              <thead>
+                <tr>
+                  <th>Time</th>
+                  <th>Record</th>
+                  <th>Actions</th>
+                  <th>Result</th>
+                </tr>
+              </thead>
+              <tbody>
+                {log.runs.map((run) => (
+                  <tr key={run.id}>
+                    <td className="num">{formatDateTime(run.at, zone)}</td>
+                    <td>{run.record}</td>
+                    <td className="wrap">{run.actions.join(", ")}</td>
+                    <td>
+                      <span className="fl-pill">{run.result}</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </aside>
+        ) : null}
+      </div>
     </div>
   );
 }

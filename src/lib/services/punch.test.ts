@@ -73,6 +73,9 @@ describe("punch list and warranty", () => {
       ["permits", 0],
       ["inspections", 0],
       ["equipment", 1],
+      ["talks", 0],
+      ["checks", 0],
+      ["incidents", 0],
     ]);
     expect(diaz?.closeout.closed).toBe(true);
     expect(diaz?.closeout.checklist.find((row) => row.key === "equipment")?.count).toBe(1);

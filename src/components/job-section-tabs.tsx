@@ -1,6 +1,6 @@
 import { Segmented } from "@/components/mac/toolbar";
 
-export function jobSectionTabs(projectId: string, current: "overview" | "budget" | "logs" | "files" | "selections" | "updates" | "permits") {
+export function jobSectionTabs(projectId: string, current: "overview" | "budget" | "logs" | "files" | "selections" | "updates" | "permits" | "safety") {
   const job = `/projects/${projectId}`;
   return (
     <Segmented
@@ -11,6 +11,7 @@ export function jobSectionTabs(projectId: string, current: "overview" | "budget"
         { href: `${job}/files`, label: "Files", current: current === "files" },
         { href: `${job}/selections`, label: "Selections", current: current === "selections" },
         { href: `${job}/permits`, label: "Permits", current: current === "permits" },
+        { href: `${job}/safety`, label: "Safety", current: current === "safety" },
         { href: `${job}/updates`, label: "Updates", current: current === "updates" },
       ]}
     />

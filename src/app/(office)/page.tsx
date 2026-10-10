@@ -26,6 +26,7 @@ import { underbilledSummary } from "@/lib/services/wip";
 import { overdueTodoCount } from "@/lib/services/todos";
 import { agedCostPlus } from "@/lib/services/cost-plus";
 import { noticesFor } from "@/lib/services/automations";
+import { safetyQueue } from "@/lib/services/safety";
 import { equipmentQueue } from "@/lib/services/equipment";
 import { inspectionQueue } from "@/lib/services/permits";
 import { slippedSchedule } from "@/lib/services/schedule-plan";
@@ -140,6 +141,7 @@ export default async function TodayPage() {
   const inspections = inspectionQueue(session.orgId, todayKey);
   const gear = equipmentQueue(session.orgId, todayKey);
   const notices = noticesFor(session);
+  const safety = safetyQueue(session.orgId, todayKey);
   const lateSelections = overdueSelections(session.orgId, todayKey).map((row) => ({
     key: `sel_${row.id}`,
     href: `/projects/${row.projectId}/selections`,
@@ -183,9 +185,12 @@ export default async function TodayPage() {
         />
       ) : null}
       {quiet ? <EmptyState title="No jobs yet" why="Add a lead to start your pipeline." href="/leads/new" action="Add a lead" /> : null}
-      {staleUpdates.count > 0 || agedCosts.count > 0 || scheduleSlip.count > 0 || inspections.upcoming.count > 0 || inspections.failed.count > 0 || inspections.expiring.count > 0 || gear.overdue.count > 0 || gear.service.count > 0 || gear.stranded.count > 0 || under.count > 0 || overdueTodos > 0 || webLeadCount > 0 || warranty.count > 0 || vendorBills.count > 0 || vendorCerts.count > 0 || bids.due.count > 0 || bids.award.count > 0 || ready.count > 0 || payReady.count > 0 || heldRetainage.cents > 0 || rfis.overdue.count > 0 || rfis.awaiting.count > 0 || submittals.overdue.count > 0 || submittals.awaiting.count > 0 || waivers.count > 0 || mentions > 0 || notices.length > 0 ? (
+      {staleUpdates.count > 0 || agedCosts.count > 0 || scheduleSlip.count > 0 || inspections.upcoming.count > 0 || inspections.failed.count > 0 || inspections.expiring.count > 0 || gear.overdue.count > 0 || gear.service.count > 0 || gear.stranded.count > 0 || under.count > 0 || overdueTodos > 0 || webLeadCount > 0 || warranty.count > 0 || vendorBills.count > 0 || vendorCerts.count > 0 || bids.due.count > 0 || bids.award.count > 0 || ready.count > 0 || payReady.count > 0 || heldRetainage.cents > 0 || rfis.overdue.count > 0 || rfis.awaiting.count > 0 || submittals.overdue.count > 0 || submittals.awaiting.count > 0 || waivers.count > 0 || mentions > 0 || notices.length > 0 || safety.missed.count > 0 || safety.failed.count > 0 || safety.actions.count > 0 ? (
         <ul className="fl-group">
           {notices.map((notice) => <GroupedRow key={notice.id} href={notice.href} title={notice.title} />)}
+          {safety.missed.count > 0 && safety.missed.href ? <GroupedRow href={safety.missed.href} title="Talks missed" trailing={<span className="num">{safety.missed.count}</span>} /> : null}
+          {safety.failed.count > 0 && safety.failed.href ? <GroupedRow href={safety.failed.href} title="Failed checks" trailing={<span className="num">{safety.failed.count}</span>} /> : null}
+          {safety.actions.count > 0 && safety.actions.href ? <GroupedRow href={safety.actions.href} title="Open incidents" trailing={<span className="num">{safety.actions.count}</span>} /> : null}
           {staleUpdates.count > 0 && staleUpdates.href ? <GroupedRow href={staleUpdates.href} title="Client updates" trailing={<span className="num">{staleUpdates.count}</span>} /> : null}
           {agedCosts.count > 0 && agedCosts.href ? <GroupedRow href={agedCosts.href} title="Unbilled costs" trailing={<span className="num">{agedCosts.count}</span>} /> : null}
           {scheduleSlip.count > 0 && scheduleSlip.href ? <GroupedRow href={scheduleSlip.href} title="Schedule slip" trailing={<span className="num">{scheduleSlip.count}</span>} /> : null}
@@ -298,9 +303,12 @@ export default async function TodayPage() {
         {quiet ? <EmptyState title="No jobs yet" why="Add a lead to start your pipeline." href="/leads/new" action="Add a lead" /> : null}
         <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_400px]">
           <div className="flex flex-col gap-6">
-            {staleUpdates.count > 0 || agedCosts.count > 0 || scheduleSlip.count > 0 || inspections.upcoming.count > 0 || inspections.failed.count > 0 || inspections.expiring.count > 0 || gear.overdue.count > 0 || gear.service.count > 0 || gear.stranded.count > 0 || under.count > 0 || overdueTodos > 0 || webLeadCount > 0 || warranty.count > 0 || vendorBills.count > 0 || vendorCerts.count > 0 || bids.due.count > 0 || bids.award.count > 0 || ready.count > 0 || payReady.count > 0 || heldRetainage.cents > 0 || rfis.overdue.count > 0 || rfis.awaiting.count > 0 || submittals.overdue.count > 0 || submittals.awaiting.count > 0 || waivers.count > 0 || mentions > 0 || notices.length > 0 ? (
+            {staleUpdates.count > 0 || agedCosts.count > 0 || scheduleSlip.count > 0 || inspections.upcoming.count > 0 || inspections.failed.count > 0 || inspections.expiring.count > 0 || gear.overdue.count > 0 || gear.service.count > 0 || gear.stranded.count > 0 || under.count > 0 || overdueTodos > 0 || webLeadCount > 0 || warranty.count > 0 || vendorBills.count > 0 || vendorCerts.count > 0 || bids.due.count > 0 || bids.award.count > 0 || ready.count > 0 || payReady.count > 0 || heldRetainage.cents > 0 || rfis.overdue.count > 0 || rfis.awaiting.count > 0 || submittals.overdue.count > 0 || submittals.awaiting.count > 0 || waivers.count > 0 || mentions > 0 || notices.length > 0 || safety.missed.count > 0 || safety.failed.count > 0 || safety.actions.count > 0 ? (
               <ul className="fl-group">
                 {notices.map((notice) => <GroupedRow key={notice.id} href={notice.href} title={notice.title} />)}
+                {safety.missed.count > 0 && safety.missed.href ? <GroupedRow href={safety.missed.href} title="Talks missed" trailing={<span className="num">{safety.missed.count}</span>} /> : null}
+                {safety.failed.count > 0 && safety.failed.href ? <GroupedRow href={safety.failed.href} title="Failed checks" trailing={<span className="num">{safety.failed.count}</span>} /> : null}
+                {safety.actions.count > 0 && safety.actions.href ? <GroupedRow href={safety.actions.href} title="Open incidents" trailing={<span className="num">{safety.actions.count}</span>} /> : null}
                 {staleUpdates.count > 0 && staleUpdates.href ? <GroupedRow href={staleUpdates.href} title="Client updates" trailing={<span className="num">{staleUpdates.count}</span>} /> : null}
           {agedCosts.count > 0 && agedCosts.href ? <GroupedRow href={agedCosts.href} title="Unbilled costs" trailing={<span className="num">{agedCosts.count}</span>} /> : null}
           {scheduleSlip.count > 0 && scheduleSlip.href ? <GroupedRow href={scheduleSlip.href} title="Schedule slip" trailing={<span className="num">{scheduleSlip.count}</span>} /> : null}

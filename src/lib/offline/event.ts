@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const OFFLINE_KINDS = ["clock_in", "break_start", "break_end", "switch", "clock_out", "log_draft"] as const;
+export const OFFLINE_KINDS = ["clock_in", "break_start", "break_end", "switch", "clock_out", "log_draft", "toolbox_complete"] as const;
 export type OfflineKind = (typeof OFFLINE_KINDS)[number];
 
 const textOrNull = (max: number) => z.string().max(max).nullable().optional();
@@ -20,6 +20,20 @@ export const offlineLogSchema = z.object({
   safetyNote: textOrNull(2000),
 });
 
+export const offlineTalkSchema = z.object({
+  talkId: z.string().min(1).max(80),
+  attendees: z
+    .array(
+      z.object({
+        userId: z.string().max(80).optional().default(""),
+        visitorName: z.string().max(80).optional().default(""),
+        typedName: z.string().max(80),
+        drawnDataUrl: z.string().max(200_000),
+      }),
+    )
+    .max(40),
+});
+
 export const offlineEventSchema = z.object({
   clientEventId: z.string().uuid(),
   seq: z.number().int().nonnegative(),
@@ -33,6 +47,7 @@ export const offlineEventSchema = z.object({
   lat: z.string().max(40).nullable().optional(),
   lng: z.string().max(40).nullable().optional(),
   log: offlineLogSchema.nullable().optional(),
+  talk: offlineTalkSchema.nullable().optional(),
   syncStatus: z.enum(["pending", "needs_review", "wrong_user"]).optional(),
 });
 

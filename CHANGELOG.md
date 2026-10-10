@@ -2,7 +2,19 @@
 
 ## 2026-10-10
 
+### Safety
+
+- Toolbox talks use a company topic library, including Spanish text. Office schedules a talk on a job, assigns a leader, and the leader signs the crew in from My day. A visitor can be typed in. Completing locks the record. A past talk that was not completed is Missed.
+- Signing offline queues with the time clock and applies once when the phone syncs again.
+- Safety checklists are Pass, Fail, or N/A. A finished checklist records who, when, and a photo on an item. A failed item opens one to-do or one punch, and a second click keeps that link.
+- Incidents cover a near miss, first aid, a recordable injury, property damage, and an equipment failure. People, photos, factors, and corrective actions are on the record. Each action is an assigned to-do. Linking equipment marks that item out of service.
+- Field can file an incident and see their own. Office sees the company’s. They stay off the client portal, the vendor portal, and client updates.
+- Safety is a job tab and a company list. The list filters by type, status, and job, and it prints and exports CSV. Today shows talks missed this week, checklists with a failed item still open, and incidents with an open corrective action. Closeout counts those per job.
+
 ### Automations
+
+- The rule editor is a sheet that reads When, If, and Then. Conditions and actions are added with text buttons. The list uses a switch for on, and the run log opens beside the list.
+- Incident logged and Checklist item failed can start a rule. Schedule toolbox talk puts a talk on that job a set number of workdays out. Incident schedules a talk is on: a logged incident schedules ladder safety within 2 workdays.
 
 - Settings lists each rule with its trigger, last run, run count, and an on/off switch. A rule is one trigger, optional conditions, and actions that run in order.
 - Triggers follow a job status change, a signed proposal, a finished schedule item, an inspection result, a verified punch item, an invoice overdue by N days, vendor insurance or a license expiring within N days, and equipment overdue for return. The daily cron evaluates the time-based ones.

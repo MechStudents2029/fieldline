@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { formatDateTime } from "@/lib/format";
 import type { Actor } from "@/lib/services/read";
 import { noticesFor } from "@/lib/services/automations";
+import { leaderTalks } from "@/lib/services/safety";
 import { myDay } from "@/lib/services/logs";
 import { fieldPunch } from "@/lib/services/punch";
 import { mentionUnread } from "@/lib/services/comments";
@@ -44,6 +45,7 @@ export function MyDay({ actor }: { actor: Actor }) {
   const mentions = mentionUnread(actor);
   const overdueTodos = overdueTodoCount(actor);
   const notices = noticesFor(actor);
+  const talks = leaderTalks(actor);
   const open = day.open;
   return (
     <div className="mx-auto flex max-w-lg flex-col gap-7 md:max-w-none md:px-6">
@@ -159,6 +161,24 @@ export function MyDay({ actor }: { actor: Actor }) {
           <ClockInForm jobs={day.clockJobs} codes={day.codes} scope={{ orgId: actor.orgId, userId: actor.userId }} />
         </section>
       )}
+      {talks.length > 0 ? (
+        <section aria-label="Toolbox" className="flex flex-col gap-2">
+          <h2 className="fl-section">Toolbox</h2>
+          <ul className="fl-group">
+            {talks.map((talk) => (
+              <li key={talk.id}>
+                <Link href={talk.href} className="fl-cell">
+                  <span className="min-w-0 flex-1">
+                    <span className="fl-body block truncate">{talk.title}</span>
+                    <span className="fl-footnote block truncate text-[var(--fl-secondary)]">{talk.projectName}</span>
+                  </span>
+                  <span className="fl-pill">{talk.statusLabel}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
       <section aria-label="Punch" className="flex flex-col gap-2">
         <h2 className="fl-section">Punch</h2>
         <ul className="flex flex-col gap-3">

@@ -144,6 +144,7 @@ export async function enqueuePunch(
     lat?: string | null;
     lng?: string | null;
     log?: OfflineEvent["log"];
+    talk?: OfflineEvent["talk"];
     capturedAt?: string;
   },
 ) {
@@ -162,6 +163,7 @@ export async function enqueuePunch(
     lat: input.lat ?? null,
     lng: input.lng ?? null,
     log: input.log ?? null,
+    talk: input.talk ?? null,
     scope: scopeKey(scope),
     syncStatus: "pending",
     detail: "Saved on this phone, will sync",
@@ -184,6 +186,22 @@ export async function enqueueLogDraft(scope: Scope, projectId: string, log: NonN
     return next;
   }
   return enqueuePunch(scope, { kind: "log_draft", projectId, log });
+}
+
+export async function enqueueToolbox(
+  scope: Scope,
+  input: { projectId: string; talkId: string; attendees: NonNullable<OfflineEvent["talk"]>["attendees"] },
+) {
+  const events = await listEvents(scope);
+  const existing = events.find((event) => event.kind === "toolbox_complete" && event.talk?.talkId === input.talkId && event.syncStatus === "pending");
+  if (existing) {
+    const next = { ...existing, talk: { talkId: input.talkId, attendees: input.attendees }, projectId: input.projectId, detail: "Saved on this phone, will sync" };
+    await withStore("events", "readwrite", (store) => requestToPromise(store.put(next)));
+    await refresh();
+    void flushActive();
+    return next;
+  }
+  return enqueuePunch(scope, { kind: "toolbox_complete", projectId: input.projectId, talk: { talkId: input.talkId, attendees: input.attendees } });
 }
 
 async function refresh() {
@@ -260,6 +278,7 @@ export async function flushActive() {
       lat: event.lat,
       lng: event.lng,
       log: event.log,
+      talk: event.talk ?? null,
     }));
     const response = await fetch("/api/sync/outbox", {
       method: "POST",

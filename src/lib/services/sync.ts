@@ -9,6 +9,7 @@ import { clockFlag, sortOldestFirst, type ClockFlag } from "@/lib/offline/replay
 import { canAddFieldNotes, type Role } from "@/lib/permissions";
 import { ServiceError } from "@/lib/services/errors";
 import { openDailyLog, saveDailyLog, type LogInput } from "@/lib/services/logs";
+import { completeTalk } from "@/lib/services/safety";
 import type { Actor } from "@/lib/services/read";
 import { calendarForOrg, clockIn, clockOut, endBreak, startBreak, switchJob } from "@/lib/services/time";
 import { localDay } from "@/lib/time/calendar";
@@ -27,6 +28,8 @@ const DETAILS: Record<string, string> = {
   missing_job: "That job was archived or deleted before the punch synced.",
   missing_code: "That cost code was removed from the price book before the punch synced.",
   published_log: "A published log already exists for that day, so the offline draft was not applied.",
+  missing_talk: "That toolbox talk was removed before it synced.",
+  locked_talk: "That toolbox talk is already signed.",
   invalid: "This offline item could not be read.",
   wrong_user: "This punch belongs to a different sign-in.",
   sign_in: "Sign in again to sync these punches.",
@@ -94,6 +97,7 @@ function applyOfflineEvent(actor: Actor, event: OfflineEvent, serverNow: number)
   if (!Number.isFinite(capturedMs)) return remember(db, actor, event, result(event.clientEventId, "needs_review", "invalid", null, null), serverNow);
   const flag = clockFlag(capturedMs, serverNow);
   if (event.kind === "log_draft") return applyLog(actor, db, event, flag, serverNow);
+  if (event.kind === "toolbox_complete") return applyTalk(actor, db, event, serverNow);
   return applyPunch(actor, db, event, flag, capturedMs, serverNow);
 }
 
@@ -123,6 +127,31 @@ function applyPunch(
     if (!(error instanceof ServiceError)) throw error;
     const kind = sequenceKind(error.message);
     return remember(db, actor, event, result(event.clientEventId, "needs_review", kind, null, null), serverNow);
+  }
+}
+
+function applyTalk(
+  actor: Actor,
+  db: NonNullable<ReturnType<typeof officeDb>>,
+  event: OfflineEvent,
+  serverNow: number,
+): SyncResult {
+  if (!event.talk) return remember(db, actor, event, result(event.clientEventId, "needs_review", "missing_talk", null, null), serverNow);
+  try {
+    const talkId = completeTalk(actor, event.talk.talkId, {
+      clientEventId: event.clientEventId,
+      attendees: event.talk.attendees.map((row) => ({
+        userId: row.userId || "",
+        visitorName: row.visitorName || "",
+        typedName: row.typedName,
+        drawnDataUrl: row.drawnDataUrl,
+      })),
+    });
+    return remember(db, actor, event, { ...result(event.clientEventId, "applied", null, talkId, null), detail: "Synced." }, serverNow);
+  } catch (error) {
+    if (!(error instanceof ServiceError)) throw error;
+    const anomaly = error.message.includes("locked") ? "locked_talk" : "missing_talk";
+    return remember(db, actor, event, result(event.clientEventId, "needs_review", anomaly, null, null), serverNow);
   }
 }
 

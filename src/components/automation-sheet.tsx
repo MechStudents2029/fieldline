@@ -15,10 +15,11 @@ const TRIGGERS = [
   ["invoice_overdue", "Invoice overdue"],
   ["vendor_expiring", "Vendor expiring"],
   ["equipment_overdue", "Equipment overdue"],
+  ["incident_logged", "Incident logged"],
+  ["checklist_failed", "Checklist item failed"],
 ] as const;
 
-const ACTIONS = [
-  ["", "Action"],
+const ACTION_KINDS = [
   ["apply_template", "Apply template"],
   ["todo", "Create to-do"],
   ["today", "Today row"],
@@ -26,19 +27,27 @@ const ACTIONS = [
   ["punch", "Create punch"],
   ["hold", "Hold schedule"],
   ["release", "Release schedule"],
+  ["schedule_talk", "Schedule toolbox talk"],
+] as const;
+
+const CONDITION_KINDS = [
+  ["job_type", "Job type"],
+  ["template", "Template"],
+  ["pm", "PM"],
+  ["cost_code", "Cost code"],
+  ["item_name", "Item name"],
+  ["amount_over", "Amount over"],
+  ["amount_under", "Amount under"],
 ] as const;
 
 type Options = {
   templates: { id: string; name: string }[];
   people: { id: string; name: string }[];
+  topics: { id: string; name: string }[];
 };
 
 function triggerKind(trigger: Trigger | null) {
   return trigger?.kind ?? "job_status";
-}
-
-function blankAction(): Action {
-  return { kind: "hold" };
 }
 
 export function AutomationSheet({
@@ -53,75 +62,60 @@ export function AutomationSheet({
   preview: string[];
 }) {
   const [trigger, setTrigger] = useState<string>(triggerKind(rule?.trigger ?? null));
-  const [conditions, setConditions] = useState<string[]>([
-    rule?.conditions[0]?.kind ?? "",
-    rule?.conditions[1]?.kind ?? "",
-  ]);
-  const [actions, setActions] = useState<string[]>([
-    rule?.actions[0]?.kind ?? "",
-    rule?.actions[1]?.kind ?? "",
-    rule?.actions[2]?.kind ?? "",
-  ]);
-  const initial = rule?.actions ?? [];
-  const initialConditions = rule?.conditions ?? [];
+  const [conditions, setConditions] = useState<Condition[]>(rule?.conditions ?? []);
+  const [actions, setActions] = useState<Action[]>(rule?.actions ?? []);
   return (
-    <div data-sheet="automation" className="flex w-full flex-col gap-3 p-4 md:w-[420px]">
-      <ActionForm action={saveAutomationAction} className="flex flex-col gap-2">
+    <aside data-sheet="automation" className="flex w-full shrink-0 flex-col gap-3 border-l border-[var(--mac-separator)] p-4 md:w-[420px]">
+      <ActionForm action={saveAutomationAction} className="flex flex-col gap-3">
         {rule?.id ? <input type="hidden" name="id" value={rule.id} /> : null}
         <input type="hidden" name="enabled" value={rule?.enabled === false ? "0" : "1"} />
         <label className="text-[13px]">
           Name
           <input name="name" aria-label="Name" defaultValue={rule?.name ?? ""} required className="field mt-1" />
         </label>
-        <label className="text-[13px]">
-          Trigger
-          <select name="trigger" aria-label="Trigger" className="field mt-1" value={trigger} onChange={(event) => setTrigger(event.target.value)}>
+        <div className="ctl-line">
+          <span>When</span>
+          <select name="trigger" aria-label="Trigger" className="ctl" value={trigger} onChange={(event) => setTrigger(event.target.value)}>
             {TRIGGERS.map(([value, label]) => (
               <option key={value} value={value}>
                 {label}
               </option>
             ))}
           </select>
-        </label>
-        {trigger === "job_status" ? (
-          <label className="text-[13px]">
-            Status
-            <select name="status" aria-label="Status" defaultValue={rule?.trigger.kind === "job_status" ? rule.trigger.status : "active"} className="field mt-1">
-              <option value="active">Active</option>
-              <option value="complete">Complete</option>
-            </select>
-          </label>
-        ) : null}
-        {trigger === "inspection_result" ? (
-          <label className="text-[13px]">
-            Result
-            <select name="result" aria-label="Result" defaultValue={rule?.trigger.kind === "inspection_result" ? rule.trigger.result : "failed"} className="field mt-1">
-              <option value="failed">Failed</option>
-              <option value="passed">Passed</option>
-            </select>
-          </label>
-        ) : null}
-        {trigger === "invoice_overdue" || trigger === "vendor_expiring" ? (
-          <label className="text-[13px]">
-            Days
-            <input name="days" aria-label="Days" type="number" min={0} max={365} defaultValue={rule?.trigger.kind === "invoice_overdue" || rule?.trigger.kind === "vendor_expiring" ? rule.trigger.days : 14} className="field mt-1" />
-          </label>
-        ) : null}
-        {trigger === "vendor_expiring" ? (
-          <label className="text-[13px]">
-            Certificate
-            <select name="cert" aria-label="Certificate" defaultValue={rule?.trigger.kind === "vendor_expiring" ? rule.trigger.cert : "insurance"} className="field mt-1">
-              <option value="insurance">Insurance</option>
-              <option value="license">License</option>
-            </select>
-          </label>
-        ) : null}
-        {conditions.map((kind, index) => (
-          <ConditionRow key={index} index={index} kind={kind} initial={initialConditions[index]} options={options} onKind={(value) => setConditions((current) => current.map((item, itemIndex) => (itemIndex === index ? value : item)))} />
-        ))}
-        {actions.map((kind, index) => (
-          <ActionRow key={index} index={index} kind={kind} initial={initial[index] ?? blankAction()} options={options} onKind={(value) => setActions((current) => current.map((item, itemIndex) => (itemIndex === index ? value : item)))} />
-        ))}
+          <TriggerRest trigger={trigger} rule={rule} />
+        </div>
+        <div className="flex flex-col gap-2">
+          <span>If</span>
+          {conditions.map((condition, index) => (
+            <ConditionRow
+              key={`${condition.kind}-${index}`}
+              index={index}
+              condition={condition}
+              options={options}
+              onKind={(kind) => setConditions((current) => current.map((item, itemIndex) => (itemIndex === index ? blankCondition(kind) : item)))}
+              onRemove={() => setConditions((current) => current.filter((_, itemIndex) => itemIndex !== index))}
+            />
+          ))}
+          <button type="button" className="ctl w-fit" onClick={() => setConditions((current) => [...current, { kind: "job_type", value: "" }])}>
+            + Add condition
+          </button>
+        </div>
+        <div className="flex flex-col gap-2">
+          <span>Then</span>
+          {actions.map((action, index) => (
+            <ActionRow
+              key={`${action.kind}-${index}`}
+              index={index}
+              action={action}
+              options={options}
+              onKind={(kind) => setActions((current) => current.map((item, itemIndex) => (itemIndex === index ? blankAction(kind) : item)))}
+              onRemove={() => setActions((current) => current.filter((_, itemIndex) => itemIndex !== index))}
+            />
+          ))}
+          <button type="button" className="ctl w-fit" onClick={() => setActions((current) => [...current, { kind: "todo", title: "", who: "", dueDays: 0 }])}>
+            + Add action
+          </button>
+        </div>
         <div className="flex gap-2">
           <button type="submit" className="mac-primary w-fit">
             Save
@@ -132,10 +126,10 @@ export function AutomationSheet({
         </div>
       </ActionForm>
       {rule?.id ? (
-        <form action="/settings/automations" method="get" className="flex items-center gap-2">
+        <form action="/settings/automations" method="get" className="ctl-line">
           <input type="hidden" name="rule" value={rule.id} />
-          <select name="preview" aria-label="Test on" defaultValue="" className="field">
-            <option value="">Test on…</option>
+          <select name="preview" aria-label="Test on" defaultValue="" className="ctl">
+            <option value="">Test on</option>
             {targets.map((target) => (
               <option key={target.id} value={target.id}>
                 {target.label}
@@ -154,12 +148,72 @@ export function AutomationSheet({
           ))}
         </ul>
       ) : null}
-    </div>
+    </aside>
   );
 }
 
-function conditionValue(condition: Condition | undefined) {
-  if (!condition) return "";
+function TriggerRest({ trigger, rule }: { trigger: string; rule: RuleDraft | null }) {
+  if (trigger === "job_status") {
+    return (
+      <>
+        <span>is</span>
+        <select name="status" aria-label="Status" defaultValue={rule?.trigger.kind === "job_status" ? rule.trigger.status : "active"} className="ctl">
+          <option value="active">Active</option>
+          <option value="complete">Complete</option>
+        </select>
+      </>
+    );
+  }
+  if (trigger === "inspection_result") {
+    return (
+      <>
+        <span>is</span>
+        <select name="result" aria-label="Result" defaultValue={rule?.trigger.kind === "inspection_result" ? rule.trigger.result : "failed"} className="ctl">
+          <option value="failed">Failed</option>
+          <option value="passed">Passed</option>
+        </select>
+      </>
+    );
+  }
+  if (trigger === "invoice_overdue" || trigger === "vendor_expiring") {
+    const days = rule?.trigger.kind === "invoice_overdue" || rule?.trigger.kind === "vendor_expiring" ? rule.trigger.days : 14;
+    return (
+      <>
+        <span>is</span>
+        <input name="days" aria-label="Days" type="number" min={0} max={365} defaultValue={days} className="ctl w-16" />
+        <span>days</span>
+        {trigger === "vendor_expiring" ? (
+          <select name="cert" aria-label="Certificate" defaultValue={rule?.trigger.kind === "vendor_expiring" ? rule.trigger.cert : "insurance"} className="ctl">
+            <option value="insurance">Insurance</option>
+            <option value="license">License</option>
+          </select>
+        ) : null}
+      </>
+    );
+  }
+  return null;
+}
+
+function blankCondition(kind: string): Condition {
+  if (kind === "template") return { kind: "template", templateId: "" };
+  if (kind === "pm") return { kind: "pm", userId: "" };
+  if (kind === "amount_over" || kind === "amount_under") return { kind, cents: 0 };
+  if (kind === "cost_code" || kind === "item_name" || kind === "job_type") return { kind, value: "" };
+  return { kind: "job_type", value: "" };
+}
+
+function blankAction(kind: string): Action {
+  if (kind === "apply_template") return { kind: "apply_template", templateId: "" };
+  if (kind === "todo") return { kind: "todo", title: "", who: "", dueDays: 0 };
+  if (kind === "today") return { kind: "today", title: "", who: "" };
+  if (kind === "set_status") return { kind: "set_status", status: "active" };
+  if (kind === "punch") return { kind: "punch", title: "" };
+  if (kind === "release") return { kind: "release" };
+  if (kind === "schedule_talk") return { kind: "schedule_talk", topicId: "", withinWorkdays: 2 };
+  return { kind: "hold" };
+}
+
+function conditionValue(condition: Condition) {
   if (condition.kind === "template") return condition.templateId;
   if (condition.kind === "pm") return condition.userId;
   if (condition.kind === "amount_over" || condition.kind === "amount_under") return (condition.cents / 100).toFixed(0);
@@ -168,33 +222,29 @@ function conditionValue(condition: Condition | undefined) {
 
 function ConditionRow({
   index,
-  kind,
-  initial,
+  condition,
   options,
   onKind,
+  onRemove,
 }: {
   index: number;
-  kind: string;
-  initial: Condition | undefined;
+  condition: Condition;
   options: Options;
-  onKind: (value: string) => void;
+  onKind: (kind: string) => void;
+  onRemove: () => void;
 }) {
-  const value = initial && initial.kind === kind ? conditionValue(initial) : "";
+  const value = conditionValue(condition);
   return (
-    <div className="flex flex-col gap-2">
-      <select name={`c${index}kind`} aria-label={`Condition ${index + 1}`} className="field" value={kind} onChange={(event) => onKind(event.target.value)}>
-        <option value="">Condition</option>
-        <option value="job_type">Job type</option>
-        <option value="template">Template</option>
-        <option value="pm">PM</option>
-        <option value="cost_code">Cost code</option>
-        <option value="item_name">Item name</option>
-        <option value="amount_over">Amount over</option>
-        <option value="amount_under">Amount under</option>
+    <div className="ctl-line">
+      <select name={`c${index}kind`} aria-label={`Condition ${index + 1}`} className="ctl" value={condition.kind} onChange={(event) => onKind(event.target.value)}>
+        {CONDITION_KINDS.map(([kind, label]) => (
+          <option key={kind} value={kind}>
+            {label}
+          </option>
+        ))}
       </select>
-      {kind === "template" ? (
-        <select name={`c${index}value`} aria-label={`Value ${index + 1}`} defaultValue={value} className="field">
-          <option value="">Template</option>
+      {condition.kind === "template" ? (
+        <select name={`c${index}value`} aria-label={`Value ${index + 1}`} defaultValue={value} className="ctl">
           {options.templates.map((template) => (
             <option key={template.id} value={template.id}>
               {template.name}
@@ -202,9 +252,8 @@ function ConditionRow({
           ))}
         </select>
       ) : null}
-      {kind === "pm" ? (
-        <select name={`c${index}value`} aria-label={`Value ${index + 1}`} defaultValue={value} className="field">
-          <option value="">PM</option>
+      {condition.kind === "pm" ? (
+        <select name={`c${index}value`} aria-label={`Value ${index + 1}`} defaultValue={value} className="ctl">
           {options.people.map((person) => (
             <option key={person.id} value={person.id}>
               {person.name}
@@ -212,40 +261,42 @@ function ConditionRow({
           ))}
         </select>
       ) : null}
-      {kind && kind !== "template" && kind !== "pm" ? (
-        <input name={`c${index}value`} aria-label={`Value ${index + 1}`} defaultValue={value} className="field" />
+      {condition.kind !== "template" && condition.kind !== "pm" ? (
+        <input name={`c${index}value`} aria-label={`Value ${index + 1}`} defaultValue={value} className="ctl" />
       ) : null}
+      <button type="button" className="ctl" aria-label={`Remove condition ${index + 1}`} onClick={onRemove}>
+        Remove
+      </button>
     </div>
   );
 }
 
 function ActionRow({
   index,
-  kind,
-  initial,
+  action,
   options,
   onKind,
+  onRemove,
 }: {
   index: number;
-  kind: string;
-  initial: Action;
+  action: Action;
   options: Options;
-  onKind: (value: string) => void;
+  onKind: (kind: string) => void;
+  onRemove: () => void;
 }) {
-  const who = initial.kind === "todo" || initial.kind === "today" ? initial.who : "";
-  const title = initial.kind === "todo" || initial.kind === "today" || initial.kind === "punch" ? initial.title : "";
+  const who = action.kind === "todo" || action.kind === "today" ? action.who : "";
+  const title = action.kind === "todo" || action.kind === "today" || action.kind === "punch" ? action.title : "";
   return (
-    <div className="flex flex-col gap-2">
-      <select name={`a${index}kind`} aria-label={`Action ${index + 1}`} className="field" value={kind} onChange={(event) => onKind(event.target.value)}>
-        {ACTIONS.map(([value, label]) => (
-          <option key={value || "none"} value={value}>
+    <div className="ctl-line">
+      <select name={`a${index}kind`} aria-label={`Action ${index + 1}`} className="ctl" value={action.kind} onChange={(event) => onKind(event.target.value)}>
+        {ACTION_KINDS.map(([kind, label]) => (
+          <option key={kind} value={kind}>
             {label}
           </option>
         ))}
       </select>
-      {kind === "apply_template" ? (
-        <select name={`a${index}template`} aria-label="Template" defaultValue={initial.kind === "apply_template" ? initial.templateId : ""} className="field">
-          <option value="">Template</option>
+      {action.kind === "apply_template" ? (
+        <select name={`a${index}template`} aria-label="Template" defaultValue={action.templateId} className="ctl">
           {options.templates.map((template) => (
             <option key={template.id} value={template.id}>
               {template.name}
@@ -253,12 +304,11 @@ function ActionRow({
           ))}
         </select>
       ) : null}
-      {kind === "todo" || kind === "today" || kind === "punch" ? (
-        <input name={`a${index}title`} aria-label={index === 0 ? "Title" : `Title ${index + 1}`} defaultValue={title} className="field" />
+      {action.kind === "todo" || action.kind === "today" || action.kind === "punch" ? (
+        <input name={`a${index}title`} aria-label={index === 0 ? "Title" : `Title ${index + 1}`} defaultValue={title} className="ctl" />
       ) : null}
-      {kind === "todo" || kind === "today" ? (
-        <select name={`a${index}who`} aria-label="Who" defaultValue={who} className="field">
-          <option value="">Who</option>
+      {action.kind === "todo" || action.kind === "today" ? (
+        <select name={`a${index}who`} aria-label="Who" defaultValue={who} className="ctl">
           <option value="role:pm">PM</option>
           <option value="role:office">Office</option>
           <option value="role:field">Field</option>
@@ -269,13 +319,28 @@ function ActionRow({
           ))}
         </select>
       ) : null}
-      {kind === "todo" ? <input name={`a${index}days`} aria-label="Due days" type="number" min={0} max={365} defaultValue={initial.kind === "todo" ? initial.dueDays : 0} className="field" /> : null}
-      {kind === "set_status" ? (
-        <select name={`a${index}status`} aria-label="Job status" defaultValue={initial.kind === "set_status" ? initial.status : "active"} className="field">
+      {action.kind === "todo" ? <input name={`a${index}days`} aria-label="Due days" type="number" min={0} max={365} defaultValue={action.dueDays} className="ctl w-16" /> : null}
+      {action.kind === "set_status" ? (
+        <select name={`a${index}status`} aria-label="Job status" defaultValue={action.status} className="ctl">
           <option value="active">Active</option>
           <option value="complete">Complete</option>
         </select>
       ) : null}
+      {action.kind === "schedule_talk" ? (
+        <>
+          <select name={`a${index}topic`} aria-label="Topic" defaultValue={action.topicId} className="ctl">
+            {options.topics.map((topic) => (
+              <option key={topic.id} value={topic.id}>
+                {topic.name}
+              </option>
+            ))}
+          </select>
+          <input name={`a${index}days`} aria-label="Workdays" type="number" min={0} max={365} defaultValue={action.withinWorkdays} className="ctl w-16" />
+        </>
+      ) : null}
+      <button type="button" className="ctl" aria-label={`Remove action ${index + 1}`} onClick={onRemove}>
+        Remove
+      </button>
     </div>
   );
 }
