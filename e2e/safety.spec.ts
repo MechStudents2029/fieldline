@@ -38,9 +38,9 @@ test("safety tab, missed talk, phone sign-off, and incident detail", async ({ pa
   await expect(page.locator("[data-status=missed]")).toContainText("Missed");
 
   await page.goto("/safety/incidents/inc_br_stair");
-  await expect(page.getByText("Stair opening near miss")).toBeVisible();
-  await expect(page.getByText("Cover shifted during demo.")).toBeVisible();
-  await expect(page.getByText("Re-cover the stair opening")).toBeVisible();
+  await expect(page.getByRole("paragraph").filter({ hasText: "Stair opening near miss" })).toBeVisible();
+  await expect(page.getByLabel("Factors")).toHaveValue("Cover shifted during demo.");
+  await expect(page.getByRole("link", { name: "Re-cover the stair opening" })).toBeVisible();
   await shot(page, "incident-detail-light");
   await page.emulateMedia({ colorScheme: "dark" });
   await shot(page, "incident-detail-dark");
@@ -62,7 +62,7 @@ test("safety tab, missed talk, phone sign-off, and incident detail", async ({ pa
   await shot(page, "toolbox-signoff-phone-dark");
   await page.emulateMedia({ colorScheme: "light" });
   await draw(page, "Sign Dana Cho");
-  await page.getByLabel("Visitor").fill("Inspector Ruiz");
+  await page.getByRole("textbox", { name: "Visitor", exact: true }).fill("Inspector Ruiz");
   await draw(page, "Sign visitor");
   await page.getByRole("button", { name: "Complete" }).click();
   await expect(page.locator("[data-status=completed]")).toContainText("Completed");
@@ -70,8 +70,8 @@ test("safety tab, missed talk, phone sign-off, and incident detail", async ({ pa
   await expect(page.getByRole("button", { name: "Complete" })).toHaveCount(0);
 
   await page.goto("/safety");
-  await expect(page.getByText("Splinter from the jamb")).toBeVisible();
-  await expect(page.getByText("Stair opening near miss")).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Splinter from the jamb" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Stair opening near miss" })).toHaveCount(0);
 
   await page.goto("/portal/demo_portal_brooks");
   await expect(page.getByText("Stair opening near miss")).toHaveCount(0);

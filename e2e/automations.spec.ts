@@ -47,7 +47,7 @@ test("create a rule, watch it fire, and read the run log", async ({ page }) => {
   await page.getByLabel("Trigger").selectOption("inspection_result");
   await page.getByLabel("Result").selectOption("failed");
   await page.getByRole("button", { name: "+ Add action" }).click();
-  await page.getByLabel("Action 1").selectOption("punch");
+  await page.getByRole("combobox", { name: "Action 1", exact: true }).selectOption("punch");
   await page.getByLabel("Title").fill("E2E punch from inspection");
   await page.getByRole("button", { name: "Save" }).click();
   await expect(page).toHaveURL(/rule=/);
