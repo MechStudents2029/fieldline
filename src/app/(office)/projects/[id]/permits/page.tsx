@@ -17,7 +17,7 @@ export default async function PermitsPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ new?: string; inspection?: string; permit?: string }>;
+  searchParams: Promise<{ new?: string; inspection?: string; permit?: string; edit?: string }>;
 }) {
   const { id } = await params;
   const query = await searchParams;
@@ -94,25 +94,35 @@ export default async function PermitsPage({
           ))}
         </div>
         {selected ? (
-          <aside className="flex flex-col gap-3" data-detail="inspection" aria-label={selected.name}>
+          <aside role="complementary" className="flex flex-col gap-3" data-detail="inspection" aria-label={selected.name}>
             <div className="flex items-center gap-2">
               <h2 className="mac-t15 min-w-0 flex-1">
                 {selected.name}
                 {selected.attempt > 1 ? ` ${selected.attempt}` : ""}
               </h2>
               <span className="fl-pill">{selected.resultLabel}</span>
+              {board.canEdit ? (
+                <Link href={`/projects/${id}/permits?inspection=${selected.id}&edit=1`} className="ctl">
+                  Edit
+                </Link>
+              ) : null}
             </div>
-            <p className="mac-t11 text-[var(--mac-secondary)]">
-              {[selected.scheduledOn ? formatCalendarDay(selected.scheduledOn) : "", selected.inspector ?? "", selected.gates.map((gate) => gate.title).join(", ")].filter(Boolean).join(" · ")}
-            </p>
-            {selected.notes ? <p className="mac-t13 whitespace-pre-line">{selected.notes}</p> : null}
-            {selected.files.length > 0 ? (
-              <ul className="mac-t13">
-                {selected.files.map((file) => (
-                  <li key={file.id}>{file.name}</li>
-                ))}
-              </ul>
-            ) : null}
+            <dl className="grid grid-cols-[7.5rem_minmax(0,1fr)] gap-y-1 mac-t13">
+              <dt className="text-[var(--mac-secondary)]">Name</dt>
+              <dd>{selected.name}</dd>
+              <dt className="text-[var(--mac-secondary)]">Schedule item</dt>
+              <dd>{board.schedule.find((item) => item.id === selected.scheduleItemId)?.title ?? ""}</dd>
+              <dt className="text-[var(--mac-secondary)]">Date</dt>
+              <dd>{selected.scheduledOn ? formatCalendarDay(selected.scheduledOn) : ""}</dd>
+              <dt className="text-[var(--mac-secondary)]">Result</dt>
+              <dd>
+                <span className="fl-pill">{selected.resultLabel}</span>
+              </dd>
+              <dt className="text-[var(--mac-secondary)]">Gates</dt>
+              <dd>{selected.gates.map((gate) => gate.title).join(", ")}</dd>
+              <dt className="text-[var(--mac-secondary)]">File</dt>
+              <dd>{selected.files.map((file) => file.name).join(", ")}</dd>
+            </dl>
             {selected.todos.length > 0 ? (
               <ul className="fl-group" aria-label="To-dos">
                 {selected.todos.map((todo) => (
@@ -121,6 +131,8 @@ export default async function PermitsPage({
                   </li>
                 ))}
               </ul>
+            ) : selected.notes ? (
+              <p className="mac-t13 whitespace-pre-line">{selected.notes}</p>
             ) : null}
             {board.canEdit && (selected.result === "failed" || selected.result === "partial") ? (
               <div className="flex gap-2">
@@ -136,10 +148,18 @@ export default async function PermitsPage({
                 </ActionForm>
               </div>
             ) : null}
-            {board.canEdit ? (
-              <InspectionForm projectId={id} permitId={board.permits.find((permit) => permit.inspections.some((row) => row.id === selected.id))?.id ?? ""} board={board} inspection={selected} />
-            ) : null}
           </aside>
+        ) : null}
+        {selected && query.edit === "1" && board.canEdit ? (
+          <div className="fixed inset-y-0 right-0 z-40 w-[320px] overflow-auto border-l border-[var(--mac-separator)] bg-[var(--mac-window)] p-4">
+            <InspectionForm
+              projectId={id}
+              permitId={board.permits.find((permit) => permit.inspections.some((row) => row.id === selected.id))?.id ?? ""}
+              board={board}
+              inspection={selected}
+              cancelHref={`/projects/${id}/permits?inspection=${selected.id}`}
+            />
+          </div>
         ) : null}
         {showNew && board.canEdit ? <PermitForm projectId={id} board={board} permit={editing} /> : null}
         {showInspection && board.canEdit ? <InspectionForm projectId={id} permitId={query.permit ?? board.permits[0]?.id ?? ""} board={board} inspection={null} /> : null}
@@ -243,11 +263,13 @@ function InspectionForm({
   permitId,
   board,
   inspection,
+  cancelHref,
 }: {
   projectId: string;
   permitId: string;
   board: NonNullable<ReturnType<typeof permitBoard>>;
   inspection: NonNullable<ReturnType<typeof permitBoard>>["permits"][number]["inspections"][number] | null;
+  cancelHref?: string;
 }) {
   const gated = new Set(inspection?.gates.map((gate) => gate.id) ?? []);
   return (
@@ -318,9 +340,16 @@ function InspectionForm({
           </select>
         </label>
       ) : null}
-      <button type="submit" className="mac-primary w-fit">
-        Save
-      </button>
+      <div className="flex gap-2">
+        <button type="submit" className="mac-primary w-fit">
+          Save
+        </button>
+        {cancelHref ? (
+          <Link href={cancelHref} className="ctl">
+            Cancel
+          </Link>
+        ) : null}
+      </div>
     </ActionForm>
   );
 }

@@ -121,6 +121,8 @@ begin
     'template_permits',
     'template_inspections',
     'template_inspection_gates',
+    'markups',
+    'plan_pins',
     'proposals',
     'signatures',
     'projects',

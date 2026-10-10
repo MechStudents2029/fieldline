@@ -4,7 +4,7 @@ import { ActionForm } from "@/components/action-form";
 import { formatCalendarDay } from "@/lib/format";
 import type { PortalRfi } from "@/lib/services/rfis";
 
-export function RfiPortal({ token, items, side }: { token: string; items: PortalRfi[]; side: "vendor" | "client" }) {
+export function RfiPortal({ token, items, side, crops = {} }: { token: string; items: PortalRfi[]; side: "vendor" | "client"; crops?: Record<string, string | null> }) {
   if (items.length === 0) return null;
   const action = side === "vendor" ? answerVendorRfiAction : answerClientRfiAction;
   const fileQuery = side === "vendor" ? "vendor" : "portal";
@@ -27,6 +27,7 @@ export function RfiPortal({ token, items, side }: { token: string; items: Portal
               <span className="home-pill">{item.statusLabel}</span>
             </div>
             <p className="home-copy mt-2">{item.question}</p>
+            {crops[item.id] ? <img src={`/api/files/${crops[item.id]}?${fileQuery}=${encodeURIComponent(token)}`} alt="" className="mt-2 h-24 w-36 rounded-lg object-cover" /> : null}
             {item.messages.map((message) => (
               <p key={message.id} className="home-sub mt-2">
                 {message.authorName}: {message.body}

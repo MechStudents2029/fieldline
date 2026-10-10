@@ -87,7 +87,9 @@ import {
   inspectionGates,
   inspections,
   jobFiles,
+  markups,
   permits,
+  planPins,
   planRefs,
   recordFiles,
   commentFiles,
@@ -127,6 +129,7 @@ import { hashPassword, newSalt } from "@/lib/auth/password";
 import { canonicalJson, sha256 } from "@/lib/esign/hash";
 import { publicSnapshot } from "@/lib/selections/money";
 import { daysAgo, daysFromNow, nowIso } from "@/lib/ids";
+import { floorPlanPdf } from "@/lib/markup/pdf";
 import { achFeeCents, formatMoney, qtyToMilli } from "@/lib/money";
 import { CONSENT_VERSION, DEMO_PASSWORD } from "@/lib/product";
 import { linkedDeadline } from "@/lib/todos/deadline";
@@ -145,7 +148,7 @@ import {
   WEBSITE_FORM_SOURCE,
 } from "@/lib/lead-form/rules";
 
-export const SEED_VERSION = "35";
+export const SEED_VERSION = "36";
 
 const ORG = "org_rivera";
 const NORTH = "org_northline";
@@ -2779,7 +2782,7 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
   const punchToday = localDay(Date.parse(now), "America/New_York");
   db.insert(punchItems)
     .values([
-      { id: "punch_ok_curb", orgId: ORG, projectId: "proj_okonkwo", title: "Caulk the curb", location: "Shower", costCode: "TILE-SHOWER", assigneeUserId: "user_dana", assigneeContactId: null, dueDate: punchToday, status: "open", shared: 1, beforeDocumentId: null, afterDocumentId: null, doneAt: null, verifiedAt: null, createdBy: "user_maya", createdAt: daysAgo(2), updatedAt: daysAgo(2) },
+      { id: "punch_ok_curb", orgId: ORG, projectId: "proj_okonkwo", title: "Caulk the curb", location: "Shower", costCode: "TILE-SHOWER", assigneeUserId: "user_dana", assigneeContactId: null, dueDate: punchToday, status: "open", shared: 1, beforeDocumentId: "doc_o1", afterDocumentId: null, doneAt: null, verifiedAt: null, createdBy: "user_maya", createdAt: daysAgo(2), updatedAt: daysAgo(1) },
       { id: "punch_ok_paint", orgId: ORG, projectId: "proj_okonkwo", title: "Touch up the ceiling", location: "Hall", costCode: "GC-SUPER", assigneeUserId: "user_dana", assigneeContactId: null, dueDate: addCalendarDays(punchToday, -1), status: "done", shared: 0, beforeDocumentId: null, afterDocumentId: null, doneAt: daysAgo(1), verifiedAt: null, createdBy: "user_dana", createdAt: daysAgo(3), updatedAt: daysAgo(1) },
       { id: "punch_ok_vanity", orgId: ORG, projectId: "proj_okonkwo", title: "Align the vanity door", location: "Vanity", costCode: "BATH-VANITY", assigneeUserId: "user_dana", assigneeContactId: null, dueDate: addCalendarDays(punchToday, -3), status: "verified", shared: 1, beforeDocumentId: null, afterDocumentId: null, doneAt: daysAgo(3), verifiedAt: daysAgo(2), createdBy: "user_maya", createdAt: daysAgo(4), updatedAt: daysAgo(2) },
       { id: "punch_ok_esc", orgId: ORG, projectId: "proj_okonkwo", title: "Replace the escutcheon", location: "Shower", costCode: "PLB-SHOWER", assigneeUserId: null, assigneeContactId: "c_harbor", dueDate: addCalendarDays(punchToday, 2), status: "open", shared: 0, beforeDocumentId: null, afterDocumentId: null, doneAt: null, verifiedAt: null, createdBy: "user_sam", createdAt: daysAgo(1), updatedAt: daysAgo(1) },
@@ -3734,12 +3737,11 @@ function seedTemplates(db: AppDatabase, now: string) {
     { key: "apps", title: "Appliances", offset: 7, duration: 1, trade: "Appliance", preds: [{ key: "cabs", lag: 0 }] },
     { key: "splash", title: "Backsplash", offset: 9, duration: 2, trade: "Tile", preds: [{ key: "tops", lag: 0 }] },
   ];
-  const planPdf = Buffer.from("%PDF-1.1\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF\n");
   const vendorPng = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
   const uploadDir = path.join(resolveDataDir(), "uploads", ORG);
   fs.mkdirSync(uploadDir, { recursive: true });
-  fs.writeFileSync(path.join(uploadDir, "doc_ok_a101_r1.pdf"), planPdf);
-  fs.writeFileSync(path.join(uploadDir, "doc_ok_a101_r2.pdf"), planPdf);
+  fs.writeFileSync(path.join(uploadDir, "doc_ok_a101_r1.pdf"), floorPlanPdf("A-101 Rev 1"));
+  fs.writeFileSync(path.join(uploadDir, "doc_ok_a101_r2.pdf"), floorPlanPdf("A-101 Rev 2"));
   fs.writeFileSync(path.join(uploadDir, "doc_ok_harbor.png"), vendorPng);
   const folderDefaults = [
     { key: "plans", name: "Plans", kind: "plans", visibility: "team", sort: 0 },
@@ -3783,6 +3785,53 @@ function seedTemplates(db: AppDatabase, now: string) {
       { id: "pref_ok_bid", orgId: ORG, targetType: "bid", targetId: "bid_ok_valve", revisionGroupId: "grp_ok_a101", createdAt: daysAgo(1) },
       { id: "pref_ok_po", orgId: ORG, targetType: "purchase_order", targetId: "po_ok_harbor", revisionGroupId: "grp_ok_a101", createdAt: daysAgo(1) },
     ])
+    .run();
+  db.insert(documents)
+    .values([
+      { id: "doc_ok_curb_flat", orgId: ORG, projectId: "proj_okonkwo", leadId: null, contactId: null, type: "markup", filename: "curb-marked.svg", storagePath: "/demo/photos/okonkwo-curb-marked.svg", metadataJson: null, deletedAt: null, createdAt: daysAgo(1), createdBy: "user_maya" },
+      { id: "doc_pin_curb", orgId: ORG, projectId: "proj_okonkwo", leadId: null, contactId: null, type: "plan_crop", filename: "pin-curb.svg", storagePath: "/demo/plans/pin-curb.svg", metadataJson: null, deletedAt: null, createdAt: daysAgo(1), createdBy: "user_maya" },
+      { id: "doc_pin_vanity", orgId: ORG, projectId: "proj_okonkwo", leadId: null, contactId: null, type: "plan_crop", filename: "pin-vanity.svg", storagePath: "/demo/plans/pin-vanity.svg", metadataJson: null, deletedAt: null, createdAt: daysAgo(1), createdBy: "user_maya" },
+      { id: "doc_pin_valve", orgId: ORG, projectId: "proj_okonkwo", leadId: null, contactId: null, type: "plan_crop", filename: "pin-valve.svg", storagePath: "/demo/plans/pin-valve.svg", metadataJson: null, deletedAt: null, createdAt: daysAgo(1), createdBy: "user_maya" },
+      { id: "doc_pin_r1", orgId: ORG, projectId: "proj_okonkwo", leadId: null, contactId: null, type: "plan_crop", filename: "pin-r1.svg", storagePath: "/demo/plans/pin-r1.svg", metadataJson: null, deletedAt: null, createdAt: daysAgo(8), createdBy: "user_luis" },
+    ])
+    .run();
+  db.insert(markups)
+    .values({
+      id: "mk_ok_curb",
+      orgId: ORG,
+      projectId: "proj_okonkwo",
+      targetType: "photo",
+      targetId: "doc_o1",
+      sourceDocumentId: "doc_o1",
+      page: 1,
+      layerJson: JSON.stringify({ shapes: [{ id: "s_curb", tool: "ellipse", color: "red", points: [{ x: 0.42, y: 0.28 }, { x: 0.62, y: 0.48 }] }] }),
+      flatDocumentId: "doc_ok_curb_flat",
+      createdAt: daysAgo(1),
+      updatedAt: daysAgo(1),
+      createdBy: "user_maya",
+      updatedBy: "user_maya",
+    })
+    .run();
+  db.insert(planPins)
+    .values([
+      { id: "pin_ok_curb", orgId: ORG, projectId: "proj_okonkwo", jobFileId: "jf_ok_a101_r2", number: 1, xMilli: 294, yMilli: 318, linkType: "punch", linkId: "punch_ok_curb", note: "", cropDocumentId: "doc_pin_curb", copiedFromId: null, reviewed: 1, createdAt: daysAgo(1), createdBy: "user_maya" },
+      { id: "pin_ok_vanity", orgId: ORG, projectId: "proj_okonkwo", jobFileId: "jf_ok_a101_r2", number: 2, xMilli: 686, yMilli: 318, linkType: "punch", linkId: "punch_ok_vanity", note: "", cropDocumentId: "doc_pin_vanity", copiedFromId: null, reviewed: 1, createdAt: daysAgo(1), createdBy: "user_maya" },
+      { id: "pin_ok_valve", orgId: ORG, projectId: "proj_okonkwo", jobFileId: "jf_ok_a101_r2", number: 3, xMilli: 506, yMilli: 722, linkType: "rfi", linkId: "rfi_ok_valve", note: "Check before tile.", cropDocumentId: "doc_pin_valve", copiedFromId: null, reviewed: 1, createdAt: daysAgo(1), createdBy: "user_maya" },
+      { id: "pin_ok_r1", orgId: ORG, projectId: "proj_okonkwo", jobFileId: "jf_ok_a101_r1", number: 1, xMilli: 200, yMilli: 240, linkType: "punch", linkId: "punch_ok_paint", note: "Superseded.", cropDocumentId: "doc_pin_r1", copiedFromId: null, reviewed: 1, createdAt: daysAgo(8), createdBy: "user_luis" },
+    ])
+    .run();
+  db.insert(auditLogs)
+    .values({
+      id: "audit_mk_curb",
+      orgId: ORG,
+      actorId: "user_maya",
+      action: "markup.save",
+      entityType: "markup",
+      entityId: "mk_ok_curb",
+      payloadJson: JSON.stringify({ targetType: "photo", targetId: "doc_o1" }),
+      ip: null,
+      createdAt: daysAgo(1),
+    })
     .run();
 
   const templates = [

@@ -120,6 +120,7 @@ export function ensureReady(holder: Holder) {
   ensureCostPlus(holder);
   ensureSchedulePlan(holder);
   ensurePermits(holder);
+  ensureMarkup(holder);
   const version = holder.sqlite.prepare("select value from app_meta where key = ?").get("seed_version") as
     | { value: string }
     | undefined;
@@ -2054,6 +2055,48 @@ function ensurePermits(holder: Holder) {
     )`);
   }
   holder.sqlite.exec("create index if not exists template_inspection_gates_template on template_inspection_gates (org_id, template_id)");
+}
+
+function ensureMarkup(holder: Holder) {
+  const pk = holder.dialect === "postgres" ? "text primary key" : "text primary key not null";
+  if (!tableExists(holder.sqlite, "markups", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists markups (
+      id ${pk},
+      org_id text not null,
+      project_id text not null,
+      target_type text not null,
+      target_id text not null,
+      source_document_id text not null,
+      page integer not null default 1,
+      layer_json text not null,
+      flat_document_id text not null,
+      created_at text not null,
+      updated_at text not null,
+      created_by text,
+      updated_by text
+    )`);
+  }
+  holder.sqlite.exec("create unique index if not exists markups_target on markups (org_id, target_type, target_id, page)");
+  if (!tableExists(holder.sqlite, "plan_pins", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists plan_pins (
+      id ${pk},
+      org_id text not null,
+      project_id text not null,
+      job_file_id text not null,
+      number integer not null,
+      x_milli integer not null,
+      y_milli integer not null,
+      link_type text not null,
+      link_id text not null,
+      note text not null default '',
+      crop_document_id text,
+      copied_from_id text,
+      reviewed integer not null default 1,
+      created_at text not null,
+      created_by text
+    )`);
+  }
+  holder.sqlite.exec("create index if not exists plan_pins_file on plan_pins (org_id, job_file_id)");
 }
 
 export function resetDatabase(): AppDatabase {

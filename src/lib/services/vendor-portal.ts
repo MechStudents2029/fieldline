@@ -34,6 +34,7 @@ import { canEditCrm, canManageSettings, canSeeMoney, type Role } from "@/lib/per
 import { photoExtension, photoUploadError, rasterImageType } from "@/lib/security";
 import { duplicateBill, normalizeBillNumber } from "@/lib/services/bills";
 import { targetPlans, vendorMayReadJobFile } from "@/lib/services/files";
+import { vendorMayReadVisual } from "@/lib/services/markup";
 import { ServiceError } from "@/lib/services/errors";
 import type { Actor } from "@/lib/services/read";
 import { localDay } from "@/lib/time/calendar";
@@ -845,6 +846,7 @@ export function vendorFileAllowed(token: string, documentId: string): boolean {
     .where(and(eq(bidFiles.orgId, ctx.orgId), eq(bidFiles.documentId, document.id)))
     .get();
   if (attachment && bidIds.has(attachment.bidId)) return true;
+  if (document.type === "markup" || document.type === "plan_crop") return vendorMayReadVisual(ctx.db, ctx.orgId, ctx.contactId, document.id);
   return vendorMayReadJobFile(ctx.db, ctx.orgId, ctx.contactId, document.id);
 }
 

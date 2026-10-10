@@ -1,7 +1,7 @@
-import { and, eq, gte, inArray, lte } from "drizzle-orm";
+import { and, eq, gte, inArray, isNull, lte } from "drizzle-orm";
 import { getDb } from "@/lib/db/client";
 import { officeDb } from "@/lib/db/office";
-import { calendarFeeds, memberships, projects, scheduleAssignees, scheduleBaselineItems, scheduleBaselines, scheduleItems, scheduleLinks, users } from "@/lib/db/schema";
+import { calendarFeeds, memberships, projects, scheduleAssignees, scheduleBaselineItems, scheduleBaselines, scheduleItems, scheduleLinks, users, workdayExceptions } from "@/lib/db/schema";
 import { overdueScheduleIds } from "@/lib/services/rfis";
 import { id, nowIso } from "@/lib/ids";
 import { canEditSchedule, type Role } from "@/lib/permissions";
@@ -22,6 +22,17 @@ import { calendarForOrg } from "@/lib/services/time";
 import { workCalendarFor } from "@/lib/services/work-calendar";
 import { addCalendarDays, localDay, zonedTimeToUtc } from "@/lib/time/calendar";
 import { dayHeading, rangeLabel } from "@/lib/time/grid";
+
+function offLabel(date: string, calendar: ReturnType<typeof workCalendarFor>, rows: { title: string; startDate: string; endDate: string; yearly: number }[]) {
+  if (isWorkday(date, calendar)) return null;
+  let title = "Off";
+  for (const row of rows) {
+    const start = row.yearly === 1 ? `${date.slice(0, 4)}-${row.startDate.slice(5)}` : row.startDate;
+    const end = row.yearly === 1 ? `${date.slice(0, 4)}-${row.endDate.slice(5)}` : row.endDate;
+    if (start <= date && date <= end) title = row.title;
+  }
+  return title;
+}
 
 const STATUSES = ["planned", "confirmed", "done"] as const;
 export type ScheduleStatus = (typeof STATUSES)[number];
@@ -62,7 +73,7 @@ export type ScheduleBoard = {
   span: ScheduleSpan;
   label: string;
   today: string;
-  days: { date: string; label: string; isToday: boolean; off: boolean }[];
+  days: { date: string; label: string; isToday: boolean; off: boolean; offLabel: string | null }[];
   rows: {
     userId: string | null;
     name: string;
@@ -217,6 +228,11 @@ export function scheduleBoard(actor: Actor, query: { on?: string; span?: string 
   const conflictKey = new Set(hits.flatMap((hit) => hit.itemIds.map((itemId) => `${hit.userId}|${hit.day}|${itemId}`)));
   const lateRfi = overdueScheduleIds(actor.orgId, today);
   const companyCalendar = workCalendarFor(actor.orgId);
+  const companyOff = db
+    .select()
+    .from(workdayExceptions)
+    .where(and(eq(workdayExceptions.orgId, actor.orgId), isNull(workdayExceptions.projectId), eq(workdayExceptions.kind, "off")))
+    .all();
   const jobCalendars = new Map<string, ReturnType<typeof workCalendarFor>>();
   const baselines = db.select().from(scheduleBaselines).where(and(eq(scheduleBaselines.orgId, actor.orgId), eq(scheduleBaselines.current, 1))).all();
   const baselineIds = baselines.map((row) => row.id);
@@ -346,7 +362,7 @@ export function scheduleBoard(actor: Actor, query: { on?: string; span?: string 
     span,
     label: rangeLabel(window.days),
     today,
-    days: window.days.map((date) => ({ date, label: dayHeading(date), isToday: date === today, off: !isWorkday(date, companyCalendar) })),
+    days: window.days.map((date) => ({ date, label: dayHeading(date), isToday: date === today, off: !isWorkday(date, companyCalendar), offLabel: offLabel(date, companyCalendar, companyOff) })),
     rows,
     counts: { items: itemRows.length, people: booked.size, conflicts: hits.length },
     jobs,

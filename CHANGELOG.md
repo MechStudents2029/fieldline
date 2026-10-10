@@ -2,6 +2,22 @@
 
 ## 2026-10-10
 
+### Markup
+
+- A job photo opens in an editor: pen, arrow, rectangle, ellipse, text, teal plus red, yellow, black, and white. Undo, redo, and delete. Save keeps the original and stores the layer plus a flattened image. The record shows the marked-up photo, a Marked up pill, and a toggle for the original. The audit log has who and when.
+- A plan revision opens with zoom and pan and the same tools. A numbered pin links to a punch item, an RFI, or a to-do. The record shows a crop around the pin. Pins use teal for open and a neutral pill for done or verified. The pin list filters by type and status. A new revision carries the pins forward and asks to review them. The old revision keeps its pins read-only.
+- The client portal shows a markup or a pin only when that item is already shared. The vendor portal shows a pin only when it is linked to that vendor’s item. Internal notes stay off both.
+- Punch list and RFI print include the plan crop and the marked-up photo.
+- Okonkwo A-101 rev 2 has two punch pins and one RFI pin, plus a marked-up curb photo. Rev 1 keeps one superseded pin.
+
+### Inspections
+
+- The inspection detail is a set of rows: name, schedule item, date, result, gates, and file. Edit opens a sheet with Save and Cancel. Correction notes show once.
+
+### Schedule
+
+- A gated item shows Held. The person column stays put when the board scrolls. A holiday column shows its name, and other non-work columns say Off.
+
 ### Permits
 
 - A job holds permits: type, number, jurisdiction, status, applied, issued, and expiry dates, and an optional fee. The fee posts one job cost to the chosen cost code. Office edits. Field sees the number and status.

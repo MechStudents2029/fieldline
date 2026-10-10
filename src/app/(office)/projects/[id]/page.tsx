@@ -28,6 +28,7 @@ import { PunchSection } from "@/components/punch-section";
 import { RfiSection } from "@/components/rfi-section";
 import { SubmittalSection } from "@/components/submittal-section";
 import { punchBoard } from "@/lib/services/punch";
+import { projectVisuals } from "@/lib/services/markup";
 import { jobRfis } from "@/lib/services/rfis";
 import { jobSubmittals } from "@/lib/services/submittals";
 import { bidComposer } from "@/lib/services/bids";
@@ -182,6 +183,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
           rfis={Object.fromEntries(
             punch.items.map((item) => [item.id, (rfiBoard?.items ?? []).filter((rfi) => rfi.relatedType === "punch" && rfi.relatedId === item.id && rfi.status !== "void")]),
           )}
+          visuals={Object.fromEntries(projectVisuals(session, detail.project.id).filter((row) => row.linkType === "punch").map((row) => [row.linkId, row.visual]))}
         />
       ) : null}
       {rfiBoard ? <RfiSection board={rfiBoard} /> : null}
@@ -563,12 +565,13 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
           {detail.photos
             .filter((photo) => photo.type === "photo")
             .map((photo) => (
-              <img
-                key={photo.id}
-                src={photo.storagePath.startsWith("/") ? photo.storagePath : `/api/files/${photo.id}`}
-                alt={captionFromMetadata(photo.metadataJson) || "Job photo"}
-                className="aspect-square w-full rounded-lg object-cover"
-              />
+              <a key={photo.id} href={`/projects/${detail.project.id}/markup/${photo.id}`} className="relative block" aria-label={`Mark up ${captionFromMetadata(photo.metadataJson) || "photo"}`}>
+                <img
+                  src={photo.storagePath.startsWith("/") ? photo.storagePath : `/api/files/${photo.id}`}
+                  alt={captionFromMetadata(photo.metadataJson) || "Job photo"}
+                  className="aspect-square w-full rounded-lg object-cover"
+                />
+              </a>
             ))}
         </div>
         {session.role !== "viewer" ? <PhotoCapture action={photoAction.bind(null, detail.project.id)} label="Take a job photo" submitLabel="Save photo" /> : null}

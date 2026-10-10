@@ -105,7 +105,14 @@ export function TodoPane({
       {todo.files.length ? (
         <ul className="mac-t11 text-[var(--mac-secondary)]">
           {todo.files.map((file) => (
-            <li key={file.id}>{file.filename}</li>
+            <li key={file.id}>
+              {file.filename}
+              {todo.projectId ? (
+                <a href={`/projects/${todo.projectId}/markup/${file.id}`} className="ml-2 text-[var(--mac-accent)]">
+                  Mark up
+                </a>
+              ) : null}
+            </li>
           ))}
         </ul>
       ) : null}
