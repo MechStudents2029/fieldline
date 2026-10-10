@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 
-export function SignaturePad() {
+export function SignaturePad({ name = "drawn", label = "Draw your signature" }: { name?: string; label?: string }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const hiddenRef = useRef<HTMLInputElement>(null);
   const drawing = useRef(false);
@@ -126,10 +126,10 @@ export function SignaturePad() {
       <canvas
         ref={canvasRef}
         className="mt-1 h-28 w-full touch-none rounded-lg border border-input bg-white"
-        aria-label="Draw your signature"
+        aria-label={label}
       />
-      <input ref={hiddenRef} type="hidden" name="drawn" />
-      <button type="button" onClick={clear} className="mt-1 text-xs text-muted-foreground underline">
+      <input ref={hiddenRef} type="hidden" name={name} />
+      <button type="button" onClick={clear} className="ctl mt-1">
         Clear drawing
       </button>
     </div>

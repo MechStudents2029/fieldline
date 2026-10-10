@@ -545,7 +545,28 @@ select.ctl {
   align-items: center;
   gap: 8px;
   min-width: 0;
+  overflow-x: auto;
   font-size: 13px;
+}
+button.switch {
+  width: 36px;
+  min-width: 36px;
+  padding: 0 3px;
+  background: var(--mac-fill);
+}
+button.switch[aria-checked="true"] {
+  background: var(--mac-accent);
+}
+button.switch span {
+  display: block;
+  width: 14px;
+  height: 14px;
+  border-radius: 99px;
+  background: #fff;
+  transform: translateX(0);
+}
+button.switch[aria-checked="true"] span {
+  transform: translateX(14px);
 }
 .ctl-count { font-size: 13px; white-space: nowrap; }
 .ctl-dot { color: var(--mac-secondary); }

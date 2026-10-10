@@ -123,6 +123,7 @@ export function ensureReady(holder: Holder) {
   ensureMarkup(holder);
   ensureEquipment(holder);
   ensureAutomations(holder);
+  ensureSafety(holder);
   const version = holder.sqlite.prepare("select value from app_meta where key = ?").get("seed_version") as
     | { value: string }
     | undefined;
@@ -2220,6 +2221,148 @@ function ensureAutomations(holder: Holder) {
   }
   holder.sqlite.exec("create unique index if not exists automation_notices_once on automation_notices (org_id, rule_id, record_key, user_id, role)");
   holder.sqlite.exec("create index if not exists automation_notices_org on automation_notices (org_id)");
+}
+
+function ensureSafety(holder: Holder) {
+  const pk = holder.dialect === "postgres" ? "text primary key" : "text primary key not null";
+  if (!tableExists(holder.sqlite, "safety_topics", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists safety_topics (
+      id ${pk},
+      org_id text not null,
+      title text not null,
+      body text not null,
+      body_es text not null default '',
+      sort_order integer not null,
+      created_at text not null
+    )`);
+  }
+  holder.sqlite.exec("create index if not exists safety_topics_org on safety_topics (org_id, sort_order)");
+  if (!tableExists(holder.sqlite, "toolbox_talks", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists toolbox_talks (
+      id ${pk},
+      org_id text not null,
+      project_id text not null,
+      topic_id text not null,
+      scheduled_on text not null,
+      leader_user_id text not null,
+      completed_at text,
+      voided_at text,
+      notes text not null default '',
+      client_event_id text,
+      created_at text not null,
+      updated_at text not null,
+      created_by text
+    )`);
+  }
+  holder.sqlite.exec("create index if not exists toolbox_talks_org on toolbox_talks (org_id, project_id, scheduled_on)");
+  if (!tableExists(holder.sqlite, "toolbox_attendees", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists toolbox_attendees (
+      id ${pk},
+      org_id text not null,
+      talk_id text not null,
+      user_id text not null default '',
+      visitor_name text not null default '',
+      typed_name text not null,
+      drawn_data_url text not null,
+      signed_at text not null
+    )`);
+  }
+  holder.sqlite.exec("create unique index if not exists toolbox_attendees_once on toolbox_attendees (org_id, talk_id, user_id, visitor_name)");
+  if (!tableExists(holder.sqlite, "safety_templates", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists safety_templates (
+      id ${pk},
+      org_id text not null,
+      name text not null,
+      created_at text not null
+    )`);
+  }
+  holder.sqlite.exec("create index if not exists safety_templates_org on safety_templates (org_id)");
+  if (!tableExists(holder.sqlite, "safety_template_items", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists safety_template_items (
+      id ${pk},
+      org_id text not null,
+      template_id text not null,
+      title text not null,
+      sort_order integer not null
+    )`);
+  }
+  holder.sqlite.exec("create index if not exists safety_template_items_template on safety_template_items (org_id, template_id)");
+  if (!tableExists(holder.sqlite, "safety_checks", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists safety_checks (
+      id ${pk},
+      org_id text not null,
+      project_id text not null,
+      template_id text not null,
+      name text not null,
+      completed_by text not null,
+      completed_at text not null,
+      voided_at text,
+      created_at text not null
+    )`);
+  }
+  holder.sqlite.exec("create index if not exists safety_checks_org on safety_checks (org_id, project_id)");
+  if (!tableExists(holder.sqlite, "safety_check_items", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists safety_check_items (
+      id ${pk},
+      org_id text not null,
+      check_id text not null,
+      title text not null,
+      result text not null,
+      document_id text,
+      todo_id text,
+      punch_id text
+    )`);
+  }
+  holder.sqlite.exec("create index if not exists safety_check_items_check on safety_check_items (org_id, check_id)");
+  if (!tableExists(holder.sqlite, "incidents", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists incidents (
+      id ${pk},
+      org_id text not null,
+      project_id text not null,
+      equipment_id text,
+      kind text not null,
+      occurred_at text not null,
+      description text not null,
+      factors text not null default '',
+      voided_at text,
+      created_by text not null,
+      created_at text not null,
+      updated_at text not null
+    )`);
+  }
+  holder.sqlite.exec("create index if not exists incidents_org on incidents (org_id, project_id)");
+  if (!tableExists(holder.sqlite, "incident_people", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists incident_people (
+      id ${pk},
+      org_id text not null,
+      incident_id text not null,
+      name text not null,
+      user_id text not null default ''
+    )`);
+  }
+  holder.sqlite.exec("create index if not exists incident_people_incident on incident_people (org_id, incident_id)");
+  if (!tableExists(holder.sqlite, "incident_photos", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists incident_photos (
+      id ${pk},
+      org_id text not null,
+      incident_id text not null,
+      document_id text not null,
+      created_at text not null
+    )`);
+  }
+  holder.sqlite.exec("create index if not exists incident_photos_incident on incident_photos (org_id, incident_id)");
+  if (!tableExists(holder.sqlite, "incident_actions", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists incident_actions (
+      id ${pk},
+      org_id text not null,
+      incident_id text not null,
+      title text not null,
+      assignee_user_id text,
+      todo_id text not null,
+      created_at text not null
+    )`);
+  }
+  holder.sqlite.exec("create index if not exists incident_actions_incident on incident_actions (org_id, incident_id)");
 }
 
 export function resetDatabase(): AppDatabase {

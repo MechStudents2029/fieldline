@@ -2415,3 +2415,166 @@ export const automationNotices = sqliteTable(
   },
   (t) => [uniqueIndex("automation_notices_once").on(t.orgId, t.ruleId, t.recordKey, t.userId, t.role), index("automation_notices_org").on(t.orgId)],
 );
+
+/** Company toolbox topic. bodyEs is optional Spanish text. */
+export const safetyTopics = sqliteTable(
+  "safety_topics",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    title: text("title").notNull(),
+    body: text("body").notNull(),
+    bodyEs: text("body_es").notNull().default(""),
+    sortOrder: integer("sort_order").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [index("safety_topics_org").on(t.orgId, t.sortOrder)],
+);
+
+/** A scheduled talk. Status is derived: completed, missed (past and open), or upcoming. */
+export const toolboxTalks = sqliteTable(
+  "toolbox_talks",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    projectId: text("project_id").notNull(),
+    topicId: text("topic_id").notNull(),
+    scheduledOn: text("scheduled_on").notNull(),
+    leaderUserId: text("leader_user_id").notNull(),
+    completedAt: text("completed_at"),
+    voidedAt: text("voided_at"),
+    notes: text("notes").notNull().default(""),
+    clientEventId: text("client_event_id"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    createdBy: text("created_by"),
+  },
+  (t) => [index("toolbox_talks_org").on(t.orgId, t.projectId, t.scheduledOn)],
+);
+
+/** One signature per crew member or visitor. Empty strings keep the unique key stable. */
+export const toolboxAttendees = sqliteTable(
+  "toolbox_attendees",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    talkId: text("talk_id").notNull(),
+    userId: text("user_id").notNull().default(""),
+    visitorName: text("visitor_name").notNull().default(""),
+    typedName: text("typed_name").notNull(),
+    drawnDataUrl: text("drawn_data_url").notNull(),
+    signedAt: text("signed_at").notNull(),
+  },
+  (t) => [uniqueIndex("toolbox_attendees_once").on(t.orgId, t.talkId, t.userId, t.visitorName)],
+);
+
+export const safetyTemplates = sqliteTable(
+  "safety_templates",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    name: text("name").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [index("safety_templates_org").on(t.orgId)],
+);
+
+export const safetyTemplateItems = sqliteTable(
+  "safety_template_items",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    templateId: text("template_id").notNull(),
+    title: text("title").notNull(),
+    sortOrder: integer("sort_order").notNull(),
+  },
+  (t) => [index("safety_template_items_template").on(t.orgId, t.templateId)],
+);
+
+export const safetyChecks = sqliteTable(
+  "safety_checks",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    projectId: text("project_id").notNull(),
+    templateId: text("template_id").notNull(),
+    name: text("name").notNull(),
+    completedBy: text("completed_by").notNull(),
+    completedAt: text("completed_at").notNull(),
+    voidedAt: text("voided_at"),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [index("safety_checks_org").on(t.orgId, t.projectId)],
+);
+
+export const safetyCheckItems = sqliteTable(
+  "safety_check_items",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    checkId: text("check_id").notNull(),
+    title: text("title").notNull(),
+    result: text("result").notNull(),
+    documentId: text("document_id"),
+    todoId: text("todo_id"),
+    punchId: text("punch_id"),
+  },
+  (t) => [index("safety_check_items_check").on(t.orgId, t.checkId)],
+);
+
+export const incidents = sqliteTable(
+  "incidents",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    projectId: text("project_id").notNull(),
+    equipmentId: text("equipment_id"),
+    kind: text("kind").notNull(),
+    occurredAt: text("occurred_at").notNull(),
+    description: text("description").notNull(),
+    factors: text("factors").notNull().default(""),
+    voidedAt: text("voided_at"),
+    createdBy: text("created_by").notNull(),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (t) => [index("incidents_org").on(t.orgId, t.projectId)],
+);
+
+export const incidentPeople = sqliteTable(
+  "incident_people",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    incidentId: text("incident_id").notNull(),
+    name: text("name").notNull(),
+    userId: text("user_id").notNull().default(""),
+  },
+  (t) => [index("incident_people_incident").on(t.orgId, t.incidentId)],
+);
+
+export const incidentPhotos = sqliteTable(
+  "incident_photos",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    incidentId: text("incident_id").notNull(),
+    documentId: text("document_id").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [index("incident_photos_incident").on(t.orgId, t.incidentId)],
+);
+
+export const incidentActions = sqliteTable(
+  "incident_actions",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    incidentId: text("incident_id").notNull(),
+    title: text("title").notNull(),
+    assigneeUserId: text("assignee_user_id"),
+    todoId: text("todo_id").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [index("incident_actions_incident").on(t.orgId, t.incidentId)],
+);

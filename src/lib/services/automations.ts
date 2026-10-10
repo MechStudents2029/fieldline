@@ -9,6 +9,7 @@ import {
   contacts,
   equipment,
   equipmentAssignments,
+  incidents,
   inspectionGates,
   inspections,
   invoices,
@@ -18,11 +19,15 @@ import {
   projects,
   proposals,
   punchItems,
+  safetyCheckItems,
+  safetyChecks,
+  safetyTopics,
   scheduleItems,
   scheduleLinks,
   taskAssignees,
   taskChecks,
   tasks,
+  toolboxTalks,
   templateTaskLinks,
   templateTasks,
   templateTodoChecks,
@@ -32,7 +37,7 @@ import {
 } from "@/lib/db/schema";
 import { id, nowIso } from "@/lib/ids";
 import { canEditCrm, canManageSettings } from "@/lib/permissions";
-import { dateFromOffset, endFromDuration } from "@/lib/schedule/workdays";
+import { addWorkdays, dateFromOffset, endFromDuration } from "@/lib/schedule/workdays";
 import { ServiceError } from "@/lib/services/errors";
 import type { Actor } from "@/lib/services/read";
 import { workCalendarFor } from "@/lib/services/work-calendar";
@@ -50,7 +55,9 @@ export type Trigger =
   | { kind: "punch_verified" }
   | { kind: "invoice_overdue"; days: number }
   | { kind: "vendor_expiring"; days: number; cert: "insurance" | "license" }
-  | { kind: "equipment_overdue" };
+  | { kind: "equipment_overdue" }
+  | { kind: "incident_logged" }
+  | { kind: "checklist_failed" };
 
 export type Condition =
   | { kind: "job_type"; value: string }
@@ -68,7 +75,8 @@ export type Action =
   | { kind: "set_status"; status: string }
   | { kind: "punch"; title: string }
   | { kind: "hold" }
-  | { kind: "release" };
+  | { kind: "release" }
+  | { kind: "schedule_talk"; topicId: string; withinWorkdays: number };
 
 export type AutomationEvent = {
   orgId: string;
@@ -137,6 +145,8 @@ export function parseTrigger(raw: string): Trigger | null {
     return { kind: "vendor_expiring", days, cert: row.cert };
   }
   if (row.kind === "equipment_overdue") return { kind: "equipment_overdue" };
+  if (row.kind === "incident_logged") return { kind: "incident_logged" };
+  if (row.kind === "checklist_failed") return { kind: "checklist_failed" };
   return null;
 }
 
@@ -184,6 +194,10 @@ export function parseActions(raw: string): Action[] {
     else if (row.kind === "punch") out.push({ kind: "punch", title: typeof row.title === "string" ? row.title : "" });
     else if (row.kind === "hold") out.push({ kind: "hold" });
     else if (row.kind === "release") out.push({ kind: "release" });
+    else if (row.kind === "schedule_talk" && typeof row.topicId === "string") {
+      const withinWorkdays = daysOf(row.withinWorkdays);
+      if (withinWorkdays != null) out.push({ kind: "schedule_talk", topicId: row.topicId, withinWorkdays });
+    }
   }
   return out;
 }
@@ -196,6 +210,8 @@ export function triggerLabel(trigger: Trigger): string {
   if (trigger.kind === "punch_verified") return "Punch verified";
   if (trigger.kind === "invoice_overdue") return `Invoice overdue ${trigger.days}d`;
   if (trigger.kind === "vendor_expiring") return trigger.cert === "license" ? `License expiring ${trigger.days}d` : `Insurance expiring ${trigger.days}d`;
+  if (trigger.kind === "incident_logged") return "Incident logged";
+  if (trigger.kind === "checklist_failed") return "Checklist item failed";
   return "Equipment overdue";
 }
 
@@ -321,6 +337,7 @@ function itemNames(orgId: string, ids: string[]) {
 
 function hrefFor(event: AutomationEvent) {
   if (event.kind === "equipment_overdue") return "/equipment";
+  if ((event.kind === "incident_logged" || event.kind === "checklist_failed") && event.projectId) return `/projects/${event.projectId}/safety`;
   if (event.kind === "vendor_expiring") return "/contacts";
   if (event.kind === "invoice_overdue") return event.projectId ? `/projects/${event.projectId}` : "/invoices";
   if (event.projectId && event.kind === "inspection_result") return `/projects/${event.projectId}/permits?inspection=${event.recordId}`;
@@ -600,6 +617,39 @@ function runAction(rule: { id: string; name: string }, action: Action, event: Au
     audit(event.orgId, ruleName, "punch_item", punchId, { title });
     return line;
   }
+  if (action.kind === "schedule_talk") {
+    const line = `Toolbox talk in ${action.withinWorkdays} workdays`;
+    if (dry) return line;
+    if (!event.projectId) throw new ServiceError("No job.");
+    const topic = db.select().from(safetyTopics).where(and(eq(safetyTopics.orgId, event.orgId), eq(safetyTopics.id, action.topicId))).get();
+    if (!topic) throw new ServiceError("That topic is not in your company.");
+    const project = projectOf(event.orgId, event.projectId);
+    if (!project) throw new ServiceError("That job is not in your company.");
+    const owner = db.select().from(memberships).where(and(eq(memberships.orgId, event.orgId), eq(memberships.role, "owner"))).get();
+    const leader = project.pmUserId || owner?.userId;
+    if (!leader) throw new ServiceError("No leader.");
+    const now = nowIso();
+    const talkId = id("talk");
+    db.insert(toolboxTalks)
+      .values({
+        id: talkId,
+        orgId: event.orgId,
+        projectId: project.id,
+        topicId: topic.id,
+        scheduledOn: addWorkdays(todayFor(event.orgId), action.withinWorkdays, workCalendarFor(event.orgId)),
+        leaderUserId: leader,
+        completedAt: null,
+        voidedAt: null,
+        notes: "",
+        clientEventId: null,
+        createdAt: now,
+        updatedAt: now,
+        createdBy: null,
+      })
+      .run();
+    audit(event.orgId, ruleName, "toolbox_talk", talkId, { topicId: topic.id, withinWorkdays: action.withinWorkdays });
+    return line;
+  }
   const ids = gateIds(event);
   const names = itemNames(event.orgId, ids);
   const line = `${action.kind === "hold" ? "Hold" : "Release"}${names.length ? ` ${names.join(", ")}` : ""}`;
@@ -841,6 +891,7 @@ export function formOptions(orgId: string) {
   const db = getDb();
   return {
     templates: db.select().from(jobTemplates).where(eq(jobTemplates.orgId, orgId)).all().map((row) => ({ id: row.id, name: row.name })),
+    topics: db.select().from(safetyTopics).where(eq(safetyTopics.orgId, orgId)).all().sort((a, b) => a.sortOrder - b.sortOrder).map((row) => ({ id: row.id, name: row.title })),
     people: db
       .select({ id: users.id, name: users.name })
       .from(memberships)
@@ -875,6 +926,17 @@ export function previewChoices(orgId: string, trigger: Trigger) {
   }
   if (trigger.kind === "vendor_expiring") {
     return db.select().from(vendorCertificates).where(eq(vendorCertificates.orgId, orgId)).all().map((row) => ({ id: row.id, label: row.type }));
+  }
+  if (trigger.kind === "incident_logged") {
+    return db.select().from(incidents).where(eq(incidents.orgId, orgId)).all().map((row) => ({ id: row.id, label: row.description }));
+  }
+  if (trigger.kind === "checklist_failed") {
+    return db
+      .select({ id: safetyCheckItems.id, title: safetyCheckItems.title })
+      .from(safetyCheckItems)
+      .where(eq(safetyCheckItems.orgId, orgId))
+      .all()
+      .map((row) => ({ id: row.id, label: row.title }));
   }
   return db.select().from(equipment).where(eq(equipment.orgId, orgId)).all().map((row) => ({ id: row.id, label: row.name }));
 }
@@ -971,6 +1033,34 @@ function eventFromRecord(orgId: string, trigger: Trigger, recordId: string): Aut
       name: contact?.name ?? "",
     };
   }
+  if (trigger.kind === "incident_logged") {
+    const incident = db.select().from(incidents).where(and(eq(incidents.orgId, orgId), eq(incidents.id, recordId))).get();
+    if (!incident) return null;
+    return {
+      orgId,
+      kind: "incident_logged",
+      recordType: "incident",
+      recordId: incident.id,
+      recordLabel: incident.description.slice(0, 80),
+      projectId: incident.projectId,
+      name: incident.description,
+    };
+  }
+  if (trigger.kind === "checklist_failed") {
+    const item = db.select().from(safetyCheckItems).where(and(eq(safetyCheckItems.orgId, orgId), eq(safetyCheckItems.id, recordId))).get();
+    if (!item) return null;
+    const check = db.select().from(safetyChecks).where(and(eq(safetyChecks.orgId, orgId), eq(safetyChecks.id, item.checkId))).get();
+    return {
+      orgId,
+      kind: "checklist_failed",
+      recordType: "safety_check_item",
+      recordId: item.id,
+      recordLabel: item.title,
+      projectId: check?.projectId ?? null,
+      name: item.title,
+      status: item.result,
+    };
+  }
   const item = db.select().from(equipment).where(and(eq(equipment.orgId, orgId), eq(equipment.id, recordId))).get();
   if (!item) return null;
   const open = db
@@ -1027,6 +1117,15 @@ function formText(formData: FormData, name: string) {
   return String(formData.get(name) ?? "");
 }
 
+function formSlots(formData: FormData, prefix: string) {
+  const indexes = new Set<number>();
+  for (const key of formData.keys()) {
+    const match = new RegExp(`^${prefix}(\\d+)kind$`).exec(key);
+    if (match) indexes.add(Number(match[1]));
+  }
+  return [...indexes].sort((a, b) => a - b).map(String);
+}
+
 export function ruleFromForm(formData: FormData): RuleDraft {
   const name = clean(formText(formData, "name"), 80);
   if (!name) throw new ServiceError("Name the rule.");
@@ -1047,9 +1146,12 @@ export function ruleFromForm(formData: FormData): RuleDraft {
     const cert = formText(formData, "cert");
     if (cert === "insurance" || cert === "license") trigger = { kind: "vendor_expiring", days, cert };
   } else if (kind === "equipment_overdue") trigger = { kind: "equipment_overdue" };
+  else if (kind === "incident_logged") trigger = { kind: "incident_logged" };
+  else if (kind === "checklist_failed") trigger = { kind: "checklist_failed" };
   if (!trigger) throw new ServiceError("Pick a trigger.");
   const conditions: Condition[] = [];
-  for (const slot of ["0", "1"]) {
+  const conditionSlots = formSlots(formData, "c");
+  for (const slot of conditionSlots) {
     const conditionKind = formText(formData, `c${slot}kind`);
     const value = clean(formText(formData, `c${slot}value`), 80);
     if (!conditionKind || !value) continue;
@@ -1063,7 +1165,7 @@ export function ruleFromForm(formData: FormData): RuleDraft {
     }
   }
   const actions: Action[] = [];
-  for (const slot of ["0", "1", "2"]) {
+  for (const slot of formSlots(formData, "a")) {
     const actionKind = formText(formData, `a${slot}kind`);
     if (!actionKind) continue;
     const title = clean(formText(formData, `a${slot}title`), 120);
@@ -1086,6 +1188,13 @@ export function ruleFromForm(formData: FormData): RuleDraft {
     } else if (actionKind === "punch") actions.push({ kind: "punch", title });
     else if (actionKind === "hold") actions.push({ kind: "hold" });
     else if (actionKind === "release") actions.push({ kind: "release" });
+    else if (actionKind === "schedule_talk") {
+      const topicId = formText(formData, `a${slot}topic`);
+      const withinWorkdays = daysOf(formText(formData, `a${slot}days`));
+      if (!topicId) throw new ServiceError("Pick a topic.");
+      if (withinWorkdays == null) throw new ServiceError("Enter workdays.");
+      actions.push({ kind: "schedule_talk", topicId, withinWorkdays });
+    }
   }
   if (actions.length === 0) throw new ServiceError("Add an action.");
   const ruleId = formText(formData, "id");

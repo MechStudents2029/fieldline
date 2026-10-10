@@ -94,6 +94,16 @@ import {
   planPins,
   equipment,
   equipmentAssignments,
+  incidentActions,
+  incidentPeople,
+  incidents,
+  safetyCheckItems,
+  safetyChecks,
+  safetyTemplateItems,
+  safetyTemplates,
+  safetyTopics,
+  toolboxAttendees,
+  toolboxTalks,
   planRefs,
   recordFiles,
   commentFiles,
@@ -152,7 +162,7 @@ import {
   WEBSITE_FORM_SOURCE,
 } from "@/lib/lead-form/rules";
 
-export const SEED_VERSION = "38";
+export const SEED_VERSION = "39";
 
 const ORG = "org_rivera";
 const NORTH = "org_northline";
@@ -3401,6 +3411,91 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
     ])
     .run();
 
+  const missedOn = addCalendarDays(today, -2);
+  db.insert(safetyTopics)
+    .values([
+      { id: "topic_ladder", orgId: ORG, title: "Ladder safety", body: "Set the base one foot out for every four feet of height. Keep three points of contact. Don't stand on the top rung.", bodyEs: "Coloca la base a un pie por cada cuatro de altura. Mantén tres puntos de contacto. No te pares en el último peldaño.", sortOrder: 0, createdAt: daysAgo(3) },
+      { id: "topic_fall", orgId: ORG, title: "Fall protection", body: "Tie off above six feet. Inspect the harness before you put it on. A hole bigger than two inches needs a cover.", bodyEs: "Anclate arriba de seis pies. Revisa el arnés antes de usarlo. Un hueco de más de dos pulgadas necesita tapa.", sortOrder: 1, createdAt: daysAgo(3) },
+      { id: "topic_silica", orgId: ORG, title: "Silica dust", body: "Wet the cut or use a vacuum. Wear the respirator that fits. Don't dry sweep silica dust.", bodyEs: "Moja el corte o usa aspiradora. Usa el respirador que te queda. No barras polvo de sílice en seco.", sortOrder: 2, createdAt: daysAgo(3) },
+      { id: "topic_heat", orgId: ORG, title: "Heat illness", body: "Water, shade, and rest. Watch for confusion or no sweat. Stop work and cool the person.", bodyEs: "Agua, sombra y descanso. Cuida confusión o falta de sudor. Para el trabajo y enfría a la persona.", sortOrder: 3, createdAt: daysAgo(3) },
+      { id: "topic_ppe", orgId: ORG, title: "PPE", body: "Hard hat, glasses, and boots stay on. Gloves match the task. Replace a cracked lens the same day.", bodyEs: "Casco, lentes y botas puestos. Los guantes van con la tarea. Cambia un lente roto el mismo día.", sortOrder: 4, createdAt: daysAgo(3) },
+      { id: "topic_electrical", orgId: ORG, title: "Electrical", body: "GFCI on every temporary circuit. Stay ten feet from overhead lines. Lock out a panel before you open it.", bodyEs: "GFCI en cada circuito temporal. Diez pies de las líneas aéreas. Bloquea el tablero antes de abrirlo.", sortOrder: 5, createdAt: daysAgo(3) },
+      { id: "topic_trenching", orgId: ORG, title: "Trenching", body: "A trench five feet or deeper needs a protective system. Spoil stays two feet back. Don't enter a trench that is filling with water.", bodyEs: "Una zanja de cinco pies o más necesita protección. La tierra queda a dos pies. No entres si se está llenando de agua.", sortOrder: 6, createdAt: daysAgo(3) },
+      { id: "topic_house", orgId: ORG, title: "Housekeeping", body: "Clear the walkway before you leave the room. Coil cords. A nail in a board goes in the trash, not the path.", bodyEs: "Deja el paso libre antes de salir. Enrolla los cables. Un clavo en una tabla va a la basura, no al paso.", sortOrder: 7, createdAt: daysAgo(3) },
+    ])
+    .run();
+  db.insert(safetyTemplates)
+    .values([
+      { id: "stpl_walk", orgId: ORG, name: "Daily site walk", createdAt: daysAgo(3) },
+      { id: "stpl_ladder", orgId: ORG, name: "Ladder and scaffold", createdAt: daysAgo(3) },
+    ])
+    .run();
+  db.insert(safetyTemplateItems)
+    .values([
+      { id: "sti_walk_1", orgId: ORG, templateId: "stpl_walk", title: "Walkways clear", sortOrder: 0 },
+      { id: "sti_walk_2", orgId: ORG, templateId: "stpl_walk", title: "Guardrails in place", sortOrder: 1 },
+      { id: "sti_walk_3", orgId: ORG, templateId: "stpl_walk", title: "Fire extinguisher charged", sortOrder: 2 },
+      { id: "sti_walk_4", orgId: ORG, templateId: "stpl_walk", title: "First aid kit stocked", sortOrder: 3 },
+      { id: "sti_lad_1", orgId: ORG, templateId: "stpl_ladder", title: "Ladder angle 4 to 1", sortOrder: 0 },
+      { id: "sti_lad_2", orgId: ORG, templateId: "stpl_ladder", title: "Feet on solid ground", sortOrder: 1 },
+      { id: "sti_lad_3", orgId: ORG, templateId: "stpl_ladder", title: "Planks overlap the supports", sortOrder: 2 },
+      { id: "sti_lad_4", orgId: ORG, templateId: "stpl_ladder", title: "Guardrails on the scaffold", sortOrder: 3 },
+    ])
+    .run();
+  db.insert(tasks)
+    .values([
+      { id: "task_safe_rail", orgId: ORG, title: "Guardrails on the scaffold", assigneeUserId: "user_dana", dueAt: null, relatedType: "project", relatedId: "proj_brooks", status: "open", notes: "", priority: "normal", tags: "", scheduleItemId: null, deadlineEdge: null, deadlineOffset: null, deadlineUnlinked: 0, remindDays: null, remindedFor: null, createdAt: daysAgo(1), updatedAt: daysAgo(1), createdBy: "user_maya" },
+      { id: "task_safe_cover", orgId: ORG, title: "Re-cover the stair opening", assigneeUserId: "user_maya", dueAt: null, relatedType: "project", relatedId: "proj_brooks", status: "open", notes: "", priority: "normal", tags: "", scheduleItemId: null, deadlineEdge: null, deadlineOffset: null, deadlineUnlinked: 0, remindDays: null, remindedFor: null, createdAt: daysAgo(1), updatedAt: daysAgo(1), createdBy: "user_maya" },
+      { id: "task_safe_gloves", orgId: ORG, title: "Stock gloves in the gang box", assigneeUserId: "user_dana", dueAt: null, relatedType: "project", relatedId: "proj_okonkwo", status: "done", notes: "", priority: "normal", tags: "", scheduleItemId: null, deadlineEdge: null, deadlineOffset: null, deadlineUnlinked: 0, remindDays: null, remindedFor: null, createdAt: daysAgo(2), updatedAt: daysAgo(1), createdBy: "user_dana" },
+    ])
+    .run();
+  db.insert(toolboxTalks)
+    .values([
+      { id: "talk_ok_done", orgId: ORG, projectId: "proj_okonkwo", topicId: "topic_ladder", scheduledOn: yesterday, leaderUserId: "user_maya", completedAt: daysAgo(1), voidedAt: null, notes: "", clientEventId: null, createdAt: daysAgo(2), updatedAt: daysAgo(1), createdBy: "user_maya" },
+      { id: "talk_ok_today", orgId: ORG, projectId: "proj_okonkwo", topicId: "topic_heat", scheduledOn: today, leaderUserId: "user_dana", completedAt: null, voidedAt: null, notes: "", clientEventId: null, createdAt: daysAgo(1), updatedAt: daysAgo(1), createdBy: "user_maya" },
+      { id: "talk_br_missed", orgId: ORG, projectId: "proj_brooks", topicId: "topic_fall", scheduledOn: missedOn, leaderUserId: "user_dana", completedAt: null, voidedAt: null, notes: "", clientEventId: null, createdAt: daysAgo(3), updatedAt: daysAgo(2), createdBy: "user_maya" },
+    ])
+    .run();
+  db.insert(toolboxAttendees)
+    .values({ id: "tatt_ok_dana", orgId: ORG, talkId: "talk_ok_done", userId: "user_dana", visitorName: "", typedName: "Dana Cho", drawnDataUrl: "data:image/png;base64,iVBORw0KGgo=", signedAt: daysAgo(1) })
+    .run();
+  db.insert(safetyChecks)
+    .values([
+      { id: "sck_ok_walk", orgId: ORG, projectId: "proj_okonkwo", templateId: "stpl_walk", name: "Daily site walk", completedBy: "user_dana", completedAt: daysAgo(1), voidedAt: null, createdAt: daysAgo(1) },
+      { id: "sck_br_ladder", orgId: ORG, projectId: "proj_brooks", templateId: "stpl_ladder", name: "Ladder and scaffold", completedBy: "user_maya", completedAt: daysAgo(1), voidedAt: null, createdAt: daysAgo(1) },
+    ])
+    .run();
+  db.insert(safetyCheckItems)
+    .values([
+      { id: "scki_ok_1", orgId: ORG, checkId: "sck_ok_walk", title: "Walkways clear", result: "pass", documentId: null, todoId: null, punchId: null },
+      { id: "scki_ok_2", orgId: ORG, checkId: "sck_ok_walk", title: "Guardrails in place", result: "pass", documentId: null, todoId: null, punchId: null },
+      { id: "scki_ok_3", orgId: ORG, checkId: "sck_ok_walk", title: "Fire extinguisher charged", result: "na", documentId: null, todoId: null, punchId: null },
+      { id: "scki_ok_4", orgId: ORG, checkId: "sck_ok_walk", title: "First aid kit stocked", result: "pass", documentId: null, todoId: null, punchId: null },
+      { id: "scki_br_1", orgId: ORG, checkId: "sck_br_ladder", title: "Ladder angle 4 to 1", result: "pass", documentId: null, todoId: null, punchId: null },
+      { id: "scki_br_2", orgId: ORG, checkId: "sck_br_ladder", title: "Feet on solid ground", result: "pass", documentId: null, todoId: null, punchId: null },
+      { id: "scki_br_3", orgId: ORG, checkId: "sck_br_ladder", title: "Planks overlap the supports", result: "pass", documentId: null, todoId: null, punchId: null },
+      { id: "scki_br_4", orgId: ORG, checkId: "sck_br_ladder", title: "Guardrails on the scaffold", result: "fail", documentId: null, todoId: "task_safe_rail", punchId: null },
+    ])
+    .run();
+  db.insert(incidents)
+    .values([
+      { id: "inc_br_stair", orgId: ORG, projectId: "proj_brooks", equipmentId: null, kind: "near_miss", occurredAt: daysAgo(1), description: "Stair opening near miss", factors: "Cover shifted during demo.", voidedAt: null, createdBy: "user_maya", createdAt: daysAgo(1), updatedAt: daysAgo(1) },
+      { id: "inc_ok_splinter", orgId: ORG, projectId: "proj_okonkwo", equipmentId: null, kind: "first_aid", occurredAt: daysAgo(2), description: "Splinter from the jamb", factors: "No gloves on trim.", voidedAt: null, createdBy: "user_dana", createdAt: daysAgo(2), updatedAt: daysAgo(1) },
+    ])
+    .run();
+  db.insert(incidentPeople)
+    .values([
+      { id: "incp_br_maya", orgId: ORG, incidentId: "inc_br_stair", name: "Maya Rivera", userId: "user_maya" },
+      { id: "incp_ok_dana", orgId: ORG, incidentId: "inc_ok_splinter", name: "Dana Cho", userId: "user_dana" },
+    ])
+    .run();
+  db.insert(incidentActions)
+    .values([
+      { id: "inca_br_cover", orgId: ORG, incidentId: "inc_br_stair", title: "Re-cover the stair opening", assigneeUserId: "user_maya", todoId: "task_safe_cover", createdAt: daysAgo(1) },
+      { id: "inca_ok_gloves", orgId: ORG, incidentId: "inc_ok_splinter", title: "Stock gloves in the gang box", assigneeUserId: "user_dana", todoId: "task_safe_gloves", createdAt: daysAgo(2) },
+    ])
+    .run();
+
   db.insert(automationRules)
     .values([
       {
@@ -3448,6 +3543,21 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
         triggerJson: JSON.stringify({ kind: "vendor_expiring", days: 14, cert: "insurance" }),
         conditionsJson: "[]",
         actionsJson: JSON.stringify([{ kind: "today", title: "COI expiring", who: "role:office" }]),
+        lastRunAt: null,
+        runCount: 0,
+        createdAt: daysAgo(2),
+        updatedAt: daysAgo(2),
+        createdBy: "user_maya",
+      },
+      {
+        id: "rule_incident_talk",
+        orgId: ORG,
+        name: "Incident schedules a talk",
+        enabled: 1,
+        triggerKind: "incident_logged",
+        triggerJson: JSON.stringify({ kind: "incident_logged" }),
+        conditionsJson: "[]",
+        actionsJson: JSON.stringify([{ kind: "schedule_talk", topicId: "topic_ladder", withinWorkdays: 2 }]),
         lastRunAt: null,
         runCount: 0,
         createdAt: daysAgo(2),
