@@ -118,6 +118,7 @@ export function ensureReady(holder: Holder) {
   ensureAssemblies(holder);
   ensureClientUpdates(holder);
   ensureCostPlus(holder);
+  ensureSchedulePlan(holder);
   const version = holder.sqlite.prepare("select value from app_meta where key = ?").get("seed_version") as
     | { value: string }
     | undefined;
@@ -1892,6 +1893,62 @@ function ensureComments(holder: Holder) {
   holder.sqlite.exec("create index if not exists comment_files_comment on comment_files (org_id, comment_id)");
   holder.sqlite.exec("create index if not exists notifications_user on notifications (org_id, user_id, created_at)");
   holder.sqlite.exec("create index if not exists comment_attempts_user on comment_attempts (org_id, user_id, created_at)");
+}
+
+function ensureSchedulePlan(holder: Holder) {
+  const pk = holder.dialect === "postgres" ? "text primary key" : "text primary key not null";
+  if (!tableExists(holder.sqlite, "workday_exceptions", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists workday_exceptions (
+      id ${pk},
+      org_id text not null,
+      project_id text,
+      title text not null,
+      kind text not null,
+      start_date text not null,
+      end_date text not null,
+      yearly integer not null default 0,
+      created_at text not null,
+      created_by text
+    )`);
+  }
+  holder.sqlite.exec("create index if not exists workday_exceptions_org on workday_exceptions (org_id, start_date)");
+  if (!tableExists(holder.sqlite, "schedule_baselines", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists schedule_baselines (
+      id ${pk},
+      org_id text not null,
+      project_id text not null,
+      finish_date text not null,
+      current integer not null default 0,
+      set_at text not null,
+      set_by text
+    )`);
+  }
+  holder.sqlite.exec("create index if not exists schedule_baselines_project on schedule_baselines (org_id, project_id, current)");
+  if (!tableExists(holder.sqlite, "schedule_baseline_items", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists schedule_baseline_items (
+      id ${pk},
+      org_id text not null,
+      baseline_id text not null,
+      item_id text not null,
+      start_date text not null,
+      end_date text not null
+    )`);
+  }
+  holder.sqlite.exec("create index if not exists schedule_baseline_items_base on schedule_baseline_items (org_id, baseline_id)");
+  if (!tableExists(holder.sqlite, "schedule_delays", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists schedule_delays (
+      id ${pk},
+      org_id text not null,
+      project_id text not null,
+      item_id text not null,
+      days integer not null,
+      reason text not null,
+      note text,
+      actor_id text,
+      created_at text not null
+    )`);
+  }
+  holder.sqlite.exec("create index if not exists schedule_delays_project on schedule_delays (org_id, project_id)");
 }
 
 export function resetDatabase(): AppDatabase {

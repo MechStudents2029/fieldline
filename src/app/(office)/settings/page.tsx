@@ -1,16 +1,17 @@
 import Link from "next/link";
-import { changeRoleAction, inviteTeammateAction, removeMemberAction, restoreSetupAction, revokeInviteAction, settingsAction } from "@/app/actions";
+import { addWorkExceptionAction, changeRoleAction, inviteTeammateAction, removeMemberAction, removeWorkExceptionAction, restoreSetupAction, revokeInviteAction, settingsAction } from "@/app/actions";
 import { FeedbackDialog } from "@/components/feedback-dialog";
 import { ActionForm } from "@/components/action-form";
 import { Button } from "@/components/ui/button";
 import { requireSession } from "@/lib/auth/session";
-import { formatDateTime } from "@/lib/format";
+import { formatCalendarDay, formatDateTime } from "@/lib/format";
 import { supabaseAuthConfigured } from "@/lib/supabase/env";
 import { canManageSettings, canSeeMoney, roleLabel } from "@/lib/permissions";
 import { defaultDrawForm } from "@/lib/services/draws";
 import { companyChecklist } from "@/lib/services/onboarding";
 import { getOrg, integrations, staff } from "@/lib/services/read";
 import { CalendarFeed } from "@/components/calendar-feed";
+import { listWorkExceptions } from "@/lib/services/work-calendar";
 import { calendarFeedReady } from "@/lib/services/schedule";
 import { teamBoard } from "@/lib/services/team";
 import { WEEKDAY_NAMES } from "@/lib/time/calendar";
@@ -45,6 +46,7 @@ export default async function SettingsPage() {
   const laborDefault = canManageSettings(session.role) ? defaultHourlyCost(session.orgId) : null;
   const billingDefaults = org ? defaultDrawForm(org) : null;
   if (!org || !billingDefaults) return null;
+  const companyDays = listWorkExceptions(session, null);
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-5 md:max-w-none md:px-6">
       <div>
@@ -225,6 +227,51 @@ export default async function SettingsPage() {
           )}
         </section>
       ) : null}
+      <section className="flex flex-col gap-2" aria-label="Non-workdays">
+        <h2 className="fl-section">Non-workdays</h2>
+        <ul className="fl-group">
+          {companyDays.length === 0 ? <li className="fl-cell">None</li> : null}
+          {companyDays.map((day) => (
+            <li key={day.id} className="fl-cell">
+              <span className="min-w-0 flex-1 truncate mac-t13">
+                {day.title}
+                <span className="text-[var(--mac-secondary)]">
+                  {" "}
+                  · {formatCalendarDay(day.startDate)}
+                  {day.endDate !== day.startDate ? ` – ${formatCalendarDay(day.endDate)}` : ""}
+                  {day.yearly ? " · Yearly" : ""}
+                </span>
+              </span>
+              <span className="fl-pill fl-pill-sm">{day.kind === "work" ? "Work" : "Off"}</span>
+              {canManageSettings(session.role) ? (
+                <ActionForm action={removeWorkExceptionAction.bind(null, "")}>
+                  <input type="hidden" name="id" value={day.id} />
+                  <button className="ctl" type="submit" aria-label={`Remove ${day.title}`}>
+                    Remove
+                  </button>
+                </ActionForm>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+        {canManageSettings(session.role) ? (
+          <ActionForm action={addWorkExceptionAction.bind(null, "")} className="flex flex-wrap items-center gap-2">
+            <input name="title" aria-label="Exception title" placeholder="Title" required maxLength={60} className="ctl" />
+            <input name="startDate" type="date" aria-label="From" required className="ctl" />
+            <input name="endDate" type="date" aria-label="To" className="ctl" />
+            <select name="kind" aria-label="Kind" className="ctl" defaultValue="off">
+              <option value="off">Off</option>
+              <option value="work">Work</option>
+            </select>
+            <label className="mac-t13">
+              <input type="checkbox" name="yearly" value="1" /> Yearly
+            </label>
+            <button className="ctl" type="submit">
+              Add
+            </button>
+          </ActionForm>
+        ) : null}
+      </section>
       <CalendarFeed hasFeed={calendarFeedReady(session)} />
       <section className="flex flex-col gap-4">
         <div>

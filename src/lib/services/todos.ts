@@ -28,7 +28,9 @@ import { checklistFraction, linkedDeadline, reminderDay, type DeadlineEdge } fro
 import { photoExtension, photoUploadError, rasterImageType } from "@/lib/security";
 import { ServiceError } from "@/lib/services/errors";
 import type { Actor } from "@/lib/services/read";
-import { calendarForOrg, workdaysForOrg } from "@/lib/services/time";
+import type { WorkdayCalendar } from "@/lib/schedule/workdays";
+import { calendarForOrg } from "@/lib/services/time";
+import { workCalendarFor } from "@/lib/services/work-calendar";
 import { addCalendarDays, localDay } from "@/lib/time/calendar";
 import { weekStartDay } from "@/lib/time/grid";
 import { hashVendorToken, vendorTokenMatches } from "@/lib/vendor/token";
@@ -362,7 +364,7 @@ export function createTodo(
   if (input.scheduleItemId && !schedule) throw new ServiceError("That schedule item is not on this job.");
   const remind = input.remindDays == null || input.remindDays === ("" as unknown as number) ? null : input.remindDays;
   if (remind != null && (!Number.isInteger(remind) || remind < 0 || remind > 60)) throw new ServiceError("Reminder is 0 to 60 days.");
-  const due = schedule && edge && offset != null ? linkedDeadline(edge === "start" ? schedule.startDate : schedule.endDate, offset, workdaysForOrg(actor.orgId)) : dayOf(input.dueAt) || null;
+  const due = schedule && edge && offset != null ? linkedDeadline(edge === "start" ? schedule.startDate : schedule.endDate, offset, workCalendarFor(actor.orgId, project.id)) : dayOf(input.dueAt) || null;
   const usersIn = new Set(
     db
       .select({ id: users.id })
@@ -607,7 +609,7 @@ export function attachTodoFile(actor: Actor, taskId: string, upload: { filename:
   });
 }
 
-export function refreshLinkedTodos(db: AppDatabase, orgId: string, shifts: { id: string; start: string; end: string }[], mask: number): number {
+export function refreshLinkedTodos(db: AppDatabase, orgId: string, shifts: { id: string; start: string; end: string }[], mask: number | WorkdayCalendar): number {
   if (shifts.length === 0) return 0;
   const moved = new Map(shifts.map((shift) => [shift.id, shift]));
   const rows = db
@@ -712,7 +714,7 @@ export function applyTemplateTodos(
   if (todos.length === 0) return 0;
   const checks = db.select().from(templateTodoChecks).where(and(eq(templateTodoChecks.orgId, actor.orgId), eq(templateTodoChecks.templateId, templateId))).all();
   const items = db.select().from(scheduleItems).where(and(eq(scheduleItems.orgId, actor.orgId), eq(scheduleItems.projectId, projectId))).all();
-  const mask = workdaysForOrg(actor.orgId);
+  const mask = workCalendarFor(actor.orgId, projectId);
   const now = nowIso();
   let created = 0;
   for (const todo of todos) {

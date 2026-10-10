@@ -1,20 +1,24 @@
 import { and, eq, gte, inArray, lte } from "drizzle-orm";
 import { getDb } from "@/lib/db/client";
 import { officeDb } from "@/lib/db/office";
-import { calendarFeeds, memberships, projects, scheduleAssignees, scheduleItems, scheduleLinks, users } from "@/lib/db/schema";
+import { calendarFeeds, memberships, projects, scheduleAssignees, scheduleBaselineItems, scheduleBaselines, scheduleItems, scheduleLinks, users } from "@/lib/db/schema";
 import { overdueScheduleIds } from "@/lib/services/rfis";
 import { id, nowIso } from "@/lib/ids";
 import { canEditSchedule, type Role } from "@/lib/permissions";
 import { scheduleConflicts } from "@/lib/schedule/conflicts";
 import { buildScheduleIcs } from "@/lib/schedule/ics";
+import { formatWorkdayVariance } from "@/lib/schedule/delays";
 import { inclusiveDays, scheduleWindow, type ScheduleSpan } from "@/lib/schedule/range";
+import { isWorkday, workdayOffset } from "@/lib/schedule/workdays";
 import { feedTokenMatches, hashFeedToken, newFeedSecret } from "@/lib/schedule/token";
 import { notifyAssignment } from "@/lib/services/comments";
 import { ServiceError } from "@/lib/services/errors";
 import { unlinkScheduleTodos } from "@/lib/services/todos";
+import { cleanDelay, delayRequirement, writeDelay, type DelayInput } from "@/lib/services/schedule-plan";
 import { buildSchedulePlan, replaceScheduleLinks, writeScheduleShifts, type ScheduleLinkInput } from "@/lib/services/schedule-shift";
 import type { Actor } from "@/lib/services/read";
 import { calendarForOrg } from "@/lib/services/time";
+import { workCalendarFor } from "@/lib/services/work-calendar";
 import { addCalendarDays, localDay, zonedTimeToUtc } from "@/lib/time/calendar";
 import { dayHeading, rangeLabel } from "@/lib/time/grid";
 
@@ -46,6 +50,7 @@ export type ScheduleChip = {
   assigneeIds: string[];
   conflict: boolean;
   rfiDue: boolean;
+  variance: string | null;
 };
 
 export type ScheduleBoard = {
@@ -53,7 +58,7 @@ export type ScheduleBoard = {
   span: ScheduleSpan;
   label: string;
   today: string;
-  days: { date: string; label: string; isToday: boolean }[];
+  days: { date: string; label: string; isToday: boolean; off: boolean }[];
   rows: {
     userId: string | null;
     name: string;
@@ -207,6 +212,32 @@ export function scheduleBoard(actor: Actor, query: { on?: string; span?: string 
   const hits = scheduleConflicts(conflictItems).filter((hit) => window.days.includes(hit.day));
   const conflictKey = new Set(hits.flatMap((hit) => hit.itemIds.map((itemId) => `${hit.userId}|${hit.day}|${itemId}`)));
   const lateRfi = overdueScheduleIds(actor.orgId, today);
+  const companyCalendar = workCalendarFor(actor.orgId);
+  const jobCalendars = new Map<string, ReturnType<typeof workCalendarFor>>();
+  const baselines = db.select().from(scheduleBaselines).where(and(eq(scheduleBaselines.orgId, actor.orgId), eq(scheduleBaselines.current, 1))).all();
+  const baselineIds = baselines.map((row) => row.id);
+  const frozen = baselineIds.length
+    ? db
+        .select()
+        .from(scheduleBaselineItems)
+        .where(and(eq(scheduleBaselineItems.orgId, actor.orgId), inArray(scheduleBaselineItems.baselineId, baselineIds)))
+        .all()
+    : [];
+  const varianceOf = new Map<string, string | null>();
+  for (const row of itemRows) {
+    const base = frozen.find((item) => item.itemId === row.id);
+    if (!base) {
+      varianceOf.set(row.id, null);
+      continue;
+    }
+    let calendar = jobCalendars.get(row.projectId);
+    if (!calendar) {
+      calendar = workCalendarFor(actor.orgId, row.projectId);
+      jobCalendars.set(row.projectId, calendar);
+    }
+    const days = workdayOffset(base.endDate, row.endDate, calendar);
+    varianceOf.set(row.id, days === 0 ? null : formatWorkdayVariance(days));
+  }
   const crew = loadCrew(db, actor.orgId);
   const people = new Map(crew.map((person) => [person.id, person.name]));
   const chipFor = (row: (typeof itemRows)[number], userId: string | null, day: string): ScheduleChip => ({
@@ -222,6 +253,7 @@ export function scheduleBoard(actor: Actor, query: { on?: string; span?: string 
     assigneeIds: byItem.get(row.id) ?? [],
     conflict: userId != null && conflictKey.has(`${userId}|${day}|${row.id}`),
     rfiDue: lateRfi.has(row.id),
+    variance: varianceOf.get(row.id) ?? null,
   });
   const rows = [
     ...crew.map((person) => ({
@@ -262,7 +294,7 @@ export function scheduleBoard(actor: Actor, query: { on?: string; span?: string 
     span,
     label: rangeLabel(window.days),
     today,
-    days: window.days.map((date) => ({ date, label: dayHeading(date), isToday: date === today })),
+    days: window.days.map((date) => ({ date, label: dayHeading(date), isToday: date === today, off: !isWorkday(date, companyCalendar) })),
     rows,
     counts: { items: itemRows.length, people: booked.size, conflicts: hits.length },
     jobs,
@@ -401,7 +433,7 @@ function replaceAssignees(db: ReturnType<typeof officeOrThrow>, actor: Actor, it
     .run();
 }
 
-export function saveScheduleItem(actor: Actor, input: ScheduleInput, itemId?: string) {
+export function saveScheduleItem(actor: Actor, input: ScheduleInput, itemId?: string, delay: DelayInput | null = null) {
   assertEditor(actor);
   const db = officeOrThrow(actor);
   const title = cleanTitle(input.title);
@@ -430,6 +462,8 @@ export function saveScheduleItem(actor: Actor, input: ScheduleInput, itemId?: st
   const savedId = existing?.id ?? id("sch");
   if (existing && input.links) replaceScheduleLinks(actor, savedId, input.links);
   const dateChanged = Boolean(existing && (existing.startDate !== startDate || existing.endDate !== endDate));
+  const needs = dateChanged && existing ? delayRequirement(actor, existing.id, endDate) : null;
+  const reason = needs ? cleanDelay(delay) : null;
   const plan = dateChanged ? buildSchedulePlan(actor, savedId, startDate, endDate) : [];
   if (existing) {
     db.update(scheduleItems)
@@ -456,6 +490,7 @@ export function saveScheduleItem(actor: Actor, input: ScheduleInput, itemId?: st
   }
   if (!existing && input.links) replaceScheduleLinks(actor, savedId, input.links);
   if (plan.length) writeScheduleShifts(db, actor, plan);
+  if (needs && reason && existing) writeDelay(db, actor, existing.projectId, existing.id, needs.days, reason);
   const previous = existing
     ? db
         .select()
@@ -470,7 +505,7 @@ export function saveScheduleItem(actor: Actor, input: ScheduleInput, itemId?: st
   return savedId;
 }
 
-export function moveScheduleItem(actor: Actor, itemId: string, input: { startDate: string; endDate: string; assigneeId: string | null }) {
+export function moveScheduleItem(actor: Actor, itemId: string, input: { startDate: string; endDate: string; assigneeId: string | null }, delay: DelayInput | null = null) {
   assertEditor(actor);
   const db = officeOrThrow(actor);
   const existing = db
@@ -482,8 +517,11 @@ export function moveScheduleItem(actor: Actor, itemId: string, input: { startDat
   const startDate = cleanDate(input.startDate, "start");
   const endDate = cleanDate(input.endDate, "end");
   if (endDate < startDate) throw new ServiceError("End is on or after the start.");
+  const needs = delayRequirement(actor, itemId, endDate);
+  const reason = needs ? cleanDelay(delay) : null;
   const plan = buildSchedulePlan(actor, itemId, startDate, endDate);
   if (plan.length) writeScheduleShifts(db, actor, plan);
+  if (needs && reason) writeDelay(db, actor, existing.projectId, itemId, needs.days, reason);
   const previous = db
     .select()
     .from(scheduleAssignees)

@@ -1595,6 +1595,69 @@ export const scheduleLinks = sqliteTable(
   (t) => [uniqueIndex("schedule_links_edge").on(t.orgId, t.itemId, t.predecessorId), index("schedule_links_project").on(t.orgId, t.projectId)],
 );
 
+/** Company rows have a null project. Job rows override the company for that job. kind is off or work. */
+export const workdayExceptions = sqliteTable(
+  "workday_exceptions",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    projectId: text("project_id"),
+    title: text("title").notNull(),
+    kind: text("kind").notNull(),
+    startDate: text("start_date").notNull(),
+    endDate: text("end_date").notNull(),
+    yearly: integer("yearly").notNull().default(0),
+    createdAt: text("created_at").notNull(),
+    createdBy: text("created_by"),
+  },
+  (t) => [index("workday_exceptions_org").on(t.orgId, t.startDate)],
+);
+
+/** current = 1 is the baseline the schedule compares against. Older rows stay as history. */
+export const scheduleBaselines = sqliteTable(
+  "schedule_baselines",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    projectId: text("project_id").notNull(),
+    finishDate: text("finish_date").notNull(),
+    current: integer("current").notNull().default(0),
+    setAt: text("set_at").notNull(),
+    setBy: text("set_by"),
+  },
+  (t) => [index("schedule_baselines_project").on(t.orgId, t.projectId, t.current)],
+);
+
+export const scheduleBaselineItems = sqliteTable(
+  "schedule_baseline_items",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    baselineId: text("baseline_id").notNull(),
+    itemId: text("item_id").notNull(),
+    startDate: text("start_date").notNull(),
+    endDate: text("end_date").notNull(),
+  },
+  (t) => [index("schedule_baseline_items_base").on(t.orgId, t.baselineId)],
+);
+
+/** Internal. One row per slip of a root item. Cascades do not add a row per successor. */
+export const scheduleDelays = sqliteTable(
+  "schedule_delays",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    projectId: text("project_id").notNull(),
+    itemId: text("item_id").notNull(),
+    days: integer("days").notNull(),
+    reason: text("reason").notNull(),
+    note: text("note"),
+    actorId: text("actor_id"),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [index("schedule_delays_project").on(t.orgId, t.projectId)],
+);
+
 export const jobTemplates = sqliteTable(
   "job_templates",
   {

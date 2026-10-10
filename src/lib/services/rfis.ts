@@ -609,7 +609,7 @@ export function shiftRfiSchedule(actor: Actor, rfiId: string) {
     .where(and(eq(scheduleItems.orgId, actor.orgId), eq(scheduleItems.id, row.relatedId), eq(scheduleItems.projectId, row.projectId)))
     .get();
   if (!item) throw new ServiceError("That item is not on this job.");
-  const next = workdaySpan(actor, item.startDate, item.endDate, row.scheduleImpactDays);
+  const next = workdaySpan(actor, item.startDate, item.endDate, row.scheduleImpactDays, row.projectId);
   const plan = buildSchedulePlan(actor, item.id, next.startDate, next.endDate);
   const now = nowIso();
   db.transaction((tx) => {
@@ -721,7 +721,7 @@ export function rfiDetail(actor: Actor, rfiId: string): RfiDetail | null {
       .where(and(eq(scheduleItems.orgId, actor.orgId), eq(scheduleItems.id, row.relatedId)))
       .get();
     if (linked) {
-      const next = workdaySpan(actor, linked.startDate, linked.endDate, row.scheduleImpactDays);
+      const next = workdaySpan(actor, linked.startDate, linked.endDate, row.scheduleImpactDays, row.projectId);
       shiftLabel = previewScheduleShift(actor, linked.id, next.startDate, next.endDate).label;
     }
   }

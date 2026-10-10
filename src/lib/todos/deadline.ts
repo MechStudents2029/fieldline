@@ -1,10 +1,10 @@
 import { addCalendarDays } from "@/lib/time/calendar";
-import { addWorkdays, DEFAULT_WORKDAY_MASK } from "@/lib/schedule/workdays";
+import { addWorkdays, DEFAULT_WORKDAY_MASK, type WorkdayCalendar } from "@/lib/schedule/workdays";
 
 export type DeadlineEdge = "start" | "finish";
 
 /** Workday offset from a schedule edge. Negative is before, positive is after, zero is that edge. */
-export function linkedDeadline(anchorDay: string, offset: number, mask = DEFAULT_WORKDAY_MASK): string {
+export function linkedDeadline(anchorDay: string, offset: number, mask: number | WorkdayCalendar = DEFAULT_WORKDAY_MASK): string {
   if (!Number.isInteger(offset) || offset < -60 || offset > 60) throw new Error("Offset is -60 to 60 workdays.");
   return addWorkdays(anchorDay, offset, mask);
 }

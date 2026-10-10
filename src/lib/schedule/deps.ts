@@ -1,4 +1,4 @@
-import { addWorkdays, endFromDuration, inclusiveWorkdays } from "@/lib/schedule/workdays";
+import { addWorkdays, endFromDuration, inclusiveWorkdays, type WorkdayCalendar } from "@/lib/schedule/workdays";
 
 export type DepNode = { id: string; start: string; end: string };
 export type DepEdge = { itemId: string; predecessorId: string; lag: number };
@@ -9,7 +9,7 @@ export function movesLabel(count: number): string {
 }
 
 /** Finish-to-start: the next workday after the predecessor finish, plus lag workdays. */
-export function fsStart(predecessorEnd: string, lag: number, mask: number): string {
+export function fsStart(predecessorEnd: string, lag: number, mask: number | WorkdayCalendar): string {
   const gap = 1 + Math.max(0, lag);
   return addWorkdays(predecessorEnd, gap, mask);
 }
@@ -51,7 +51,7 @@ export function cascadeShift(
   rootId: string,
   nextStart: string,
   nextEnd: string,
-  mask: number,
+  mask: number | WorkdayCalendar,
 ): ScheduleShift[] {
   if (hasCycle(edges)) throw new Error("cycle");
   const original = new Map(nodes.map((node) => [node.id, { start: node.start, end: node.end }]));

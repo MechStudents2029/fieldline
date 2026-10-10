@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { addCostAction, createCoAction, draftCoAction, issueInvoiceAction, noteAction, photoAction, taskAction } from "@/app/actions";
+import { addCostAction, addWorkExceptionAction, createCoAction, draftCoAction, issueInvoiceAction, noteAction, photoAction, removeWorkExceptionAction, setBaselineAction, taskAction } from "@/app/actions";
 import { ActionForm } from "@/components/action-form";
 import { GroupedList, GroupedRow, NumberStrip } from "@/components/ios";
 import { JobList, type JobListItem } from "@/components/mac/job-list";
@@ -11,6 +11,7 @@ import { ReceiptCapture } from "@/components/receipt-capture";
 import { Button } from "@/components/ui/button";
 import { requireSession } from "@/lib/auth/session";
 import { formatCalendarDay, formatDateTime, formatWarrantyDay } from "@/lib/format";
+import { formatWorkdayVariance } from "@/lib/schedule/delays";
 import { overBudgetPercent } from "@/lib/margin/category";
 import { formatMoney, formatPercent, formatWhole } from "@/lib/money";
 import { canEditCrm, canEditSchedule } from "@/lib/permissions";
@@ -18,6 +19,8 @@ import { projectBills } from "@/lib/services/bills";
 import { projectPurchaseOrders } from "@/lib/services/purchase-orders";
 import { captionFromMetadata, listPriceBook, listProjects, pipelineBoard, projectDetail } from "@/lib/services/read";
 import { jobSchedule } from "@/lib/services/schedule";
+import { scheduleCompare } from "@/lib/services/schedule-plan";
+import { listWorkExceptions } from "@/lib/services/work-calendar";
 import { LinkedRfis } from "@/components/linked-rfis";
 import { CommentThread } from "@/components/comment-thread";
 import { PunchSection } from "@/components/punch-section";
@@ -58,6 +61,9 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
   const crew = board.office?.clockedIn.filter((row) => row.projectName === detail.project.name) ?? [];
   const todayKey = officeToday(board.timeZone);
   const schedule = jobSchedule(session, detail.project.id);
+  const compare = scheduleCompare(session, detail.project.id);
+  const compareById = new Map(compare.items.map((item) => [item.id, item]));
+  const jobDays = listWorkExceptions(session, detail.project.id);
   const picks = selectionBoard(session, detail.project.id, todayKey);
   const punch = punchBoard(session, detail.project.id);
   const rfiBoard = jobRfis(session, detail.project.id);
@@ -453,18 +459,29 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
       {money ? <ReceiptCapture projectId={detail.project.id} codes={costCodes} /> : null}
       </div>
       <section id="schedule" className="flex flex-col gap-2">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-2">
           <h2 className="fl-section">Schedule</h2>
-          {canEditSchedule(session.role) ? (
-            <Link href={`/schedule?job=${detail.project.id}&new=1`} aria-label="Add schedule">
-              Add
-            </Link>
-          ) : null}
+          <span className="flex items-center gap-2">
+            {compare.variance != null ? <span className="num mac-t13">{formatWorkdayVariance(compare.variance)}</span> : null}
+            {canEditSchedule(session.role) ? (
+              <ActionForm action={setBaselineAction.bind(null, detail.project.id)}>
+                <button className="ctl" type="submit">
+                  Set baseline
+                </button>
+              </ActionForm>
+            ) : null}
+            {canEditSchedule(session.role) ? (
+              <Link href={`/schedule?job=${detail.project.id}&new=1`} aria-label="Add schedule">
+                Add
+              </Link>
+            ) : null}
+          </span>
         </div>
         <ul className="fl-group">
           {schedule.length === 0 ? <li className="fl-cell">No items</li> : null}
           {schedule.map((item) => {
             const late = (rfiBoard?.items ?? []).some((rfi) => rfi.relatedType === "schedule" && rfi.relatedId === item.id && rfi.overdue);
+            const base = compareById.get(item.id);
             return (
             <li key={item.id} className="fl-cell">
               <span className="min-w-0 flex-1">
@@ -472,6 +489,8 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
                 <span className="fl-footnote block truncate text-[var(--fl-secondary)]">
                   {formatCalendarDay(item.startDate)}
                   {item.endDate !== item.startDate ? ` – ${formatCalendarDay(item.endDate)}` : ""} · {item.who}
+                  {base?.baselineEnd ? ` · Baseline ${formatCalendarDay(base.baselineStart || base.baselineEnd)}${base.baselineEnd !== base.baselineStart ? ` – ${formatCalendarDay(base.baselineEnd)}` : ""}` : ""}
+                  {base?.variance != null && base.variance !== 0 ? ` · ${formatWorkdayVariance(base.variance)}` : ""}
                 </span>
                 <LinkedRfis rows={(rfiBoard?.items ?? []).filter((rfi) => rfi.relatedType === "schedule" && rfi.relatedId === item.id && rfi.status !== "void")} />
               </span>
@@ -481,6 +500,40 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
             );
           })}
         </ul>
+        {jobDays.length > 0 || canEditSchedule(session.role) ? (
+          <div className="flex flex-col gap-2">
+            {jobDays.map((day) => (
+              <div key={day.id} className="flex items-center gap-2 mac-t13">
+                <span className="min-w-0 flex-1 truncate">
+                  {day.title} · {formatCalendarDay(day.startDate)}
+                  {day.endDate !== day.startDate ? ` – ${formatCalendarDay(day.endDate)}` : ""}
+                </span>
+                <span className="fl-pill fl-pill-sm">{day.kind === "work" ? "Work" : "Off"}</span>
+                {canEditSchedule(session.role) ? (
+                  <ActionForm action={removeWorkExceptionAction.bind(null, detail.project.id)}>
+                    <input type="hidden" name="id" value={day.id} />
+                    <button className="ctl" type="submit" aria-label={`Remove ${day.title}`}>
+                      Remove
+                    </button>
+                  </ActionForm>
+                ) : null}
+              </div>
+            ))}
+            {canEditSchedule(session.role) ? (
+              <ActionForm action={addWorkExceptionAction.bind(null, detail.project.id)} className="flex flex-wrap items-center gap-2">
+                <input name="title" aria-label="Exception title" placeholder="Title" className="ctl" required maxLength={60} />
+                <input name="startDate" type="date" aria-label="Exception date" className="ctl" required />
+                <select name="kind" aria-label="Exception kind" className="ctl" defaultValue="off">
+                  <option value="off">Off</option>
+                  <option value="work">Work</option>
+                </select>
+                <button className="ctl" type="submit">
+                  Add day
+                </button>
+              </ActionForm>
+            ) : null}
+          </div>
+        ) : null}
       </section>
       <section id="photos" className="mac-docs flex flex-col gap-3">
         <h2 className="fl-section">Photos</h2>
