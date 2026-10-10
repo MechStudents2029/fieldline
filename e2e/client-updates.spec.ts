@@ -28,7 +28,7 @@ test("draft a client update, publish it, and record the portal view", async ({ p
   await expect(page.getByRole("heading", { name: "Client updates" })).toBeVisible();
   await page.getByRole("link", { name: "New" }).click();
   await page.getByRole("button", { name: "Draft" }).click();
-  const update = page.getByLabel("Update");
+  const update = page.getByRole("textbox", { name: "Update", exact: true });
   await expect(update).toBeVisible();
   const text = await update.inputValue();
   expect(text).toContain("Set the shower wall");
