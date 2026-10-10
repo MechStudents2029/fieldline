@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db/client";
 import { organizations } from "@/lib/db/schema";
 import { cronAuthorized } from "@/lib/security";
+import { scanAutomationClock } from "@/lib/services/automations";
 import { scanFollowUps } from "@/lib/services/write";
 
 export const dynamic = "force-dynamic";
@@ -11,5 +12,6 @@ export async function GET(request: Request) {
   if (!allowed.ok) return NextResponse.json({ ok: false }, { status: 401 });
   const orgs = getDb().select().from(organizations).all();
   const created = orgs.reduce((sum, org) => sum + scanFollowUps(org.id).created, 0);
-  return NextResponse.json({ ok: true, created, demo: allowed.demo });
+  const automations = orgs.reduce((sum, org) => sum + scanAutomationClock(org.id).ran, 0);
+  return NextResponse.json({ ok: true, created, automations, demo: allowed.demo });
 }

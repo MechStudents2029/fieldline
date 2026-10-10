@@ -10,6 +10,7 @@ import { ClockInForm, ClockOutForm } from "@/components/time-clock";
 import { Button } from "@/components/ui/button";
 import { formatDateTime } from "@/lib/format";
 import type { Actor } from "@/lib/services/read";
+import { noticesFor } from "@/lib/services/automations";
 import { myDay } from "@/lib/services/logs";
 import { fieldPunch } from "@/lib/services/punch";
 import { mentionUnread } from "@/lib/services/comments";
@@ -42,6 +43,7 @@ export function MyDay({ actor }: { actor: Actor }) {
   const submittals = submittalQueue(actor);
   const mentions = mentionUnread(actor);
   const overdueTodos = overdueTodoCount(actor);
+  const notices = noticesFor(actor);
   const open = day.open;
   return (
     <div className="mx-auto flex max-w-lg flex-col gap-7 md:max-w-none md:px-6">
@@ -49,8 +51,15 @@ export function MyDay({ actor }: { actor: Actor }) {
         <Toolbar title="My day" subtitle={dayTitle(day.timeZone)} search={false} />
       </div>
       <LargeTitle title="My day" subtitle={dayTitle(day.timeZone)} />
-      {rfis.overdue.count > 0 || rfis.awaiting.count > 0 || submittals.overdue.count > 0 || submittals.awaiting.count > 0 || mentions > 0 ? (
+      {rfis.overdue.count > 0 || rfis.awaiting.count > 0 || submittals.overdue.count > 0 || submittals.awaiting.count > 0 || mentions > 0 || notices.length > 0 ? (
         <ul className="fl-group">
+          {notices.map((notice) => (
+            <li key={notice.id}>
+              <Link href={notice.href} className="fl-cell">
+                <span className="fl-body flex-1">{notice.title}</span>
+              </Link>
+            </li>
+          ))}
           {mentions > 0 ? (
             <li>
               <Link href="/inbox" className="fl-cell">

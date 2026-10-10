@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { and, desc, eq, inArray } from "drizzle-orm";
+import { emitAutomation } from "@/lib/services/automations";
 import { dataDir, getDb } from "@/lib/db/client";
 import { officeDb } from "@/lib/db/office";
 import {
@@ -1356,7 +1357,7 @@ export function signProposal(input: {
   if (!input.consent) throw new ServiceError("Check the consent box before signing.");
   if (input.typedName.trim().length < 2) throw new ServiceError("Type your full name to sign.");
   const db = getDb();
-  return db.transaction((tx) => {
+  const signed = db.transaction((tx) => {
     const proposal = tx.select().from(proposals).where(eq(proposals.publicToken, input.token)).get();
     if (!proposal) throw new ServiceError("This link does not match a proposal.");
     if (proposal.status === "signed") throw new ServiceError("This proposal is already signed.");
@@ -1484,6 +1485,29 @@ export function signProposal(input: {
     dismissOpenFollowUps(tx, proposal.orgId, { proposalId: proposal.id, leadId: proposal.leadId });
     return { projectId, portalToken, payToken, invoiceId, totalCents: stored.public.totalCents };
   });
+  const project = db.select().from(projects).where(eq(projects.id, signed.projectId)).get();
+  emitAutomation({
+    orgId: project?.orgId ?? "",
+    kind: "proposal_signed",
+    recordType: "proposal",
+    recordId: project?.proposalId ?? signed.projectId,
+    recordLabel: project?.name ?? "Proposal",
+    projectId: signed.projectId,
+    name: project?.name,
+    amountCents: signed.totalCents,
+  });
+  emitAutomation({
+    orgId: project?.orgId ?? "",
+    kind: "job_status",
+    recordType: "project",
+    recordId: signed.projectId,
+    recordLabel: project?.name ?? "Job",
+    projectId: signed.projectId,
+    status: "active",
+    name: project?.name,
+    amountCents: project?.contractValueCents ?? signed.totalCents,
+  });
+  return signed;
 }
 
 export function declineProposal(tokenValue: string, reason: string) {

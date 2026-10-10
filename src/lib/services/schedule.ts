@@ -2,6 +2,7 @@ import { and, eq, gte, inArray, isNull, lte } from "drizzle-orm";
 import { getDb } from "@/lib/db/client";
 import { officeDb } from "@/lib/db/office";
 import { calendarFeeds, memberships, projects, scheduleAssignees, scheduleBaselineItems, scheduleBaselines, scheduleItems, scheduleLinks, users, workdayExceptions } from "@/lib/db/schema";
+import { emitAutomation } from "@/lib/services/automations";
 import { overdueScheduleIds } from "@/lib/services/rfis";
 import { id, nowIso } from "@/lib/ids";
 import { canEditSchedule, type Role } from "@/lib/permissions";
@@ -279,7 +280,7 @@ export function scheduleBoard(actor: Actor, query: { on?: string; span?: string 
     conflict: userId != null && conflictKey.has(`${userId}|${day}|${row.id}`),
     rfiDue: lateRfi.has(row.id),
     variance: varianceOf.get(row.id) ?? null,
-    gate: gateLabels.get(row.id) ?? null,
+    gate: gateLabels.get(row.id) ?? (row.held ? "Held" : null),
     kind: "item",
     baseline: baselineOf.has(row.id),
   });
@@ -571,6 +572,18 @@ export function saveScheduleItem(actor: Actor, input: ScheduleInput, itemId?: st
   replaceAssignees(db, actor, savedId, input.assigneeIds);
   const added = [...new Set(input.assigneeIds)].filter((userId) => !previous.includes(userId));
   if (added.length) notifyAssignment(actor, { entityType: "schedule_item", entityId: savedId, userIds: added });
+  if (status === "done" && existing?.status !== "done") {
+    emitAutomation({
+      orgId: actor.orgId,
+      kind: "schedule_done",
+      recordType: "schedule_item",
+      recordId: savedId,
+      recordLabel: title,
+      projectId: project.id,
+      name: title,
+      scheduleItemId: savedId,
+    });
+  }
   return savedId;
 }
 

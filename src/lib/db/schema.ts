@@ -1054,6 +1054,7 @@ export const scheduleItems = sqliteTable(
     endDate: text("end_date").notNull(),
     startTime: text("start_time"),
     status: text("status").notNull(),
+    held: integer("held").notNull().default(0),
     note: text("note"),
     vendorContactId: text("vendor_contact_id"),
     createdAt: text("created_at").notNull(),
@@ -2356,4 +2357,61 @@ export const dailyLogEquipment = sqliteTable(
     createdAt: text("created_at").notNull(),
   },
   (t) => [uniqueIndex("daily_log_equipment_once").on(t.orgId, t.logId, t.equipmentId), index("daily_log_equipment_log").on(t.orgId, t.logId)],
+);
+
+/** One trigger, optional conditions, and ordered in-app actions. */
+export const automationRules = sqliteTable(
+  "automation_rules",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    name: text("name").notNull(),
+    enabled: integer("enabled").notNull().default(1),
+    triggerKind: text("trigger_kind").notNull(),
+    triggerJson: text("trigger_json").notNull(),
+    conditionsJson: text("conditions_json").notNull(),
+    actionsJson: text("actions_json").notNull(),
+    lastRunAt: text("last_run_at"),
+    runCount: integer("run_count").notNull().default(0),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    createdBy: text("created_by"),
+  },
+  (t) => [index("automation_rules_org").on(t.orgId, t.enabled)],
+);
+
+/** One row per rule and triggering record. A second event for that pair does not run again. */
+export const automationRuns = sqliteTable(
+  "automation_runs",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    ruleId: text("rule_id").notNull(),
+    key: text("key").notNull(),
+    recordType: text("record_type").notNull(),
+    recordId: text("record_id").notNull(),
+    recordLabel: text("record_label").notNull(),
+    actionsJson: text("actions_json").notNull(),
+    result: text("result").notNull(),
+    error: text("error"),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [uniqueIndex("automation_runs_key").on(t.orgId, t.key), index("automation_runs_rule").on(t.orgId, t.ruleId)],
+);
+
+/** In-app Today row. No email, text, or outside call. */
+export const automationNotices = sqliteTable(
+  "automation_notices",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    ruleId: text("rule_id").notNull(),
+    userId: text("user_id").notNull().default(""),
+    role: text("role").notNull().default(""),
+    title: text("title").notNull(),
+    href: text("href").notNull(),
+    recordKey: text("record_key").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [uniqueIndex("automation_notices_once").on(t.orgId, t.ruleId, t.recordKey, t.userId, t.role), index("automation_notices_org").on(t.orgId)],
 );

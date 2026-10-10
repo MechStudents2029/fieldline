@@ -2,15 +2,7 @@
 
 import { useRouter } from "next/navigation";
 
-export function EquipmentFilters({
-  status,
-  category,
-  categories,
-}: {
-  status: string;
-  category: string;
-  categories: string[];
-}) {
+export function EquipmentFilters({ status, place }: { status: string; place: string }) {
   const router = useRouter();
   function push(name: string, value: string) {
     const url = new URL(window.location.href);
@@ -22,22 +14,20 @@ export function EquipmentFilters({
   }
   return (
     <div data-bar="equipment" className="flex items-center gap-2 px-4 pb-2">
-      <select aria-label="Status" className="ctl" value={status} onChange={(event) => push("status", event.target.value)}>
-        <option value="">All</option>
-        <option value="available">Available</option>
-        <option value="on_job">On job</option>
-        <option value="with_person">With person</option>
-        <option value="in_service">In service</option>
-        <option value="lost">Lost</option>
-        <option value="retired">Retired</option>
+      <select aria-label="Status" className="list-select" value={status} onChange={(event) => push("status", event.target.value)}>
+        <option value="">Status: Any</option>
+        <option value="available">Status: Available</option>
+        <option value="on_job">Status: On job</option>
+        <option value="with_person">Status: With person</option>
+        <option value="in_service">Status: In service</option>
+        <option value="lost">Status: Lost</option>
+        <option value="retired">Status: Retired</option>
       </select>
-      <select aria-label="Category" className="ctl" value={category} onChange={(event) => push("category", event.target.value)}>
-        <option value="">All</option>
-        {categories.map((item) => (
-          <option key={item} value={item}>
-            {item}
-          </option>
-        ))}
+      <select aria-label="Location" className="list-select" value={place} onChange={(event) => push("place", event.target.value)}>
+        <option value="">Location: Any</option>
+        <option value="yard">Location: Yard</option>
+        <option value="job">Location: Job</option>
+        <option value="person">Location: Person</option>
       </select>
     </div>
   );
