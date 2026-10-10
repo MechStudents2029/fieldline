@@ -14,6 +14,7 @@ import {
   tasks,
   vendorPortals,
 } from "@/lib/db/schema";
+import { emitAutomation } from "@/lib/services/automations";
 import { id, nowIso } from "@/lib/ids";
 import { canEditCrm, canSeeMoney, type Role } from "@/lib/permissions";
 import {
@@ -364,6 +365,20 @@ export function saveInspection(
       .run();
   }
   replaceGates(actor.orgId, idValue, projectId, input.gateItemIds);
+  if (input.result === "passed" || input.result === "failed") {
+    emitAutomation({
+      orgId: actor.orgId,
+      kind: "inspection_result",
+      recordType: "inspection",
+      recordId: idValue,
+      recordLabel: name,
+      projectId,
+      status: input.result,
+      name,
+      scheduleItemId,
+      gateItemIds: input.gateItemIds,
+    });
+  }
   return { id: idValue };
 }
 

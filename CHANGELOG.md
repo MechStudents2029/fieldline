@@ -2,6 +2,15 @@
 
 ## 2026-10-10
 
+### Automations
+
+- Settings lists each rule with its trigger, last run, run count, and an on/off switch. A rule is one trigger, optional conditions, and actions that run in order.
+- Triggers follow a job status change, a signed proposal, a finished schedule item, an inspection result, a verified punch item, an invoice overdue by N days, vendor insurance or a license expiring within N days, and equipment overdue for return. The daily cron evaluates the time-based ones.
+- Actions stay in the app: apply a template’s schedule and to-dos without duplicating them, create a to-do, add a Today row, set the job status, create a punch item from a failed inspection, and hold or release a schedule item.
+- A rule runs once per record. A chain stops after three levels. A failed action is logged and the save still completes. Turning a rule off stops it. The audit log records Automation and the rule name.
+- Each rule has a run log. Test on a record previews the actions and writes nothing.
+- Sold kitchen job, Failed inspection, and COI expiring in 14 days are on. Okonkwo is in the kitchen rule’s log.
+
 ### Equipment
 
 - The register lists tools and equipment: name, category, make, serial, tag, purchase date and cost, an optional hourly or daily rate, status, and where it is now. Search and compact filters sit on the list. The detail pane is read-only. Edit opens a sheet.
@@ -10,6 +19,7 @@
 - Checking an item in from a job with a rate posts one equipment cost: days or hours times the rate, editable before it posts. The same assignment does not post twice. Reverse removes the cost unless it is already on an invoice. Budget versus actual and a cost-plus invoice list it as Equipment.
 - A service interval counts days or hours. Today lists overdue returns, service due within 7 days, and equipment still on a job that is closed or in closeout. In service, lost, and retired cannot be checked out. Closeout counts equipment still on the job.
 - Tag labels print with a QR code drawn on this machine. The code opens that item.
+- The list filters read Status: Any and Location: Any. New opens the sheet. The location column shows the full job name.
 
 ### Markup
 

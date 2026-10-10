@@ -19,6 +19,13 @@ test("equipment register, checkout, a daily log tag, and a printed label", async
   await expect(page.getByRole("link", { name: "Mud mixer" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Dump trailer" })).toBeVisible();
   await expect(page.getByText("1 overdue")).toBeVisible();
+  await expect(page.getByLabel("Status")).toContainText("Status: Any");
+  await expect(page.getByLabel("Location")).toContainText("Location: Any");
+  await expect(page.getByRole("button", { name: "New" })).toBeVisible();
+  const location = page.getByRole("cell", { name: "Diaz deck replacement · Dana Cho" });
+  await expect(location).toBeVisible();
+  const clipped = await location.evaluate((el) => el.scrollWidth > el.clientWidth + 1);
+  expect(clipped).toBe(false);
   await shot(page, "equipment-register-light");
   await page.emulateMedia({ colorScheme: "dark" });
   await shot(page, "equipment-register-dark");

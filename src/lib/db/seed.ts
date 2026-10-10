@@ -12,6 +12,8 @@ import {
   activities,
   aiRuns,
   appMeta,
+  automationRules,
+  automationRuns,
   auditLogs,
   billEvents,
   billLines,
@@ -150,7 +152,7 @@ import {
   WEBSITE_FORM_SOURCE,
 } from "@/lib/lead-form/rules";
 
-export const SEED_VERSION = "37";
+export const SEED_VERSION = "38";
 
 const ORG = "org_rivera";
 const NORTH = "org_northline";
@@ -3397,6 +3399,77 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
       { id: "asn_trailer", orgId: ORG, equipmentId: "eq_trailer", projectId: "proj_diaz", userId: "user_dana", expectedReturn: null, checkedOutAt: daysAgo(40), checkedInAt: null, fromLabel: "Yard", toLabel: "Diaz deck replacement · Dana Cho", hours: null, costCents: null, costItemId: null, costState: "", createdAt: daysAgo(40), createdBy: "user_maya" },
       { id: "asn_heater", orgId: ORG, equipmentId: "eq_heater", projectId: "proj_chen", userId: null, expectedReturn: addCalendarDays(today, 3), checkedOutAt: daysAgo(1), checkedInAt: null, fromLabel: "Yard", toLabel: "Chen powder room", hours: null, costCents: null, costItemId: null, costState: "", createdAt: daysAgo(1), createdBy: "user_luis" },
     ])
+    .run();
+
+  db.insert(automationRules)
+    .values([
+      {
+        id: "rule_sold_kitchen",
+        orgId: ORG,
+        name: "Sold kitchen job",
+        enabled: 1,
+        triggerKind: "job_status",
+        triggerJson: JSON.stringify({ kind: "job_status", status: "active" }),
+        conditionsJson: JSON.stringify([{ kind: "job_type", value: "Kitchen" }]),
+        actionsJson: JSON.stringify([
+          { kind: "apply_template", templateId: "tpl_kitchen" },
+          { kind: "today", title: "Kitchen job sold", who: "role:pm" },
+        ]),
+        lastRunAt: daysAgo(1),
+        runCount: 1,
+        createdAt: daysAgo(2),
+        updatedAt: daysAgo(1),
+        createdBy: "user_maya",
+      },
+      {
+        id: "rule_failed_inspection",
+        orgId: ORG,
+        name: "Failed inspection",
+        enabled: 1,
+        triggerKind: "inspection_result",
+        triggerJson: JSON.stringify({ kind: "inspection_result", result: "failed" }),
+        conditionsJson: "[]",
+        actionsJson: JSON.stringify([
+          { kind: "punch", title: "Failed inspection" },
+          { kind: "hold" },
+        ]),
+        lastRunAt: null,
+        runCount: 0,
+        createdAt: daysAgo(2),
+        updatedAt: daysAgo(2),
+        createdBy: "user_maya",
+      },
+      {
+        id: "rule_coi_14",
+        orgId: ORG,
+        name: "COI expiring in 14 days",
+        enabled: 1,
+        triggerKind: "vendor_expiring",
+        triggerJson: JSON.stringify({ kind: "vendor_expiring", days: 14, cert: "insurance" }),
+        conditionsJson: "[]",
+        actionsJson: JSON.stringify([{ kind: "today", title: "COI expiring", who: "role:office" }]),
+        lastRunAt: null,
+        runCount: 0,
+        createdAt: daysAgo(2),
+        updatedAt: daysAgo(2),
+        createdBy: "user_maya",
+      },
+    ])
+    .run();
+  db.insert(automationRuns)
+    .values({
+      id: "run_ok_kitchen",
+      orgId: ORG,
+      ruleId: "rule_sold_kitchen",
+      key: "rule_sold_kitchen:project:proj_okonkwo",
+      recordType: "project",
+      recordId: "proj_okonkwo",
+      recordLabel: "Okonkwo primary bath",
+      actionsJson: "[]",
+      result: "skipped",
+      error: null,
+      createdAt: daysAgo(1),
+    })
     .run();
 
   db.insert(auditLogs)

@@ -28,6 +28,7 @@ import {
 import { addMonths, closeoutChecklist, finalInvoiceState, openBlockers, warrantyOpen, type CloseoutBlocker } from "@/lib/closeout/check";
 import { equipmentOnJob } from "@/lib/services/equipment";
 import { closeoutPermitFacts } from "@/lib/services/permits";
+import { emitAutomation } from "@/lib/services/automations";
 import { id, nowIso } from "@/lib/ids";
 import { MAX_MONEY_CENTS } from "@/lib/money";
 import { canAddFieldNotes, canEditCrm, canManageMoney, canManageSettings, canSeeMoney, type Role } from "@/lib/permissions";
@@ -560,6 +561,15 @@ export function verifyPunch(actor: Actor, itemId: string) {
       .run();
     writeAudit(tx, actor.orgId, actor.userId, "punch.verify", "punch_item", item.id, { from: item.status, status: "verified" });
   });
+  emitAutomation({
+    orgId: actor.orgId,
+    kind: "punch_verified",
+    recordType: "punch_item",
+    recordId: item.id,
+    recordLabel: item.title,
+    projectId: item.projectId,
+    name: item.title,
+  });
 }
 
 export function setPunchShared(actor: Actor, itemId: string, shared: boolean) {
@@ -628,6 +638,17 @@ export function closeJob(actor: Actor, projectId: string, input: { months: numbe
       blockers: blockers.map((row) => row.key),
     });
   });
+  emitAutomation({
+    orgId: actor.orgId,
+    kind: "job_status",
+    recordType: "project",
+    recordId: project.id,
+    recordLabel: project.name,
+    projectId: project.id,
+    status: "complete",
+    name: project.name,
+    amountCents: project.contractValueCents,
+  });
 }
 
 export function reopenJob(actor: Actor, projectId: string) {
@@ -643,6 +664,17 @@ export function reopenJob(actor: Actor, projectId: string) {
       .where(and(eq(projects.id, project.id), eq(projects.orgId, actor.orgId)))
       .run();
     writeAudit(tx, actor.orgId, actor.userId, "job.reopen", "project", project.id, null);
+  });
+  emitAutomation({
+    orgId: actor.orgId,
+    kind: "job_status",
+    recordType: "project",
+    recordId: project.id,
+    recordLabel: project.name,
+    projectId: project.id,
+    status: "active",
+    name: project.name,
+    amountCents: project.contractValueCents,
   });
 }
 

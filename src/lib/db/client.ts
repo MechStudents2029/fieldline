@@ -122,6 +122,7 @@ export function ensureReady(holder: Holder) {
   ensurePermits(holder);
   ensureMarkup(holder);
   ensureEquipment(holder);
+  ensureAutomations(holder);
   const version = holder.sqlite.prepare("select value from app_meta where key = ?").get("seed_version") as
     | { value: string }
     | undefined;
@@ -2164,6 +2165,61 @@ function ensureEquipment(holder: Holder) {
     )`);
   }
   holder.sqlite.exec("create unique index if not exists daily_log_equipment_once on daily_log_equipment (org_id, log_id, equipment_id)");
+}
+
+function ensureAutomations(holder: Holder) {
+  const pk = holder.dialect === "postgres" ? "text primary key" : "text primary key not null";
+  ensureColumn(holder, "schedule_items", "held", "integer not null default 0");
+  if (!tableExists(holder.sqlite, "automation_rules", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists automation_rules (
+      id ${pk},
+      org_id text not null,
+      name text not null,
+      enabled integer not null default 1,
+      trigger_kind text not null,
+      trigger_json text not null,
+      conditions_json text not null,
+      actions_json text not null,
+      last_run_at text,
+      run_count integer not null default 0,
+      created_at text not null,
+      updated_at text not null,
+      created_by text
+    )`);
+  }
+  holder.sqlite.exec("create index if not exists automation_rules_org on automation_rules (org_id, enabled)");
+  if (!tableExists(holder.sqlite, "automation_runs", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists automation_runs (
+      id ${pk},
+      org_id text not null,
+      rule_id text not null,
+      key text not null,
+      record_type text not null,
+      record_id text not null,
+      record_label text not null,
+      actions_json text not null,
+      result text not null,
+      error text,
+      created_at text not null
+    )`);
+  }
+  holder.sqlite.exec("create unique index if not exists automation_runs_key on automation_runs (org_id, key)");
+  holder.sqlite.exec("create index if not exists automation_runs_rule on automation_runs (org_id, rule_id)");
+  if (!tableExists(holder.sqlite, "automation_notices", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists automation_notices (
+      id ${pk},
+      org_id text not null,
+      rule_id text not null,
+      user_id text not null default '',
+      role text not null default '',
+      title text not null,
+      href text not null,
+      record_key text not null,
+      created_at text not null
+    )`);
+  }
+  holder.sqlite.exec("create unique index if not exists automation_notices_once on automation_notices (org_id, rule_id, record_key, user_id, role)");
+  holder.sqlite.exec("create index if not exists automation_notices_org on automation_notices (org_id)");
 }
 
 export function resetDatabase(): AppDatabase {

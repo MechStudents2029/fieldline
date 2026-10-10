@@ -191,6 +191,7 @@ export type EquipmentRow = {
   tag: string;
   status: string;
   statusLabel: string;
+  locationKind: string;
   location: string;
   projectId: string | null;
   expectedReturn: string | null;
@@ -248,6 +249,7 @@ function rowOf(db: AppDatabase, item: Item, today: string): EquipmentRow {
     tag: item.tag,
     status: item.status,
     statusLabel: equipmentStatusLabel(item.status),
+    locationKind: item.locationKind,
     location: item.locationKind === "yard" ? "Yard" : placeLabel(job, person),
     projectId: item.projectId,
     expectedReturn: assignment?.expectedReturn ?? null,
@@ -257,7 +259,7 @@ function rowOf(db: AppDatabase, item: Item, today: string): EquipmentRow {
   };
 }
 
-export function listEquipment(actor: Actor, filter: { status?: string; category?: string; due?: string; service?: string; where?: string; q?: string }) {
+export function listEquipment(actor: Actor, filter: { status?: string; category?: string; place?: string; due?: string; service?: string; where?: string; q?: string }) {
   const db = getDb();
   const today = todayFor(actor.orgId);
   const items = db
@@ -271,6 +273,7 @@ export function listEquipment(actor: Actor, filter: { status?: string; category?
     .map((item) => rowOf(db, item, today))
     .filter((row) => {
       if (filter.status && row.status !== filter.status) return false;
+      if (filter.place && row.locationKind !== filter.place) return false;
       if (filter.category && row.category !== filter.category) return false;
       if (filter.due === "overdue" && !row.overdue) return false;
       if (filter.service === "due" && !row.serviceDue) return false;

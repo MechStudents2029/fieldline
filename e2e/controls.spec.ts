@@ -22,6 +22,7 @@ const routes = [
   "/reports/wip",
   "/contacts",
   "/settings",
+  "/settings/automations",
   "/settings/files",
   "/import",
   "/projects/proj_okonkwo/files",

@@ -26,8 +26,9 @@ export default async function EquipmentPage({ searchParams }: { searchParams: Pr
   const query = await searchParams;
   const one = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value) || "";
   const status = one(query.status);
+  const place = one(query.place);
   const category = one(query.category);
-  const rows = listEquipment(session, { status, category, due: one(query.due), service: one(query.service), where: one(query.where) });
+  const rows = listEquipment(session, { status, place, category, due: one(query.due), service: one(query.service), where: one(query.where) });
   const choices = equipmentChoices(session);
   const selectedId = one(query.item);
   const selected = selectedId ? equipmentDetail(session, selectedId) : null;
@@ -39,6 +40,7 @@ export default async function EquipmentPage({ searchParams }: { searchParams: Pr
   const showIn = Boolean(selected && one(query.in) === "1" && selected.canMove && selected.openAssignmentId);
   const keep = new URLSearchParams();
   if (status) keep.set("status", status);
+  if (place) keep.set("place", place);
   if (category) keep.set("category", category);
   if (selected) keep.set("item", selected.id);
   const back = `/equipment${keep.toString() ? `?${keep}` : ""}`;
@@ -48,6 +50,7 @@ export default async function EquipmentPage({ searchParams }: { searchParams: Pr
         title="Equipment"
         subtitle={queue.overdue.count ? `${queue.overdue.count} overdue` : `${rows.length}`}
         search
+        primary={office ? "New" : undefined}
         primaryHref={office ? "/equipment?new=1" : undefined}
         trailing={
           <Link href="/equipment/labels" className="ctl">
@@ -55,7 +58,7 @@ export default async function EquipmentPage({ searchParams }: { searchParams: Pr
           </Link>
         }
       />
-      <EquipmentFilters status={status} category={category} categories={choices.categories} />
+      <EquipmentFilters status={status} place={place} />
       <div className="flex min-h-0 flex-1 flex-col md:flex-row">
         <div className="min-w-0 flex-1 overflow-auto px-4">
           {rows.length === 0 ? <p className="mac-t13 text-[var(--mac-secondary)]">No equipment</p> : null}
@@ -79,7 +82,7 @@ export default async function EquipmentPage({ searchParams }: { searchParams: Pr
                   <td>
                     <span className="fl-pill">{row.statusLabel}</span>
                   </td>
-                  <td className="clip">{row.location}</td>
+                  <td className="wrap">{row.location}</td>
                   <td className={`num ${row.overdue ? "text-[var(--mac-danger)]" : ""}`}>{row.expectedReturn ? formatCalendarDay(row.expectedReturn) : ""}</td>
                 </tr>
               ))}
