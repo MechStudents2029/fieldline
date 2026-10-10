@@ -1388,7 +1388,10 @@ html.mac-inspector-off .mac-inspector { display: none; }
 .est-assembly-name { min-width: 0; }
 .est-assembly-total { margin-left: auto; font-variant-numeric: tabular-nums; }
 .est-line.is-part { background: color-mix(in srgb, var(--mac-fill) 55%, transparent); }
-.est-assembly-add { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 4px 0 0 26px; }
+.est-add-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 8px 0 0 26px; }
+.est-add-row .est-add,
+.est-add-row .est-assembly-add { margin: 0; }
+.est-assembly-add { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0; }
 .est-assembly-form { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .estimate-comments { margin-top: 16px; }
 .assembly-editor { display: flex; flex-direction: column; gap: 10px; max-width: 880px; margin-top: 12px; }
@@ -1403,6 +1406,16 @@ html.mac-inspector-off .mac-inspector { display: none; }
   color: var(--mac-secondary);
 }
 .est-add { margin: 8px 0 0 26px; }
+.update-body {
+  width: 100%;
+  min-height: 320px;
+  border: 0.5px solid var(--mac-separator);
+  border-radius: 8px;
+  background: var(--mac-window);
+  padding: 10px 12px;
+  font-size: 13px;
+  line-height: 18px;
+}
 .est-preview-toggle { margin-bottom: 10px; }
 .est-kicker {
   margin-top: 12px;

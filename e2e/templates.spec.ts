@@ -12,6 +12,15 @@ function todayInNewYork() {
   return new Date().toLocaleDateString("en-CA", { timeZone: "America/New_York" });
 }
 
+/** A workday inside the week the schedule is showing. Saturday and Sunday snap onto Friday. */
+function scheduleStart() {
+  const day = todayInNewYork();
+  const [year, month, date] = day.split("-").map(Number);
+  const weekday = new Date(Date.UTC(year, month - 1, date)).getUTCDay();
+  const back = weekday === 6 ? 1 : weekday === 0 ? 2 : 0;
+  return new Date(Date.UTC(year, month - 1, date - back)).toISOString().slice(0, 10);
+}
+
 test.describe("templates and dependencies", () => {
   test.use({ viewport: { width: 1440, height: 900 } });
 
@@ -32,7 +41,7 @@ test.describe("templates and dependencies", () => {
     await expect(sheet).toBeVisible();
     await sheet.getByLabel("Job").fill("Template bath");
     await sheet.getByLabel("Client").selectOption({ label: "Amara Okonkwo" });
-    await sheet.getByLabel("Start").fill(todayInNewYork());
+    await sheet.getByLabel("Start").fill(scheduleStart());
     await sheet.getByLabel("PM").selectOption({ label: "Maya Rivera" });
     await page.emulateMedia({ colorScheme: "light" });
     await shot(page, "template-new-job-light");
@@ -79,7 +88,7 @@ test.describe("templates on a phone", () => {
     await expect(sheet).toBeVisible();
     await sheet.getByLabel("Job").fill("Phone bath");
     await sheet.getByLabel("Client").selectOption({ label: "Amara Okonkwo" });
-    await sheet.getByLabel("Start").fill(todayInNewYork());
+    await sheet.getByLabel("Start").fill(scheduleStart());
     await sheet.getByRole("button", { name: "Create" }).click();
     await expect(page.getByRole("status")).toHaveText(/Created \d+ items/);
     await expect(page.getByText("Bathroom remodel v1").filter({ visible: true })).toBeVisible();

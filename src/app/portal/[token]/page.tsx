@@ -82,6 +82,11 @@ export default async function PortalPage({ params }: { params: Promise<{ token: 
         <p className="home-company">{data.org.name}</p>
         <h1 className="home-title">{data.project.name}</h1>
         {data.project.address ? <p className="home-sub">{data.project.address}</p> : null}
+        <p className="home-sub">
+          <Link className="home-link" href={`/portal/${token}/updates`}>
+            Weekly updates
+          </Link>
+        </p>
       </header>
 
       <section className="home-strip" aria-label="Money">

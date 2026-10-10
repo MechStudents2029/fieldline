@@ -28,14 +28,14 @@ export function Toolbar({
   const router = useRouter();
   return (
     <div className="flex h-[52px] shrink-0 items-center gap-3 px-4" data-bar="toolbar">
-      <div className="flex min-w-0 flex-1 items-center gap-2">
+      <div className="flex min-w-[7rem] flex-1 items-center gap-2 overflow-hidden">
         {leading}
         <div className="min-w-0">
           <h1 className="truncate mac-t15">{title}</h1>
           {subtitle ? <p className="truncate mac-t11 text-[var(--mac-secondary)]">{subtitle}</p> : null}
         </div>
       </div>
-      {center ? <div className="flex shrink-0 justify-center">{center}</div> : null}
+      {center ? <div className="min-w-0 max-w-[46%] overflow-x-auto">{center}</div> : null}
       <div className="flex shrink-0 items-center gap-2">
         {search ? (
           <input

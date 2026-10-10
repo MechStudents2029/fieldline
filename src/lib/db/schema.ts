@@ -1987,3 +1987,43 @@ export const savedViewPins = sqliteTable(
   },
   (t) => [uniqueIndex("saved_view_pins_user_list").on(t.orgId, t.userId, t.listKey)],
 );
+
+export const clientUpdates = sqliteTable(
+  "client_updates",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    projectId: text("project_id").notNull(),
+    rangeStart: text("range_start").notNull(),
+    rangeEnd: text("range_end").notNull(),
+    status: text("status").notNull(),
+    body: text("body").notNull(),
+    sourcesJson: text("sources_json").notNull(),
+    photoIdsJson: text("photo_ids_json").notNull(),
+    publishedAt: text("published_at"),
+    viewedAt: text("viewed_at"),
+    unpublishedAt: text("unpublished_at"),
+    unpublishReason: text("unpublish_reason"),
+    version: integer("version").notNull().default(1),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    createdBy: text("created_by"),
+  },
+  (t) => [index("client_updates_project").on(t.orgId, t.projectId)],
+);
+
+export const clientUpdateVersions = sqliteTable(
+  "client_update_versions",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    updateId: text("update_id").notNull(),
+    version: integer("version").notNull(),
+    body: text("body").notNull(),
+    sourcesJson: text("sources_json").notNull(),
+    photoIdsJson: text("photo_ids_json").notNull(),
+    createdAt: text("created_at").notNull(),
+    createdBy: text("created_by"),
+  },
+  (t) => [index("client_update_versions_update").on(t.orgId, t.updateId)],
+);

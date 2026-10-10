@@ -9,6 +9,12 @@ import { clearSession, getSession, setSession } from "@/lib/auth/session";
 import { receiptAutoPostAllowed } from "@/lib/ai/receipt";
 import { parseMoneyToCents, qtyToMilli } from "@/lib/money";
 import {
+  createClientUpdate,
+  publishClientUpdate,
+  saveClientUpdate,
+  unpublishClientUpdate,
+} from "@/lib/services/client-updates";
+import {
   linkLogPhoto,
   openDailyLog,
   publishDailyLog,
@@ -3380,6 +3386,53 @@ export async function declineVendorBidAction(token: string, bidId: string, _prev
     refreshVendor(token);
     revalidatePath(`/bids/${bidId}`);
     return { ok: "Declined." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+function refreshUpdate(projectId: string, updateId?: string) {
+  revalidatePath("/");
+  revalidatePath(`/projects/${projectId}`);
+  revalidatePath(`/projects/${projectId}/updates`);
+  if (updateId) revalidatePath(`/projects/${projectId}/updates/${updateId}`);
+}
+
+export async function createClientUpdateAction(projectId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const created = createClientUpdate(
+      user,
+      projectId,
+      { start: String(formData.get("rangeStart") || ""), end: String(formData.get("rangeEnd") || "") },
+      await requestIp(),
+    );
+    refreshUpdate(projectId, created.id);
+    redirect(`/projects/${projectId}/updates/${created.id}`);
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function saveClientUpdateAction(projectId: string, updateId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const photos = formData.getAll("photoId").map((value) => String(value));
+    saveClientUpdate(user, updateId, String(formData.get("body") || ""), photos, await requestIp());
+    if (String(formData.get("intent") || "") === "publish") publishClientUpdate(user, updateId, await requestIp());
+    refreshUpdate(projectId, updateId);
+    return { ok: String(formData.get("intent") || "") === "publish" ? "Published." : "Saved." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function unpublishClientUpdateAction(projectId: string, updateId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    unpublishClientUpdate(user, updateId, String(formData.get("reason") || ""), await requestIp());
+    refreshUpdate(projectId, updateId);
+    return { ok: "Unpublished." };
   } catch (error) {
     return failure(error);
   }

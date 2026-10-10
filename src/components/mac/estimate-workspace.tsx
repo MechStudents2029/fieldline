@@ -783,11 +783,13 @@ export function EstimateWorkspace({
               })}
           </div>
           {locked ? null : (
-            <button type="button" className="est-add" onClick={() => addBelow(flat.at(-1)?.id ?? null)}>
-              + Add line
-            </button>
+            <div className="est-add-row">
+              <button type="button" className="est-add" onClick={() => addBelow(flat.at(-1)?.id ?? null)}>
+                + Add line
+              </button>
+              <AddAssembly estimateId={estimateId} locked={locked} assemblies={assemblies} measurements={measurements} />
+            </div>
           )}
-          <AddAssembly estimateId={estimateId} locked={locked} assemblies={assemblies} measurements={measurements} />
         </div>
         <aside className="estimate-side" aria-label={previewOn ? "Client preview" : "Inspector"}>
           <MeasurementsPanel estimateId={estimateId} locked={locked} rows={measurements} />

@@ -116,6 +116,7 @@ export function ensureReady(holder: Holder) {
   ensureRetainage(holder);
   ensureMeasurements(holder);
   ensureAssemblies(holder);
+  ensureClientUpdates(holder);
   const version = holder.sqlite.prepare("select value from app_meta where key = ?").get("seed_version") as
     | { value: string }
     | undefined;
@@ -1190,6 +1191,46 @@ function ensureAssemblies(holder: Holder) {
     )`);
   }
   holder.sqlite.exec("create index if not exists estimate_groups_estimate on estimate_groups (org_id, estimate_id)");
+}
+
+function ensureClientUpdates(holder: Holder) {
+  const pk = holder.dialect === "postgres" ? "text primary key" : "text primary key not null";
+  if (!tableExists(holder.sqlite, "client_updates", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists client_updates (
+      id ${pk},
+      org_id text not null,
+      project_id text not null,
+      range_start text not null,
+      range_end text not null,
+      status text not null,
+      body text not null,
+      sources_json text not null,
+      photo_ids_json text not null,
+      published_at text,
+      viewed_at text,
+      unpublished_at text,
+      unpublish_reason text,
+      version integer not null default 1,
+      created_at text not null,
+      updated_at text not null,
+      created_by text
+    )`);
+  }
+  holder.sqlite.exec("create index if not exists client_updates_project on client_updates (org_id, project_id)");
+  if (!tableExists(holder.sqlite, "client_update_versions", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists client_update_versions (
+      id ${pk},
+      org_id text not null,
+      update_id text not null,
+      version integer not null,
+      body text not null,
+      sources_json text not null,
+      photo_ids_json text not null,
+      created_at text not null,
+      created_by text
+    )`);
+  }
+  holder.sqlite.exec("create index if not exists client_update_versions_update on client_update_versions (org_id, update_id)");
 }
 
 function ensureRetainage(holder: Holder) {

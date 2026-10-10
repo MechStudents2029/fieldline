@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-10-10
+
+### Client updates
+
+- On a job, office can draft a client update for a date range. The range defaults to the last seven days on the job’s clock. The draft uses published client logs, schedule items, approved or pending change orders, invoices sent or paid, and selections due in that range.
+- The draft is the local stub. It does not call out. Sections are This week, Next week, Decisions needed, Money, and Photos. Each sentence keeps the record it came from. Delays, safety notes, crew, hours, costs, bills, and purchase orders stay out.
+- Office edits the text, keeps or drops photos, and publishes. Publish puts it on the client portal only. The portal lists published updates newest first. Opening that page records Viewed. A later edit keeps the earlier version. Unpublish asks for a reason. Draft, edit, publish, view, and unpublish are on the audit log.
+- Okonkwo has one published update and one draft. Today counts active jobs with no published update in seven days.
+- Add assembly sits on the same row as + Add line.
+
 ## 2026-10-09
 
 ### Measurements and quantity formulas

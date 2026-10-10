@@ -60,6 +60,8 @@ import {
   pipelines,
   assemblies,
   assemblyParts,
+  clientUpdateVersions,
+  clientUpdates,
   priceBookItems,
   projects,
   punchItems,
@@ -116,6 +118,10 @@ import { linkedDeadline } from "@/lib/todos/deadline";
 import { hashVendorToken, DEMO_HARBOR_PORTAL_TOKEN } from "@/lib/vendor/token";
 import { DEFAULT_WAIVER_BODIES, renderWaiver } from "@/lib/waivers/format";
 import { formatCalendarDay } from "@/lib/format";
+import { renderUpdateBody } from "@/lib/updates/draft";
+import { gatherClientUpdateFacts } from "@/lib/updates/gather";
+import { defaultRange } from "@/lib/updates/range";
+import { clientUpdateFromFacts } from "@/lib/ai/client-update";
 import { proposalNudgeCopy } from "@/lib/ai/nurture";
 import {
   defaultFields,
@@ -124,7 +130,7 @@ import {
   WEBSITE_FORM_SOURCE,
 } from "@/lib/lead-form/rules";
 
-export const SEED_VERSION = "31";
+export const SEED_VERSION = "32";
 
 const ORG = "org_rivera";
 const NORTH = "org_northline";
@@ -3156,6 +3162,71 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
     .run();
 
   db.insert(appMeta).values({ key: "seed_version", value: SEED_VERSION }).run();
+
+  const publishedRange = defaultRange(Date.now(), riveraZone);
+  const publishedFacts = gatherClientUpdateFacts(db, ORG, "proj_okonkwo", publishedRange, riveraZone);
+  const publishedDraft = clientUpdateFromFacts(publishedFacts);
+  const publishedBody = renderUpdateBody(publishedDraft);
+  db.insert(clientUpdates)
+    .values({
+      id: "upd_ok_published",
+      orgId: ORG,
+      projectId: "proj_okonkwo",
+      rangeStart: publishedRange.start,
+      rangeEnd: publishedRange.end,
+      status: "published",
+      body: publishedBody,
+      sourcesJson: JSON.stringify(publishedDraft),
+      photoIdsJson: JSON.stringify(publishedDraft.photoIds),
+      publishedAt: now,
+      viewedAt: null,
+      unpublishedAt: null,
+      unpublishReason: null,
+      version: 1,
+      createdAt: now,
+      updatedAt: now,
+      createdBy: "user_maya",
+    })
+    .run();
+  db.insert(clientUpdateVersions)
+    .values({
+      id: "upv_ok_published",
+      orgId: ORG,
+      updateId: "upd_ok_published",
+      version: 1,
+      body: publishedBody,
+      sourcesJson: JSON.stringify(publishedDraft),
+      photoIdsJson: JSON.stringify(publishedDraft.photoIds),
+      createdAt: now,
+      createdBy: "user_maya",
+    })
+    .run();
+
+  const draftEnd = addCalendarDays(publishedRange.start, -1);
+  const draftRange = { start: addCalendarDays(draftEnd, -6), end: draftEnd };
+  const draftFacts = gatherClientUpdateFacts(db, ORG, "proj_okonkwo", draftRange, riveraZone);
+  const draftUpdate = clientUpdateFromFacts(draftFacts);
+  db.insert(clientUpdates)
+    .values({
+      id: "upd_ok_draft",
+      orgId: ORG,
+      projectId: "proj_okonkwo",
+      rangeStart: draftRange.start,
+      rangeEnd: draftRange.end,
+      status: "draft",
+      body: renderUpdateBody(draftUpdate),
+      sourcesJson: JSON.stringify(draftUpdate),
+      photoIdsJson: JSON.stringify(draftUpdate.photoIds),
+      publishedAt: null,
+      viewedAt: null,
+      unpublishedAt: null,
+      unpublishReason: null,
+      version: 1,
+      createdAt: now,
+      updatedAt: now,
+      createdBy: "user_maya",
+    })
+    .run();
 }
 
 function seedTemplates(db: AppDatabase, now: string) {
