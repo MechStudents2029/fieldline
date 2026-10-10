@@ -10,10 +10,11 @@ export type CloseoutFacts = {
   unapprovedTime: number;
   permitsOpen: number;
   inspectionsOpen: number;
+  equipmentOn: number;
 };
 
 export type CloseoutBlocker = {
-  key: "punch" | "invoice" | "changes" | "bills" | "orders" | "time" | "permits" | "inspections";
+  key: "punch" | "invoice" | "changes" | "bills" | "orders" | "time" | "permits" | "inspections" | "equipment";
   label: string;
   count: number;
 };
@@ -56,6 +57,7 @@ export function closeoutChecklist(facts: CloseoutFacts): CloseoutBlocker[] {
     { key: "time", label: "Time", count: facts.unapprovedTime },
     { key: "permits", label: "Permits", count: facts.permitsOpen },
     { key: "inspections", label: "Inspections", count: facts.inspectionsOpen },
+    { key: "equipment", label: "Equipment", count: facts.equipmentOn },
   ];
 }
 

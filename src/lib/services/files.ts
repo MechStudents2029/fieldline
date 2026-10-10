@@ -972,6 +972,7 @@ export function clientMayReadDocument(db: AppDatabase, documentId: string): bool
   const document = db.select().from(documents).where(eq(documents.id, documentId)).get();
   if (!document || document.deletedAt) return false;
   if (document.type === "markup" || document.type === "plan_crop") return clientMayReadVisual(db, documentId);
+  if (document.type === "equipment") return false;
   if (MONEY_DOC_TYPES.has(document.type)) return false;
   const file = db.select().from(jobFiles).where(and(eq(jobFiles.orgId, document.orgId), eq(jobFiles.documentId, documentId))).get();
   if (!file) return true;

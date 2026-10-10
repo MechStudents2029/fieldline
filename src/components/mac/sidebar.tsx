@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, Briefcase, Calendar, ClipboardList, Clock, Copy, FileText, Inbox, ListTodo, MessageSquare, Receipt, Sun, Users, Wallet } from "lucide-react";
+import { BarChart3, Briefcase, Calendar, ClipboardList, Clock, Copy, FileText, Inbox, ListTodo, MessageSquare, Receipt, Sun, Users, Wallet, Wrench } from "lucide-react";
 import { SignOutButton } from "@/components/sign-out-button";
 import type { OfficeChrome } from "@/lib/services/read";
 
@@ -91,6 +91,7 @@ export function Sidebar({
           {item("/rfis", "RFIs", <MessageSquare size={16} strokeWidth={1.6} />)}
           {role === "owner" || role === "admin" || role === "estimator" ? item("/submittals", "Submittals", <ClipboardList size={16} strokeWidth={1.6} />) : null}
           {item("/time", "Time", <Clock size={16} strokeWidth={1.6} />)}
+          {item("/equipment", "Equipment", <Wrench size={16} strokeWidth={1.6} />)}
           {field ? null : (
             <>
               <p className="px-2 pb-1 pt-3 mac-t11 font-semibold text-[var(--mac-secondary)]">Money</p>

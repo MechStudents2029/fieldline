@@ -17,6 +17,8 @@ const routes = [
   "/invoices",
   "/bills",
   "/time",
+  "/equipment",
+  "/projects/proj_okonkwo/plans/jf_ok_a101_r2",
   "/reports/wip",
   "/contacts",
   "/settings",

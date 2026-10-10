@@ -108,20 +108,30 @@ export default async function PermitsPage({
               ) : null}
             </div>
             <dl className="grid grid-cols-[7.5rem_minmax(0,1fr)] gap-y-1 mac-t13">
-              <dt className="text-[var(--mac-secondary)]">Name</dt>
-              <dd>{selected.name}</dd>
-              <dt className="text-[var(--mac-secondary)]">Schedule item</dt>
-              <dd>{board.schedule.find((item) => item.id === selected.scheduleItemId)?.title ?? ""}</dd>
-              <dt className="text-[var(--mac-secondary)]">Date</dt>
-              <dd>{selected.scheduledOn ? formatCalendarDay(selected.scheduledOn) : ""}</dd>
-              <dt className="text-[var(--mac-secondary)]">Result</dt>
-              <dd>
-                <span className="fl-pill">{selected.resultLabel}</span>
-              </dd>
-              <dt className="text-[var(--mac-secondary)]">Gates</dt>
-              <dd>{selected.gates.map((gate) => gate.title).join(", ")}</dd>
-              <dt className="text-[var(--mac-secondary)]">File</dt>
-              <dd>{selected.files.map((file) => file.name).join(", ")}</dd>
+              {board.schedule.find((item) => item.id === selected.scheduleItemId)?.title ? (
+                <>
+                  <dt className="text-[var(--mac-secondary)]">Schedule item</dt>
+                  <dd>{board.schedule.find((item) => item.id === selected.scheduleItemId)?.title}</dd>
+                </>
+              ) : null}
+              {selected.scheduledOn ? (
+                <>
+                  <dt className="text-[var(--mac-secondary)]">Date</dt>
+                  <dd>{formatCalendarDay(selected.scheduledOn)}</dd>
+                </>
+              ) : null}
+              {selected.gates.length > 0 ? (
+                <>
+                  <dt className="text-[var(--mac-secondary)]">Gates</dt>
+                  <dd>{selected.gates.map((gate) => gate.title).join(", ")}</dd>
+                </>
+              ) : null}
+              {selected.files.length > 0 ? (
+                <>
+                  <dt className="text-[var(--mac-secondary)]">File</dt>
+                  <dd>{selected.files.map((file) => file.name).join(", ")}</dd>
+                </>
+              ) : null}
             </dl>
             {selected.todos.length > 0 ? (
               <ul className="fl-group" aria-label="To-dos">

@@ -2,17 +2,26 @@
 
 ## 2026-10-10
 
+### Equipment
+
+- The register lists tools and equipment: name, category, make, serial, tag, purchase date and cost, an optional hourly or daily rate, status, and where it is now. Search and compact filters sit on the list. The detail pane is read-only. Edit opens a sheet.
+- Check out assigns a job, a person, or both, with a return date. One assignment stays open. Checking out something that is already out asks to transfer. The history keeps who, when, from, and to. Overdue returns show a count.
+- A job page and the field to-do list can check an item out or in. A daily log can tag equipment, which records that job and its address as the last place it was seen.
+- Checking an item in from a job with a rate posts one equipment cost: days or hours times the rate, editable before it posts. The same assignment does not post twice. Reverse removes the cost unless it is already on an invoice. Budget versus actual and a cost-plus invoice list it as Equipment.
+- A service interval counts days or hours. Today lists overdue returns, service due within 7 days, and equipment still on a job that is closed or in closeout. In service, lost, and retired cannot be checked out. Closeout counts equipment still on the job.
+- Tag labels print with a QR code drawn on this machine. The code opens that item.
+
 ### Markup
 
 - A job photo opens in an editor: pen, arrow, rectangle, ellipse, text, teal plus red, yellow, black, and white. Undo, redo, and delete. Save keeps the original and stores the layer plus a flattened image. The record shows the marked-up photo, a Marked up pill, and a toggle for the original. The audit log has who and when.
-- A plan revision opens with zoom and pan and the same tools. A numbered pin links to a punch item, an RFI, or a to-do. The record shows a crop around the pin. Pins use teal for open and a neutral pill for done or verified. The pin list filters by type and status. A new revision carries the pins forward and asks to review them. The old revision keeps its pins read-only.
+- A plan revision opens fitted to the view, with zoom and pan. Tools are icon buttons. Save sits in the header. A numbered pin links to a punch item, an RFI, or a to-do. The record shows a crop around the pin. Pins use teal for open and a neutral pill for done or verified. The pin list filters by type and status with compact controls. A new revision carries the pins forward and asks to review them. The old revision keeps its pins read-only.
 - The client portal shows a markup or a pin only when that item is already shared. The vendor portal shows a pin only when it is linked to that vendor’s item. Internal notes stay off both.
 - Punch list and RFI print include the plan crop and the marked-up photo.
 - Okonkwo A-101 rev 2 has two punch pins and one RFI pin, plus a marked-up curb photo. Rev 1 keeps one superseded pin.
 
 ### Inspections
 
-- The inspection detail is a set of rows: name, schedule item, date, result, gates, and file. Edit opens a sheet with Save and Cancel. Correction notes show once.
+- The inspection detail shows the date, and a schedule item, gate, or file only when one is set. The name and the result stay in the title and the pill. Edit opens a sheet with Save and Cancel. Correction notes show once.
 
 ### Schedule
 

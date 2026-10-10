@@ -26,6 +26,7 @@ import {
   warrantyRequests,
 } from "@/lib/db/schema";
 import { addMonths, closeoutChecklist, finalInvoiceState, openBlockers, warrantyOpen, type CloseoutBlocker } from "@/lib/closeout/check";
+import { equipmentOnJob } from "@/lib/services/equipment";
 import { closeoutPermitFacts } from "@/lib/services/permits";
 import { id, nowIso } from "@/lib/ids";
 import { MAX_MONEY_CENTS } from "@/lib/money";
@@ -319,6 +320,7 @@ function factsFor(db: AppDatabase, orgId: string, projectId: string) {
     openPurchaseOrders: openOrders.length,
     unapprovedTime: time.filter((row) => row.status === "pending" || row.status === "open" || row.status === "break").length,
     ...closeoutPermitFacts(orgId, projectId),
+    equipmentOn: equipmentOnJob(orgId, projectId),
   };
 }
 

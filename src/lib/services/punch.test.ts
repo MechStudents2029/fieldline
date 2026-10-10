@@ -72,10 +72,11 @@ describe("punch list and warranty", () => {
       ["time", 3],
       ["permits", 0],
       ["inspections", 0],
+      ["equipment", 1],
     ]);
     expect(diaz?.closeout.closed).toBe(true);
-    expect(diaz?.closeout.blocked).toBe(false);
-    expect(diaz?.closeout.checklist.every((row) => row.count === 0)).toBe(true);
+    expect(diaz?.closeout.checklist.find((row) => row.key === "equipment")?.count).toBe(1);
+    expect(diaz?.closeout.checklist.filter((row) => row.key !== "equipment").every((row) => row.count === 0)).toBe(true);
     expect(diaz?.warranty.map((row) => row.title)).toEqual(["Loose deck board"]);
     expect(warrantyQueue("org_rivera")).toEqual({ count: 1, href: "/projects/proj_diaz#warranty" });
     expect(warrantyQueue("org_northline")).toEqual({ count: 0, href: null });

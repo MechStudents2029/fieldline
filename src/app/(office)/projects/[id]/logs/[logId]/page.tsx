@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { requireSession } from "@/lib/auth/session";
 import { formatCalendarDay, formatDateTime } from "@/lib/format";
 import { captionFromMetadata } from "@/lib/services/read";
+import { equipmentForLog, logEquipmentIds } from "@/lib/services/equipment";
 import { logDetail, lookupWeather } from "@/lib/services/logs";
 
 function hoursValue(minutes: number | null) {
@@ -24,6 +25,8 @@ export default async function DailyLogPage({ params }: { params: Promise<{ id: s
   if (!detail || detail.project.id !== id) return <MissingRecord orgName={session.orgName} kind="log" />;
   const log = detail.log;
   lookupWeather();
+  const gear = equipmentForLog(session);
+  const tagged = new Set(logEquipmentIds(session.orgId, log.id));
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-4">
       <div>
@@ -107,6 +110,18 @@ export default async function DailyLogPage({ params }: { params: Promise<{ id: s
               </label>
             </div>
           </details>
+          <fieldset className="text-sm">
+            <legend className="font-medium">Equipment</legend>
+            <input type="hidden" name="equipmentSet" value="1" />
+            <div className="mt-2 flex flex-col gap-1">
+              {gear.map((item) => (
+                <label key={item.id} className="flex items-center gap-2">
+                  <input type="checkbox" name="equipmentId" value={item.id} defaultChecked={tagged.has(item.id)} />
+                  {item.name} <span className="num text-muted-foreground">{item.tag}</span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
           <Button type="submit" name="intent" value="draft" variant="outline" className="h-12">
             {log.status === "published" ? "Save changes" : "Save draft"}
           </Button>
@@ -119,6 +134,14 @@ export default async function DailyLogPage({ params }: { params: Promise<{ id: s
       ) : (
         <article className="rounded-xl bg-card p-4 text-sm ring-1 ring-foreground/10">
           <p className="whitespace-pre-wrap">{log.notes}</p>
+          {gear.some((item) => tagged.has(item.id)) ? (
+            <p className="mt-2">
+              {gear
+                .filter((item) => tagged.has(item.id))
+                .map((item) => item.name)
+                .join(", ")}
+            </p>
+          ) : null}
           {log.visibility === "client" && session.role === "field" ? (
             <p className="mt-2 text-xs text-muted-foreground">The office owns this log once it is on the client portal.</p>
           ) : null}
