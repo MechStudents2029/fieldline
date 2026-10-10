@@ -18,6 +18,7 @@ import {
   sentenceStatus,
 } from "@/lib/portal/summary";
 import { PortalWarrantySection } from "@/components/portal-warranty";
+import { portalCostInvoices } from "@/lib/services/cost-plus";
 import { portalBilling } from "@/lib/services/draws";
 import { portalByToken } from "@/lib/services/read";
 import { portalWarranty } from "@/lib/services/punch";
@@ -66,6 +67,7 @@ export default async function PortalPage({ params }: { params: Promise<{ token: 
     finalInvoiceAt: finalInvoiceAt(data.invoices),
   });
   const billing = portalBilling(token);
+  const costInvoices = new Map(portalCostInvoices(token).map((invoice) => [invoice.id, invoice]));
   const selections = portalSelections(token) ?? [];
   const warranty = portalWarranty(token);
   const pendingSelections = selections.filter((selection) => selection.status === "released");
@@ -245,6 +247,22 @@ export default async function PortalPage({ params }: { params: Promise<{ token: 
                         ) : null}
                       </div>
                     </div>
+                    {costInvoices.get(invoice.id) ? (
+                      <ul className="home-scope">
+                        {costInvoices.get(invoice.id)!.lines.map((line) => (
+                          <li key={line.id}>
+                            <span>{line.description}</span>
+                            <span className="home-money">{formatMoney(line.amountCents)}</span>
+                          </li>
+                        ))}
+                        {costInvoices.get(invoice.id)!.taxCents > 0 ? (
+                          <li>
+                            <span>Tax</span>
+                            <span className="home-money">{formatMoney(costInvoices.get(invoice.id)!.taxCents)}</span>
+                          </li>
+                        ) : null}
+                      </ul>
+                    ) : null}
                   </article>
                 ))}
               </div>

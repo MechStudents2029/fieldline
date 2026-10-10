@@ -1406,16 +1406,29 @@ html.mac-inspector-off .mac-inspector { display: none; }
   color: var(--mac-secondary);
 }
 .est-add { margin: 8px 0 0 26px; }
-.update-body {
+.update-block { display: flex; flex-direction: column; gap: 4px; }
+.update-label { font-size: 11px; font-weight: 600; color: var(--mac-secondary); }
+.update-block textarea {
   width: 100%;
-  min-height: 320px;
+  field-sizing: content;
+  min-height: 2.6rem;
+  overflow: hidden;
+  resize: vertical;
   border: 0.5px solid var(--mac-separator);
   border-radius: 8px;
   background: var(--mac-window);
-  padding: 10px 12px;
+  padding: 8px 10px;
   font-size: 13px;
   line-height: 18px;
 }
+.update-portal section { margin-top: 16px; }
+.update-portal h2 { margin: 0 0 4px; font-size: 11px; font-weight: 600; color: var(--fl-secondary); }
+.update-portal p { margin: 0; white-space: pre-wrap; }
+.home-back { margin: 0 0 8px; font-size: 13px; }
+.home-back a { color: var(--fl-secondary); text-decoration: none; }
+.home-update-photo { margin: 8px 0 0; }
+.home-update-photo img { display: block; width: auto; max-width: 100%; height: auto; object-fit: contain; border-radius: 8px; background: var(--fl-fill); }
+.home-update-photo figcaption { margin-top: 4px; font-size: 13px; color: var(--fl-secondary); }
 .est-preview-toggle { margin-bottom: 10px; }
 .est-kicker {
   margin-top: 12px;

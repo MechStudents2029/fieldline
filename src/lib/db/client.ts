@@ -117,6 +117,7 @@ export function ensureReady(holder: Holder) {
   ensureMeasurements(holder);
   ensureAssemblies(holder);
   ensureClientUpdates(holder);
+  ensureCostPlus(holder);
   const version = holder.sqlite.prepare("select value from app_meta where key = ?").get("seed_version") as
     | { value: string }
     | undefined;
@@ -1191,6 +1192,46 @@ function ensureAssemblies(holder: Holder) {
     )`);
   }
   holder.sqlite.exec("create index if not exists estimate_groups_estimate on estimate_groups (org_id, estimate_id)");
+}
+
+function ensureCostPlus(holder: Holder) {
+  const pk = holder.dialect === "postgres" ? "text primary key" : "text primary key not null";
+  ensureColumn(holder, "projects", "markup_bps", "integer not null default 0");
+  ensureColumn(holder, "projects", "tax_bps", "integer not null default 0");
+  ensureColumn(holder, "labor_rates", "hourly_bill_cents", "integer");
+  ensureColumn(holder, "invoices", "present_as", "text not null default 'grouped'");
+  ensureColumn(holder, "invoices", "markup_display", "text not null default 'baked'");
+  if (!tableExists(holder.sqlite, "cost_code_markups", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists cost_code_markups (
+      id ${pk},
+      org_id text not null,
+      project_id text not null,
+      cost_code text not null,
+      markup_bps integer not null
+    )`);
+  }
+  holder.sqlite.exec("create unique index if not exists cost_code_markups_code on cost_code_markups (org_id, project_id, cost_code)");
+  if (!tableExists(holder.sqlite, "invoice_costs", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists invoice_costs (
+      id ${pk},
+      org_id text not null,
+      project_id text not null,
+      invoice_id text,
+      source_kind text not null,
+      source_id text not null,
+      cost_code text not null,
+      label text not null,
+      occurred_on text not null,
+      cost_cents integer not null,
+      markup_bps integer not null,
+      markup_cents integer not null,
+      price_cents integer not null,
+      non_billable integer not null default 0,
+      created_at text not null
+    )`);
+  }
+  holder.sqlite.exec("create unique index if not exists invoice_costs_source on invoice_costs (org_id, source_kind, source_id)");
+  holder.sqlite.exec("create index if not exists invoice_costs_invoice on invoice_costs (org_id, invoice_id)");
 }
 
 function ensureClientUpdates(holder: Holder) {

@@ -62,6 +62,8 @@ import {
   assemblyParts,
   clientUpdateVersions,
   clientUpdates,
+  costCodeMarkups,
+  invoiceCosts,
   priceBookItems,
   projects,
   punchItems,
@@ -105,6 +107,7 @@ import {
   payAppLines,
 } from "@/lib/db/schema";
 import { retainageByLine } from "@/lib/draws/math";
+import { billableLaborCents, costPlusTotals, priceCost } from "@/lib/invoice/cost-plus";
 import { assembleSnapshot, defaultSchedule, type StoredSnapshot } from "@/lib/domain/snapshot";
 import { DEMO_ASSEMBLIES } from "@/lib/estimate/assembly";
 import { vasquezLines, vasquezMeasurements, vasquezSections } from "@/lib/estimate/vasquez";
@@ -130,7 +133,7 @@ import {
   WEBSITE_FORM_SOURCE,
 } from "@/lib/lead-form/rules";
 
-export const SEED_VERSION = "32";
+export const SEED_VERSION = "33";
 
 const ORG = "org_rivera";
 const NORTH = "org_northline";
@@ -3218,6 +3221,273 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
       sourcesJson: JSON.stringify(draftUpdate),
       photoIdsJson: JSON.stringify(draftUpdate.photoIds),
       publishedAt: null,
+      viewedAt: null,
+      unpublishedAt: null,
+      unpublishReason: null,
+      version: 1,
+      createdAt: now,
+      updatedAt: now,
+      createdBy: "user_maya",
+    })
+    .run();
+
+  const ellisStart = addCalendarDays(today, -30);
+  const ellisOld = addCalendarDays(today, -20);
+  const ellisRecent = addCalendarDays(today, -3);
+  const ellisLaborDay = addCalendarDays(today, -2);
+  db.insert(projects)
+    .values({
+      id: "proj_ellis",
+      orgId: ORG,
+      leadId: "lead_web_ellis",
+      proposalId: null,
+      contactId: "c_ellis",
+      name: "Ellis kitchen",
+      status: "active",
+      address: "18 Maple St, Oakland, CA",
+      contractValueCents: 0,
+      originalContractCents: 0,
+      startDate: ellisStart,
+      endDate: null,
+      portalToken: "demo_portal_ellis",
+      billingMode: "cost_plus",
+      retainageBps: 0,
+      markupBps: 2000,
+      taxBps: 875,
+      createdAt: daysAgo(30),
+      updatedAt: now,
+      createdBy: "user_maya",
+    })
+    .run();
+  db.insert(budgetLines)
+    .values([
+      { id: "bud_ellis_cab", orgId: ORG, projectId: "proj_ellis", changeOrderId: null, name: "Cabinets", costCode: "CAB-BOX", budgetCostCents: 0, budgetPriceCents: 0, sourceLineId: null, createdAt: now },
+      { id: "bud_ellis_plb", orgId: ORG, projectId: "proj_ellis", changeOrderId: null, name: "Plumbing", costCode: "PLB-ROUGH", budgetCostCents: 0, budgetPriceCents: 0, sourceLineId: null, createdAt: now },
+      { id: "bud_ellis_sup", orgId: ORG, projectId: "proj_ellis", changeOrderId: null, name: "Supervision", costCode: "GC-SUPER", budgetCostCents: 0, budgetPriceCents: 0, sourceLineId: null, createdAt: now },
+    ])
+    .run();
+  db.insert(costCodeMarkups).values({ id: "mkup_ellis_cab", orgId: ORG, projectId: "proj_ellis", costCode: "CAB-BOX", markupBps: 1500 }).run();
+  db.update(laborRates).set({ hourlyBillCents: 8500 }).where(eq(laborRates.id, "rate_dana")).run();
+  db.insert(bills)
+    .values([
+      {
+        id: "bill_ellis_cab",
+        orgId: ORG,
+        projectId: "proj_ellis",
+        vendorContactId: "c_mill",
+        billNumber: "MC-19",
+        billDate: ellisOld,
+        amountCents: 125000,
+        dueDate: addCalendarDays(today, -6),
+        status: "approved",
+        memo: "Cabinet note stays internal",
+        voidReason: null,
+        paidAt: null,
+        payMethod: null,
+        payReference: null,
+        documentId: null,
+        purchaseOrderId: null,
+        approvedAt: daysAgo(18),
+        lowConfidence: 0,
+        createdAt: daysAgo(20),
+        updatedAt: daysAgo(18),
+        createdBy: "user_sam",
+      },
+      {
+        id: "bill_ellis_plb",
+        orgId: ORG,
+        projectId: "proj_ellis",
+        vendorContactId: "c_mill",
+        billNumber: "HP-90",
+        billDate: ellisRecent,
+        amountCents: 80000,
+        dueDate: addCalendarDays(today, 4),
+        status: "approved",
+        memo: "Valve note stays internal",
+        voidReason: null,
+        paidAt: null,
+        payMethod: null,
+        payReference: null,
+        documentId: null,
+        purchaseOrderId: null,
+        approvedAt: daysAgo(2),
+        lowConfidence: 0,
+        createdAt: daysAgo(3),
+        updatedAt: daysAgo(2),
+        createdBy: "user_sam",
+      },
+      {
+        id: "bill_ellis_scrap",
+        orgId: ORG,
+        projectId: "proj_ellis",
+        vendorContactId: "c_mill",
+        billNumber: "MC-20",
+        billDate: ellisRecent,
+        amountCents: 5000,
+        dueDate: addCalendarDays(today, 4),
+        status: "approved",
+        memo: "Scrap note stays internal",
+        voidReason: null,
+        paidAt: null,
+        payMethod: null,
+        payReference: null,
+        documentId: null,
+        purchaseOrderId: null,
+        approvedAt: daysAgo(2),
+        lowConfidence: 0,
+        createdAt: daysAgo(3),
+        updatedAt: daysAgo(2),
+        createdBy: "user_sam",
+      },
+    ])
+    .run();
+  db.insert(billLines)
+    .values([
+      { id: "bln_ellis_cab", orgId: ORG, billId: "bill_ellis_cab", costCode: "CAB-BOX", description: "Cabinet boxes", amountCents: 125000, costItemId: null, sortOrder: 0 },
+      { id: "bln_ellis_plb", orgId: ORG, billId: "bill_ellis_plb", costCode: "PLB-ROUGH", description: "Supply lines", amountCents: 80000, costItemId: null, sortOrder: 0 },
+      { id: "bln_ellis_scrap", orgId: ORG, billId: "bill_ellis_scrap", costCode: "CAB-BOX", description: "Shop scraps", amountCents: 5000, costItemId: null, sortOrder: 0 },
+    ])
+    .run();
+  db.insert(documents)
+    .values({
+      id: "doc_receipt_ellis",
+      orgId: ORG,
+      projectId: "proj_ellis",
+      leadId: null,
+      contactId: "c_mill",
+      type: "receipt",
+      filename: "receipts/mill-cabinets.svg",
+      storagePath: "/demo/receipts/mill-cabinets.svg",
+      metadataJson: JSON.stringify({ vendor: "Mill & Co", amountCents: 45000, posted: true }),
+      deletedAt: null,
+      createdAt: daysAgo(4),
+      createdBy: "user_dana",
+    })
+    .run();
+  db.insert(costItems)
+    .values({
+      id: "cost_ellis_receipt",
+      orgId: ORG,
+      projectId: "proj_ellis",
+      budgetLineId: null,
+      costCode: "CAB-BOX",
+      amountCents: 45000,
+      vendorName: "Mill & Co",
+      memo: "Shop ticket stays internal",
+      source: "receipt",
+      aiExtracted: 0,
+      documentId: "doc_receipt_ellis",
+      createdAt: daysAgo(4),
+      updatedAt: daysAgo(4),
+      createdBy: "user_sam",
+    })
+    .run();
+  const laborIn = riveraAt(ellisLaborDay, 8);
+  const laborOut = riveraAt(ellisLaborDay, 12);
+  db.insert(timeEntries)
+    .values({
+      id: "time_ellis_labor",
+      orgId: ORG,
+      userId: "user_dana",
+      projectId: "proj_ellis",
+      costCode: "GC-SUPER",
+      status: "approved",
+      clockInAt: laborIn,
+      clockOutAt: laborOut,
+      breakMinutes: 0,
+      breakStartedAt: null,
+      note: "Dana's private note",
+      clockInLatE6: null,
+      clockInLngE6: null,
+      clockOutLatE6: null,
+      clockOutLngE6: null,
+      source: "manual",
+      createdAt: laborIn,
+      updatedAt: laborOut,
+      createdBy: "user_maya",
+    })
+    .run();
+  const laborCents = billableLaborCents(240, 8500);
+  db.insert(timeApprovals)
+    .values({
+      id: "tap_ellis_labor",
+      orgId: ORG,
+      entryId: "time_ellis_labor",
+      rateCents: 5200,
+      minutes: 240,
+      amountCents: billableLaborCents(240, 5200),
+      costItemId: null,
+      status: "active",
+      reason: null,
+      createdAt: laborOut,
+      createdBy: "user_maya",
+    })
+    .run();
+  const plumb = priceCost(80000, 2000);
+  const receipt = priceCost(45000, 1500);
+  const labor = priceCost(laborCents, 2000);
+  const scrap = priceCost(5000, 1500);
+  const totals = costPlusTotals(
+    [
+      { costCents: plumb.costCents, markupBps: 2000 },
+      { costCents: receipt.costCents, markupBps: 1500 },
+      { costCents: labor.costCents, markupBps: 2000 },
+    ],
+    875,
+  );
+  db.insert(invoices)
+    .values({
+      id: "inv_ellis_draft",
+      orgId: ORG,
+      projectId: "proj_ellis",
+      changeOrderId: null,
+      number: "RR-1070",
+      type: "cost_plus",
+      status: "draft",
+      scheduleIndex: null,
+      issueDate: today,
+      dueDate: addCalendarDays(today, 7),
+      subtotalCents: totals.priceCents,
+      taxCents: totals.taxCents,
+      totalCents: totals.totalCents,
+      amountPaidCents: 0,
+      payToken: "demo_pay_ellis_draft",
+      applicationNumber: null,
+      retainageCents: 0,
+      presentAs: "grouped",
+      markupDisplay: "baked",
+      createdAt: now,
+      updatedAt: now,
+      createdBy: "user_maya",
+    })
+    .run();
+  db.insert(invoiceLines)
+    .values([
+      { id: "invl_ellis_cab", orgId: ORG, invoiceId: "inv_ellis_draft", description: "Cabinets", amountCents: receipt.priceCents, sortOrder: 0 },
+      { id: "invl_ellis_plb", orgId: ORG, invoiceId: "inv_ellis_draft", description: "Plumbing", amountCents: plumb.priceCents, sortOrder: 1 },
+      { id: "invl_ellis_sup", orgId: ORG, invoiceId: "inv_ellis_draft", description: "Supervision", amountCents: labor.priceCents, sortOrder: 2 },
+    ])
+    .run();
+  db.insert(invoiceCosts)
+    .values([
+      { id: "icost_ellis_plb", orgId: ORG, projectId: "proj_ellis", invoiceId: "inv_ellis_draft", sourceKind: "bill", sourceId: "bln_ellis_plb", costCode: "PLB-ROUGH", label: "Mill & Co Cabinets · HP-90 · Supply lines", occurredOn: ellisRecent, costCents: plumb.costCents, markupBps: 2000, markupCents: plumb.markupCents, priceCents: plumb.priceCents, nonBillable: 0, createdAt: now },
+      { id: "icost_ellis_receipt", orgId: ORG, projectId: "proj_ellis", invoiceId: "inv_ellis_draft", sourceKind: "receipt", sourceId: "cost_ellis_receipt", costCode: "CAB-BOX", label: "Mill & Co", occurredOn: localDay(Date.parse(daysAgo(4)), riveraZone), costCents: receipt.costCents, markupBps: 1500, markupCents: receipt.markupCents, priceCents: receipt.priceCents, nonBillable: 0, createdAt: now },
+      { id: "icost_ellis_labor", orgId: ORG, projectId: "proj_ellis", invoiceId: "inv_ellis_draft", sourceKind: "time", sourceId: "time_ellis_labor", costCode: "GC-SUPER", label: "Labor, 4 h", occurredOn: ellisLaborDay, costCents: labor.costCents, markupBps: 2000, markupCents: labor.markupCents, priceCents: labor.priceCents, nonBillable: 0, createdAt: now },
+      { id: "icost_ellis_scrap", orgId: ORG, projectId: "proj_ellis", invoiceId: null, sourceKind: "bill", sourceId: "bln_ellis_scrap", costCode: "CAB-BOX", label: "Mill & Co Cabinets · MC-20 · Shop scraps", occurredOn: ellisRecent, costCents: scrap.costCents, markupBps: 1500, markupCents: scrap.markupCents, priceCents: scrap.priceCents, nonBillable: 1, createdAt: now },
+    ])
+    .run();
+  db.insert(clientUpdates)
+    .values({
+      id: "upd_ellis_published",
+      orgId: ORG,
+      projectId: "proj_ellis",
+      rangeStart: addCalendarDays(today, -6),
+      rangeEnd: today,
+      status: "published",
+      body: "This week\nCabinets are on site.",
+      sourcesJson: JSON.stringify({ sections: [], photoIds: [] }),
+      photoIdsJson: "[]",
+      publishedAt: now,
       viewedAt: null,
       unpublishedAt: null,
       unpublishReason: null,

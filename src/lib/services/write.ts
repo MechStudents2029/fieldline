@@ -64,6 +64,7 @@ import { canAddFieldNotes, canEditCrm, canManageMoney, type Role } from "@/lib/p
 import { CONSENT_VERSION } from "@/lib/product";
 import { photoExtension, photoUploadError, rasterImageType, receiptUploadError } from "@/lib/security";
 import { attachApprovedChange, attachSignedDraws, billNextDraw } from "@/lib/services/draws";
+import { assertReceiptFree } from "@/lib/services/cost-plus";
 import { ServiceError } from "@/lib/services/errors";
 import { leadPhotoCues, type Actor } from "@/lib/services/read";
 
@@ -1949,6 +1950,7 @@ export function confirmReceiptCost(
     .where(and(eq(documents.id, input.documentId), eq(documents.orgId, actor.orgId), eq(documents.projectId, projectId)))
     .get();
   if (!document || document.deletedAt) throw new ServiceError("That receipt is not on this job.");
+  assertReceiptFree(db, actor.orgId, document.id);
   const posted = addCost(actor, projectId, {
     amountCents: input.amountCents,
     vendorName: input.vendorName,

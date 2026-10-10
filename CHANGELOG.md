@@ -2,7 +2,17 @@
 
 ## 2026-10-10
 
+### Cost-plus
+
+- A job can bill cost-plus, with a markup percent and a tax percent. A cost code can use its own markup. Draws and progress jobs stay as they are.
+- Approved bills, posted receipts, and approved time (hours at the person’s bill rate) show as Unbilled, Billed with the invoice number, or Non-billable. A draft invoice takes the checked costs, grouped or itemized, with markup in the line or on its own. Tax is on the marked-up total. A cost stays on one invoice. Voiding the invoice puts those costs back to Unbilled. A billed bill or time entry cannot be edited.
+- The portal and the print view show those lines. Internal notes stay off both. Field roles do not see markup or bill rates.
+- Ellis kitchen is cost-plus: an old cabinet bill still unbilled, a plumbing bill, a Mill & Co receipt, and four hours on one draft, plus a non-billable scrap. Today counts cost-plus jobs with unbilled costs older than 14 days.
+
 ### Client updates
+
+- The update editor is one block per section. Each block grows with the text. Sources show the record’s title and date and open that record.
+- The portal gives each section a heading. The photo is shown once, with its caption. The draft says what happened, such as a walk on a date or a pick that is past due.
 
 - On a job, office can draft a client update for a date range. The range defaults to the last seven days on the job’s clock. The draft uses published client logs, schedule items, approved or pending change orders, invoices sent or paid, and selections due in that range.
 - The draft is the local stub. It does not call out. Sections are This week, Next week, Decisions needed, Money, and Photos. Each sentence keeps the record it came from. Delays, safety notes, crew, hours, costs, bills, and purchase orders stay out.

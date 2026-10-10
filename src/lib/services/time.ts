@@ -28,6 +28,7 @@ import {
 } from "@/lib/time/calendar";
 import { aggregateWeek, dayHeading, rangeLabel, reviewDays, reviewView, shiftAnchor, type ReviewView } from "@/lib/time/grid";
 import { canAddFieldNotes, canManageMoney, canManageSettings, type Role } from "@/lib/permissions";
+import { assertCostFree } from "@/lib/services/cost-plus";
 import { ServiceError } from "@/lib/services/errors";
 import type { Actor } from "@/lib/services/read";
 
@@ -545,6 +546,7 @@ export function reopenTime(actor: Actor, entryId: string, reason: string) {
   const db = officeOrThrow(actor);
   const entry = requireEntry(db, actor.orgId, entryId);
   if (entry.status !== "approved") throw new ServiceError("Only approved time can be reopened.");
+  assertCostFree(db, actor.orgId, "time", entry.id);
   const stamp = nowIso();
   db.transaction((tx) => {
     const active = tx
@@ -577,6 +579,7 @@ export function voidTime(actor: Actor, entryId: string, reason: string, now = Da
   const db = officeOrThrow(actor);
   const entry = requireEntry(db, actor.orgId, entryId);
   if (entry.status === "void") throw new ServiceError("That time is already void.");
+  assertCostFree(db, actor.orgId, "time", entry.id);
   const stamp = new Date(now).toISOString();
   db.transaction((tx) => {
     if (entry.status === "approved") {

@@ -99,6 +99,10 @@ describe("client updates", () => {
     expect(body).toContain("Set the shower wall and kept the niche dry.");
     expect(body).toContain("Clear, 72°/54°.");
     expect(body).toContain("Grout the curb.");
+    expect(body).toContain("We walked the job with you on");
+    expect(body).toContain("We finished demo on");
+    expect(body).toContain("We still need your floor tile pick (was due");
+    expect(body).not.toContain("Client walk started");
     expect(body).toContain("Shower substrate");
     expect(body).toContain("$960.00");
     expect(body).toContain("Heated floor mat");
