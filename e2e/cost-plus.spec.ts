@@ -39,7 +39,8 @@ test("bill cost-plus costs and show the invoice on the portal", async ({ page })
   await page.emulateMedia({ colorScheme: "light" });
 
   await page.getByRole("button", { name: "Open" }).click();
-  await expect(page.getByRole("status")).toHaveText("Open.");
+  await expect(page.getByRole("button", { name: "Open" })).toHaveCount(0);
+  await expect(page.locator(".fl-pill")).toHaveText("Open");
   await page.goto("/portal/demo_portal_ellis");
   await expect(page.getByText("Markup")).toBeVisible();
   await expect(page.getByText("Cabinets")).toBeVisible();
