@@ -16,7 +16,7 @@ test("photo markup, a plan pin, and the inspection edit sheet", async ({ page })
   await page.goto("/projects/proj_okonkwo/markup/doc_o1");
   await expect(page.getByText("Marked up").first()).toBeVisible();
   await page.getByRole("button", { name: "Rectangle" }).click();
-  await page.getByRole("button", { name: "red" }).click();
+  await page.getByRole("button", { name: "red", exact: true }).click();
   const photo = page.locator("[data-canvas=photo]");
   await expect(photo).toBeVisible();
   const box = await photo.boundingBox();
@@ -51,7 +51,7 @@ test("photo markup, a plan pin, and the inspection edit sheet", async ({ page })
   await expect(sheet).toBeVisible();
   await sheet.getByLabel("Link").selectOption({ label: "Seal the mirror edge" });
   await sheet.getByRole("button", { name: "Save" }).click();
-  await expect(page.getByRole("link", { name: /Seal the mirror edge/ })).toBeVisible();
+  await expect(page.getByRole("link", { name: /Seal the mirror edge/ }).first()).toBeVisible();
 
   await page.goto("/projects/proj_okonkwo/punch/punch_ok_curb");
   await expect(page.locator("[data-plan-crop]")).toBeVisible();

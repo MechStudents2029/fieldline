@@ -94,7 +94,7 @@ export default async function PermitsPage({
           ))}
         </div>
         {selected ? (
-          <aside className="flex flex-col gap-3" data-detail="inspection" aria-label={selected.name}>
+          <aside role="complementary" className="flex flex-col gap-3" data-detail="inspection" aria-label={selected.name}>
             <div className="flex items-center gap-2">
               <h2 className="mac-t15 min-w-0 flex-1">
                 {selected.name}

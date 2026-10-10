@@ -411,9 +411,10 @@ export function MarkupStage({
         {tool === "text" && !readOnly ? <input aria-label="Text" value={text} onChange={(event) => setText(event.target.value)} className="field max-w-xs" placeholder="Text" /> : null}
         <div className="overflow-hidden rounded-lg bg-[var(--mac-fill)]" data-viewport={mode}>
           <div className="relative origin-top-left" style={mode === "plan" ? { transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})` } : undefined}>
-            <canvas ref={baseRef} className="block w-full" data-canvas={mode} />
+            <canvas ref={baseRef} className="block w-full" />
             <canvas
               ref={drawRef}
+              data-canvas={mode}
               className="absolute inset-0 block h-full w-full"
               style={{ touchAction: "none", opacity: showOriginal ? 0 : 1 }}
               onPointerDown={onPointerDown}
