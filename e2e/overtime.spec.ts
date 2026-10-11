@@ -84,7 +84,7 @@ test.describe("overtime, burden, and non-job time", () => {
     await expect(page.getByRole("columnheader", { name: "OT share" })).toBeVisible();
     await expect(page.getByRole("cell", { name: "Luis Ortega" })).toBeVisible();
     await expect(page.getByRole("cell", { name: "36h 00m" })).toBeVisible();
-    await expect(page.getByRole("cell", { name: "General" })).toBeVisible();
+    await expect(page.getByRole("cell", { name: "General", exact: true })).toBeVisible();
     await shot(page, "labor-cost-light");
     await page.emulateMedia({ colorScheme: "dark" });
     await shot(page, "labor-cost-dark");
