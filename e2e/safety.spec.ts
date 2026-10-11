@@ -28,6 +28,9 @@ test("safety tab, missed talk, phone sign-off, and incident detail", async ({ pa
   const count = await page.locator("[data-safety-count]").getAttribute("data-safety-count");
   await expect(page.locator("[data-bar=toolbar] p")).toHaveText(count || "");
   expect(Number(count)).toBeGreaterThan(0);
+  const pillX = await page.locator("[data-safety-pill]").evaluateAll((nodes) => nodes.map((node) => Math.round(node.getBoundingClientRect().x)));
+  expect(pillX.length).toBeGreaterThan(3);
+  expect(new Set(pillX).size).toBe(1);
   await expect(page.getByRole("link", { name: "Heat illness" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Ladder safety" })).toBeVisible();
   await expect(page.getByText("Splinter from the jamb")).toBeVisible();

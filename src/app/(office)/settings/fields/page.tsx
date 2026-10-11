@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { archiveFieldAction, createFieldAction, moveFieldAction, restoreFieldAction, updateFieldAction } from "@/app/(office)/settings/fields/actions";
+import { archiveFieldAction, createFieldAction, orderFieldsAction, restoreFieldAction, updateFieldAction } from "@/app/(office)/settings/fields/actions";
+import { FieldTable } from "@/components/field-table";
 import { ActionForm } from "@/components/action-form";
 import { Toolbar } from "@/components/mac/toolbar";
 import { requireSession } from "@/lib/auth/session";
@@ -104,44 +105,7 @@ export default async function CustomFieldsPage({ searchParams }: { searchParams:
                     New
                   </Link>
                 </div>
-                {rows.length === 0 ? <p className="mac-t13 text-[var(--mac-secondary)]">None</p> : null}
-                <table className="mac-table w-full">
-                  <tbody>
-                    {rows.map((field) => (
-                      <tr key={field.id}>
-                        <td>
-                          <Link href={`/settings/fields?field=${field.id}`}>{field.label}</Link>
-                        </td>
-                        <td>{TYPE_LABEL[field.fieldType]}</td>
-                        <td>{field.required ? "Required" : ""}</td>
-                        <td>
-                          <span className="flex gap-1">
-                            <form action={moveFieldAction}>
-                              <input type="hidden" name="id" value={field.id} />
-                              <input type="hidden" name="direction" value="-1" />
-                              <button type="submit" className="ctl" aria-label={`Move ${field.label} up`}>
-                                Up
-                              </button>
-                            </form>
-                            <form action={moveFieldAction}>
-                              <input type="hidden" name="id" value={field.id} />
-                              <input type="hidden" name="direction" value="1" />
-                              <button type="submit" className="ctl" aria-label={`Move ${field.label} down`}>
-                                Down
-                              </button>
-                            </form>
-                            <form action={archiveFieldAction}>
-                              <input type="hidden" name="id" value={field.id} />
-                              <button type="submit" className="ctl" aria-label={`Archive ${field.label}`}>
-                                Archive
-                              </button>
-                            </form>
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                {rows.length === 0 ? <p className="mac-t13 text-[var(--mac-secondary)]">None</p> : <FieldTable recordType={recordType} rows={rows} archiveAction={archiveFieldAction} orderAction={orderFieldsAction} />}
               </section>
             );
           })}

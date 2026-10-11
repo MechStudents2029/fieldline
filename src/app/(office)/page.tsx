@@ -22,6 +22,8 @@ import { mentionUnread } from "@/lib/services/comments";
 import { rfiQueue } from "@/lib/services/rfis";
 import { submittalQueue } from "@/lib/services/submittals";
 import { waiverQueue } from "@/lib/services/waivers";
+import { DashboardStrip } from "@/components/dashboard-strip";
+import { dashboardForRole } from "@/lib/services/dashboards";
 import { underbilledSummary } from "@/lib/services/wip";
 import { overdueTodoCount } from "@/lib/services/todos";
 import { agedCostPlus } from "@/lib/services/cost-plus";
@@ -167,12 +169,14 @@ export default async function TodayPage() {
     const label = next.type.charAt(0).toUpperCase() + next.type.slice(1);
     return next.dueDate.slice(0, 10) < todayKey ? `${label} late` : `${label} due ${formatCalendarDay(next.dueDate)}`;
   };
+  const home = dashboardForRole(session);
   const weekJobs = projects.filter((row) => row.project.status === "active").slice(0, 4);
   const fresh = board.cards.filter((card) => card.stage.kind === "open" && card.stage.name !== "Estimate sent" && card.stage.name !== "Negotiation").slice(0, 3);
   return (
     <>
     <div className="mx-auto flex max-w-lg flex-col gap-7 md:hidden">
       <LargeTitle title="Today" subtitle={longDate(time.timeZone)} action={<PlusLink href="/leads/new" label="Add a lead" />} />
+      {home ? <DashboardStrip name={home.name} tiles={home.tiles} /> : null}
       {showSetup ? <SetupRow steps={checklist.steps} /> : null}
       {proposal ? <FirstProposal steps={proposal} /> : null}
       {money ? (
@@ -278,6 +282,7 @@ export default async function TodayPage() {
     <div className="hidden md:flex md:flex-col">
       <Toolbar title="Today" subtitle={longDate(time.timeZone)} primaryHref="/leads/new" />
       <div className="flex flex-col gap-5 px-6 pb-8">
+        {home ? <DashboardStrip name={home.name} tiles={home.tiles} /> : null}
         {showSetup ? <SetupRow steps={checklist.steps} /> : null}
         {proposal ? <FirstProposal steps={proposal} /> : null}
         {money ? (

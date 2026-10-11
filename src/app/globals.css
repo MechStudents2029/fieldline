@@ -789,6 +789,8 @@ button.switch[aria-checked="true"] span {
 .mac-sidebar-row svg { color: var(--mac-accent); }
 
 .mac-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px; }
+.safety-table,
+.fields-table { table-layout: fixed; }
 .mac-table th {
   position: sticky;
   top: 0;

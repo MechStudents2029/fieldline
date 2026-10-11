@@ -20,6 +20,7 @@ const links = [
   ["/contacts", "Clients"],
   ["/invoices", "Invoices"],
   ["/bills", "Bills"],
+  ["/reports", "Reports"],
   ["/reports/wip", "WIP"],
   ["/purchase-orders", "Purchase orders"],
   ["/price-book", "Price book"],

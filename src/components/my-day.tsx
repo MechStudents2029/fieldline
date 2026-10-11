@@ -20,6 +20,8 @@ import { submittalQueue } from "@/lib/services/submittals";
 import { FileButton } from "@/components/file-button";
 import { memberAssignments } from "@/lib/services/schedule";
 import { overdueTodoCount } from "@/lib/services/todos";
+import { DashboardStrip } from "@/components/dashboard-strip";
+import { dashboardForRole } from "@/lib/services/dashboards";
 import { formatHours, timeBoard } from "@/lib/services/time";
 
 function clock(iso: string) {
@@ -46,6 +48,7 @@ export function MyDay({ actor }: { actor: Actor }) {
   const overdueTodos = overdueTodoCount(actor);
   const notices = noticesFor(actor);
   const talks = leaderTalks(actor);
+  const home = dashboardForRole(actor);
   const open = day.open;
   return (
     <div className="mx-auto flex max-w-lg flex-col gap-7 md:max-w-none md:px-6">
@@ -53,6 +56,7 @@ export function MyDay({ actor }: { actor: Actor }) {
         <Toolbar title="My day" subtitle={dayTitle(day.timeZone)} search={false} />
       </div>
       <LargeTitle title="My day" subtitle={dayTitle(day.timeZone)} />
+      {home ? <DashboardStrip name={home.name} tiles={home.tiles} /> : null}
       {rfis.overdue.count > 0 || rfis.awaiting.count > 0 || submittals.overdue.count > 0 || submittals.awaiting.count > 0 || mentions > 0 || notices.length > 0 ? (
         <ul className="fl-group">
           {notices.map((notice) => (

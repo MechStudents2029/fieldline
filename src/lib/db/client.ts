@@ -125,6 +125,7 @@ export function ensureReady(holder: Holder) {
   ensureAutomations(holder);
   ensureSafety(holder);
   ensureCustomFields(holder);
+  ensureReports(holder);
   const version = holder.sqlite.prepare("select value from app_meta where key = ?").get("seed_version") as
     | { value: string }
     | undefined;
@@ -2413,6 +2414,59 @@ function ensureCustomFields(holder: Holder) {
     )`);
   }
   holder.sqlite.exec("create unique index if not exists template_field_values_one on template_field_values (org_id, template_id, field_id)");
+}
+
+function ensureReports(holder: Holder) {
+  const pk = holder.dialect === "postgres" ? "text primary key" : "text primary key not null";
+  if (!tableExists(holder.sqlite, "saved_reports", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists saved_reports (
+      id ${pk},
+      org_id text not null,
+      name text not null,
+      source text not null,
+      definition_json text not null,
+      share text not null,
+      owner_user_id text not null,
+      archived_at text,
+      created_at text not null,
+      updated_at text not null
+    )`);
+  }
+  holder.sqlite.exec("create index if not exists saved_reports_org on saved_reports (org_id, archived_at)");
+  if (!tableExists(holder.sqlite, "dashboards", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists dashboards (
+      id ${pk},
+      org_id text not null,
+      name text not null,
+      archived_at text,
+      created_at text not null,
+      updated_at text not null,
+      created_by text
+    )`);
+  }
+  holder.sqlite.exec("create index if not exists dashboards_org on dashboards (org_id)");
+  if (!tableExists(holder.sqlite, "dashboard_tiles", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists dashboard_tiles (
+      id ${pk},
+      org_id text not null,
+      dashboard_id text not null,
+      title text not null,
+      kind text not null,
+      report_key text not null,
+      config_json text not null default '{}',
+      sort_order integer not null default 0
+    )`);
+  }
+  holder.sqlite.exec("create index if not exists dashboard_tiles_dash on dashboard_tiles (org_id, dashboard_id, sort_order)");
+  if (!tableExists(holder.sqlite, "dashboard_roles", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists dashboard_roles (
+      id ${pk},
+      org_id text not null,
+      role text not null,
+      dashboard_id text not null
+    )`);
+  }
+  holder.sqlite.exec("create unique index if not exists dashboard_roles_one on dashboard_roles (org_id, role)");
 }
 
 export function resetDatabase(): AppDatabase {

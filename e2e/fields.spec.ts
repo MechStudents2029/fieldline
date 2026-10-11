@@ -17,6 +17,17 @@ test("custom fields on settings, a job, and the jobs list", async ({ page }) => 
   await expect(page.getByRole("heading", { name: "Custom fields" })).toBeVisible();
   await expect(page.getByText("Lead source")).toBeVisible();
   await expect(page.getByText("Gate code")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Up" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Reorder Lead source" })).toBeVisible();
+  await expect(page.locator("[data-fields=job] .fl-pill", { hasText: "Office" }).first()).toBeVisible();
+  await expect(page.locator("[data-fields=job] .fl-pill", { hasText: "Field" }).first()).toBeVisible();
+  const widths = await page.locator("table.fields-table").evaluateAll((tables) =>
+    tables.map((table) => [...table.querySelectorAll("col")].map((col) => (col as HTMLElement).style.width).join("|")),
+  );
+  expect(widths.length).toBeGreaterThan(1);
+  expect(new Set(widths).size).toBe(1);
+  await page.getByLabel("Actions for Preferred").click();
+  await expect(page.getByRole("button", { name: "Archive Preferred" })).toBeVisible();
   await shot(page, "fields-settings-light");
   await page.emulateMedia({ colorScheme: "dark" });
   await shot(page, "fields-settings-dark");

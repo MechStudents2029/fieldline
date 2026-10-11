@@ -8,6 +8,7 @@ import type { OfficeChrome } from "@/lib/services/read";
 
 function current(pathname: string, href: string) {
   if (href === "/") return pathname === "/";
+  if (href === "/reports") return pathname === "/reports" || pathname.startsWith("/reports/builtin") || pathname.startsWith("/reports/saved") || pathname.startsWith("/reports/new") || pathname.startsWith("/reports/dashboards");
   if (href === "/pipeline") return pathname.startsWith("/pipeline") || pathname.startsWith("/leads");
   return pathname === href || pathname.startsWith(`${href}/`);
 }
@@ -100,13 +101,10 @@ export function Sidebar({
               {item("/bills", "Bills", <Wallet size={16} strokeWidth={1.6} />, chrome.billCount)}
             </>
           )}
-          {role === "owner" || role === "admin" || role === "estimator" ? (
-            <>
-              <p className="px-2 pb-1 pt-3 mac-t11 font-semibold text-[var(--mac-secondary)]">Reports</p>
-              {item("/reports/wip", "WIP", <BarChart3 size={16} strokeWidth={1.6} />)}
-              {item("/reports/schedule", "Variance", <Calendar size={16} strokeWidth={1.6} />)}
-            </>
-          ) : null}
+          <p className="px-2 pb-1 pt-3 mac-t11 font-semibold text-[var(--mac-secondary)]">Reports</p>
+          {item("/reports", "Reports", <BarChart3 size={16} strokeWidth={1.6} />)}
+          {role === "owner" || role === "admin" || role === "estimator" ? item("/reports/wip", "WIP", <BarChart3 size={16} strokeWidth={1.6} />) : null}
+          {role === "owner" || role === "admin" || role === "estimator" ? item("/reports/schedule", "Variance", <Calendar size={16} strokeWidth={1.6} />) : null}
           <p className="px-2 pb-1 pt-3 mac-t11 font-semibold text-[var(--mac-secondary)]">People</p>
           {item("/contacts", "Clients", <Users size={16} strokeWidth={1.6} />, chrome.clientCount)}
         </div>

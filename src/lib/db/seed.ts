@@ -25,6 +25,9 @@ import {
   contacts,
   customFields,
   customFieldValues,
+  dashboardRoles,
+  dashboardTiles,
+  dashboards,
   costItems,
   documents,
   estimateMeasurements,
@@ -164,7 +167,7 @@ import {
   WEBSITE_FORM_SOURCE,
 } from "@/lib/lead-form/rules";
 
-export const SEED_VERSION = "40";
+export const SEED_VERSION = "41";
 
 const ORG = "org_rivera";
 const NORTH = "org_northline";
@@ -2106,6 +2109,7 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
       { id: "task_vasquez", orgId: ORG, title: "Confirm quartz edge with Elena before the estimate goes out", assigneeUserId: "user_luis", dueAt: daysFromNow(1), relatedType: "lead", relatedId: "lead_vasquez", status: "open", createdAt: now, updatedAt: now, createdBy: "user_maya" },
       { id: "task_ok", orgId: ORG, title: "Order the niche tile for Okonkwo", assigneeUserId: "user_dana", dueAt: daysFromNow(2), relatedType: "project", relatedId: "proj_okonkwo", status: "open", createdAt: daysAgo(1), updatedAt: daysAgo(1), createdBy: "user_luis" },
       { id: "task_diaz", orgId: ORG, title: "Collect the Diaz final invoice", assigneeUserId: "user_sam", dueAt: daysAgo(1), relatedType: "project", relatedId: "proj_diaz", status: "open", createdAt: daysAgo(5), updatedAt: daysAgo(5), createdBy: "user_maya" },
+      { id: "task_today", orgId: ORG, title: "Walk the Okonkwo shower", assigneeUserId: "user_dana", dueAt: localDay(Date.parse(now), "America/New_York"), relatedType: "project", relatedId: "proj_okonkwo", status: "open", createdAt: now, updatedAt: now, createdBy: "user_maya" },
     ])
     .run();
 
@@ -4318,6 +4322,29 @@ function seedTemplates(db: AppDatabase, now: string) {
       { id: "tgate_bath_tile", orgId: ORG, templateId: "tpl_bath", inspectionKey: "rough", taskKey: "tile" },
       { id: "tgate_kit_plumb", orgId: ORG, templateId: "tpl_kitchen", inspectionKey: "plumb", taskKey: "cabs" },
       { id: "tgate_kit_elec", orgId: ORG, templateId: "tpl_kitchen", inspectionKey: "elec", taskKey: "cabs" },
+    ])
+    .run();
+
+  db.insert(dashboards)
+    .values([
+      { id: "dash_owner", orgId: ORG, name: "Owner", archivedAt: null, createdAt: now, updatedAt: now, createdBy: "user_maya" },
+      { id: "dash_field", orgId: ORG, name: "Field", archivedAt: null, createdAt: now, updatedAt: now, createdBy: "user_maya" },
+    ])
+    .run();
+  db.insert(dashboardTiles)
+    .values([
+      { id: "tile_ar", orgId: ORG, dashboardId: "dash_owner", title: "AR 60+", kind: "number", reportKey: "ar_aging", configJson: JSON.stringify({ metric: "sum", metricColumn: "balance", filters: [{ column: "bucket", op: "in", value: "60,90+" }] }), sortOrder: 0 },
+      { id: "tile_pending", orgId: ORG, dashboardId: "dash_owner", title: "Pending proposals", kind: "number", reportKey: "pending_proposals", configJson: JSON.stringify({ metric: "sum", metricColumn: "amount", filters: [] }), sortOrder: 1 },
+      { id: "tile_margin", orgId: ORG, dashboardId: "dash_owner", title: "Margin this month", kind: "number", reportKey: "job_profit", configJson: JSON.stringify({ metric: "avg", metricColumn: "margin", filters: [{ column: "status", op: "eq", value: "active" }] }), sortOrder: 2 },
+      { id: "tile_under", orgId: ORG, dashboardId: "dash_owner", title: "Underbilled", kind: "number", reportKey: "underbilled", configJson: JSON.stringify({ metric: "sum", metricColumn: "under", filters: [] }), sortOrder: 3 },
+      { id: "tile_todos", orgId: ORG, dashboardId: "dash_field", title: "Today's to-dos", kind: "list", reportKey: "todos_today", configJson: JSON.stringify({ metric: "count", metricColumn: "title", filters: [] }), sortOrder: 0 },
+      { id: "tile_punch", orgId: ORG, dashboardId: "dash_field", title: "Open punch items", kind: "list", reportKey: "punch_open", configJson: JSON.stringify({ metric: "count", metricColumn: "title", filters: [] }), sortOrder: 1 },
+    ])
+    .run();
+  db.insert(dashboardRoles)
+    .values([
+      { id: "drole_owner", orgId: ORG, role: "owner", dashboardId: "dash_owner" },
+      { id: "drole_field", orgId: ORG, role: "field", dashboardId: "dash_field" },
     ])
     .run();
 }
