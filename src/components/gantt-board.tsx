@@ -220,14 +220,15 @@ export function GanttBoard({ model, critical = false, printHref, chrome = true }
           {model.finishLabel}
         </p>
       )}
-      <div className="flex min-h-0 min-w-0 overflow-hidden">
-        <table className="mac-table gantt-names shrink-0">
+      <div className="flex min-h-0 w-full min-w-0 overflow-hidden">
+        <div className="gantt-names-wrap">
+        <table className="mac-table gantt-names">
           <colgroup>
-            <col className="name" />
-            <col style={{ width: 72 }} />
-            <col style={{ width: 72 }} />
-            <col style={{ width: 44 }} />
-            <col style={{ width: 44 }} />
+            <col style={{ width: "40%" }} />
+            <col style={{ width: "22%" }} />
+            <col style={{ width: "22%" }} />
+            <col style={{ width: "8%" }} />
+            <col style={{ width: "8%" }} />
           </colgroup>
           <thead>
             <tr>
@@ -278,6 +279,7 @@ export function GanttBoard({ model, critical = false, printHref, chrome = true }
             )}
           </tbody>
         </table>
+        </div>
         <div ref={scroller} data-gantt-chart className="min-w-0 flex-1 overflow-x-auto">
           <div className="relative" style={{ width: chartWidth, minWidth: "100%" }}>
             <div className="flex h-7">

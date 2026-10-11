@@ -51,11 +51,15 @@ test("job gantt, critical path, drag, zoom, print, and the Today polish", async 
   const quietBg = await page.locator("[data-bar][data-critical='0']").first().evaluate((el) => getComputedStyle(el).backgroundColor);
   expect(criticalBg).not.toBe(quietBg);
   const jobBoard = page.locator("[data-gantt=job]");
-  await jobBoard.scrollIntoViewIfNeeded();
+  await page.locator("#schedule").evaluate((el) => el.scrollIntoView({ block: "start" }));
   await expect(page.locator("[data-bar=sch_br_frame]")).toBeInViewport();
-  await jobBoard.screenshot({ path: "/opt/cursor/artifacts/gantt-job-light.png" });
+  const jobChart = page.locator("[data-gantt=job] [data-gantt-chart]");
+  const jobChartBox = await jobChart.boundingBox();
+  const jobBoardBox = await jobBoard.boundingBox();
+  expect(jobChartBox && jobBoardBox && jobChartBox.width).toBeGreaterThan((jobBoardBox?.width ?? 0) * 0.5);
+  await page.screenshot({ path: "/opt/cursor/artifacts/gantt-job-light.png" });
   await page.emulateMedia({ colorScheme: "dark" });
-  await jobBoard.screenshot({ path: "/opt/cursor/artifacts/gantt-job-dark.png" });
+  await page.screenshot({ path: "/opt/cursor/artifacts/gantt-job-dark.png" });
   await page.emulateMedia({ colorScheme: "light" });
 
   await page.getByRole("button", { name: "Critical" }).click();

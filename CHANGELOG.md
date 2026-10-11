@@ -19,7 +19,7 @@
 ### Schedule
 
 - A job’s Schedule has List and Gantt. The company Schedule has Grid and Gantt. The choice is remembered for that person. Field can look and cannot drag.
-- The Gantt lists name, start, finish, workdays, and percent done, with the bars on a timeline that uses the width of the page. Week shows the day number, Month the week start, Quarter the month. Today is labeled. The finish date stays on the schedule title. Phases roll up. Dependencies connect. Non-work days are shaded. A baseline shows as a tick. A gated item says Held.
+- The Gantt lists name, start, finish, workdays, and percent done, with the bars on a timeline that uses the width of the page. The name columns stay narrow so the bars take the rest of the row, including on a job next to Details. Week shows the day number, Month the week start, Quarter the month. Today is labeled. The finish date stays on the schedule title. Phases roll up. Dependencies connect. Non-work days are shaded. A baseline shows as a tick. A gated item says Held.
 - Critical uses the longest path to the job finish, with workday lag and non-work days. Critical bars are teal and the rest dim. The item shows float in workdays. A loop is still refused.
 - Drag a bar to move it, or its end to resize it. Arrow keys do the same, and Shift changes the finish. A move that pulls other items says how many, and a gate still warns. The audit log records the shift.
 - Week, Month, and Quarter change the scale. Print keeps that scale. The company Gantt lists each job as a row that opens.

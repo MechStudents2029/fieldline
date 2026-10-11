@@ -949,9 +949,9 @@ button.switch[aria-checked="true"] span {
 .plan-pin.is-open { background: var(--mac-accent); color: white; }
 .plan-pin.is-done, .plan-pin.is-verified { background: var(--mac-fill); color: var(--mac-label); box-shadow: inset 0 0 0 0.5px var(--mac-separator); }
 .mac-table td.wrap, .mac-table th.wrap { white-space: normal; min-width: 11rem; height: auto; line-height: 16px; padding-top: 4px; padding-bottom: 4px; }
-table.gantt-names { width: 400px; max-width: 40%; table-layout: fixed; }
-.gantt-names th, .gantt-names td { height: 32px; }
-.gantt-names col.name { width: 168px; }
+.gantt-names-wrap { flex: 0 0 clamp(220px, 38%, 360px); width: clamp(220px, 38%, 360px); min-width: 0; overflow: hidden; }
+table.gantt-names { width: 100%; max-width: none; table-layout: fixed; }
+.gantt-names th, .gantt-names td { height: 32px; padding-left: 6px; padding-right: 6px; }
 .gantt-bar { height: 18px; overflow: hidden; border-radius: 4px; background: var(--mac-fill); }
 .gantt-bar:disabled { cursor: default; }
 .gantt-progress { display: block; height: 100%; background: color-mix(in srgb, var(--mac-accent) 50%, transparent); }
