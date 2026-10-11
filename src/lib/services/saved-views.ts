@@ -88,7 +88,7 @@ export function cleanViewQuery(list: string, input: Record<string, string>): Rec
   const allow = new Set(LIST_FILTERS[list] ?? []);
   const out: Record<string, string> = {};
   for (const [key, value] of Object.entries(input)) {
-    if (!allow.has(key) || typeof value !== "string") continue;
+    if ((!allow.has(key) && key !== "cols" && !/^cf_[a-z0-9]+$/.test(key)) || typeof value !== "string") continue;
     const text = value.trim().slice(0, 80);
     if (text) out[key] = text;
   }
@@ -102,9 +102,9 @@ function cleanName(value: string): string {
 }
 
 function cleanSort(list: string, sortKey: string | null | undefined, sortDir: string | null | undefined) {
-  const key = (sortKey || "").trim().slice(0, 16);
+  const key = (sortKey || "").trim().slice(0, 40);
   const dir = sortDir === "desc" ? "desc" : sortDir === "asc" ? "asc" : null;
-  if (!key || !/^[a-z]+$/.test(key)) return { sortKey: null, sortDir: null };
+  if (!key || !/^(?:[a-z]+|cf_[a-z0-9]+)$/.test(key)) return { sortKey: null, sortDir: null };
   if (!LIST_FILTERS[list]) return { sortKey: null, sortDir: null };
   return { sortKey: key, sortDir: dir ?? "asc" };
 }

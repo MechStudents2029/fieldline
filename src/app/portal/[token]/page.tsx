@@ -18,6 +18,7 @@ import {
   sentenceStatus,
 } from "@/lib/portal/summary";
 import { PortalWarrantySection } from "@/components/portal-warranty";
+import { portalRows } from "@/lib/services/custom-fields";
 import { portalCostInvoices } from "@/lib/services/cost-plus";
 import { portalBilling } from "@/lib/services/draws";
 import { portalByToken } from "@/lib/services/read";
@@ -97,6 +98,16 @@ export default async function PortalPage({ params }: { params: Promise<{ token: 
         <p className="home-company">{data.org.name}</p>
         <h1 className="home-title">{data.project.name}</h1>
         {data.project.address ? <p className="home-sub">{data.project.address}</p> : null}
+        {portalRows(data.project.orgId, "job", data.project.id, "client").length > 0 ? (
+          <dl aria-label="Job fields">
+            {portalRows(data.project.orgId, "job", data.project.id, "client").map((row) => (
+              <div key={row.id}>
+                <dt>{row.label}</dt>
+                <dd>{row.display}</dd>
+              </div>
+            ))}
+          </dl>
+        ) : null}
         <p className="home-sub">
           <Link className="home-link" href={`/portal/${token}/updates`}>
             Weekly updates

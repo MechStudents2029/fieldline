@@ -62,7 +62,7 @@ export function fieldsFor(kind: ImportKind): readonly string[] {
   return kind === "price_book" ? PRICE_FIELDS : CONTACT_FIELDS;
 }
 
-export function autoMap(headers: string[], kind: ImportKind): string[] {
+export function autoMap(headers: string[], kind: ImportKind, extras: { id: string; label: string }[] = []): string[] {
   const fields = fieldsFor(kind);
   const synonyms = kind === "price_book" ? PRICE_SYNONYMS : CONTACT_SYNONYMS;
   const candidates: { col: number; field: string; score: number }[] = [];
@@ -75,6 +75,10 @@ export function autoMap(headers: string[], kind: ImportKind): string[] {
         best = Math.max(best, scoreHeader(normalized, synonym));
       }
       if (best > 0) candidates.push({ col, field, score: best });
+    }
+    for (const extra of extras) {
+      const score = scoreHeader(normalized, normHeader(extra.label));
+      if (score > 0) candidates.push({ col, field: extra.id, score });
     }
   });
   candidates.sort((a, b) => b.score - a.score || a.col - b.col);

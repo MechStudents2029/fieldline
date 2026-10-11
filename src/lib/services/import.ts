@@ -1,6 +1,7 @@
 import { and, asc, desc, eq, inArray, isNull } from "drizzle-orm";
 import { parseCsv, ImportParseError } from "@/lib/import/csv";
 import { autoMap, fieldsFor, isImportKind, type ImportKind } from "@/lib/import/map";
+import { importTargets, putFieldValues } from "@/lib/services/custom-fields";
 import {
   mapContactRow,
   mapItemRow,
@@ -95,11 +96,13 @@ function reviewed(actor: Actor, kind: ImportKind, csv: string, mapping: string[]
     throw error;
   }
   const fields = new Set(fieldsFor(kind));
-  const used = autoMap(table.headers, kind);
+  const extras = importTargets(actor, kind);
+  const extraIds = new Set(extras.map((row) => row.id));
+  const used = autoMap(table.headers, kind, extras);
   const applied = table.headers.map((_, index) => {
     const picked = mapping?.[index];
     if (picked == null || picked === "") return mapping ? "" : used[index];
-    return fields.has(picked) ? picked : "";
+    return fields.has(picked) || extraIds.has(picked) ? picked : "";
   });
   if (mapping) {
     const seen = new Set<string>();
@@ -292,6 +295,7 @@ function applyContact(tx: Writer, actor: Actor, batchId: string, now: string, ro
       .where(and(eq(contacts.id, current.id), eq(contacts.orgId, actor.orgId)))
       .run();
     insertRow(tx, actor.orgId, batchId, row.index, "update", "contact", current.id, before, { contactId: current.id, leadId: null, fields: snapshotFromDraft(draft) });
+    if (draft.custom) putFieldValues(actor.orgId, current.id, draft.custom, tx);
     return;
   }
   const contactId = id("c");
@@ -333,6 +337,7 @@ function applyContact(tx: Writer, actor: Actor, batchId: string, now: string, ro
   }
   created.set(row.index, { id: contactId, kind: "contact" });
   insertRow(tx, actor.orgId, batchId, row.index, "create", "contact", contactId, null, { contactId, leadId, fields });
+  if (draft.custom) putFieldValues(actor.orgId, contactId, draft.custom, tx);
 }
 
 function applyItem(tx: Writer, actor: Actor, batchId: string, now: string, row: ReviewedRow, created: Map<number, { id: string; kind: "contact" | "item" }>) {
@@ -354,6 +359,7 @@ function applyItem(tx: Writer, actor: Actor, batchId: string, now: string, row: 
       .where(and(eq(priceBookItems.id, current.id), eq(priceBookItems.orgId, actor.orgId)))
       .run();
     insertRow(tx, actor.orgId, batchId, row.index, "update", "item", current.id, before, { itemId: current.id, fields });
+    if (draft.custom) putFieldValues(actor.orgId, current.id, draft.custom, tx);
     return;
   }
   const itemId = id("pb");
@@ -373,6 +379,7 @@ function applyItem(tx: Writer, actor: Actor, batchId: string, now: string, row: 
     .run();
   created.set(row.index, { id: itemId, kind: "item" });
   insertRow(tx, actor.orgId, batchId, row.index, "create", "item", itemId, null, { itemId, fields });
+  if (draft.custom) putFieldValues(actor.orgId, itemId, draft.custom, tx);
 }
 
 function resolveId(tx: Writer, orgId: string, row: ReviewedRow, created: Map<number, { id: string; kind: "contact" | "item" }>, kind: "contact" | "item"): string | null {

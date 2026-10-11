@@ -12,6 +12,10 @@ import { formatCalendarDay } from "@/lib/format";
 import { one, pinnedTarget, readQuery, withPatch } from "@/lib/lists/query";
 import { canAddFieldNotes, canEditCrm } from "@/lib/permissions";
 import { LIST_FILTERS, listSavedViews, viewHref } from "@/lib/services/saved-views";
+import { fieldList } from "@/lib/lists/fields";
+import { customFilters } from "@/lib/services/custom-fields";
+import { RecordFields } from "@/components/field-record";
+import { fieldRows } from "@/lib/services/custom-fields";
 import { deadlinePhrase, type DeadlineEdge } from "@/lib/todos/deadline";
 import { listTodos, todoDetail, todoPeople, type TodoFilter, type TodoRow } from "@/lib/services/todos";
 import { calendarForOrg } from "@/lib/services/time";
@@ -42,11 +46,12 @@ function keep(params: Record<string, string>, task?: string) {
 export default async function TodosPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const session = await requireSession();
   const query = await searchParams;
-  const keys = LIST_FILTERS.todos ?? [];
+  const keys = [...(LIST_FILTERS.todos ?? []), ...customFilters(session, "todo").map((spec) => spec.name), "cols"];
   const views = listSavedViews(session, "todos");
   const target = pinnedTarget("/todos", query, views.find((view) => view.pinned) ?? null, keys, ["task", "new", "checks"]);
   if (target) redirect(target);
   const filters = readQuery(query, keys);
+  const fields = fieldList(session, "todo", "/todos", filters);
   const filter: TodoFilter = {
     assignee: filters.assignee || null,
     projectId: filters.job || null,
@@ -56,7 +61,7 @@ export default async function TodosPage({ searchParams }: { searchParams: Promis
   };
   const listed = listTodos(session, filter);
   const needle = (filters.q || "").toLowerCase();
-  const rows = needle ? listed.filter((row) => row.title.toLowerCase().includes(needle) || row.projectName.toLowerCase().includes(needle)) : listed;
+  const rows = (needle ? listed.filter((row) => row.title.toLowerCase().includes(needle) || row.projectName.toLowerCase().includes(needle)) : listed).filter((row) => fields.match(row.id));
   const people = todoPeople(session);
   const visibleJobIds = session.role === "field" ? new Set(listTodos(session).map((row) => row.projectId)) : null;
   const jobs = visibleJobIds ? people.jobs.filter((job) => visibleJobIds.has(job.id)) : people.jobs;
@@ -80,7 +85,7 @@ export default async function TodosPage({ searchParams }: { searchParams: Promis
       path="/todos"
       list="todos"
       search={filters.q || ""}
-      query={params}
+      query={filters}
       activeId={activeId}
       canShare={office}
       clearHref={Object.values(params).some(Boolean) ? withPatch("/todos", {}, { view: "none" }) : null}
@@ -93,7 +98,9 @@ export default async function TodosPage({ searchParams }: { searchParams: Promis
         { name: "priority", label: "Priority", value: params.priority, any: "Any", options: [{ value: "low", label: "Low" }, { value: "normal", label: "Normal" }, { value: "high", label: "High" }] },
         { name: "due", label: "Due", value: params.due, any: "Any", options: [{ value: "overdue", label: "Overdue" }, { value: "week", label: "This week" }, { value: "later", label: "Later" }] },
         { name: "status", label: "Status", value: params.status, any: "Open", options: [{ value: "done", label: "Done" }, { value: "all", label: "All" }] },
+        ...fields.filters,
       ]}
+      columns={fields.columns}
     />
   );
   return (
@@ -225,6 +232,9 @@ export default async function TodosPage({ searchParams }: { searchParams: Promis
                       <th>Priority</th>
                       <th>Progress</th>
                       <th>Status</th>
+                      {fields.visible.map((column) => (
+                        <th key={column.key}>{column.label}</th>
+                      ))}
                     </tr>
                   </thead>
                   <tbody>
@@ -250,6 +260,9 @@ export default async function TodosPage({ searchParams }: { searchParams: Promis
                           </td>
                           <td className="num">{row.progress}</td>
                           <td className="fit" data-fit="status">{row.status === "done" ? "Done" : "Open"}</td>
+                          {fields.visible.map((column) => (
+                            <td key={column.key}>{fields.cell(row.id, column.key).text}</td>
+                          ))}
                         </tr>
                       );
                     })}
@@ -275,6 +288,18 @@ export default async function TodosPage({ searchParams }: { searchParams: Promis
             </ActionForm>
           </div>
           {selected ? (
+            <div className="flex w-full shrink-0 flex-col md:w-[360px]">
+            <div className="px-4">
+              <RecordFields
+                rows={fieldRows(session, "todo", selected.id, one(query.fields) === "1" ? "edit" : "read")}
+                recordType="todo"
+                recordId={selected.id}
+                orgId={session.orgId}
+                editing={one(query.fields) === "1"}
+                editHref={keep({ ...params, fields: "1" }, selected.id)}
+                cancelHref={keep(params, selected.id)}
+              />
+            </div>
             <TodoPane
               todo={selected}
               phrase={phraseFor(selected)}
@@ -283,6 +308,7 @@ export default async function TodosPage({ searchParams }: { searchParams: Promis
               canEdit={office}
               canTick={canAddFieldNotes(session.role)}
             />
+            </div>
           ) : null}
         </div>
       )}

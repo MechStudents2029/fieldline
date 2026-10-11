@@ -10,6 +10,8 @@ import { one, pinnedTarget, readQuery } from "@/lib/lists/query";
 import { canEditCrm, canSeeMoney } from "@/lib/permissions";
 import { pipelineBoard } from "@/lib/services/read";
 import { LIST_FILTERS, listSavedViews, viewHref } from "@/lib/services/saved-views";
+import { fieldList } from "@/lib/lists/fields";
+import { customFilters } from "@/lib/services/custom-fields";
 
 export default async function PipelinePage({
   searchParams,
@@ -18,12 +20,14 @@ export default async function PipelinePage({
 }) {
   const session = await requireSession();
   const query = await searchParams;
-  const keys = LIST_FILTERS.leads ?? [];
+  const keys = [...(LIST_FILTERS.leads ?? []), ...customFilters(session, "lead").map((spec) => spec.name), "cols"];
   const views = listSavedViews(session, "leads");
   const target = pinnedTarget("/pipeline", query, views.find((view) => view.pinned) ?? null, keys);
   if (target) redirect(target);
   const filters = readQuery(query, keys);
+  const fields = fieldList(session, "lead", "/pipeline", filters);
   const board = pipelineBoard(session.orgId, { q: filters.q, source: filters.source });
+  board.cards = board.cards.filter((card) => fields.match(card.lead.id));
   const filtered = Boolean(filters.q || filters.source);
   return (
     <div className="flex flex-col gap-4">
@@ -48,7 +52,9 @@ export default async function PipelinePage({
         canShare={canEditCrm(session.role)}
         clearHref={filtered ? "/pipeline?view=none" : null}
         views={views.map((view) => ({ id: view.id, name: view.name, href: viewHref(view), pinned: view.pinned, mine: view.mine, shared: view.shared }))}
-        filters={[{ name: "source", label: "Source", value: filters.source || "", any: "Any", options: board.sources.map((source) => ({ value: source, label: source })) }]}
+        filters={[{ name: "source", label: "Source", value: filters.source || "", any: "Any", options: board.sources.map((source) => ({ value: source, label: source })) }, ...fields.filters]}
+        columns={fields.columns}
+        extra={<a className="list-link" href={`/api/export/lists?list=leads&${new URLSearchParams(filters).toString()}`}>CSV</a>}
       />
       {board.cards.length === 0 && filtered ? <p className="text-sm text-muted-foreground">Nothing matches that search.</p> : null}
       {board.cards.length === 0 && !filtered ? (
@@ -58,6 +64,30 @@ export default async function PipelinePage({
           href="/leads/new"
           action="New lead"
         />
+      ) : null}
+      {fields.visible.length > 0 ? (
+        <table className="mac-table" aria-label="Lead fields">
+          <thead>
+            <tr>
+              <th>Lead</th>
+              {fields.visible.map((column) => (
+                <th key={column.key}>{column.label}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {board.cards.map((card) => (
+              <tr key={card.lead.id}>
+                <td>
+                  <Link href={`/leads/${card.lead.id}`}>{card.lead.title}</Link>
+                </td>
+                {fields.visible.map((column) => (
+                  <td key={column.key}>{fields.cell(card.lead.id, column.key).text}</td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
       ) : null}
       <PipelineBoard
         showMoney={canSeeMoney(session.role)}

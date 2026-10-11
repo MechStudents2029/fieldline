@@ -17,8 +17,10 @@ import {
   linkCheckTodo,
   listSafety,
   listTemplates,
+  jobSafety,
   runChecklist,
   safetyQueue,
+  safetyTabCount,
   scheduleTalk,
   talkStatus,
 } from "@/lib/services/safety";
@@ -182,6 +184,12 @@ describe("jobsite safety", () => {
       items: ladder!.items.map((item, index) => ({ templateItemId: item.id, result: index === 0 ? "fail" : "na" })),
     });
     expect(getDb().select().from(toolboxTalks).where(and(eq(toolboxTalks.projectId, "proj_diaz"), eq(toolboxTalks.topicId, "topic_silica"))).all().length).toBe(1);
+    const board = jobSafety(maya, "proj_okonkwo");
+    expect(board).toBeTruthy();
+    const heading = safetyTabCount(board!);
+    const openIssues = board!.counts.talks + board!.counts.checks + board!.counts.incidents;
+    expect(heading).toBe(board!.talks.length + board!.checks.length + board!.incidents.length);
+    expect(heading).toBeGreaterThan(openIssues);
     toggleAutomation(maya, ruleId, false);
     expect(getDb().select().from(auditLogs).where(eq(auditLogs.entityType, "incident")).all().length).toBeGreaterThan(0);
   });

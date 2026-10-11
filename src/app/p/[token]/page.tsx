@@ -7,6 +7,7 @@ import { SignaturePad } from "@/components/signature-pad";
 import { CONSENT_TEXT } from "@/lib/product";
 import { formatMoney } from "@/lib/money";
 import { proposalByToken } from "@/lib/services/read";
+import { documentFields } from "@/lib/services/custom-fields";
 import { markProposalViewed } from "@/lib/services/write";
 
 export const dynamic = "force-dynamic";
@@ -20,6 +21,7 @@ export default async function ProposalPage({ params }: { params: Promise<{ token
   const snapshot = data.snapshot.public;
   const closed = ["signed", "declined", "superseded"].includes(data.proposal.status) || data.expired;
   const deposit = snapshot.schedule.find((part) => part.type === "deposit");
+  const docs = data.proposal.projectId ? documentFields(data.proposal.orgId, data.proposal.projectId) : [];
   return (
     <main className="home home-proposal">
       <p className="home-company">{data.org.name}</p>
@@ -46,6 +48,16 @@ export default async function ProposalPage({ params }: { params: Promise<{ token
         <p className="home-sub home-center">
           {closed ? "Deposit" : "Deposit due on sign"} · {formatMoney(deposit.amountCents)}
         </p>
+      ) : null}
+      {docs.length > 0 ? (
+        <dl className="home-sub" aria-label="Job fields">
+          {docs.map((row) => (
+            <div key={row.label}>
+              <dt>{row.label}</dt>
+              <dd>{row.value}</dd>
+            </div>
+          ))}
+        </dl>
       ) : null}
       <div className="home-scope">
         {snapshot.sections.map((section) => (

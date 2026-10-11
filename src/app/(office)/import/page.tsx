@@ -4,6 +4,7 @@ import { requireSession } from "@/lib/auth/session";
 import { isImportKind, type ImportKind } from "@/lib/import/map";
 import { canManageSettings } from "@/lib/permissions";
 import { listImports } from "@/lib/services/import";
+import { importTargets } from "@/lib/services/custom-fields";
 
 export default async function ImportPage({ searchParams }: { searchParams: Promise<{ kind?: string }> }) {
   const session = await requireSession();
@@ -34,7 +35,7 @@ export default async function ImportPage({ searchParams }: { searchParams: Promi
         <h1 className="fl-large-title">Import</h1>
         <Segmented items={kinds} />
       </div>
-      <ImportWizard key={kind} kind={kind} history={history} />
+      <ImportWizard key={kind} kind={kind} history={history} extras={importTargets(session, kind)} />
     </div>
   );
 }

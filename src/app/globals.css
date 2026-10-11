@@ -548,6 +548,19 @@ select.ctl {
   overflow-x: auto;
   font-size: 13px;
 }
+[data-sheet="automation"] .ctl-line {
+  flex-wrap: wrap;
+  overflow: visible;
+}
+[data-sheet="automation"] .ctl,
+[data-sheet="automation"] .field {
+  max-width: 100%;
+}
+button.ctl.icon {
+  width: 22px;
+  min-width: 22px;
+  padding: 0;
+}
 button.switch {
   width: 36px;
   min-width: 36px;

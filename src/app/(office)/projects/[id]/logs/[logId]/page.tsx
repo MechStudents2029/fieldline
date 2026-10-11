@@ -12,6 +12,8 @@ import { formatCalendarDay, formatDateTime } from "@/lib/format";
 import { captionFromMetadata } from "@/lib/services/read";
 import { equipmentForLog, logEquipmentIds } from "@/lib/services/equipment";
 import { logDetail, lookupWeather } from "@/lib/services/logs";
+import { FieldInputs, FieldRows } from "@/components/field-record";
+import { fieldRows } from "@/lib/services/custom-fields";
 
 function hoursValue(minutes: number | null) {
   if (minutes == null) return "";
@@ -52,6 +54,7 @@ export default async function DailyLogPage({ params }: { params: Promise<{ id: s
           ))}
         </ul>
       </section>
+      <FieldRows rows={fieldRows(session, "log", log.id, "read")} />
       {detail.canEdit ? (
         <LogDraftSaver action={saveLogAction.bind(null, log.id)} scope={{ orgId: session.orgId, userId: session.userId }} projectId={log.projectId}>
           <label className="text-sm">
@@ -110,6 +113,7 @@ export default async function DailyLogPage({ params }: { params: Promise<{ id: s
               </label>
             </div>
           </details>
+          <FieldInputs rows={fieldRows(session, "log", log.id, "edit")} orgId={session.orgId} />
           <fieldset className="text-sm">
             <legend className="font-medium">Equipment</legend>
             <input type="hidden" name="equipmentSet" value="1" />

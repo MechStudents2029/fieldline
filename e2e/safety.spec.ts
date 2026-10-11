@@ -25,6 +25,9 @@ test("safety tab, missed talk, phone sign-off, and incident detail", async ({ pa
   await signIn(page);
 
   await page.goto("/projects/proj_okonkwo/safety");
+  const count = await page.locator("[data-safety-count]").getAttribute("data-safety-count");
+  await expect(page.locator("[data-bar=toolbar] p")).toHaveText(count || "");
+  expect(Number(count)).toBeGreaterThan(0);
   await expect(page.getByRole("link", { name: "Heat illness" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Ladder safety" })).toBeVisible();
   await expect(page.getByText("Splinter from the jamb")).toBeVisible();

@@ -38,6 +38,8 @@ import { drawSchedule } from "@/lib/services/draws";
 import { selectionBoard } from "@/lib/services/selections";
 import { timeBoard } from "@/lib/services/time";
 import { localDay } from "@/lib/time/calendar";
+import { RecordFields } from "@/components/field-record";
+import { fieldRows } from "@/lib/services/custom-fields";
 
 function officeToday(timeZone: string) {
   return localDay(Date.now(), timeZone);
@@ -49,9 +51,10 @@ function codeTone(percent: number | null, level: string) {
   return "text-[var(--fl-secondary)]";
 }
 
-export default async function ProjectPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ created?: string }> }) {
+export default async function ProjectPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ created?: string; fields?: string }> }) {
   const { id } = await params;
-  const created = (await searchParams).created;
+  const query = await searchParams;
+  const created = query.created;
   const createdCount = created && /^\d+$/.test(created) ? created : null;
   const session = await requireSession();
   const detail = projectDetail(session.orgId, id, session.role);
@@ -594,6 +597,15 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
       </div>
       <aside className="mac-inspector" aria-label="Inspector">
         <p className="mac-t11 font-semibold text-[var(--mac-secondary)]">Details</p>
+        <RecordFields
+          rows={fieldRows(session, "job", detail.project.id, query.fields === "1" ? "edit" : "read")}
+          recordType="job"
+          recordId={detail.project.id}
+          orgId={session.orgId}
+          editing={query.fields === "1"}
+          editHref={`/projects/${detail.project.id}?fields=1`}
+          cancelHref={`/projects/${detail.project.id}`}
+        />
         <dl className="mac-kv">
           <div><dt>Status</dt><dd>{punch?.closeout.closed ? "Closed" : punch?.closeout.substantial ? "Substantial" : titleCase(detail.project.status)}</dd></div>
           {punch?.closeout.endsOn ? <div><dt>Warranty</dt><dd>{formatWarrantyDay(punch.closeout.endsOn)}</dd></div> : null}

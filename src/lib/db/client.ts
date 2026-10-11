@@ -124,6 +124,7 @@ export function ensureReady(holder: Holder) {
   ensureEquipment(holder);
   ensureAutomations(holder);
   ensureSafety(holder);
+  ensureCustomFields(holder);
   const version = holder.sqlite.prepare("select value from app_meta where key = ?").get("seed_version") as
     | { value: string }
     | undefined;
@@ -2363,6 +2364,55 @@ function ensureSafety(holder: Holder) {
     )`);
   }
   holder.sqlite.exec("create index if not exists incident_actions_incident on incident_actions (org_id, incident_id)");
+}
+
+function ensureCustomFields(holder: Holder) {
+  const pk = holder.dialect === "postgres" ? "text primary key" : "text primary key not null";
+  if (!tableExists(holder.sqlite, "custom_fields", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists custom_fields (
+      id ${pk},
+      org_id text not null,
+      record_type text not null,
+      label text not null,
+      field_type text not null,
+      options_json text not null default '[]',
+      default_value text not null default '',
+      required integer not null default 0,
+      hint text not null default '',
+      office integer not null default 1,
+      field integer not null default 0,
+      vendor integer not null default 0,
+      client integer not null default 0,
+      show_on_documents integer not null default 0,
+      sort_order integer not null default 0,
+      archived_at text,
+      created_at text not null,
+      updated_at text not null,
+      created_by text
+    )`);
+  }
+  holder.sqlite.exec("create index if not exists custom_fields_org on custom_fields (org_id, record_type, sort_order)");
+  if (!tableExists(holder.sqlite, "custom_field_values", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists custom_field_values (
+      id ${pk},
+      org_id text not null,
+      field_id text not null,
+      record_id text not null,
+      value_text text not null default '',
+      updated_at text not null
+    )`);
+  }
+  holder.sqlite.exec("create unique index if not exists custom_field_values_one on custom_field_values (org_id, field_id, record_id)");
+  if (!tableExists(holder.sqlite, "template_field_values", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists template_field_values (
+      id ${pk},
+      org_id text not null,
+      template_id text not null,
+      field_id text not null,
+      value_text text not null default ''
+    )`);
+  }
+  holder.sqlite.exec("create unique index if not exists template_field_values_one on template_field_values (org_id, template_id, field_id)");
 }
 
 export function resetDatabase(): AppDatabase {

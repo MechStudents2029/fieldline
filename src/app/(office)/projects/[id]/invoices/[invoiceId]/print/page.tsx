@@ -4,6 +4,7 @@ import { requireSession } from "@/lib/auth/session";
 import { formatMoney } from "@/lib/money";
 import { canSeeMoney } from "@/lib/permissions";
 import { costInvoiceDetail } from "@/lib/services/cost-plus";
+import { documentFields } from "@/lib/services/custom-fields";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +23,16 @@ export default async function CostInvoicePrintPage({ params }: { params: Promise
       <p>{session.orgName}</p>
       <h1 className="text-[22px] font-semibold">{detail.invoice.number}</h1>
       <p>{detail.project.name}</p>
+      {documentFields(session.orgId, id).length > 0 ? (
+        <dl aria-label="Job fields">
+          {documentFields(session.orgId, id).map((row) => (
+            <div key={row.label}>
+              <dt>{row.label}</dt>
+              <dd>{row.value}</dd>
+            </div>
+          ))}
+        </dl>
+      ) : null}
       <table className="mt-6 w-full">
         <tbody>
           {detail.lines.map((line) => (

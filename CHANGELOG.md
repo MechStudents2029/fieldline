@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026-10-11
+
+### Custom fields
+
+- Settings > Custom fields holds a company’s own fields for jobs, clients, leads, vendors, to-dos, daily logs, and price book items. A field has a label, a type, an optional default, required, a one-line hint, and who can see it.
+- Values sit on the record as key-value rows. Empty rows stay hidden until Edit. Required fields block that save and show Missing on older records.
+- Lists can show a custom column from the views menu, filter it, and include it in CSV. Job templates can carry the values the author picks. Import can map a column onto a field.
+- A rule can test a custom field and set one. Pull permit is on: an active job with Permit required creates that to-do for the PM.
+- A job field can show on the proposal and on print when Show on documents is on.
+
+### Safety and automations
+
+- The job Safety tab counts every talk, checklist, and incident. Those three sections use the same table.
+- Automation rows wrap inside the sheet. Remove is an icon button. Preview on picks a record and shows the result inline.
+
 ## 2026-10-10
 
 ### Safety

@@ -851,6 +851,10 @@ export function incidentView(actor: Actor, incidentId: string) {
   };
 }
 
+export function safetyTabCount(board: { talks: unknown[]; checks: unknown[]; incidents: unknown[] }) {
+  return board.talks.length + board.checks.length + board.incidents.length;
+}
+
 export function jobSafety(actor: Actor, projectId: string) {
   const project = projectOf(actor.orgId, projectId);
   if (!project) return null;

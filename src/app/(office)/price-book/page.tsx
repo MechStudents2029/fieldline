@@ -9,8 +9,11 @@ import { canManageSettings, canSeeMoney } from "@/lib/permissions";
 import { starterMarkVisible } from "@/lib/services/onboarding";
 import { listAssemblies, listPriceBook } from "@/lib/services/read";
 import { STARTER_TRADE_LABELS, STARTER_TRADES } from "@/lib/security";
+import { fieldList } from "@/lib/lists/fields";
+import { RecordFields } from "@/components/field-record";
+import { fieldRows } from "@/lib/services/custom-fields";
 
-export default async function PriceBookPage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
+export default async function PriceBookPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const session = await requireSession();
   if (!canSeeMoney(session.role)) {
     return (
@@ -20,7 +23,8 @@ export default async function PriceBookPage({ searchParams }: { searchParams: Pr
     );
   }
   const query = await searchParams;
-  const rows = listPriceBook(session.orgId, query.q);
+  const fields = fieldList(session, "price_item", "/price-book", Object.fromEntries(Object.entries(query).filter((entry): entry is [string, string] => Boolean(entry[1]))));
+  const rows = listPriceBook(session.orgId, query.q).filter((item) => fields.match(item.id));
   const assemblies = listAssemblies(session.orgId);
   const unfiltered = query.q?.trim() ? listPriceBook(session.orgId) : rows;
   const money = canSeeMoney(session.role);
@@ -60,9 +64,37 @@ export default async function PriceBookPage({ searchParams }: { searchParams: Pr
           </ul>
         ) : null}
       </div>
-      <form>
+      <form className="flex flex-wrap items-center gap-2">
         <input name="q" defaultValue={query.q} placeholder="Search code, name, or trade" className="field" aria-label="Search the price book" />
+        {fields.filters.map((filter) => (
+          <select key={filter.name} name={filter.name} aria-label={filter.label} defaultValue={filter.value} className="list-select">
+            <option value="">{filter.label}: {filter.any}</option>
+            {filter.options.map((option) => (
+              <option key={option.value} value={option.value}>{filter.label}: {option.label}</option>
+            ))}
+          </select>
+        ))}
+        <details className="list-pop">
+          <summary aria-label="Saved views">Columns</summary>
+          <div className="list-menu">
+            {fields.columns.map((column) => (
+              <a key={column.id} href={column.href}>{column.on ? "✓ " : ""}{column.label}</a>
+            ))}
+          </div>
+        </details>
+        <a className="list-link" href={`/api/export/lists?list=price&q=${encodeURIComponent(query.q || "")}`}>CSV</a>
       </form>
+      {query.item ? (
+        <RecordFields
+          rows={fieldRows(session, "price_item", query.item, query.fields === "1" ? "edit" : "read")}
+          recordType="price_item"
+          recordId={query.item}
+          orgId={session.orgId}
+          editing={query.fields === "1"}
+          editHref={`/price-book?item=${query.item}&fields=1`}
+          cancelHref={`/price-book?item=${query.item}`}
+        />
+      ) : null}
       {unfiltered.length === 0 ? (
         <EmptyState
           title="No prices yet"
@@ -95,7 +127,10 @@ export default async function PriceBookPage({ searchParams }: { searchParams: Pr
         {rows.map((item) => (
           <li key={item.id} className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
             <span>
-              <span className="font-medium">{item.name}</span>
+              <Link href={`/price-book?item=${item.id}`} className="font-medium">{item.name}</Link>
+              {fields.visible.map((column) => (
+                <span key={column.key} className="ml-2 text-xs text-muted-foreground">{column.label} {fields.cell(item.id, column.key).text || "—"}</span>
+              ))}
               <span className="block text-xs text-muted-foreground">
                 {item.code} · {item.category} · per {item.unit}
                 {item.vendor ? ` · ${item.vendor}` : ""}

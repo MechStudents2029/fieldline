@@ -23,6 +23,8 @@ import {
   changeOrders,
   consents,
   contacts,
+  customFields,
+  customFieldValues,
   costItems,
   documents,
   estimateMeasurements,
@@ -162,7 +164,7 @@ import {
   WEBSITE_FORM_SOURCE,
 } from "@/lib/lead-form/rules";
 
-export const SEED_VERSION = "39";
+export const SEED_VERSION = "40";
 
 const ORG = "org_rivera";
 const NORTH = "org_northline";
@@ -3579,6 +3581,49 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
       result: "skipped",
       error: null,
       createdAt: daysAgo(1),
+    })
+    .run();
+
+  const fieldNow = daysAgo(1);
+  db.insert(customFields)
+    .values([
+      { id: "cf_job_source", orgId: ORG, recordType: "job", label: "Lead source", fieldType: "single", optionsJson: JSON.stringify(["Referral", "Website", "Yard sign", "Repeat"]), defaultValue: "", required: 0, hint: "", office: 1, field: 1, vendor: 0, client: 0, showOnDocuments: 0, sortOrder: 0, archivedAt: null, createdAt: fieldNow, updatedAt: fieldNow, createdBy: "user_maya" },
+      { id: "cf_job_permit", orgId: ORG, recordType: "job", label: "Permit required", fieldType: "yes_no", optionsJson: "[]", defaultValue: "", required: 0, hint: "", office: 1, field: 1, vendor: 0, client: 0, showOnDocuments: 0, sortOrder: 1, archivedAt: null, createdAt: fieldNow, updatedAt: fieldNow, createdBy: "user_maya" },
+      { id: "cf_job_year", orgId: ORG, recordType: "job", label: "Home built year", fieldType: "number", optionsJson: "[]", defaultValue: "", required: 0, hint: "", office: 1, field: 0, vendor: 0, client: 0, showOnDocuments: 0, sortOrder: 2, archivedAt: null, createdAt: fieldNow, updatedAt: fieldNow, createdBy: "user_maya" },
+      { id: "cf_client_gate", orgId: ORG, recordType: "client", label: "Gate code", fieldType: "text", optionsJson: "[]", defaultValue: "", required: 0, hint: "", office: 1, field: 1, vendor: 0, client: 0, showOnDocuments: 0, sortOrder: 0, archivedAt: null, createdAt: fieldNow, updatedAt: fieldNow, createdBy: "user_maya" },
+      { id: "cf_vendor_preferred", orgId: ORG, recordType: "vendor", label: "Preferred", fieldType: "yes_no", optionsJson: "[]", defaultValue: "", required: 0, hint: "", office: 1, field: 0, vendor: 0, client: 0, showOnDocuments: 0, sortOrder: 0, archivedAt: null, createdAt: fieldNow, updatedAt: fieldNow, createdBy: "user_maya" },
+    ])
+    .run();
+  db.insert(customFieldValues)
+    .values([
+      { id: "cfv_chen_source", orgId: ORG, fieldId: "cf_job_source", recordId: "proj_chen", valueText: "Referral", updatedAt: fieldNow },
+      { id: "cfv_chen_permit", orgId: ORG, fieldId: "cf_job_permit", recordId: "proj_chen", valueText: "yes", updatedAt: fieldNow },
+      { id: "cfv_chen_year", orgId: ORG, fieldId: "cf_job_year", recordId: "proj_chen", valueText: "1924", updatedAt: fieldNow },
+      { id: "cfv_br_source", orgId: ORG, fieldId: "cf_job_source", recordId: "proj_brooks", valueText: "Yard sign", updatedAt: fieldNow },
+      { id: "cfv_br_permit", orgId: ORG, fieldId: "cf_job_permit", recordId: "proj_brooks", valueText: "yes", updatedAt: fieldNow },
+      { id: "cfv_ok_source", orgId: ORG, fieldId: "cf_job_source", recordId: "proj_okonkwo", valueText: "Website", updatedAt: fieldNow },
+      { id: "cfv_ok_permit", orgId: ORG, fieldId: "cf_job_permit", recordId: "proj_okonkwo", valueText: "no", updatedAt: fieldNow },
+      { id: "cfv_chen_gate", orgId: ORG, fieldId: "cf_client_gate", recordId: "c_chen", valueText: "4412", updatedAt: fieldNow },
+      { id: "cfv_br_gate", orgId: ORG, fieldId: "cf_client_gate", recordId: "c_brooks", valueText: "18", updatedAt: fieldNow },
+      { id: "cfv_summit_pref", orgId: ORG, fieldId: "cf_vendor_preferred", recordId: "c_summit", valueText: "yes", updatedAt: fieldNow },
+      { id: "cfv_slab_pref", orgId: ORG, fieldId: "cf_vendor_preferred", recordId: "c_slab", valueText: "no", updatedAt: fieldNow },
+    ])
+    .run();
+  db.insert(automationRules)
+    .values({
+      id: "rule_permit_todo",
+      orgId: ORG,
+      name: "Pull permit",
+      enabled: 1,
+      triggerKind: "job_status",
+      triggerJson: JSON.stringify({ kind: "job_status", status: "active" }),
+      conditionsJson: JSON.stringify([{ kind: "field", fieldId: "cf_job_permit", op: "eq", value: "yes" }]),
+      actionsJson: JSON.stringify([{ kind: "todo", title: "Pull permit", who: "role:pm", dueDays: 0 }]),
+      lastRunAt: null,
+      runCount: 0,
+      createdAt: fieldNow,
+      updatedAt: fieldNow,
+      createdBy: "user_maya",
     })
     .run();
 

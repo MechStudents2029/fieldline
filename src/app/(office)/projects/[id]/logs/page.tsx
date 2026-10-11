@@ -6,12 +6,14 @@ import { requireSession } from "@/lib/auth/session";
 import { formatCalendarDay } from "@/lib/format";
 import { canAddFieldNotes } from "@/lib/permissions";
 import { jobLogs } from "@/lib/services/logs";
+import { customCell, customColumns } from "@/lib/services/custom-fields";
 
 export default async function JobLogsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const session = await requireSession();
   const board = jobLogs(session, id);
   if (!board) return <MissingRecord orgName={session.orgName} kind="job" />;
+  const columns = customColumns(session, "log");
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-4">
       <div>
@@ -48,6 +50,10 @@ export default async function JobLogsPage({ params }: { params: Promise<{ id: st
                 {log.status} · {log.visibility === "client" ? "on the client portal" : "internal"}
               </span>
               {log.notes ? <span className="mt-1 block">{log.notes}</span> : null}
+              {columns.map((column) => {
+                const value = customCell(session, log.id, column.key).text;
+                return value ? <span key={column.key} className="mt-1 block text-xs text-muted-foreground">{column.label} · {value}</span> : null;
+              })}
             </a>
           </li>
         ))}

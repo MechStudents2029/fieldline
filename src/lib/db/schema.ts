@@ -2578,3 +2578,54 @@ export const incidentActions = sqliteTable(
   },
   (t) => [index("incident_actions_incident").on(t.orgId, t.incidentId)],
 );
+
+export const customFields = sqliteTable(
+  "custom_fields",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    recordType: text("record_type").notNull(),
+    label: text("label").notNull(),
+    fieldType: text("field_type").notNull(),
+    optionsJson: text("options_json").notNull().default("[]"),
+    defaultValue: text("default_value").notNull().default(""),
+    required: integer("required").notNull().default(0),
+    hint: text("hint").notNull().default(""),
+    office: integer("office").notNull().default(1),
+    field: integer("field").notNull().default(0),
+    vendor: integer("vendor").notNull().default(0),
+    client: integer("client").notNull().default(0),
+    showOnDocuments: integer("show_on_documents").notNull().default(0),
+    sortOrder: integer("sort_order").notNull().default(0),
+    archivedAt: text("archived_at"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    createdBy: text("created_by"),
+  },
+  (t) => [index("custom_fields_org").on(t.orgId, t.recordType, t.sortOrder)],
+);
+
+export const customFieldValues = sqliteTable(
+  "custom_field_values",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    fieldId: text("field_id").notNull(),
+    recordId: text("record_id").notNull(),
+    valueText: text("value_text").notNull().default(""),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (t) => [uniqueIndex("custom_field_values_one").on(t.orgId, t.fieldId, t.recordId), index("custom_field_values_field").on(t.orgId, t.fieldId)],
+);
+
+export const templateFieldValues = sqliteTable(
+  "template_field_values",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    templateId: text("template_id").notNull(),
+    fieldId: text("field_id").notNull(),
+    valueText: text("value_text").notNull().default(""),
+  },
+  (t) => [uniqueIndex("template_field_values_one").on(t.orgId, t.templateId, t.fieldId)],
+);

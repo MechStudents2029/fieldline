@@ -11,6 +11,8 @@ import { one, pinnedTarget, readQuery } from "@/lib/lists/query";
 import { formatPercent, formatWhole } from "@/lib/money";
 import { canEditCrm, canSeeMoney } from "@/lib/permissions";
 import { LIST_FILTERS, listSavedViews, viewHref } from "@/lib/services/saved-views";
+import { fieldList } from "@/lib/lists/fields";
+import { customFilters } from "@/lib/services/custom-fields";
 import { billingForProjects } from "@/lib/services/draws";
 import { listContacts, listProjects, pipelineBoard } from "@/lib/services/read";
 import { timeBoard } from "@/lib/services/time";
@@ -31,12 +33,13 @@ function place(address: string | null | undefined, money: string) {
 export default async function ProjectsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const query = await searchParams;
   const session = await requireSession();
-  const keys = LIST_FILTERS.jobs ?? [];
+  const keys = [...(LIST_FILTERS.jobs ?? []), ...customFilters(session, "job").map((spec) => spec.name), "cols"];
   const views = listSavedViews(session, "jobs");
   const target = pinnedTarget("/projects", query, views.find((view) => view.pinned) ?? null, keys);
   if (target) redirect(target);
   const filters = readQuery(query, keys);
-  const rows = listProjects(session.orgId);
+  const fields = fieldList(session, "job", "/projects", filters);
+  const rows = listProjects(session.orgId).filter((row) => fields.match(row.project.id));
   const money = canSeeMoney(session.role);
   const billed = money ? billingForProjects(session.orgId) : new Map<string, { billedBps: number }>();
   const leads = pipelineBoard(session.orgId).cards.filter((card) => card.stage.kind === "open");
@@ -60,13 +63,14 @@ export default async function ProjectsPage({ searchParams }: { searchParams: Pro
   const estimating = leads
     .filter((card) => card.stage.name !== "Estimate sent" && card.stage.name !== "Negotiation")
     .map((card) => leadItem(card, "Draft"));
+  const fieldFiltered = fields.filters.some((filter) => filter.value);
   const needle = (filters.q || "").toLowerCase();
   const match = (items: JobItem[]) => items.filter((item) => !needle || item.title.toLowerCase().includes(needle));
   const group = filters.group || "";
   const show = (key: string, items: JobItem[]) => (!group || group === key ? match(items) : []);
   const progressRows = show("active", inProgress);
-  const nextRows = show("next", upNext);
-  const estimateRows = show("estimating", estimating);
+  const nextRows = fieldFiltered ? [] : show("next", upNext);
+  const estimateRows = fieldFiltered ? [] : show("estimating", estimating);
   const doneRows = show("complete", completed);
   const empty = progressRows.length === 0 && doneRows.length === 0 && nextRows.length === 0 && estimateRows.length === 0;
   const jobsToolbar = (
@@ -79,7 +83,9 @@ export default async function ProjectsPage({ searchParams }: { searchParams: Pro
       canShare={canEditCrm(session.role)}
       clearHref={filters.q || filters.group ? "/projects?view=none" : null}
       views={views.map((view) => ({ id: view.id, name: view.name, href: viewHref(view), pinned: view.pinned, mine: view.mine, shared: view.shared }))}
-      filters={[{ name: "group", label: "Group", value: group, any: "All", options: [{ value: "active", label: "In progress" }, { value: "next", label: "Up next" }, { value: "estimating", label: "Estimating" }, { value: "complete", label: "Completed" }] }]}
+      filters={[{ name: "group", label: "Group", value: group, any: "All", options: [{ value: "active", label: "In progress" }, { value: "next", label: "Up next" }, { value: "estimating", label: "Estimating" }, { value: "complete", label: "Completed" }] }, ...fields.filters]}
+      columns={fields.columns}
+      extra={<a className="list-link" href={`/api/export/jobs?${new URLSearchParams(filters).toString()}`}>CSV</a>}
     />
   );
   const names = new Map(listContacts(session.orgId).map((contact) => [contact.id, contact.name]));
@@ -105,6 +111,10 @@ export default async function ProjectsPage({ searchParams }: { searchParams: Pro
       billed: cell(money ? formatPercent(billed.get(row.project.id)?.billedBps ?? 0) : "—", billed.get(row.project.id)?.billedBps ?? -1),
       start: cell(formatCalendarDay(row.project.startDate), row.project.startDate || ""),
       crew: cell(onSite.get(row.project.name)?.join(", ") || "—"),
+      ...Object.fromEntries(fields.visible.map((column) => {
+        const value = fields.cell(row.project.id, column.key);
+        return [column.key, cell(value.text || "—", value.sort)];
+      })),
     },
   });
   const leadRow = (card: (typeof leads)[number], status: string, tone?: "pill"): TableRow => ({
@@ -121,6 +131,7 @@ export default async function ProjectsPage({ searchParams }: { searchParams: Pro
       billed: cell("—", -1),
       start: cell("—", ""),
       crew: cell("—"),
+      ...Object.fromEntries(fields.visible.map((column) => [column.key, cell("—", "")])),
     },
   });
   const columns = [
@@ -128,6 +139,7 @@ export default async function ProjectsPage({ searchParams }: { searchParams: Pro
     { key: "client", header: "Client" },
     { key: "city", header: "City" },
     { key: "status", header: "Status" },
+    ...fields.visible.map((column) => ({ key: column.key, header: column.label })),
     { key: "contract", header: "Contract", align: "right" as const },
     { key: "spent", header: "Spent", align: "right" as const },
     { key: "margin", header: "Margin", align: "right" as const },
@@ -155,11 +167,12 @@ export default async function ProjectsPage({ searchParams }: { searchParams: Pro
         <EmptyState title="No jobs yet" why="Signed proposals become jobs." href="/leads/new" action="Add a lead" />
       ) : (
         <DataTable
+          initialSort={fields.visible.some((column) => column.key === one(query.sort)) ? { key: one(query.sort), dir: one(query.dir) === "desc" ? "desc" : "asc" } : null}
           columns={columns}
           groups={[
             { label: "In progress", rows: (!group || group === "active" ? rows.filter((row) => row.project.status === "active" && (!needle || row.project.name.toLowerCase().includes(needle))) : []).map((row) => projectRow(row, "Active")) },
-            { label: "Up next", rows: (!group || group === "next" ? leads.filter((card) => (card.stage.name === "Estimate sent" || card.stage.name === "Negotiation") && (!needle || card.lead.title.toLowerCase().includes(needle))) : []).map((card) => leadRow(card, card.stage.name === "Negotiation" ? "Deposit due" : "Sent", "pill")) },
-            { label: "Estimating", rows: (!group || group === "estimating" ? leads.filter((card) => card.stage.name !== "Estimate sent" && card.stage.name !== "Negotiation" && (!needle || card.lead.title.toLowerCase().includes(needle))) : []).map((card) => leadRow(card, "Draft", "pill")) },
+            { label: "Up next", rows: (!fieldFiltered && (!group || group === "next") ? leads.filter((card) => (card.stage.name === "Estimate sent" || card.stage.name === "Negotiation") && (!needle || card.lead.title.toLowerCase().includes(needle))) : []).map((card) => leadRow(card, card.stage.name === "Negotiation" ? "Deposit due" : "Sent", "pill")) },
+            { label: "Estimating", rows: (!fieldFiltered && (!group || group === "estimating") ? leads.filter((card) => card.stage.name !== "Estimate sent" && card.stage.name !== "Negotiation" && (!needle || card.lead.title.toLowerCase().includes(needle))) : []).map((card) => leadRow(card, "Draft", "pill")) },
             { label: "Completed", rows: (!group || group === "complete" ? rows.filter((row) => row.project.status === "complete" && (!needle || row.project.name.toLowerCase().includes(needle))) : []).map((row) => projectRow(row, "Paid")) },
           ]}
           status={`${rows.length + leads.length} jobs · Contract ${money ? formatWhole(contractTotal) : ""} · Spent ${money ? formatWhole(spentTotal) : ""}`}
