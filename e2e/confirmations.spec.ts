@@ -42,7 +42,7 @@ test("office request, vendor confirm and decline, inbox, and a move that resets"
   await expect(look.getByText("Homeowner home after 3")).toHaveCount(0);
   await expect(look.getByText(/\$/)).toHaveCount(0);
   await look.getByRole("link", { name: "4", exact: true }).click();
-  await expect(page.locator("[data-lookahead=4]")).toBeVisible();
+  await expect(page.locator('[data-lookahead="4"]')).toBeVisible();
   await expect(page.getByRole("region", { name: "Look-ahead" }).getByText("Tile shower")).toHaveCount(0);
   await shot(page, "vendor-lookahead-light");
   await page.emulateMedia({ colorScheme: "dark" });
@@ -59,7 +59,6 @@ test("office request, vendor confirm and decline, inbox, and a move that resets"
   await expect(trim.getByText("Declined", { exact: true })).toBeVisible();
   await expect(trim.getByText("Need the valve spec")).toBeVisible();
 
-  await signIn(page);
   await page.goto("/schedule/items/sch_ok_plumb");
   await expect(page.locator("[data-confirm=confirmed]")).toHaveText("Confirmed");
   await expect(page.getByText("Harbor Plumbing").first()).toBeVisible();
@@ -69,13 +68,14 @@ test("office request, vendor confirm and decline, inbox, and a move that resets"
 
   await page.goto("/schedule/items/sch_ok_trim");
   await expect(page.locator("[data-confirm=declined]")).toHaveText("Declined");
-  await expect(page.getByText("Need the valve spec")).toBeVisible();
+  await expect(page.getByText("Need the valve spec", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Propose date" }).click();
-  await expect(page.getByRole("status").filter({ hasText: "Requested." })).toBeVisible();
+  await expect(page.locator("[data-confirm=requested]")).toHaveText("Requested");
+  await expect(page.getByLabel("End", { exact: true })).toHaveValue("2026-10-20");
 
   await page.goto("/schedule/items/sch_ok_rough");
   await expect(page.locator("[data-confirm=confirmed]")).toHaveText("Confirmed");
-  await page.getByLabel("End").fill("2026-11-20");
+  await page.getByLabel("End", { exact: true }).fill("2026-11-20");
   await page.getByRole("button", { name: "Save" }).click();
   await expect(page.getByRole("status")).toContainText("Resets Rough-in");
   await page.getByRole("button", { name: /Resets Rough-in/ }).click();

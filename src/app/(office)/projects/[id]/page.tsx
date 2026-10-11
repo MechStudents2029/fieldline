@@ -112,7 +112,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
       <div className={full ? "hidden" : "hidden w-[300px] shrink-0 lg:block"}>
         <JobList items={items} selected={`/projects/${detail.project.id}`} />
       </div>
-      <div className={full ? "min-h-0 w-full flex-1 px-4 py-4" : "min-w-0 flex-1 md:flex md:flex-col"}>
+      <div className={full ? "flex min-h-0 w-full flex-1 flex-col px-4 py-4" : "min-w-0 flex-1 md:flex md:flex-col"}>
       <div className={full ? "hidden" : "hidden md:block"}>
         <Toolbar
           title={detail.project.name}
@@ -481,7 +481,8 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
       ) : null}
       {money ? <ReceiptCapture projectId={detail.project.id} codes={costCodes} /> : null}
       </div>
-      <section id="schedule" className="flex flex-col gap-2">
+      </div>
+      <section id="schedule" className={full ? "flex min-h-0 flex-1 flex-col gap-2" : "flex flex-col gap-2 md:px-6 md:pb-8"}>
         <div className="flex items-center justify-between gap-2">
           <span className="flex items-baseline gap-2">
             <h2 className="fl-section">Schedule</h2>
@@ -615,7 +616,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
           </SheetButton>
         ) : null}
       </section>
-      <section id="photos" className={full ? "hidden" : "mac-docs flex flex-col gap-3"}>
+      <section id="photos" className={full ? "hidden" : "mac-docs flex flex-col gap-3 md:px-6"}>
         <h2 className="fl-section">Photos</h2>
         <div className="grid grid-cols-3 gap-2">
           {detail.photos
@@ -643,7 +644,6 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
           </li>
         ))}
       </GroupedList>
-      </div>
       </div>
       </div>
       <aside className={full ? "hidden" : "mac-inspector"} aria-label="Inspector">
