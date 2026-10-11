@@ -39,6 +39,7 @@ import {
 import { id, nowIso } from "@/lib/ids";
 import { canEditCrm, canManageSettings } from "@/lib/permissions";
 import { fieldConditionMet, setStoredField } from "@/lib/services/custom-fields";
+import { resetConfirmedOnHold, systemRequestConfirmation } from "@/lib/services/confirmations";
 import { addWorkdays, dateFromOffset, endFromDuration } from "@/lib/schedule/workdays";
 import { ServiceError } from "@/lib/services/errors";
 import type { Actor } from "@/lib/services/read";
@@ -53,6 +54,8 @@ export type Trigger =
   | { kind: "job_status"; status: string }
   | { kind: "proposal_signed" }
   | { kind: "schedule_done" }
+  | { kind: "schedule_declined" }
+  | { kind: "unconfirmed_before"; days: number }
   | { kind: "inspection_result"; result: string }
   | { kind: "punch_verified" }
   | { kind: "invoice_overdue"; days: number }
@@ -79,6 +82,7 @@ export type Action =
   | { kind: "punch"; title: string }
   | { kind: "hold" }
   | { kind: "release" }
+  | { kind: "request_confirmation" }
   | { kind: "schedule_talk"; topicId: string; withinWorkdays: number }
   | { kind: "set_field"; fieldId: string; value: string };
 
@@ -136,6 +140,12 @@ export function parseTrigger(raw: string): Trigger | null {
   if (row.kind === "job_status" && (row.status === "active" || row.status === "complete")) return { kind: "job_status", status: row.status };
   if (row.kind === "proposal_signed") return { kind: "proposal_signed" };
   if (row.kind === "schedule_done") return { kind: "schedule_done" };
+  if (row.kind === "schedule_declined") return { kind: "schedule_declined" };
+  if (row.kind === "unconfirmed_before") {
+    const days = daysOf(row.days);
+    if (days == null) return null;
+    return { kind: "unconfirmed_before", days };
+  }
   if (row.kind === "inspection_result" && (row.result === "passed" || row.result === "failed")) return { kind: "inspection_result", result: row.result };
   if (row.kind === "punch_verified") return { kind: "punch_verified" };
   if (row.kind === "invoice_overdue") {
@@ -199,6 +209,7 @@ export function parseActions(raw: string): Action[] {
     else if (row.kind === "set_status" && (row.status === "active" || row.status === "complete")) out.push({ kind: "set_status", status: row.status });
     else if (row.kind === "punch") out.push({ kind: "punch", title: typeof row.title === "string" ? row.title : "" });
     else if (row.kind === "hold") out.push({ kind: "hold" });
+    else if (row.kind === "request_confirmation") out.push({ kind: "request_confirmation" });
     else if (row.kind === "release") out.push({ kind: "release" });
     else if (row.kind === "schedule_talk" && typeof row.topicId === "string") {
       const withinWorkdays = daysOf(row.withinWorkdays);
@@ -214,6 +225,8 @@ export function triggerLabel(trigger: Trigger): string {
   if (trigger.kind === "job_status") return trigger.status === "active" ? "Job active" : "Job complete";
   if (trigger.kind === "proposal_signed") return "Proposal signed";
   if (trigger.kind === "schedule_done") return "Schedule done";
+  if (trigger.kind === "schedule_declined") return "Schedule item declined";
+  if (trigger.kind === "unconfirmed_before") return `Unconfirmed ${trigger.days}d before start`;
   if (trigger.kind === "inspection_result") return trigger.result === "failed" ? "Inspection failed" : "Inspection passed";
   if (trigger.kind === "punch_verified") return "Punch verified";
   if (trigger.kind === "invoice_overdue") return `Invoice overdue ${trigger.days}d`;
@@ -228,6 +241,10 @@ function triggerMatches(trigger: Trigger, event: AutomationEvent) {
   if (trigger.kind === "job_status") return event.status === trigger.status;
   if (trigger.kind === "inspection_result") return event.status === trigger.result;
   if (trigger.kind === "invoice_overdue") return (event.days ?? -1) >= trigger.days;
+  if (trigger.kind === "unconfirmed_before") {
+    const days = event.days ?? -1;
+    return days >= 0 && days <= trigger.days;
+  }
   if (trigger.kind === "vendor_expiring") {
     const days = event.days ?? 9999;
     return event.cert === trigger.cert && days >= 0 && days <= trigger.days;
@@ -662,11 +679,19 @@ function runAction(rule: { id: string; name: string }, action: Action, event: Au
     audit(event.orgId, ruleName, "toolbox_talk", talkId, { topicId: topic.id, withinWorkdays: action.withinWorkdays });
     return line;
   }
+  if (action.kind === "request_confirmation") {
+    const itemId = event.scheduleItemId || (event.recordType === "schedule_item" ? event.recordId : "");
+    const line = "Request confirmation";
+    if (dry) return line;
+    if (!itemId) return "No schedule item";
+    return systemRequestConfirmation(event.orgId, itemId);
+  }
   const ids = gateIds(event);
   const names = itemNames(event.orgId, ids);
   const line = `${action.kind === "hold" ? "Hold" : "Release"}${names.length ? ` ${names.join(", ")}` : ""}`;
   if (dry) return line.trim();
   if (ids.length === 0) return "No schedule item";
+  if (action.kind === "hold") resetConfirmedOnHold(event.orgId, ids);
   db.update(scheduleItems)
     .set({ held: action.kind === "hold" ? 1 : 0, updatedAt: nowIso() })
     .where(and(eq(scheduleItems.orgId, event.orgId), inArray(scheduleItems.id, ids)))
@@ -826,6 +851,23 @@ export function scanAutomationClock(orgId: string) {
       days: row.expectedReturn ? daySpan(row.expectedReturn, today) : 0,
     });
   }
+  const items = db.select().from(scheduleItems).where(eq(scheduleItems.orgId, orgId)).all();
+  for (const item of items) {
+    if (!item.vendorContactId || item.confirmStatus === "confirmed") continue;
+    const days = daySpan(today, item.startDate);
+    if (days < 0) continue;
+    emitAutomation({
+      orgId,
+      kind: "unconfirmed_before",
+      recordType: "schedule_item",
+      recordId: item.id,
+      recordLabel: item.title,
+      projectId: item.projectId,
+      name: item.title,
+      days,
+      scheduleItemId: item.id,
+    });
+  }
   const after = getDb().select().from(automationRuns).where(eq(automationRuns.orgId, orgId)).all().length;
   return { ran: after - before };
 }
@@ -924,7 +966,7 @@ export function formOptions(orgId: string) {
 
 export function previewRecordLabel(trigger: Trigger) {
   if (trigger.kind === "job_status" || trigger.kind === "proposal_signed") return "Job";
-  if (trigger.kind === "schedule_done") return "Schedule item";
+  if (trigger.kind === "schedule_done" || trigger.kind === "schedule_declined" || trigger.kind === "unconfirmed_before") return "Schedule item";
   if (trigger.kind === "inspection_result") return "Inspection";
   if (trigger.kind === "punch_verified") return "Punch item";
   if (trigger.kind === "invoice_overdue") return "Invoice";
@@ -939,7 +981,7 @@ export function previewChoices(orgId: string, trigger: Trigger) {
   if (trigger.kind === "job_status" || trigger.kind === "proposal_signed") {
     return db.select().from(projects).where(eq(projects.orgId, orgId)).all().map((row) => ({ id: row.id, label: row.name }));
   }
-  if (trigger.kind === "schedule_done" || trigger.kind === "inspection_result") {
+  if (trigger.kind === "schedule_done" || trigger.kind === "schedule_declined" || trigger.kind === "unconfirmed_before" || trigger.kind === "inspection_result") {
     if (trigger.kind === "inspection_result") {
       return db
         .select()
@@ -1009,6 +1051,23 @@ function eventFromRecord(orgId: string, trigger: Trigger, recordId: string): Aut
     const item = db.select().from(scheduleItems).where(and(eq(scheduleItems.orgId, orgId), eq(scheduleItems.id, recordId))).get();
     if (!item) return null;
     return { orgId, kind: "schedule_done", recordType: "schedule_item", recordId: item.id, recordLabel: item.title, projectId: item.projectId, name: item.title, scheduleItemId: item.id };
+  }
+  if (trigger.kind === "schedule_declined" || trigger.kind === "unconfirmed_before") {
+    const item = db.select().from(scheduleItems).where(and(eq(scheduleItems.orgId, orgId), eq(scheduleItems.id, recordId))).get();
+    if (!item) return null;
+    const days = daySpan(todayFor(orgId), item.startDate);
+    return {
+      orgId,
+      kind: trigger.kind,
+      recordType: "schedule_item",
+      recordId: item.id,
+      recordLabel: item.title,
+      projectId: item.projectId,
+      name: item.title,
+      days,
+      scheduleItemId: item.id,
+      status: item.confirmStatus ?? "",
+    };
   }
   if (trigger.kind === "inspection_result") {
     const inspection = db.select().from(inspections).where(and(eq(inspections.orgId, orgId), eq(inspections.id, recordId))).get();
@@ -1169,6 +1228,8 @@ export function ruleFromForm(formData: FormData): RuleDraft {
     if (status === "active" || status === "complete") trigger = { kind: "job_status", status };
   } else if (kind === "proposal_signed") trigger = { kind: "proposal_signed" };
   else if (kind === "schedule_done") trigger = { kind: "schedule_done" };
+  else if (kind === "schedule_declined") trigger = { kind: "schedule_declined" };
+  else if (kind === "unconfirmed_before" && days != null) trigger = { kind: "unconfirmed_before", days };
   else if (kind === "inspection_result") {
     const result = formText(formData, "result");
     if (result === "passed" || result === "failed") trigger = { kind: "inspection_result", result };
@@ -1227,6 +1288,7 @@ export function ruleFromForm(formData: FormData): RuleDraft {
       actions.push({ kind: "set_status", status });
     } else if (actionKind === "punch") actions.push({ kind: "punch", title });
     else if (actionKind === "hold") actions.push({ kind: "hold" });
+    else if (actionKind === "request_confirmation") actions.push({ kind: "request_confirmation" });
     else if (actionKind === "release") actions.push({ kind: "release" });
     else if (actionKind === "schedule_talk") {
       const topicId = formText(formData, `a${slot}topic`);

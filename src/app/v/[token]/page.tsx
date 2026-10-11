@@ -12,8 +12,10 @@ import { vendorTodos } from "@/lib/services/todos";
 
 export const dynamic = "force-dynamic";
 
-export default async function VendorPortalPage({ params }: { params: Promise<{ token: string }> }) {
+export default async function VendorPortalPage({ params, searchParams }: { params: Promise<{ token: string }>; searchParams: Promise<{ weeks?: string }> }) {
   const { token } = await params;
+  const query = await searchParams;
+  const weeks = query.weeks === "4" ? 4 : 2;
   const home = vendorPortal(token);
   if (!home) notFound();
   const bids = vendorBidPortal(token) ?? [];
@@ -29,6 +31,7 @@ export default async function VendorPortalPage({ params }: { params: Promise<{ t
       waivers={vendorPortalWaivers(token) ?? []}
       files={vendorPortalFiles(token) ?? []}
       pins={vendorPortalPins(token)}
+      weeks={weeks}
     />
   );
 }

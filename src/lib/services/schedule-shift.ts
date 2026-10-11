@@ -10,6 +10,7 @@ import { ServiceError } from "@/lib/services/errors";
 import type { Actor } from "@/lib/services/read";
 import { linkedDeadline } from "@/lib/todos/deadline";
 import { refreshLinkedTodos } from "@/lib/services/todos";
+import { applyConfirmationResets, shiftsThatReset } from "@/lib/services/confirmations";
 import { cleanDelay, delayRequirement, writeDelay } from "@/lib/services/schedule-plan";
 import { calendarForOrg } from "@/lib/services/time";
 import { workCalendarFor } from "@/lib/services/work-calendar";
@@ -86,11 +87,14 @@ export function previewScheduleShift(actor: Actor, itemId: string, startDate: st
   const item = db.select().from(scheduleItems).where(and(eq(scheduleItems.orgId, actor.orgId), eq(scheduleItems.id, itemId))).get();
   const count = shifts.length + (item ? todoMoves(db, actor.orgId, item.projectId, shifts) : 0);
   const delay = delayRequirement(actor, itemId, endDate);
-  return { count, label: movesLabel(count), shifts, needsReason: Boolean(delay), days: delay?.days ?? 0 };
+  const resets = shiftsThatReset(db, actor.orgId, shifts);
+  const label = resets.length ? `${movesLabel(count)} · Resets ${resets.map((row) => row.title).join(", ")}` : movesLabel(count);
+  return { count, label, shifts, resets, needsReason: Boolean(delay), days: delay?.days ?? 0 };
 }
 
 export function writeScheduleShifts(db: AppDatabase, actor: Actor, shifts: ScheduleShift[]) {
   if (shifts.length === 0) return;
+  applyConfirmationResets(db, actor, shifts);
   const now = nowIso();
   for (const shift of shifts) {
     db.update(scheduleItems)

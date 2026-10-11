@@ -33,6 +33,7 @@ import { noticesFor } from "@/lib/services/automations";
 import { safetyQueue } from "@/lib/services/safety";
 import { equipmentQueue } from "@/lib/services/equipment";
 import { inspectionQueue } from "@/lib/services/permits";
+import { unconfirmedSoon } from "@/lib/services/confirmations";
 import { slippedSchedule } from "@/lib/services/schedule-plan";
 import { staleClientUpdates } from "@/lib/services/client-updates";
 import { overdueSelections } from "@/lib/services/selections";
@@ -228,6 +229,8 @@ export default async function TodayPage() {
   push("updates", staleUpdates.count, staleUpdates.href, "Client updates", String(staleUpdates.count));
   push("unbilled", agedCosts.count, agedCosts.href, "Unbilled costs", String(agedCosts.count));
   push("slip", scheduleSlip.count, scheduleSlip.href, "Schedule slip", String(scheduleSlip.count));
+  const unconfirmed = unconfirmedSoon(session.orgId);
+  push("unconfirmed", unconfirmed.count, unconfirmed.count > 0 ? unconfirmed.href : null, `${unconfirmed.count} unconfirmed starting in ${unconfirmed.days} days`, String(unconfirmed.count));
   push("inspections", inspections.upcoming.count, inspections.upcoming.href, "Inspections", String(inspections.upcoming.count));
   push("failed-inspections", inspections.failed.count, inspections.failed.href, "Failed inspections", String(inspections.failed.count));
   push("permits", inspections.expiring.count, inspections.expiring.href, "Permits expiring", String(inspections.expiring.count));

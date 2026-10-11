@@ -118,10 +118,10 @@ export function GanttBoard({ model, critical = false, printHref, chrome = true }
     if (preview.needsReason) {
       setReason("");
       setNote("");
-      setDelay({ id, startDate, endDate, days: preview.days, label: preview.count > 1 ? preview.label : undefined });
+      setDelay({ id, startDate, endDate, days: preview.days, label: preview.count > 1 || (preview.resets?.length ?? 0) > 0 ? preview.label : undefined });
       return;
     }
-    if (preview.count > 1) {
+    if (preview.count > 1 || (preview.resets?.length ?? 0) > 0) {
       setConfirm({ id, startDate, endDate, label: preview.label });
       return;
     }
@@ -264,9 +264,10 @@ export function GanttBoard({ model, critical = false, printHref, chrome = true }
                 <tr key={line.bar.id} style={{ height: ROW }}>
                   <td>
                     <span className="flex items-center gap-1">
-                      <a href={line.bar.href} className="truncate">
+                      <a href={line.bar.href} className="gantt-name">
                         {line.bar.title}
                       </a>
+                      {line.bar.confirm ? <span className="fl-pill fl-pill-sm" data-confirm={line.bar.id}>{line.bar.confirm}</span> : null}
                       {line.bar.held ? <span className="fl-pill fl-pill-sm" data-held={line.bar.id}>Held</span> : null}
                     </span>
                   </td>

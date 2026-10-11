@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { addCostAction, addWorkExceptionAction, createCoAction, draftCoAction, issueInvoiceAction, noteAction, photoAction, removeWorkExceptionAction, setBaselineAction, taskAction } from "@/app/actions";
+import { addCostAction, addWorkExceptionAction, createCoAction, draftCoAction, issueInvoiceAction, noteAction, photoAction, removeWorkExceptionAction, requestRangeAction, setBaselineAction, taskAction } from "@/app/actions";
 import { ActionForm } from "@/components/action-form";
 import { GroupedList, GroupedRow, NumberStrip } from "@/components/ios";
 import { JobList, type JobListItem } from "@/components/mac/job-list";
@@ -20,6 +20,8 @@ import { projectPurchaseOrders } from "@/lib/services/purchase-orders";
 import { captionFromMetadata, listPriceBook, listProjects, pipelineBoard, projectDetail } from "@/lib/services/read";
 import { jobInspectionMarks, scheduleGateLabels } from "@/lib/services/permits";
 import { GanttBoard } from "@/components/gantt-board";
+import { SheetButton } from "@/components/sheet-button";
+import { confirmPill } from "@/lib/schedule/confirm";
 import { Segmented } from "@/components/mac/toolbar";
 import { cleanZoom } from "@/lib/schedule/gantt";
 import { jobGantt } from "@/lib/services/gantt";
@@ -76,8 +78,8 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
   if (cleanZoom(query.zoom)) setPref(session, "ganttZoom", query.zoom!);
   const requestedView = query.view === "gantt" || query.view === "list" ? query.view : null;
   if (requestedView) setPref(session, "jobScheduleView", requestedView);
-  const scheduleView = requestedView ?? (getPref(session, "jobScheduleView") === "gantt" ? "gantt" : "list");
-  const gantt = scheduleView === "gantt" ? jobGantt(session, detail.project.id, zoom) : null;
+  const full = query.view === "gantt" || query.view === "list";
+  const gantt = query.view === "gantt" ? jobGantt(session, detail.project.id, zoom) : null;
   const marks = jobInspectionMarks(session, detail.project.id);
   const gates = scheduleGateLabels(session.orgId);
   const compare = scheduleCompare(session, detail.project.id);
@@ -106,12 +108,12 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
     ...projectRows.filter((row) => row.project.status === "complete").map((row) => ({ href: `/projects/${row.project.id}`, title: row.project.name, subtitle: where(row.project.address), group: "Completed" })),
   ];
   return (
-    <div className="mx-auto flex max-w-lg flex-col gap-7 pb-8 md:mx-0 md:max-w-none md:flex-row md:gap-0 md:pb-0">
-      <div className="hidden w-[300px] shrink-0 lg:block">
+    <div className={full ? "flex min-h-0 w-full flex-1 flex-col" : "mx-auto flex max-w-lg flex-col gap-7 pb-8 md:mx-0 md:max-w-none md:flex-row md:gap-0 md:pb-0"}>
+      <div className={full ? "hidden" : "hidden w-[300px] shrink-0 lg:block"}>
         <JobList items={items} selected={`/projects/${detail.project.id}`} />
       </div>
-      <div className="min-w-0 flex-1 md:flex md:flex-col">
-      <div className="hidden md:block">
+      <div className={full ? "min-h-0 w-full flex-1 px-4 py-4" : "min-w-0 flex-1 md:flex md:flex-col"}>
+      <div className={full ? "hidden" : "hidden md:block"}>
         <Toolbar
           title={detail.project.name}
           subtitle={`${detail.contact.name}${detail.project.address ? ` · ${detail.project.address}` : ""}`}
@@ -129,7 +131,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
           }
         />
       </div>
-      <div className="md:px-6 md:pb-8">
+      <div className={full ? "hidden" : "md:px-6 md:pb-8"}>
       {detail.project.templateName ? (
         <p className="mb-3 hidden mac-t11 text-[var(--mac-secondary)] md:block">
           {detail.project.templateName} v{detail.project.templateVersion}
@@ -146,7 +148,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
           </Link>
         ) : null}
       </p>
-      <div className="fl-safe-top md:hidden">
+      <div className={full ? "hidden" : "fl-safe-top md:hidden"}>
         <Link href="/projects" className="fl-body text-[var(--fl-accent)]">
           ‹ Jobs
         </Link>
@@ -311,7 +313,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
           </ul>
         </div>
       ) : null}
-      <div id="overview">
+      <div id="overview" className={full ? "hidden" : undefined}>
         <GroupedList label="Today">
           {crew.map((person) => (
             <GroupedRow
@@ -362,7 +364,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
           <ReceiptCapture projectId={detail.project.id} codes={listPriceBook(session.orgId).map((item) => item.code)} allowPost={false} />
         </section>
       ) : null}
-      <section className="flex flex-col gap-3 md:hidden">
+      <section className={full ? "hidden" : "flex flex-col gap-3 md:hidden"}>
         <h2 className="fl-section">Change orders</h2>
         <ul className="fl-group">
           {detail.orders.map((order) => (
@@ -395,7 +397,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
           </ActionForm>
         </div>
       ) : null}
-      <div className="flex flex-col gap-7">
+      <div className={full ? "hidden" : "flex flex-col gap-7"}>
       {money ? (
         <GroupedList label="Invoices">
           {detail.invoices.map((invoice) => (
@@ -459,7 +461,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
           ))}
         </GroupedList>
       ) : null}
-      <div className="flex flex-col gap-7 md:hidden">
+      <div className={full ? "hidden" : "flex flex-col gap-7 md:hidden"}>
       {money ? (
         <ActionForm action={addCostAction.bind(null, detail.project.id)} className="grid gap-2">
           <input name="vendor" placeholder="Vendor" className="field" />
@@ -501,8 +503,8 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
             ) : null}
             <Segmented
               items={[
-                { href: `/projects/${detail.project.id}?view=list#schedule`, label: "List", current: scheduleView !== "gantt" },
-                { href: `/projects/${detail.project.id}?view=gantt&zoom=${zoom}#schedule`, label: "Gantt", current: scheduleView === "gantt" },
+                { href: `/projects/${detail.project.id}?view=list#schedule`, label: "List", current: query.view !== "gantt" },
+                { href: `/projects/${detail.project.id}?view=gantt&zoom=${zoom}#schedule`, label: "Gantt", current: query.view === "gantt" },
               ]}
             />
           </span>
@@ -520,22 +522,24 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
           </div>
         ) : null}
         {marks.length > 0 ? (
-          <ul className="fl-group" aria-label="Inspections">
-            {marks.map((mark) => (
-              <li key={mark.id}>
-                <Link href={`/projects/${detail.project.id}/permits?inspection=${mark.id}`} className="fl-cell fl-press">
-                  <span className="min-w-0 flex-1">
-                    <span className="fl-body block truncate">
-                      {mark.name}
-                      {mark.attempt > 1 ? ` ${mark.attempt}` : ""}
+          <SheetButton label="Inspections">
+            <ul className="fl-group" aria-label="Inspections">
+              {marks.map((mark) => (
+                <li key={mark.id}>
+                  <Link href={`/projects/${detail.project.id}/permits?inspection=${mark.id}`} className="fl-cell fl-press">
+                    <span className="min-w-0 flex-1">
+                      <span className="fl-body block truncate">
+                        {mark.name}
+                        {mark.attempt > 1 ? ` ${mark.attempt}` : ""}
+                      </span>
+                      <span className="fl-footnote text-[var(--fl-secondary)]">{mark.date ? formatCalendarDay(mark.date) : "—"}</span>
                     </span>
-                    <span className="fl-footnote text-[var(--fl-secondary)]">{mark.date ? formatCalendarDay(mark.date) : "—"}</span>
-                  </span>
-                  <span className="fl-pill">{mark.resultLabel}</span>
-                </Link>
-              </li>
-            ))}
-          </ul>
+                    <span className="fl-pill">{mark.resultLabel}</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </SheetButton>
         ) : null}
         {gantt ? null : <ul className="fl-group">
           {schedule.length === 0 ? <li className="fl-cell">No items</li> : null}
@@ -556,12 +560,26 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
                 <LinkedRfis rows={(rfiBoard?.items ?? []).filter((rfi) => rfi.relatedType === "schedule" && rfi.relatedId === item.id && rfi.status !== "void")} />
               </span>
               {late ? <span className="text-[11px] text-[var(--mac-secondary)]">RFI</span> : null}
+              {confirmPill(item.confirmStatus) ? <span className="fl-pill fl-pill-sm">{confirmPill(item.confirmStatus)}</span> : null}
               <span className="fl-pill">{item.status === "planned" ? "Planned" : item.status === "confirmed" ? "Confirmed" : item.status === "done" ? "Done" : item.status}</span>
             </li>
             );
           })}
         </ul>}
+        {canEditSchedule(session.role) ? (
+          <SheetButton label="Confirm">
+            <ActionForm action={requestRangeAction} className="flex flex-wrap items-center gap-2">
+              <input type="hidden" name="projectId" value={detail.project.id} />
+              <input name="from" aria-label="Confirm from" type="date" className="ctl" required />
+              <input name="to" aria-label="Confirm to" type="date" className="ctl" required />
+              <button type="submit" className="ctl">
+                Request
+              </button>
+            </ActionForm>
+          </SheetButton>
+        ) : null}
         {jobDays.length > 0 || canEditSchedule(session.role) ? (
+          <SheetButton label="Days">
           <div className="flex flex-col gap-2">
             {jobDays.map((day) => (
               <div key={day.id} className="flex items-center gap-2 mac-t13">
@@ -594,9 +612,10 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
               </ActionForm>
             ) : null}
           </div>
+          </SheetButton>
         ) : null}
       </section>
-      <section id="photos" className="mac-docs flex flex-col gap-3">
+      <section id="photos" className={full ? "hidden" : "mac-docs flex flex-col gap-3"}>
         <h2 className="fl-section">Photos</h2>
         <div className="grid grid-cols-3 gap-2">
           {detail.photos
@@ -613,7 +632,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
         </div>
         {session.role !== "viewer" ? <PhotoCapture action={photoAction.bind(null, detail.project.id)} label="Take a job photo" submitLabel="Save photo" /> : null}
       </section>
-      <div className="md:hidden">
+      <div className={full ? "hidden" : "md:hidden"}>
       <GroupedList label="Activity">
         {detail.timeline.map((item) => (
           <li key={item.id} className="fl-cell">
@@ -627,7 +646,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
       </div>
       </div>
       </div>
-      <aside className="mac-inspector" aria-label="Inspector">
+      <aside className={full ? "hidden" : "mac-inspector"} aria-label="Inspector">
         <p className="mac-t11 font-semibold text-[var(--mac-secondary)]">Details</p>
         <RecordFields
           rows={fieldRows(session, "job", detail.project.id, query.fields === "1" ? "edit" : "read")}

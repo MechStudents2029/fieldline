@@ -1,5 +1,6 @@
 import { and, eq } from "drizzle-orm";
 import type { AppDatabase } from "@/lib/db/client";
+import { autoRequestAssigned } from "@/lib/services/confirmations";
 import { officeDb } from "@/lib/db/office";
 import {
   auditLogs,
@@ -801,6 +802,7 @@ function applyParts(
           createdBy: actor.userId,
         })
         .run();
+      if (task.trade && vendors.get(task.trade)) autoRequestAssigned(tx, actor.orgId, itemId, actor.userId);
       schedule += 1;
     }
     for (const link of bundle.links) {

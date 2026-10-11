@@ -66,6 +66,7 @@ import {
   scheduleBaselineItems,
   scheduleBaselines,
   scheduleDelays,
+  scheduleConfirmations,
   scheduleItems,
   workdayExceptions,
   selectionChoices,
@@ -170,7 +171,7 @@ import {
   WEBSITE_FORM_SOURCE,
 } from "@/lib/lead-form/rules";
 
-export const SEED_VERSION = "43";
+export const SEED_VERSION = "44";
 
 const ORG = "org_rivera";
 const NORTH = "org_northline";
@@ -2189,10 +2190,16 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
     vendorContactId?: string | null;
     phase?: string | null;
     progressBps?: number;
+    confirmStatus?: string | null;
+    confirmReason?: string;
+    confirmProposed?: string | null;
+    confirmRequestedBy?: string | null;
   }[] = [
     { id: "sch_ok_demo", projectId: "proj_okonkwo", title: "Demo", start: addCalendarDays(today, -2), end: addCalendarDays(today, -1), time: null, status: "done", note: null, assignees: [], phase: "Rough", progressBps: 10000 },
     { id: "sch_ok_tile", projectId: "proj_okonkwo", title: "Tile shower", start: today, end: tomorrow, time: "07:30", status: "confirmed", note: "Homeowner home after 3", assignees: ["user_dana"], phase: "Finish", progressBps: 4000 },
-    { id: "sch_ok_plumb", projectId: "proj_okonkwo", title: "Set the valve", start: today, end: today, time: "09:00", status: "confirmed", note: null, assignees: [], vendorContactId: "c_harbor", phase: "Rough", progressBps: 2000 },
+    { id: "sch_ok_plumb", projectId: "proj_okonkwo", title: "Set the valve", start: today, end: today, time: "09:00", status: "confirmed", note: null, assignees: [], vendorContactId: "c_harbor", phase: "Rough", progressBps: 2000, confirmStatus: "requested", confirmRequestedBy: "user_maya" },
+    { id: "sch_ok_rough", projectId: "proj_okonkwo", title: "Rough-in", start: addCalendarDays(today, 6), end: addCalendarDays(today, 7), time: null, status: "planned", note: null, assignees: [], vendorContactId: "c_harbor", phase: "Rough", confirmStatus: "confirmed", confirmRequestedBy: "user_maya" },
+    { id: "sch_ok_trim", projectId: "proj_okonkwo", title: "Trim out", start: addCalendarDays(today, 2), end: addCalendarDays(today, 2), time: null, status: "planned", note: null, assignees: [], vendorContactId: "c_harbor", phase: "Finish", confirmStatus: "declined", confirmReason: "Need the valve spec", confirmProposed: addCalendarDays(today, 5), confirmRequestedBy: "user_maya" },
     { id: "sch_chen_conflict", projectId: "proj_chen", title: "Vanity set", start: today, end: today, time: null, status: "planned", note: null, assignees: ["user_dana"] },
     { id: "sch_br_frame", projectId: "proj_brooks", title: "Framing walk", start: scheduleDay(0), end: scheduleDay(1), time: "08:00", status: "confirmed", note: null, assignees: ["user_luis"], phase: "Framing", progressBps: 6000 },
     { id: "sch_ok_walk", projectId: "proj_okonkwo", title: "Client walk", start: scheduleDay(4), end: scheduleDay(4), time: null, status: "planned", note: null, assignees: ["user_maya"], phase: "Finish" },
@@ -2214,6 +2221,10 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
         status: item.status,
         note: item.note,
         vendorContactId: item.vendorContactId ?? null,
+        confirmStatus: item.confirmStatus ?? null,
+        confirmReason: item.confirmReason ?? "",
+        confirmProposed: item.confirmProposed ?? null,
+        confirmRequestedBy: item.confirmRequestedBy ?? null,
         phase: item.phase ?? null,
         progressBps: item.progressBps ?? 0,
         createdAt: now,
@@ -2241,6 +2252,15 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
       { id: "slnk_ok_walk", orgId: ORG, projectId: "proj_okonkwo", itemId: "sch_ok_walk", predecessorId: "sch_ok_tile", lagWorkdays: 1 },
       { id: "slnk_br_dry", orgId: ORG, projectId: "proj_brooks", itemId: "sch_br_drywall", predecessorId: "sch_br_frame", lagWorkdays: 1 },
       { id: "slnk_br_del", orgId: ORG, projectId: "proj_brooks", itemId: "sch_br_delivery", predecessorId: "sch_br_drywall", lagWorkdays: 0 },
+    ])
+    .run();
+  db.insert(scheduleConfirmations)
+    .values([
+      { id: "scfm_plumb_req", orgId: ORG, itemId: "sch_ok_plumb", projectId: "proj_okonkwo", vendorContactId: "c_harbor", event: "requested", reason: "", proposedDate: null, actorName: "Maya Rivera", actorId: "user_maya", createdAt: daysAgo(1) },
+      { id: "scfm_rough_req", orgId: ORG, itemId: "sch_ok_rough", projectId: "proj_okonkwo", vendorContactId: "c_harbor", event: "requested", reason: "", proposedDate: null, actorName: "Maya Rivera", actorId: "user_maya", createdAt: daysAgo(3) },
+      { id: "scfm_rough_ok", orgId: ORG, itemId: "sch_ok_rough", projectId: "proj_okonkwo", vendorContactId: "c_harbor", event: "confirmed", reason: "", proposedDate: null, actorName: "Harbor Plumbing", actorId: null, createdAt: daysAgo(2) },
+      { id: "scfm_trim_req", orgId: ORG, itemId: "sch_ok_trim", projectId: "proj_okonkwo", vendorContactId: "c_harbor", event: "requested", reason: "", proposedDate: null, actorName: "Maya Rivera", actorId: "user_maya", createdAt: daysAgo(2) },
+      { id: "scfm_trim_no", orgId: ORG, itemId: "sch_ok_trim", projectId: "proj_okonkwo", vendorContactId: "c_harbor", event: "declined", reason: "Need the valve spec", proposedDate: addCalendarDays(today, 5), actorName: "Harbor Plumbing", actorId: null, createdAt: daysAgo(1) },
     ])
     .run();
 
@@ -2863,6 +2883,7 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
       orgId: ORG,
       contactId: "c_harbor",
       tokenHash: hashVendorToken(DEMO_HARBOR_PORTAL_TOKEN),
+      issuedToken: DEMO_HARBOR_PORTAL_TOKEN,
       createdAt: daysAgo(6),
       rotatedAt: null,
     })

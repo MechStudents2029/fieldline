@@ -13,6 +13,7 @@ import {
   projects,
   proposals,
   punchItems,
+  scheduleItems,
   tasks,
   timeEntries,
   users,
@@ -108,6 +109,7 @@ export function loadSource(actor: Actor, source: SourceId, today: string): Engin
   if (source === "todos") return loadTodoRows(actor);
   if (source === "certificates") return loadCerts(db, actor.orgId, today);
   if (source === "cash") return loadCash(actor);
+  if (source === "confirmations") return loadConfirmations(db, actor.orgId);
   return loadPunch(db, actor.orgId);
 }
 
@@ -407,6 +409,29 @@ function loadCerts(db: AppDatabase, orgId: string, today: string): EngineRow[] {
         },
       };
     });
+}
+
+function loadConfirmations(db: AppDatabase, orgId: string): EngineRow[] {
+  const jobs = new Map(db.select().from(projects).where(eq(projects.orgId, orgId)).all().map((project) => [project.id, project.name]));
+  const vendors = new Map(db.select().from(contacts).where(eq(contacts.orgId, orgId)).all().map((row) => [row.id, row.company?.trim() || row.name]));
+  return db
+    .select()
+    .from(scheduleItems)
+    .where(eq(scheduleItems.orgId, orgId))
+    .all()
+    .filter((row) => row.vendorContactId)
+    .map((row) => ({
+      id: row.id,
+      href: `/schedule/items/${row.id}`,
+      cells: {
+        job: text(jobs.get(row.projectId) ?? ""),
+        item: text(row.title),
+        vendor: text(vendors.get(row.vendorContactId ?? "") ?? ""),
+        status: text(row.confirmStatus === "requested" ? "Requested" : row.confirmStatus === "confirmed" ? "Confirmed" : row.confirmStatus === "declined" ? "Declined" : ""),
+        start: date(row.startDate),
+        proposed: date(row.confirmProposed ?? ""),
+      },
+    }));
 }
 
 function loadPunch(db: AppDatabase, orgId: string): EngineRow[] {

@@ -33,8 +33,12 @@ test("calibrate, measure, and update the draft estimate", async ({ page, request
   if (!again) throw new Error("Plan canvas has no box");
   await canvas.click({ position: { x: again.width * 0.3, y: again.height * 0.7 } });
   await canvas.click({ position: { x: again.width * 0.6, y: again.height * 0.7 } });
-  await page.getByLabel("Name").fill("Bench");
-  await page.getByRole("button", { name: "Use" }).click();
+  const pane = page.locator("[data-takeoff-pane]");
+  await expect(pane.getByLabel("Name")).toBeVisible();
+  await expect(page.locator("[data-bar=takeoff]").getByLabel("Name")).toHaveCount(0);
+  await expect(page.locator("[data-bar=takeoff]").getByLabel("Standard scale")).toBeVisible();
+  await pane.getByLabel("Name").fill("Bench");
+  await pane.getByRole("button", { name: "Use" }).click();
   await expect(page.getByRole("button", { name: "Bench" })).toBeVisible();
   await page.getByRole("button", { name: "Walls" }).click();
   await shot(page, "takeoff-plan-light");

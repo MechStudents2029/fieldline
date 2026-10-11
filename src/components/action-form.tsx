@@ -36,6 +36,29 @@ export function ActionForm({
           {state.ok}
         </p>
       ) : null}
+      {state?.confirmMessage ? (
+        <div className="flex flex-col gap-2">
+          {state.confirmUrl ? (
+            <label className="text-sm">
+              Portal link
+              <input readOnly value={state.confirmUrl} aria-label="Portal link" className="field mt-1" />
+            </label>
+          ) : null}
+          <label className="text-sm">
+            Message
+            <textarea readOnly value={state.confirmMessage} aria-label="Message" rows={2} className="field mt-1" />
+          </label>
+          <button
+            type="button"
+            className="ctl w-fit"
+            onClick={() => {
+              void navigator.clipboard.writeText([state.confirmMessage, state.confirmUrl].filter(Boolean).join("\n"));
+            }}
+          >
+            Copy
+          </button>
+        </div>
+      ) : null}
       {state?.inviteUrl ? (
         <div className="flex flex-col gap-2 rounded-lg bg-muted p-3">
           <p role="status" className="text-sm">

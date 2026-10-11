@@ -15,7 +15,7 @@ export const BUILDER_SOURCES = [
 
 export type BuilderSource = (typeof BUILDER_SOURCES)[number]["id"];
 
-export type SourceId = BuilderSource | "certificates" | "punch" | "cash";
+export type SourceId = BuilderSource | "certificates" | "punch" | "cash" | "confirmations";
 
 export type CatalogColumn = {
   key: string;
@@ -137,6 +137,14 @@ export const CATALOG: Record<SourceId, CatalogColumn[]> = {
     { key: "week", label: "Week", kind: "text" },
     { key: "net", label: "Net", kind: "money", money: true },
     { key: "balance", label: "Balance", kind: "money", money: true },
+  ],
+  confirmations: [
+    { key: "job", label: "Job", kind: "text" },
+    { key: "item", label: "Item", kind: "text" },
+    { key: "vendor", label: "Vendor", kind: "text" },
+    { key: "status", label: "Status", kind: "text" },
+    { key: "start", label: "Start", kind: "date" },
+    { key: "proposed", label: "Proposed", kind: "date" },
   ],
 };
 
@@ -271,6 +279,16 @@ export const BUILTINS: BuiltinReport[] = [
     }),
   },
   {
+    id: "confirmations",
+    name: "Confirmations",
+    source: "confirmations",
+    field: false,
+    query: query({
+      columns: ["job", "item", "vendor", "status", "start", "proposed"],
+      sort: "start",
+    }),
+  },
+  {
     id: "cash_13",
     name: "13-week cash",
     source: "cash",
@@ -297,7 +315,7 @@ export function builtinById(id: string): BuiltinReport | undefined {
 }
 
 export function sourceLabel(source: string): string {
-  return BUILDER_SOURCES.find((item) => item.id === source)?.label ?? (source === "certificates" ? "Vendor COIs" : source === "punch" ? "Punch items" : source === "cash" ? "Cash" : source);
+  return BUILDER_SOURCES.find((item) => item.id === source)?.label ?? (source === "certificates" ? "Vendor COIs" : source === "punch" ? "Punch items" : source === "cash" ? "Cash" : source === "confirmations" ? "Confirmations" : source);
 }
 
 export function customRecord(source: string): string {

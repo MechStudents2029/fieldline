@@ -10,6 +10,8 @@ const TRIGGERS = [
   ["job_status", "Job status"],
   ["proposal_signed", "Proposal signed"],
   ["schedule_done", "Schedule done"],
+  ["schedule_declined", "Schedule item declined"],
+  ["unconfirmed_before", "Unconfirmed N days before start"],
   ["inspection_result", "Inspection result"],
   ["punch_verified", "Punch verified"],
   ["invoice_overdue", "Invoice overdue"],
@@ -26,6 +28,7 @@ const ACTION_KINDS = [
   ["set_status", "Set job status"],
   ["punch", "Create punch"],
   ["hold", "Hold schedule"],
+  ["request_confirmation", "Request confirmation"],
   ["release", "Release schedule"],
   ["schedule_talk", "Schedule toolbox talk"],
   ["set_field", "Set field"],
@@ -184,8 +187,8 @@ function TriggerRest({ trigger, rule }: { trigger: string; rule: RuleDraft | nul
       </>
     );
   }
-  if (trigger === "invoice_overdue" || trigger === "vendor_expiring") {
-    const days = rule?.trigger.kind === "invoice_overdue" || rule?.trigger.kind === "vendor_expiring" ? rule.trigger.days : 14;
+  if (trigger === "invoice_overdue" || trigger === "vendor_expiring" || trigger === "unconfirmed_before") {
+    const days = rule?.trigger.kind === "invoice_overdue" || rule?.trigger.kind === "vendor_expiring" || rule?.trigger.kind === "unconfirmed_before" ? rule.trigger.days : 14;
     return (
       <>
         <span>is</span>
@@ -219,6 +222,7 @@ function blankAction(kind: string): Action {
   if (kind === "set_status") return { kind: "set_status", status: "active" };
   if (kind === "punch") return { kind: "punch", title: "" };
   if (kind === "release") return { kind: "release" };
+  if (kind === "request_confirmation") return { kind: "request_confirmation" };
   if (kind === "schedule_talk") return { kind: "schedule_talk", topicId: "", withinWorkdays: 2 };
   if (kind === "set_field") return { kind: "set_field", fieldId: "", value: "" };
   return { kind: "hold" };

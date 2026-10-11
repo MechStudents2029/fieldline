@@ -2,6 +2,28 @@
 
 ## 2026-10-11
 
+### Confirmations
+
+- A schedule item with a vendor can be requested once, for that vendor’s next items, or for a date range on the job Gantt. The pill is Requested, Confirmed, or Declined. A decline keeps the reason and an optional proposed date. Accepting that date runs through the cascade preview.
+- Moving a confirmed item, including a cascade, a delay, a gate hold, or a Gantt drag, sets it back to Requested and keeps the history. The preview names the items that would reset.
+- The vendor portal look-ahead is two weeks, or four. It lists only that vendor’s items, with the job, address, gate, and whether they are cleared to start, plus the plans and pins they can already see. Confirm and Decline use the portal request limit. No email or SMS goes out. The office copies the portal link and the message.
+- Work > Confirmations filters by status, vendor, and job, and downloads CSV. Today counts unconfirmed items starting inside the reminder window. Inbox gets a notice when a vendor confirms or declines. Settings can auto-request on assign, off by default, and set the reminder lead in days.
+- Automations can run on Schedule item declined and Unconfirmed N days before start, and can Request confirmation. Reports includes a Confirmations report. Request, confirm, decline, and reset are in the audit log.
+
+### Schedule
+
+- A job’s List and Gantt use the full width. Inspections and non-work days open from Inspections and Days.
+
+### Cash
+
+- The header reads Starting balance, and that amount is edited from a sheet.
+
+### Takeoff
+
+- Name, room, height, pitch, estimate, and Use sit in the measurements pane. The toolbar stays on tools and scale.
+
+## 2026-10-11
+
 ### Takeoff
 
 - Takeoff opens on a plan sheet, and from Measure on plan on a draft estimate. Set the scale with two points and a length, or a standard architectural or engineering scale. A sheet without a scale says No scale.

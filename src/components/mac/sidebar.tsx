@@ -91,6 +91,7 @@ export function Sidebar({
           </div>
           {field ? null : item("/estimates", "Estimates", <FileText size={16} strokeWidth={1.6} />, chrome.estimateCount)}
           {item("/schedule", "Schedule", <Calendar size={16} strokeWidth={1.6} />)}
+          {item("/confirmations", "Confirmations", <Calendar size={16} strokeWidth={1.6} />)}
           {item("/rfis", "RFIs", <MessageSquare size={16} strokeWidth={1.6} />)}
           {role === "owner" || role === "admin" || role === "estimator" ? item("/submittals", "Submittals", <ClipboardList size={16} strokeWidth={1.6} />) : null}
           {item("/time", "Time", <Clock size={16} strokeWidth={1.6} />)}

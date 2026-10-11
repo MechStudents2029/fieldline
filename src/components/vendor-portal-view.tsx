@@ -2,6 +2,7 @@ import {
   acceptVendorPoAction,
   declineVendorPoAction,
   markVendorPunchAction,
+  vendorConfirmAction,
   saveVendorCertificateAction,
   signVendorWaiverAction,
   submitVendorBillAction,
@@ -10,6 +11,7 @@ import {
 import { ActionForm } from "@/components/action-form";
 import { FileButton } from "@/components/file-button";
 import { formatCalendarDay } from "@/lib/format";
+import { addCalendarDays } from "@/lib/time/calendar";
 import { formatMoney, formatWhole } from "@/lib/money";
 import { CERT_TYPES } from "@/lib/vendor/compliance";
 import { RfiPortal } from "@/components/rfi-portal";
@@ -44,6 +46,7 @@ export function VendorPortalView({
   waivers = [],
   files = [],
   pins = [],
+  weeks = 2,
 }: {
   token: string;
   home: VendorPortalHome;
@@ -54,8 +57,11 @@ export function VendorPortalView({
   submittals?: { items: PortalSubmittal[]; jobs: { id: string; name: string }[] };
   waivers?: PortalWaiver[];
   files?: VendorFileJob[];
-  pins?: { linkType: string; linkId: string; cropDocumentId: string | null }[];
+  pins?: { id?: string; projectId?: string; title?: string; linkType: string; linkId: string; cropDocumentId: string | null }[];
+  weeks?: 2 | 4;
 }) {
+  const horizon = addCalendarDays(home.today, (weeks === 4 ? 28 : 14) - 1);
+  const lookahead = home.schedule.filter((row) => row.endDate >= home.today && row.startDate <= horizon);
   return (
     <main className="home mx-auto min-h-screen w-full max-w-5xl px-4 py-8 lg:px-8" data-today={home.today}>
       <header>
@@ -360,19 +366,78 @@ export function VendorPortalView({
             </ul>
           </section>
         ) : null}
-        <section aria-label="Schedule">
-          <h2>Schedule</h2>
-          {home.schedule.length === 0 ? <p className="home-sub">No days</p> : null}
+        <section aria-label="Look-ahead" data-lookahead={weeks}>
+          <div className="home-row">
+            <h2>Look-ahead</h2>
+            <span className="flex gap-2">
+              <a href={`/v/${token}`} aria-current={weeks === 2 ? "page" : undefined} className="home-pill">
+                2
+              </a>
+              <a href={`/v/${token}?weeks=4`} aria-current={weeks === 4 ? "page" : undefined} className="home-pill">
+                4
+              </a>
+            </span>
+          </div>
+          {lookahead.length === 0 ? <p className="home-sub">No days</p> : null}
           <ul className="home-stack">
-            {home.schedule.map((row) => (
-              <li key={row.id} className="home-card">
-                <p className="home-copy">{row.title}</p>
-                <p className="home-sub">
-                  {row.job}
-                  {row.address ? ` · ${row.address}` : ""} · {when(row)}
-                </p>
-              </li>
-            ))}
+            {lookahead.map((row) => {
+              const plans = files
+                .filter((job) => job.projectId === row.projectId)
+                .flatMap((job) => job.folders.flatMap((folder) => folder.files.filter((file) => file.current)));
+              const marks = pins.filter((pin) => pin.projectId === row.projectId);
+              return (
+                <li key={row.id} className="home-card" data-item={row.id}>
+                  <div className="home-row">
+                    <div>
+                      <p className="home-copy">{row.title}</p>
+                      <p className="home-sub">
+                        {row.job}
+                        {row.address ? ` · ${row.address}` : ""} · {when(row)}
+                      </p>
+                    </div>
+                    <span className="flex gap-1">
+                      {row.pill ? <span className="home-pill">{row.pill}</span> : null}
+                      <span className="home-pill">{row.cleared ? "Clear" : row.gate || "Held"}</span>
+                    </span>
+                  </div>
+                  {row.status === "declined" && row.reason ? <p className="home-sub">{row.reason}{row.proposed ? ` · ${formatCalendarDay(row.proposed)}` : ""}</p> : null}
+                  {plans.length > 0 ? (
+                    <ul>
+                      {plans.map((plan) => (
+                        <li key={plan.documentId}>
+                          <a href={`/api/files/${plan.documentId}?vendor=${encodeURIComponent(token)}`}>{plan.name}</a>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
+                  {marks.length > 0 ? (
+                    <ul>
+                      {marks.map((pin) => (
+                        <li key={pin.id || pin.linkId}>{pin.title}</li>
+                      ))}
+                    </ul>
+                  ) : null}
+                  {row.status === "requested" ? (
+                    <div className="flex flex-col gap-2">
+                      <ActionForm action={vendorConfirmAction.bind(null, token, row.id)}>
+                        <input type="hidden" name="decision" value="confirm" />
+                        <button type="submit" className="home-btn-quiet">
+                          Confirm
+                        </button>
+                      </ActionForm>
+                      <ActionForm action={vendorConfirmAction.bind(null, token, row.id)} className="home-form">
+                        <input type="hidden" name="decision" value="decline" />
+                        <input name="reason" aria-label={`Reason ${row.title}`} placeholder="Reason" className="field" required />
+                        <input name="proposed" aria-label={`Proposed date ${row.title}`} type="date" className="field" />
+                        <button type="submit" className="home-btn-quiet">
+                          Decline
+                        </button>
+                      </ActionForm>
+                    </div>
+                  ) : null}
+                </li>
+              );
+            })}
           </ul>
         </section>
         <section aria-label="Punch">

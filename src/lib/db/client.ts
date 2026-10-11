@@ -129,6 +129,7 @@ export function ensureReady(holder: Holder) {
   ensureGantt(holder);
   ensureCash(holder);
   ensureTakeoff(holder);
+  ensureConfirmations(holder);
   const version = holder.sqlite.prepare("select value from app_meta where key = ?").get("seed_version") as
     | { value: string }
     | undefined;
@@ -2528,6 +2529,33 @@ function ensureTakeoff(holder: Holder) {
   }
   holder.sqlite.exec("create index if not exists takeoffs_file on takeoffs (org_id, job_file_id)");
   holder.sqlite.exec("create index if not exists takeoffs_project on takeoffs (org_id, project_id)");
+}
+
+function ensureConfirmations(holder: Holder) {
+  const pk = holder.dialect === "postgres" ? "text primary key" : "text primary key not null";
+  ensureColumn(holder, "organizations", "confirm_auto_request", "integer not null default 0");
+  ensureColumn(holder, "organizations", "confirm_remind_days", "integer not null default 3");
+  ensureColumn(holder, "schedule_items", "confirm_status", "text");
+  ensureColumn(holder, "schedule_items", "confirm_reason", "text not null default ''");
+  ensureColumn(holder, "schedule_items", "confirm_proposed", "text");
+  ensureColumn(holder, "schedule_items", "confirm_requested_by", "text");
+  ensureColumn(holder, "vendor_portals", "issued_token", "text");
+  if (!tableExists(holder.sqlite, "schedule_confirmations", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists schedule_confirmations (
+      id ${pk},
+      org_id text not null,
+      item_id text not null,
+      project_id text not null,
+      vendor_contact_id text,
+      event text not null,
+      reason text not null default '',
+      proposed_date text,
+      actor_name text not null,
+      actor_id text,
+      created_at text not null
+    )`);
+  }
+  holder.sqlite.exec("create index if not exists schedule_confirmations_item on schedule_confirmations (org_id, item_id, created_at)");
 }
 
 function ensureGantt(holder: Holder) {

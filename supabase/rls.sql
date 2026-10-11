@@ -177,6 +177,7 @@ begin
     'daily_log_events',
     'daily_log_photos',
     'schedule_items',
+    'schedule_confirmations',
     'schedule_assignees',
     'calendar_feeds',
     'import_batches',

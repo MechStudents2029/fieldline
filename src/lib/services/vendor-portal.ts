@@ -34,7 +34,10 @@ import { formatMoney, positiveMoneyError } from "@/lib/money";
 import { canEditCrm, canManageSettings, canSeeMoney, type Role } from "@/lib/permissions";
 import { photoExtension, photoUploadError, rasterImageType } from "@/lib/security";
 import { duplicateBill, normalizeBillNumber } from "@/lib/services/bills";
+import { vendorDecision } from "@/lib/services/confirmations";
+import { emitAutomation } from "@/lib/services/automations";
 import { targetPlans, vendorMayReadJobFile } from "@/lib/services/files";
+import { scheduleGateLabels } from "@/lib/services/permits";
 import { vendorMayReadVisual } from "@/lib/services/markup";
 import { ServiceError } from "@/lib/services/errors";
 import type { Actor } from "@/lib/services/read";
@@ -79,7 +82,23 @@ export type VendorPortalHome = {
   billedCents: number;
   paidCents: number;
   orders: VendorOrder[];
-  schedule: { id: string; title: string; startDate: string; endDate: string; startTime: string | null; job: string; address: string }[];
+  schedule: {
+    id: string;
+    projectId: string;
+    title: string;
+    startDate: string;
+    endDate: string;
+    startTime: string | null;
+    job: string;
+    address: string;
+    status: string | null;
+    pill: string | null;
+    reason: string;
+    proposed: string | null;
+    held: boolean;
+    gate: string | null;
+    cleared: boolean;
+  }[];
   punch: { id: string; title: string; location: string; dueDate: string | null; status: string; statusLabel: string }[];
   bills: {
     id: string;
@@ -325,16 +344,39 @@ export function rotateVendorPortal(actor: Actor, contactId: string): string {
     .get();
   if (existing) {
     db.update(vendorPortals)
-      .set({ tokenHash: secret.tokenHash, rotatedAt: now })
+      .set({ tokenHash: secret.tokenHash, issuedToken: secret.token, rotatedAt: now })
       .where(and(eq(vendorPortals.id, existing.id), eq(vendorPortals.orgId, actor.orgId)))
       .run();
   } else {
     db.insert(vendorPortals)
-      .values({ id: id("vport"), orgId: actor.orgId, contactId: contact.id, tokenHash: secret.tokenHash, createdAt: now, rotatedAt: null })
+      .values({ id: id("vport"), orgId: actor.orgId, contactId: contact.id, tokenHash: secret.tokenHash, issuedToken: secret.token, createdAt: now, rotatedAt: null })
       .run();
   }
   writeAudit(db, actor.orgId, actor.userId, "vendor.portal", "contact", contact.id, { rotated: Boolean(existing) });
   return secret.token;
+}
+
+export function vendorConfirmSchedule(
+  token: string,
+  itemId: string,
+  input: { decision: "confirm" | "decline"; reason?: string; proposedDate?: string | null },
+  ip: string,
+) {
+  const ctx = requirePortal(token, ip);
+  const result = vendorDecision(ctx.db, { orgId: ctx.orgId, contactId: ctx.contactId, vendorName: ctx.vendorName }, itemId, input);
+  if (result.status === "declined") {
+    emitAutomation({
+      orgId: ctx.orgId,
+      kind: "schedule_declined",
+      recordType: "schedule_item",
+      recordId: result.id,
+      recordLabel: result.title,
+      projectId: result.projectId,
+      name: result.title,
+      scheduleItemId: result.id,
+    });
+  }
+  return result;
 }
 
 export function vendorHasPortal(orgId: string, contactId: string) {
@@ -481,6 +523,7 @@ export function vendorPortal(token: string): VendorPortalHome | null {
       relieved,
     ).reduce((sum, row) => sum + row.amountCents, 0);
   }
+  const gates = scheduleGateLabels(orgId);
   const schedule = db
     .select({ item: scheduleItems, name: projects.name, address: projects.address })
     .from(scheduleItems)
@@ -521,15 +564,27 @@ export function vendorPortal(token: string): VendorPortalHome | null {
           .map((line) => ({ costCode: line.costCode, description: line.description ?? "", amountCents: line.amountCents })),
         plans: targetPlans(db, orgId, "purchase_order", order.id).map((plan) => ({ documentId: plan.documentId, name: plan.name })),
       })),
-    schedule: schedule.map((row) => ({
-      id: row.item.id,
-      title: row.item.title,
-      startDate: row.item.startDate,
-      endDate: row.item.endDate,
-      startTime: row.item.startTime,
-      job: row.name,
-      address: row.address ?? "",
-    })),
+    schedule: schedule.map((row) => {
+      const gate = gates.get(row.item.id) ?? null;
+      const held = row.item.held === 1 || Boolean(gate);
+      return {
+        id: row.item.id,
+        projectId: row.item.projectId,
+        title: row.item.title,
+        startDate: row.item.startDate,
+        endDate: row.item.endDate,
+        startTime: row.item.startTime,
+        job: row.name,
+        address: row.address ?? "",
+        status: row.item.confirmStatus,
+        pill: row.item.confirmStatus === "requested" ? "Requested" : row.item.confirmStatus === "confirmed" ? "Confirmed" : row.item.confirmStatus === "declined" ? "Declined" : null,
+        reason: row.item.confirmReason,
+        proposed: row.item.confirmProposed,
+        held,
+        gate,
+        cleared: !held,
+      };
+    }),
     punch: punch.map((row) => ({
       id: row.id,
       title: row.title,

@@ -31,6 +31,8 @@ export const organizations = sqliteTable("organizations", {
   vendorRetainageBps: integer("vendor_retainage_bps").notNull().default(0),
   cashOpeningCents: integer("cash_opening_cents").notNull().default(0),
   cashLowCents: integer("cash_low_cents").notNull().default(0),
+  confirmAutoRequest: integer("confirm_auto_request").notNull().default(0),
+  confirmRemindDays: integer("confirm_remind_days").notNull().default(3),
   defaultDrawsJson: text("default_draws_json"),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
@@ -1064,11 +1066,34 @@ export const scheduleItems = sqliteTable(
     progressBps: integer("progress_bps").notNull().default(0),
     note: text("note"),
     vendorContactId: text("vendor_contact_id"),
+    confirmStatus: text("confirm_status"),
+    confirmReason: text("confirm_reason").notNull().default(""),
+    confirmProposed: text("confirm_proposed"),
+    confirmRequestedBy: text("confirm_requested_by"),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
     createdBy: text("created_by"),
   },
   (t) => [index("schedule_items_org").on(t.orgId, t.startDate)],
+);
+
+/** Request, confirm, decline, and reset history for a vendor on a schedule item. */
+export const scheduleConfirmations = sqliteTable(
+  "schedule_confirmations",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    itemId: text("item_id").notNull(),
+    projectId: text("project_id").notNull(),
+    vendorContactId: text("vendor_contact_id"),
+    event: text("event").notNull(),
+    reason: text("reason").notNull().default(""),
+    proposedDate: text("proposed_date"),
+    actorName: text("actor_name").notNull(),
+    actorId: text("actor_id"),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [index("schedule_confirmations_item").on(t.orgId, t.itemId, t.createdAt)],
 );
 
 export const scheduleAssignees = sqliteTable(
@@ -1312,6 +1337,7 @@ export const vendorPortals = sqliteTable(
     orgId: text("org_id").notNull(),
     contactId: text("contact_id").notNull(),
     tokenHash: text("token_hash").notNull(),
+    issuedToken: text("issued_token"),
     createdAt: text("created_at").notNull(),
     rotatedAt: text("rotated_at"),
   },

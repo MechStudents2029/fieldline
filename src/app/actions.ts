@@ -54,6 +54,11 @@ import { attachRecordFile, enforceScheduleGate, inspectionTodos, requestReinspec
 import { setScheduleBaseline } from "@/lib/services/schedule-plan";
 import { addWorkException, removeWorkException } from "@/lib/services/work-calendar";
 import { previewScheduleShift, shiftScheduleDates } from "@/lib/services/schedule-shift";
+import { assignScheduleVendor, requestConfirmation, requestConfirmations, requestRange, requestUpcoming, saveConfirmSettings } from "@/lib/services/confirmations";
+import { vendorConfirmSchedule } from "@/lib/services/vendor-portal";
+import { endFromDuration, inclusiveWorkdays } from "@/lib/schedule/workdays";
+import { workCalendarFor } from "@/lib/services/work-calendar";
+import { scheduleItems } from "@/lib/db/schema";
 import { createJobFromTemplate, importTemplate, renameTemplate, saveJobAsTemplate, type TemplatePart } from "@/lib/services/templates";
 import {
   addTodoCheck,
@@ -156,7 +161,7 @@ import {
 import { passwordError } from "@/lib/security";
 import { getDb } from "@/lib/db/client";
 import { dailyLogs, users } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import {
   billDraw,
   createPayApp,
@@ -233,6 +238,8 @@ export type ActionState = {
   bill?: BillDraftState;
   feedUrl?: string;
   vendorUrl?: string;
+  confirmUrl?: string;
+  confirmMessage?: string;
   confirm?: string;
   needsReason?: boolean;
   delayDays?: number;
@@ -2197,7 +2204,7 @@ export async function saveScheduleAction(_prev: ActionState, formData: FormData)
     if (existing) {
       const preview = previewScheduleShift(user, existing, input.startDate, input.endDate);
       if (preview.needsReason && !delay) return { needsReason: true, delayDays: preview.days, confirm: preview.count > 1 ? preview.label : undefined };
-      if (!preview.needsReason && preview.count > 1 && formData.get("confirmShift") !== "1") return { confirm: preview.label };
+      if (!preview.needsReason && (preview.count > 1 || preview.resets.length > 0) && formData.get("confirmShift") !== "1") return { confirm: preview.label };
       const gate = scheduleGateStatus(user, existing, { startDate: input.startDate, status: input.status });
       if (gate.action === "block") return { error: gate.reason ?? "This inspection has not passed." };
       if (gate.action === "warn" && formData.get("confirmGate") !== "1") return { needsGate: true, gateReason: gate.reason ?? undefined };
@@ -2210,12 +2217,12 @@ export async function saveScheduleAction(_prev: ActionState, formData: FormData)
   }
 }
 
-export async function previewScheduleShiftAction(input: { id: string; startDate: string; endDate: string }): Promise<{ count: number; label: string; error?: string; needsReason?: boolean; days?: number; needsGate?: boolean; gateReason?: string }> {
+export async function previewScheduleShiftAction(input: { id: string; startDate: string; endDate: string }): Promise<{ count: number; label: string; resets?: { id: string; title: string }[]; error?: string; needsReason?: boolean; days?: number; needsGate?: boolean; gateReason?: string }> {
   try {
     const user = await actor();
     const preview = previewScheduleShift(user, input.id, input.startDate, input.endDate);
     const gate = scheduleGateStatus(user, input.id, { startDate: input.startDate, status: "planned" });
-    return { count: preview.count, label: preview.label, needsReason: preview.needsReason, days: preview.days, needsGate: gate.action === "warn", gateReason: gate.reason ?? undefined };
+    return { count: preview.count, label: preview.label, resets: preview.resets, needsReason: preview.needsReason, days: preview.days, needsGate: gate.action === "warn", gateReason: gate.reason ?? undefined };
   } catch (error) {
     if (error instanceof ServiceError) return { count: 0, label: "", error: error.message };
     throw error;
@@ -2230,8 +2237,8 @@ export async function shiftScheduleDatesAction(_prev: ActionState, formData: For
     const endDate = String(formData.get("endDate") || "");
     const delay = formData.get("reason") ? { reason: String(formData.get("reason") || ""), note: String(formData.get("note") || "") } : null;
     const preview = previewScheduleShift(user, itemId, startDate, endDate);
-    if (preview.needsReason && !delay) return { needsReason: true, delayDays: preview.days, confirm: preview.count > 1 ? preview.label : undefined };
-    if (!preview.needsReason && preview.count > 1 && formData.get("confirmShift") !== "1") return { confirm: preview.label };
+    if (preview.needsReason && !delay) return { needsReason: true, delayDays: preview.days, confirm: preview.count > 1 || preview.resets.length > 0 ? preview.label : undefined };
+    if (!preview.needsReason && (preview.count > 1 || preview.resets.length > 0) && formData.get("confirmShift") !== "1") return { confirm: preview.label };
     const result = shiftScheduleDates(user, itemId, startDate, endDate, delay);
     refreshSchedule("");
     return { ok: result.count > 1 ? result.label : "Saved." };
@@ -2248,7 +2255,7 @@ export async function moveScheduleAction(input: { id: string; startDate: string;
     const gate = scheduleGateStatus(user, input.id, { startDate: input.startDate, status: "planned" });
     if (gate.action === "block") return { error: gate.reason ?? "This inspection has not passed." };
     if (gate.action === "warn" && !input.confirmGate) return { needsGate: true, gateReason: gate.reason ?? undefined };
-    if (preview.needsReason && !delay) return { needsReason: true, delayDays: preview.days, confirm: preview.count > 1 ? preview.label : undefined };
+    if (preview.needsReason && !delay) return { needsReason: true, delayDays: preview.days, confirm: preview.count > 1 || preview.resets.length > 0 ? preview.label : undefined };
     moveScheduleItem(user, input.id, input, delay, Boolean(input.confirmGate));
     refreshSchedule("");
     return { ok: "Saved." };
@@ -2266,12 +2273,120 @@ export async function ganttMoveAction(input: { id: string; startDate: string; en
     const gate = scheduleGateStatus(user, input.id, { startDate: input.startDate, status: "planned" });
     if (gate.action === "block") return { error: gate.reason ?? "This inspection has not passed." };
     if (gate.action === "warn" && !input.confirmGate) return { needsGate: true, gateReason: gate.reason ?? undefined };
-    if (preview.needsReason && !delay) return { needsReason: true, delayDays: preview.days, confirm: preview.count > 1 ? preview.label : undefined };
-    if (!preview.needsReason && preview.count > 1 && !input.confirmShift) return { confirm: preview.label };
+    if (preview.needsReason && !delay) return { needsReason: true, delayDays: preview.days, confirm: preview.count > 1 || preview.resets.length > 0 ? preview.label : undefined };
+    if (!preview.needsReason && (preview.count > 1 || preview.resets.length > 0) && !input.confirmShift) return { confirm: preview.label };
     enforceScheduleGate(user, input.id, { startDate: input.startDate, status: "planned" }, Boolean(input.confirmGate));
     const result = shiftScheduleDates(user, input.id, input.startDate, input.endDate, delay);
     refreshSchedule(result.projectId);
     return { ok: result.count > 1 ? result.label : "Saved." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function requestConfirmationAction(itemId: string, _prev: ActionState, _formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const result = requestConfirmation(user, itemId);
+    refreshSchedule("");
+    return { ok: "Requested.", confirmUrl: result.url, confirmMessage: result.message };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function requestUpcomingAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const next = Number(formData.get("next") || 5);
+    const rows = requestUpcoming(user, String(formData.get("vendorId") || ""), next);
+    refreshSchedule("");
+    return { ok: "Requested.", confirmUrl: rows[0]?.url ?? "", confirmMessage: rows[0]?.message ?? "" };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function requestRangeAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const rows = requestRange(user, {
+      projectId: String(formData.get("projectId") || ""),
+      from: String(formData.get("from") || ""),
+      to: String(formData.get("to") || ""),
+      vendorId: String(formData.get("vendorId") || ""),
+    });
+    refreshSchedule("");
+    return { ok: "Requested.", confirmUrl: rows[0]?.url ?? "", confirmMessage: rows[0]?.message ?? "" };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function requestSelectedAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const rows = requestConfirmations(user, formData.getAll("item").map(String));
+    refreshSchedule("");
+    return { ok: "Requested.", confirmUrl: rows[0]?.url ?? "", confirmMessage: rows[0]?.message ?? "" };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function assignScheduleVendorAction(itemId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    assignScheduleVendor(user, itemId, String(formData.get("vendorId") || ""));
+    refreshSchedule("");
+    return { ok: "Saved." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function acceptProposedAction(itemId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const row = getDb().select().from(scheduleItems).where(and(eq(scheduleItems.orgId, user.orgId), eq(scheduleItems.id, itemId))).get();
+    if (!row?.confirmProposed) return { error: "No proposed date." };
+    const mask = workCalendarFor(user.orgId, row.projectId);
+    const duration = Math.max(1, inclusiveWorkdays(row.startDate, row.endDate, mask));
+    const startDate = row.confirmProposed;
+    const endDate = endFromDuration(startDate, duration, mask);
+    const delay = formData.get("reason") ? { reason: String(formData.get("reason") || ""), note: String(formData.get("note") || "") } : null;
+    const preview = previewScheduleShift(user, itemId, startDate, endDate);
+    if (preview.needsReason && !delay) return { needsReason: true, delayDays: preview.days, confirm: preview.label };
+    if ((preview.count > 1 || preview.resets.length > 0) && formData.get("confirmShift") !== "1") return { confirm: preview.label };
+    if (row.startDate !== startDate || row.endDate !== endDate) shiftScheduleDates(user, itemId, startDate, endDate, delay);
+    requestConfirmation(user, itemId);
+    refreshSchedule(row.projectId);
+    return { ok: "Requested." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function vendorConfirmAction(token: string, itemId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const decision = String(formData.get("decision") || "");
+    if (decision !== "confirm" && decision !== "decline") return { error: "Choose confirm or decline." };
+    vendorConfirmSchedule(token, itemId, { decision, reason: String(formData.get("reason") || ""), proposedDate: String(formData.get("proposed") || "") }, await requestIp());
+    revalidatePath(`/v/${token}`);
+    revalidatePath("/confirmations");
+    revalidatePath("/inbox");
+    return { ok: decision === "confirm" ? "Confirmed." : "Declined." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function saveConfirmSettingsAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    saveConfirmSettings(user, { autoRequest: formData.get("autoRequest") === "1", remindDays: Number(formData.get("remindDays") || 3) });
+    revalidatePath("/settings");
+    return { ok: "Saved." };
   } catch (error) {
     return failure(error);
   }

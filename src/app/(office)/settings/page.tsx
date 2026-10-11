@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { addWorkExceptionAction, changeRoleAction, inviteTeammateAction, removeMemberAction, removeWorkExceptionAction, restoreSetupAction, revokeInviteAction, settingsAction } from "@/app/actions";
+import { addWorkExceptionAction, changeRoleAction, inviteTeammateAction, removeMemberAction, removeWorkExceptionAction, restoreSetupAction, revokeInviteAction, saveConfirmSettingsAction, settingsAction } from "@/app/actions";
 import { FeedbackDialog } from "@/components/feedback-dialog";
 import { ActionForm } from "@/components/action-form";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,7 @@ import { listWorkExceptions } from "@/lib/services/work-calendar";
 import { calendarFeedReady } from "@/lib/services/schedule";
 import { teamBoard } from "@/lib/services/team";
 import { WEEKDAY_NAMES } from "@/lib/time/calendar";
+import { confirmSettings } from "@/lib/services/confirmations";
 import { CERT_TYPES, parseRequiredTypes } from "@/lib/vendor/compliance";
 import { defaultHourlyCost } from "@/lib/services/time";
 
@@ -47,6 +48,7 @@ export default async function SettingsPage() {
   const billingDefaults = org ? defaultDrawForm(org) : null;
   if (!org || !billingDefaults) return null;
   const companyDays = listWorkExceptions(session, null);
+  const confirm = confirmSettings(session);
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-5 md:max-w-none md:px-6">
       <div>
@@ -119,6 +121,7 @@ export default async function SettingsPage() {
         <p className="mt-2 text-sm">Contract language is a template, not a state-approved home-improvement form. Have counsel review it before a real customer signs.</p>
       </div>
       {canManageSettings(session.role) ? (
+        <>
         <ActionForm action={settingsAction} className="flex flex-col gap-3 rounded-xl bg-card p-4 ring-1 ring-foreground/10">
           <label className="text-sm">
             License number
@@ -232,6 +235,20 @@ export default async function SettingsPage() {
             Save
           </Button>
         </ActionForm>
+        <ActionForm action={saveConfirmSettingsAction} className="flex flex-col gap-2">
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" name="autoRequest" value="1" defaultChecked={confirm.autoRequest} />
+            Auto-request when a vendor is assigned
+          </label>
+          <label className="text-sm">
+            Reminder lead days
+            <input name="remindDays" aria-label="Reminder lead days" type="number" min={0} max={30} defaultValue={confirm.remindDays} className="field mt-1 w-20" />
+          </label>
+          <button type="submit" className="ctl w-fit">
+            Save confirmations
+          </button>
+        </ActionForm>
+        </>
       ) : (
         <p className="text-sm text-muted-foreground">Only an owner or admin can change these.</p>
       )}

@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { and, eq } from "drizzle-orm";
 import { dataDir, getDb, type AppDatabase } from "@/lib/db/client";
+import { applyConfirmationResets } from "@/lib/services/confirmations";
 import { officeDb } from "@/lib/db/office";
 import {
   auditLogs,
@@ -714,6 +715,9 @@ export function scheduleWarranty(actor: Actor, requestId: string, input: { assig
     const existing = request.scheduleItemId
       ? tx.select().from(scheduleItems).where(and(eq(scheduleItems.id, request.scheduleItemId), eq(scheduleItems.orgId, actor.orgId))).get()
       : null;
+    if (existing && (existing.startDate !== visitDate || existing.endDate !== visitDate)) {
+      applyConfirmationResets(tx as unknown as AppDatabase, actor, [{ id: existing.id, start: visitDate, end: visitDate }]);
+    }
     if (existing) {
       tx.update(scheduleItems)
         .set({ title: request.title, startDate: visitDate, endDate: visitDate, status: "confirmed", updatedAt: stamp })
