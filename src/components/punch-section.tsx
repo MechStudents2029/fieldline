@@ -20,6 +20,7 @@ import type { PunchBoard } from "@/lib/services/punch";
 import type { RfiListItem } from "@/lib/services/rfis";
 import type { RecordVisual } from "@/lib/services/markup";
 import { LinkedRfis } from "@/components/linked-rfis";
+import { SheetButton } from "@/components/sheet-button";
 
 function Pill({ children }: { children: string }) {
   return <span className="fl-pill">{children}</span>;
@@ -96,9 +97,9 @@ export function PunchSection({
         ))}
       </ul>
       {board.canEdit ? (
-        <details className="mb-6">
-        <summary className="mac-glass-btn inline-flex w-fit cursor-pointer list-none">Add punch</summary>
-        <ActionForm action={addPunchAction.bind(null, board.projectId)} className="mt-3 grid gap-2 md:grid-cols-2">
+        <div className="mb-6">
+        <SheetButton label="Add punch">
+        <ActionForm action={addPunchAction.bind(null, board.projectId)} className="grid gap-2 md:grid-cols-2">
           <label className="text-sm">
             Item
             <input name="title" className="field mt-1" />
@@ -155,7 +156,8 @@ export function PunchSection({
             Add punch
           </button>
         </ActionForm>
-        </details>
+        </SheetButton>
+        </div>
       ) : null}
       {board.canEdit || board.showMoney ? (
       <div id="closeout" className="mb-6">

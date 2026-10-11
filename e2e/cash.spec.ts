@@ -21,9 +21,11 @@ test("13-week cash, the cell pane, and the job overview", async ({ page }) => {
   await expect(page.locator("[data-cash-row=balance]")).toBeVisible();
   await expect(page.getByRole("link", { name: "CSV" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Print" })).toBeVisible();
-  const csv = await page.request.get("/api/export/cash");
-  expect(csv.ok()).toBeTruthy();
-  expect(await csv.text()).toContain("Past due");
+  const [download] = await Promise.all([page.waitForEvent("download"), page.getByRole("link", { name: "CSV" }).click()]);
+  expect(download.suggestedFilename()).toBe("cash-forecast.csv");
+  const file = await download.path();
+  expect(file).toBeTruthy();
+  expect(fs.readFileSync(file ?? "", "utf8")).toContain("Past due");
   await shot(page, "cash-light");
   await page.emulateMedia({ colorScheme: "dark" });
   await shot(page, "cash-dark");

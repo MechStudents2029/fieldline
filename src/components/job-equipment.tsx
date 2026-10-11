@@ -1,4 +1,5 @@
 import { checkInEquipmentAction, checkOutEquipmentAction } from "@/app/actions";
+import { SheetButton } from "@/components/sheet-button";
 import { formatCalendarDay } from "@/lib/format";
 import { equipmentChoices, equipmentDetail, jobEquipment } from "@/lib/services/equipment";
 import type { Actor } from "@/lib/services/read";
@@ -39,9 +40,8 @@ export function JobEquipment({ actor, projectId }: { actor: Actor; projectId: st
         })}
       </ul>
       {board.canMove && board.available.length > 0 ? (
-        <details>
-        <summary className="mac-glass-btn inline-flex w-fit cursor-pointer list-none">Check out</summary>
-        <form action={checkOutEquipmentAction.bind(null, "")} className="mt-2 flex flex-wrap items-center gap-2">
+        <SheetButton label="Check out">
+        <form action={checkOutEquipmentAction.bind(null, "")} className="flex flex-wrap items-center gap-2">
           <input type="hidden" name="back" value={back} />
           <input type="hidden" name="projectId" value={projectId} />
           <select name="equipmentId" aria-label="Equipment" className="ctl" defaultValue={board.available[0]?.id}>
@@ -64,7 +64,7 @@ export function JobEquipment({ actor, projectId }: { actor: Actor; projectId: st
             Check out
           </button>
         </form>
-        </details>
+        </SheetButton>
       ) : null}
     </section>
   );
