@@ -2,9 +2,6 @@ import fs from "node:fs";
 import { devices, expect, test, type Page } from "@playwright/test";
 import { resetDemo } from "./helpers";
 
-const PNG =
-  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
-
 function shot(page: Page, name: string) {
   fs.mkdirSync("/opt/cursor/artifacts", { recursive: true });
   return page.screenshot({ path: `/opt/cursor/artifacts/${name}.png` });
@@ -91,9 +88,10 @@ test("the office converts verified tickets to a change order and a cost-plus inv
   await signInAs(page, "maya@rivera.demo");
   await page.goto("/tm");
   await expect(page.getByRole("heading", { name: "T&M tickets" })).toBeVisible();
-  await expect(page.getByText("Draft")).toBeVisible();
-  await expect(page.getByText("Ready for review")).toBeVisible();
-  await expect(page.getByText("Field verified")).toBeVisible();
+  const table = page.getByRole("table");
+  await expect(table.getByText("Draft", { exact: true })).toBeVisible();
+  await expect(table.getByText("Ready for review", { exact: true })).toBeVisible();
+  await expect(table.getByText("Field verified", { exact: true })).toBeVisible();
   await shot(page, "tm-office-list-light");
   await page.emulateMedia({ colorScheme: "dark" });
   await shot(page, "tm-office-list-dark");
@@ -116,9 +114,6 @@ test("the office converts verified tickets to a change order and a cost-plus inv
   await page.getByRole("button", { name: "Add line" }).click();
   await expect(page.getByLabel("Lines")).toContainText("$");
   await page.getByLabel("Customer name").fill("Amara Okonkwo");
-  await page.locator("input[name=drawn]").evaluate((node, value) => {
-    (node as HTMLInputElement).value = value as string;
-  }, PNG);
   await draw(page, "Customer signature");
   await page.getByRole("button", { name: "Customer signature" }).click();
   await expect(page.getByText("Field verified")).toBeVisible();
