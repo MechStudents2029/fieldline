@@ -23,6 +23,7 @@ async function dragBar(page: Page, selector: string, dx: number) {
 test("job gantt, critical path, drag, zoom, print, and the Today polish", async ({ page }) => {
   test.setTimeout(120_000);
   await page.setViewportSize({ width: 1440, height: 900 });
+  fs.mkdirSync("/opt/cursor/artifacts", { recursive: true });
   await resetDemo(page.request);
   await signIn(page);
 
@@ -39,6 +40,9 @@ test("job gantt, critical path, drag, zoom, print, and the Today polish", async 
   await expect(page.locator(".gantt-base").first()).toBeVisible();
   await expect(page.locator("[data-link='sch_br_frame-sch_br_drywall']")).toHaveCount(1);
   await expect(page.locator("[data-finish]")).not.toHaveText("");
+  await expect(page.locator("[data-gantt=job]").getByRole("button", { name: /^[A-Z][a-z]{2} \d/ })).toHaveCount(0);
+  await expect(page.locator("[data-today-label]")).toHaveText("Today");
+  await expect(page.locator("[data-gantt=job] [data-day]").first()).toHaveText(/^\d{1,2}$/);
   await expect(page.locator("[data-bar][data-critical='1']").first()).toBeVisible();
   await expect(page.locator("[data-bar][data-critical='0']").first()).toBeVisible();
   const dim = await page.locator("[data-bar][data-critical='0']").first().evaluate((el) => getComputedStyle(el).opacity);
@@ -46,9 +50,12 @@ test("job gantt, critical path, drag, zoom, print, and the Today polish", async 
   const criticalBg = await page.locator("[data-bar][data-critical='1']").first().evaluate((el) => getComputedStyle(el).backgroundColor);
   const quietBg = await page.locator("[data-bar][data-critical='0']").first().evaluate((el) => getComputedStyle(el).backgroundColor);
   expect(criticalBg).not.toBe(quietBg);
-  await shot(page, "gantt-job-light");
+  const jobBoard = page.locator("[data-gantt=job]");
+  await jobBoard.scrollIntoViewIfNeeded();
+  await expect(page.locator("[data-bar=sch_br_frame]")).toBeInViewport();
+  await jobBoard.screenshot({ path: "/opt/cursor/artifacts/gantt-job-light.png" });
   await page.emulateMedia({ colorScheme: "dark" });
-  await shot(page, "gantt-job-dark");
+  await jobBoard.screenshot({ path: "/opt/cursor/artifacts/gantt-job-dark.png" });
   await page.emulateMedia({ colorScheme: "light" });
 
   await page.getByRole("button", { name: "Critical" }).click();
@@ -60,7 +67,8 @@ test("job gantt, critical path, drag, zoom, print, and the Today polish", async 
   await expect(page.locator("[data-float]")).toContainText("wd");
   await page.goto("/projects/proj_brooks?view=gantt&critical=1#schedule");
 
-  await dragBar(page, "[data-bar=sch_br_frame]", 224);
+  const dayPx = Number(await page.locator("[data-gantt=job]").getAttribute("data-day-width"));
+  await dragBar(page, "[data-bar=sch_br_frame]", dayPx * 8);
   const delay = page.getByRole("dialog", { name: "Delay" });
   await expect(delay).toBeVisible();
   await expect(delay).toContainText(/Moves \d+ items/);
@@ -68,7 +76,7 @@ test("job gantt, critical path, drag, zoom, print, and the Today polish", async 
   await expect(delay).toHaveCount(0);
   await expect(page.locator("[data-bar=sch_br_frame]")).toHaveAttribute("data-start", /\d{4}-\d{2}-\d{2}/);
 
-  await dragBar(page, "[data-bar=sch_br_drywall]", -28);
+  await dragBar(page, "[data-bar=sch_br_drywall]", -dayPx);
   const gate = page.locator("span.inline-flex", { hasText: "has not passed" });
   await expect(gate).toBeVisible();
   await gate.getByRole("button", { name: "Cancel" }).click();
@@ -95,9 +103,12 @@ test("job gantt, critical path, drag, zoom, print, and the Today polish", async 
   await page.locator("[data-expand=proj_brooks]").click();
   await expect(page.getByRole("link", { name: "Framing walk" })).toBeVisible();
   await expect(page.locator("[data-gantt=org]")).toHaveAttribute("data-critical-on", "1");
-  await shot(page, "gantt-org-light");
+  const orgChart = page.locator("[data-gantt-chart]");
+  const orgBox = await orgChart.boundingBox();
+  expect(orgBox && orgBox.width).toBeGreaterThan(480);
+  await page.locator("[data-gantt=org]").screenshot({ path: "/opt/cursor/artifacts/gantt-org-light.png" });
   await page.emulateMedia({ colorScheme: "dark" });
-  await shot(page, "gantt-org-dark");
+  await page.locator("[data-gantt=org]").screenshot({ path: "/opt/cursor/artifacts/gantt-org-dark.png" });
   await page.emulateMedia({ colorScheme: "light" });
   await page.getByRole("link", { name: "Quarter", exact: true }).click();
   await expect(page.locator("[data-gantt=org]")).toHaveAttribute("data-zoom", "quarter");
@@ -122,6 +133,14 @@ test("job gantt, critical path, drag, zoom, print, and the Today polish", async 
   await expect(page.locator("details[data-today-more]:visible")).toBeVisible();
   await expect(page.locator("a:visible", { hasText: "Client updates" })).toBeVisible();
   await expect(page.locator("a:visible", { hasText: "Schedule slip" })).toHaveCount(0);
+  const labelOffset = async (name: string) =>
+    page.locator("[data-today-kpis]:visible").getByText(name, { exact: true }).first().evaluate((node) => {
+      const tile = node.closest("a, div");
+      if (!tile) return -1;
+      return Math.round(node.getBoundingClientRect().top - tile.getBoundingClientRect().top);
+    });
+  expect(await labelOffset("Pipeline")).toBe(await labelOffset("AR 60+"));
+  expect(await labelOffset("To collect")).toBe(await labelOffset("Pending proposals"));
   const pins = page.locator("nav a[aria-label='Pin']:visible");
   const gap = await pins.first().evaluate((el) => getComputedStyle(el.parentElement!).rowGap);
   expect(gap).toBe("6px");

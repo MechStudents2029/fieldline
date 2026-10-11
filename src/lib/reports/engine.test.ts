@@ -79,6 +79,10 @@ describe("report engine", () => {
     expect(sourceAllowed("field", "invoices")).toBe(false);
     expect(sourceAllowed("field", "estimates")).toBe(false);
     expect(sourceAllowed("owner", "invoices")).toBe(true);
+    expect(sourceAllowed("owner", "cash")).toBe(true);
+    expect(sourceAllowed("estimator", "cash")).toBe(true);
+    expect(sourceAllowed("field", "cash")).toBe(false);
+    expect(sourceAllowed("viewer", "cash")).toBe(false);
     expect(shareAllowed("field", "user_dana", "everyone", "user_maya")).toBe(true);
     expect(shareAllowed("field", "user_dana", "office", "user_maya")).toBe(false);
     expect(shareAllowed("field", "user_dana", "private", "user_maya")).toBe(false);

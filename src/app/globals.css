@@ -949,7 +949,7 @@ button.switch[aria-checked="true"] span {
 .plan-pin.is-open { background: var(--mac-accent); color: white; }
 .plan-pin.is-done, .plan-pin.is-verified { background: var(--mac-fill); color: var(--mac-label); box-shadow: inset 0 0 0 0.5px var(--mac-separator); }
 .mac-table td.wrap, .mac-table th.wrap { white-space: normal; min-width: 11rem; height: auto; line-height: 16px; padding-top: 4px; padding-bottom: 4px; }
-.gantt-names { width: 400px; table-layout: fixed; }
+table.gantt-names { width: 400px; max-width: 40%; table-layout: fixed; }
 .gantt-names th, .gantt-names td { height: 32px; }
 .gantt-names col.name { width: 168px; }
 .gantt-bar { height: 18px; overflow: hidden; border-radius: 4px; background: var(--mac-fill); }
@@ -959,7 +959,10 @@ button.switch[aria-checked="true"] span {
 [data-critical-on="1"] .gantt-bar[data-critical="1"] .gantt-progress { background: color-mix(in srgb, white 40%, transparent); }
 [data-critical-on="1"] .gantt-bar[data-critical="0"] { opacity: 0.35; }
 .gantt-off { background: color-mix(in srgb, var(--mac-label) 8%, transparent); }
-.gantt-today { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--mac-accent); }
+.gantt-today { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--mac-accent); z-index: 2; }
+.gantt-today-label { position: absolute; top: 2px; left: 4px; white-space: nowrap; font-size: 10px; line-height: 14px; color: var(--mac-accent); background: var(--mac-window); padding: 0 3px; }
+.cash-sheet th:first-child, .cash-sheet td:first-child { position: sticky; left: 0; z-index: 1; background: var(--mac-window); }
+.cash-sheet td.cash-low, .cash-sheet th.cash-low { background: color-mix(in srgb, var(--mac-danger) 14%, var(--mac-window)); }
 .gantt-base { top: 24px; height: 2px; border-radius: 1px; background: color-mix(in srgb, var(--mac-label) 55%, transparent); }
 .gantt-roll { height: 10px; overflow: hidden; border-radius: 4px; background: var(--mac-fill); }
 .gantt-roll > span { display: block; height: 100%; background: var(--mac-accent); }

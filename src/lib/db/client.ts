@@ -127,6 +127,7 @@ export function ensureReady(holder: Holder) {
   ensureCustomFields(holder);
   ensureReports(holder);
   ensureGantt(holder);
+  ensureCash(holder);
   const version = holder.sqlite.prepare("select value from app_meta where key = ?").get("seed_version") as
     | { value: string }
     | undefined;
@@ -2468,6 +2469,12 @@ function ensureReports(holder: Holder) {
     )`);
   }
   holder.sqlite.exec("create unique index if not exists dashboard_roles_one on dashboard_roles (org_id, role)");
+}
+
+function ensureCash(holder: Holder) {
+  ensureColumn(holder, "organizations", "cash_opening_cents", "integer not null default 0");
+  ensureColumn(holder, "organizations", "cash_low_cents", "integer not null default 0");
+  ensureColumn(holder, "contacts", "cash_days_late", "integer");
 }
 
 function ensureGantt(holder: Holder) {

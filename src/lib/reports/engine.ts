@@ -1,5 +1,5 @@
 import { formatPercent, formatWhole } from "@/lib/money";
-import type { Role } from "@/lib/permissions";
+import { canSeeCash, type Role } from "@/lib/permissions";
 
 export type CellKind = "text" | "number" | "money" | "date" | "percent";
 
@@ -219,6 +219,7 @@ export function runEngine(rows: EngineRow[], columns: EngineColumn[], query: Rep
 const FIELD_SOURCES = new Set(["jobs", "clients", "leads", "time", "todos", "punch"]);
 
 export function sourceAllowed(role: Role, source: string): boolean {
+  if (source === "cash") return canSeeCash(role);
   if (role === "field") return FIELD_SOURCES.has(source);
   return true;
 }

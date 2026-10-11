@@ -2,7 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { getDb } from "@/lib/db/client";
 import { savedReports } from "@/lib/db/schema";
 import { id, nowIso } from "@/lib/ids";
-import { canManageSettings, canSeeMoney, type Role } from "@/lib/permissions";
+import { canManageSettings, canSeeCash, canSeeMoney, type Role } from "@/lib/permissions";
 import { BUILTINS, CATALOG, PAGE_REPORTS, builtinById, customRecord, sourceLabel, type SourceId } from "@/lib/reports/catalog";
 import {
   emptyQuery,
@@ -103,14 +103,18 @@ export function runBuilt(actor: Actor, source: SourceId, query: ReportQuery): En
 
 export function library(actor: Actor) {
   const role = actor.role as Role;
+  const visible = (id: string, field: boolean) => {
+    if (id === "cash" || id === "cash_13") return canSeeCash(role);
+    return field || role !== "field";
+  };
   const ready = [
-    ...BUILTINS.filter((report) => report.field || role !== "field").map((report) => ({
+    ...BUILTINS.filter((report) => report.id !== "cash_13" && visible(report.id, report.field)).map((report) => ({
       id: report.id,
       name: report.name,
-      href: `/reports/builtin/${report.id}`,
+      href: report.href ?? `/reports/builtin/${report.id}`,
       kind: "builtin" as const,
     })),
-    ...PAGE_REPORTS.filter((report) => report.field || role !== "field").map((report) => ({
+    ...PAGE_REPORTS.filter((report) => visible(report.id, report.field)).map((report) => ({
       id: report.id,
       name: report.name,
       href: report.href,
@@ -131,6 +135,7 @@ export function openBuiltin(actor: Actor, reportId: string, extra?: ReportQuery[
   const report = builtinById(reportId);
   if (!report) throw new ServiceError("That report is not in your company.");
   if (!report.field && actor.role === "field") throw new ServiceError("Your role cannot see this report.");
+  if (report.source === "cash" && !canSeeCash(actor.role as Role)) throw new ServiceError("Your role cannot see this report.");
   const query = parseQuery({ ...report.query, filters: [...report.query.filters, ...(extra ?? [])] });
   return {
     id: report.id,

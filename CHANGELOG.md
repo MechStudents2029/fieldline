@@ -2,10 +2,24 @@
 
 ## 2026-10-11
 
+### Cash
+
+- Cash, under Reports, is the next 13 weeks. Office and Owner only. Invoices, draws, unbilled change orders, and retainage come in. Bills, open purchase orders, retainage releases, and scheduled labor go out. Net and the running balance sit on the last rows. Past due is the first column.
+- Starting balance and the low line are one number each. A week under the line is tinted, and Today gains one row. A customer’s days late defaults to how late that customer has paid, and can be set by hand. Projected turns on unsigned proposals and open leads, drawn lighter.
+- The line above the table is the running balance. A cell opens the records behind it. Filter by job or customer. CSV and Print are on the page. The same forecast is a dashboard tile named 13-week cash.
+
+### Job
+
+- Check out and Add punch open from a button. Punch counts sit on one line.
+
+### Today
+
+- Pipeline, To collect, and the dashboard tiles share one tile.
+
 ### Schedule
 
 - A job’s Schedule has List and Gantt. The company Schedule has Grid and Gantt. The choice is remembered for that person. Field can look and cannot drag.
-- The Gantt lists name, start, finish, workdays, and percent done, with the bars on a timeline. Phases roll up. Dependencies connect. Non-work days are shaded. Today is a line. A baseline shows as a tick. A gated item says Held. The toolbar shows the finish date.
+- The Gantt lists name, start, finish, workdays, and percent done, with the bars on a timeline that uses the width of the page. Week shows the day number, Month the week start, Quarter the month. Today is labeled. The finish date stays on the schedule title. Phases roll up. Dependencies connect. Non-work days are shaded. A baseline shows as a tick. A gated item says Held.
 - Critical uses the longest path to the job finish, with workday lag and non-work days. Critical bars are teal and the rest dim. The item shows float in workdays. A loop is still refused.
 - Drag a bar to move it, or its end to resize it. Arrow keys do the same, and Shift changes the finish. A move that pulls other items says how many, and a gate still warns. The audit log records the shift.
 - Week, Month, and Quarter change the scale. Print keeps that scale. The company Gantt lists each job as a row that opens.
@@ -17,7 +31,7 @@
 
 ### Reports
 
-- Reports lists the ready-made reports and any report you save. Pending proposals, AR aging, job profitability, sales by month, time by job and cost code, expiring COIs, and open change orders use one engine. WIP and Variance stay in that list.
+- Reports lists the ready-made reports and any report you save. Pending proposals, AR aging, job profitability, sales by month, time by job and cost code, expiring COIs, and open change orders use one engine. WIP, Variance, and Cash stay in that list.
 - A new report picks a record type, columns (including custom fields you can see), filters, a date range, a sort, and one group. A grouped report can show a bar or a line. Count, sum, and average sit on the group, with a total row.
 - Save, rename, duplicate, or archive. Share it as Private, Office, or Everyone. Field only opens reports on records that role can already open, and cost columns stay off that view. Every report has CSV and Print.
 - An owner can build a dashboard from number, list, and chart tiles, drag them into order, and assign the board to a role. On Today the tiles sit above the existing rows. On My day they sit under the clock. Owner starts with AR 60+, pending proposals, margin, and underbilled. Field starts with today’s to-dos and open punch items. A tile opens its report.

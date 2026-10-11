@@ -28,6 +28,7 @@ import type { Actor } from "@/lib/services/read";
 import { listTodos } from "@/lib/services/todos";
 import { calendarForOrg, formatHours, workedMinutes } from "@/lib/services/time";
 import { localDay } from "@/lib/time/calendar";
+import { cashForecast } from "@/lib/services/cash";
 import { wipReport } from "@/lib/services/wip";
 
 const INSURANCE = new Set(["general_liability", "workers_comp"]);
@@ -106,7 +107,28 @@ export function loadSource(actor: Actor, source: SourceId, today: string): Engin
   if (source === "change_orders") return loadChanges(db, actor.orgId);
   if (source === "todos") return loadTodoRows(actor);
   if (source === "certificates") return loadCerts(db, actor.orgId, today);
+  if (source === "cash") return loadCash(actor);
   return loadPunch(db, actor.orgId);
+}
+
+function loadCash(actor: Actor): EngineRow[] {
+  const board = cashForecast(actor, { projected: false, jobId: "", customerId: "" });
+  const net = board.forecast.rows.find((row) => row.id === "net");
+  const balance = board.forecast.rows.find((row) => row.id === "balance");
+  return board.forecast.columns
+    .filter((column) => column.key !== "past")
+    .map((column) => {
+      const at = board.forecast.columns.findIndex((item) => item.key === column.key);
+      return {
+        id: column.key,
+        href: "/reports/cash",
+        cells: {
+          week: { text: column.label, sort: column.key, value: null },
+          net: money(net?.cells[at]?.cents ?? 0),
+          balance: money(balance?.cells[at]?.cents ?? 0),
+        },
+      };
+    });
 }
 
 function loadJobs(actor: Actor, db: AppDatabase): EngineRow[] {

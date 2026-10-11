@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ganttMoveAction, previewScheduleShiftAction } from "@/app/actions";
 import { DELAY_REASONS } from "@/lib/schedule/delays";
@@ -15,6 +15,8 @@ const ROW = 32;
 
 export function GanttBoard({ model, critical = false, printHref, chrome = true }: { model: GanttModel; critical?: boolean; printHref: string; chrome?: boolean }) {
   const router = useRouter();
+  const scroller = useRef<HTMLDivElement>(null);
+  const [fit, setFit] = useState(() => dayWidth(model.zoom));
   const [on, setOn] = useState(critical);
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const [ghost, setGhost] = useState<Record<string, { start: string; end: string }>>({});
@@ -26,7 +28,21 @@ export function GanttBoard({ model, critical = false, printHref, chrome = true }
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const criticalOn = chrome ? on : critical;
-  const width = dayWidth(model.zoom);
+  const base = dayWidth(model.zoom);
+  useLayoutEffect(() => {
+    const node = scroller.current;
+    if (!node) return;
+    const measure = () => {
+      const available = node.clientWidth;
+      const next = model.days.length === 0 ? base : Math.max(base, Math.floor(available / model.days.length));
+      setFit(next);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [base, model.days.length]);
+  const width = fit;
   const expanded = (group: GanttGroup) => model.scope === "job" || open[group.id];
   const lines: ({ kind: "group"; group: GanttGroup } | { kind: "bar"; bar: GanttBar })[] = [];
   for (const group of model.groups) {
@@ -154,16 +170,22 @@ export function GanttBoard({ model, critical = false, printHref, chrome = true }
     void stage(bar.id, next.startDate, next.endDate);
   }
 
+  function heading(date: string, index: number) {
+    if (model.zoom === "quarter") {
+      const prev = model.days[index - 1]?.date;
+      if (prev && prev.slice(0, 7) === date.slice(0, 7)) return "";
+      return new Intl.DateTimeFormat("en-US", { month: "short", timeZone: "UTC" }).format(new Date(`${date}T12:00:00Z`));
+    }
+    return dayHeading(date, model.zoom, model.weekStartsOn);
+  }
+
   const chartWidth = model.days.length * width;
   const chartHeight = Math.max(lines.length, 1) * ROW;
 
   return (
-    <div className="flex min-h-0 flex-col gap-2" data-gantt={model.scope} data-zoom={model.zoom} data-critical-on={criticalOn ? "1" : "0"}>
+    <div className="flex min-h-0 w-full flex-col gap-2" data-gantt={model.scope} data-zoom={model.zoom} data-day-width={width} data-critical-on={criticalOn ? "1" : "0"}>
       {chrome ? (
         <div className="flex items-center gap-2">
-          <span className="num mac-t13" data-finish>
-            {model.finishLabel}
-          </span>
           <button type="button" className="mac-glass-btn" aria-pressed={criticalOn} onClick={() => setOn((value) => !value)}>
             Critical
           </button>
@@ -256,13 +278,12 @@ export function GanttBoard({ model, critical = false, printHref, chrome = true }
             )}
           </tbody>
         </table>
-        <div className="min-w-0 flex-1 overflow-x-auto">
-          <div className="relative" style={{ width: chartWidth }}>
+        <div ref={scroller} data-gantt-chart className="min-w-0 flex-1 overflow-x-auto">
+          <div className="relative" style={{ width: chartWidth, minWidth: "100%" }}>
             <div className="flex h-7">
-              {model.days.map((day) => (
-                <div key={day.date} className={`shrink-0 truncate mac-t11 text-[var(--mac-secondary)] ${day.date === model.today ? "text-[var(--mac-accent)]" : ""}`} style={{ width }} data-off={day.off ? day.date : undefined}>
-                  {dayHeading(day.date, model.zoom)}
-                  {day.label ? <span className="block truncate">{day.label}</span> : null}
+              {model.days.map((day, index) => (
+                <div key={day.date} className={`shrink-0 mac-t11 text-[var(--mac-secondary)] ${day.date === model.today ? "text-[var(--mac-accent)]" : ""}`} style={{ width }} data-day={day.date} data-off={day.off ? day.date : undefined}>
+                  {heading(day.date, index)}
                 </div>
               ))}
             </div>
@@ -271,7 +292,11 @@ export function GanttBoard({ model, critical = false, printHref, chrome = true }
                 day.off ? <div key={day.date} className="gantt-off pointer-events-none absolute bottom-0 top-0" style={{ left: index * width, width }} /> : null,
               )}
               {model.days.some((day) => day.date === model.today) ? (
-                <div className="gantt-today pointer-events-none" data-today-line style={{ left: xOf(model.today) + width / 2 }} />
+                <div className="gantt-today pointer-events-none" data-today-line style={{ left: xOf(model.today) + width / 2 }}>
+                  <span className="gantt-today-label" data-today-label>
+                    Today
+                  </span>
+                </div>
               ) : null}
               {lines.map((line, index) => {
                 if (line.kind === "group") {
