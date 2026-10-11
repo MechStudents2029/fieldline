@@ -27,9 +27,10 @@ test.describe("WIP report", () => {
   test("lists jobs, exports CSV, and labels schedule predecessors", async ({ page, request }) => {
     await resetDemo(request);
     await signInAs(page, "maya@rivera.demo");
-    await expect(page.getByRole("link", { name: "Underbilled" }).filter({ visible: true })).toBeVisible();
+    const under = page.locator("a[href*='/reports/wip?sort=under']").filter({ visible: true });
+    await expect(under).toBeVisible();
     await expect(page.getByRole("link", { name: "Template bath" })).toHaveCount(0);
-    await page.getByRole("link", { name: "Underbilled" }).filter({ visible: true }).click();
+    await under.click();
     await expect(page).toHaveURL(/\/reports\/wip\?sort=under/);
     await expect(page.getByRole("heading", { name: "WIP" })).toBeVisible();
     await expect(page.getByRole("link", { name: "WIP", exact: true }).filter({ visible: true })).toBeVisible();
@@ -123,7 +124,7 @@ test.describe("WIP on a phone", () => {
   test("opens underbilled jobs and a cost code", async ({ page, request }) => {
     await resetDemo(request);
     await signInAs(page, "maya@rivera.demo");
-    await page.getByRole("link", { name: "Underbilled" }).click();
+    await page.locator("a[href*='/reports/wip?sort=under']").filter({ visible: true }).click();
     await expect(page.getByRole("heading", { name: "WIP" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Brooks powder room" })).toBeVisible();
     const [download] = await Promise.all([

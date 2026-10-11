@@ -56,7 +56,6 @@ export function MyDay({ actor }: { actor: Actor }) {
         <Toolbar title="My day" subtitle={dayTitle(day.timeZone)} search={false} />
       </div>
       <LargeTitle title="My day" subtitle={dayTitle(day.timeZone)} />
-      {home ? <DashboardStrip name={home.name} tiles={home.tiles} /> : null}
       {rfis.overdue.count > 0 || rfis.awaiting.count > 0 || submittals.overdue.count > 0 || submittals.awaiting.count > 0 || mentions > 0 || notices.length > 0 ? (
         <ul className="fl-group">
           {notices.map((notice) => (
@@ -165,6 +164,7 @@ export function MyDay({ actor }: { actor: Actor }) {
           <ClockInForm jobs={day.clockJobs} codes={day.codes} scope={{ orgId: actor.orgId, userId: actor.userId }} />
         </section>
       )}
+      {home ? <DashboardStrip name={home.name} tiles={home.tiles} /> : null}
       {talks.length > 0 ? (
         <section aria-label="Toolbox" className="flex flex-col gap-2">
           <h2 className="fl-section">Toolbox</h2>

@@ -7,7 +7,7 @@
 - Reports lists the ready-made reports and any report you save. Pending proposals, AR aging, job profitability, sales by month, time by job and cost code, expiring COIs, and open change orders use one engine. WIP and Variance stay in that list.
 - A new report picks a record type, columns (including custom fields you can see), filters, a date range, a sort, and one group. A grouped report can show a bar or a line. Count, sum, and average sit on the group, with a total row.
 - Save, rename, duplicate, or archive. Share it as Private, Office, or Everyone. Field only opens reports on records that role can already open, and cost columns stay off that view. Every report has CSV and Print.
-- An owner can build a dashboard from number, list, and chart tiles, drag them into order, and assign the board to a role. That board sits above the existing Today rows. Owner starts with AR 60+, pending proposals, margin, and underbilled. Field starts with today’s to-dos and open punch items. A tile opens its report.
+- An owner can build a dashboard from number, list, and chart tiles, drag them into order, and assign the board to a role. On Today the tiles sit above the existing rows. On My day they sit under the clock. Owner starts with AR 60+, pending proposals, margin, and underbilled. Field starts with today’s to-dos and open punch items. A tile opens its report.
 
 ### Custom fields
 
