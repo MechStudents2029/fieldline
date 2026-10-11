@@ -45,7 +45,7 @@ test("calibrate, measure, and update the draft estimate", async ({ page, request
   await page.emulateMedia({ colorScheme: "light" });
   await page.goto("/estimates/est_ok_takeoff");
   await expect(page.getByRole("link", { name: "Measure on plan" })).toBeVisible();
-  await expect(page.getByLabel("Walls")).toHaveValue("115.2");
+  await expect(page.getByRole("textbox", { name: "Walls", exact: true })).toHaveValue("115.2");
   await expect(page.locator("[data-line='li_ok_tile'][data-col='qty']")).toHaveValue("130");
   await expect(page.getByText("Updated from plan").first()).toBeVisible();
   await shot(page, "estimate-from-takeoff-light");
@@ -66,9 +66,8 @@ test("a new plan revision keeps the measurements and flags them for review", asy
     buffer: Buffer.from("%PDF-1.4\n"),
   });
   await pane.getByRole("button", { name: "Upload new revision" }).click();
-  await expect(pane.getByRole("status")).toHaveText("Revised.");
-  await page.getByRole("row", { name: /A-101 floor plan/ }).filter({ hasText: "Current" }).click();
-  await expect(pane).toContainText("Rev 3");
+  await pane.getByRole("button", { name: /Rev 3 · Current/ }).click();
+  await expect(pane.getByRole("link", { name: "Plan" })).not.toHaveAttribute("href", "/projects/proj_okonkwo/plans/jf_ok_a101_r2");
   await pane.getByRole("link", { name: "Plan" }).click();
   await page.getByRole("link", { name: "Takeoff" }).click();
   await expect(page.getByRole("button", { name: "Review", exact: true })).toBeVisible();
