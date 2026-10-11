@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { approveEntriesAction, editTimeAction, officeClockOutAction, saveAndApproveAction, undoTimeAction } from "@/app/actions";
+import { addPtoAction, approveEntriesAction, editTimeAction, officeClockOutAction, saveAndApproveAction, undoTimeAction } from "@/app/actions";
 import { Segmented, Toolbar } from "@/components/mac/toolbar";
 import { formatMoney } from "@/lib/money";
 import type { ReviewEntry, TimeReview, TimeUndo } from "@/lib/services/time";
@@ -149,6 +149,69 @@ export function TimeReview({ review }: { review: TimeReview }) {
         primaryDisabled={review.pendingCount === 0 || busy}
         onPrimary={() => void approve(review.pendingIds)}
       />
+      <div className="flex flex-wrap items-end gap-3 px-4 pb-2">
+        <form
+          className="flex flex-wrap items-end gap-2"
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (busy) return;
+            const data = new FormData(event.currentTarget);
+            setBusy(true);
+            void addPtoAction(null, data).then((result) => {
+              setBusy(false);
+              if (!result || result.error) setNotice(result?.error ?? "Could not add PTO.");
+              else {
+                setNotice(result.ok ?? "PTO added.");
+                router.refresh();
+              }
+            });
+          }}
+        >
+          <label className="text-[13px]">
+            Person
+            <select name="userId" aria-label="PTO person" defaultValue={selectedId ?? review.people[0]?.userId ?? ""} className="ctl mt-1 max-w-40">
+              {review.people.map((member) => (
+                <option key={member.userId} value={member.userId}>
+                  {member.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="text-[13px]">
+            Day
+            <input type="date" name="day" aria-label="PTO day" required defaultValue={review.dayHeaders[0]?.key ?? ""} className="ctl mt-1" />
+          </label>
+          <label className="text-[13px]">
+            Hours
+            <input name="hours" aria-label="PTO hours" defaultValue="8" inputMode="decimal" className="ctl mt-1 w-16" />
+          </label>
+          <label className="text-[13px]">
+            Shift
+            <select name="shiftType" aria-label="Shift type" defaultValue="pto" className="ctl mt-1">
+              <option value="pto">PTO</option>
+              <option value="holiday">Holiday</option>
+              <option value="sick">Sick</option>
+              <option value="training">Training</option>
+            </select>
+          </label>
+          <button type="submit" className="ctl" disabled={busy}>
+            Add PTO
+          </button>
+        </form>
+        <form action="/api/export/time" className="flex flex-wrap items-end gap-2">
+          <label className="text-[13px]">
+            From
+            <input type="date" name="from" aria-label="Payroll from" required defaultValue={review.dayHeaders[0]?.key ?? ""} className="ctl mt-1" />
+          </label>
+          <label className="text-[13px]">
+            To
+            <input type="date" name="to" aria-label="Payroll to" required defaultValue={review.dayHeaders.at(-1)?.key ?? ""} className="ctl mt-1" />
+          </label>
+          <button type="submit" className="ctl">
+            Download CSV
+          </button>
+        </form>
+      </div>
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto px-4 pb-2">
         <div className="mac-strip">
           <div>
@@ -231,13 +294,18 @@ export function TimeReview({ review }: { review: TimeReview }) {
                   </th>
                 ))}
                 <th className="px-2 text-right">Total</th>
+                <th className="px-2 text-right">Reg</th>
+                <th className="px-2 text-right">OT</th>
+                <th className="px-2 text-right">DT</th>
+                <th className="px-2 text-right">PTO</th>
+                <th className="px-2 text-right">Cost</th>
                 <th className="px-2 text-left">Status</th>
               </tr>
             </thead>
             <tbody>
               {review.rows.length === 0 ? (
                 <tr>
-                  <td colSpan={review.dayHeaders.length + 3} className="px-2 text-[var(--mac-secondary)]">
+                  <td colSpan={review.dayHeaders.length + 8} className="px-2 text-[var(--mac-secondary)]">
                     No time this week.
                   </td>
                 </tr>
@@ -256,6 +324,11 @@ export function TimeReview({ review }: { review: TimeReview }) {
                     </td>
                   ))}
                   <td data-fit="amount" className={`fit px-2 text-right num ${toneClass(row.totalTone)}`}>{row.total.toFixed(1)}</td>
+                  <td className="px-2 text-right num">{hours(row.regular)}</td>
+                  <td className={`px-2 text-right num ${row.ot > 0 ? "font-semibold text-[var(--mac-warning)]" : ""}`}>{hours(row.ot)}</td>
+                  <td className="px-2 text-right num">{hours(row.dt)}</td>
+                  <td className="px-2 text-right num">{hours(row.pto)}</td>
+                  <td className="px-2 text-right num">{formatMoney(row.costCents)}</td>
                   <td data-fit="status" className="fit px-2">{row.status === "Submitted" ? <span className="fl-pill">Submitted</span> : row.status}</td>
                 </tr>
               ))}
@@ -270,6 +343,11 @@ export function TimeReview({ review }: { review: TimeReview }) {
                     </td>
                   ))}
                   <td className="px-2 text-right num">{review.totalHours.toFixed(1)}</td>
+                  <td className="px-2 text-right num">{hours(review.rows.reduce((sum, row) => sum + row.regular, 0))}</td>
+                  <td className="px-2 text-right num">{hours(review.rows.reduce((sum, row) => sum + row.ot, 0))}</td>
+                  <td className="px-2 text-right num">{hours(review.rows.reduce((sum, row) => sum + row.dt, 0))}</td>
+                  <td className="px-2 text-right num">{hours(review.rows.reduce((sum, row) => sum + row.pto, 0))}</td>
+                  <td className="px-2 text-right num">{formatMoney(review.laborCents)}</td>
                   <td />
                 </tr>
               </tfoot>

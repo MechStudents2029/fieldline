@@ -48,6 +48,18 @@ export default async function TimePage({ searchParams }: { searchParams: Promise
           </p>
           <p className="fl-footnote text-[var(--fl-secondary)]">This week</p>
         </div>
+        <div>
+          <p className="fl-number" aria-label="Regular hours">
+            {formatHours(board.weekRegularMinutes)}
+          </p>
+          <p className="fl-footnote text-[var(--fl-secondary)]">Reg</p>
+        </div>
+        <div>
+          <p className="fl-number" aria-label="Overtime hours">
+            {formatHours(board.weekOtMinutes)}
+          </p>
+          <p className="fl-footnote text-[var(--fl-secondary)]">OT</p>
+        </div>
       </section>
       {canAddFieldNotes(session.role) ? (
         <section className="rounded-xl bg-card p-4 ">

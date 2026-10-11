@@ -2,6 +2,19 @@
 
 ## 2026-10-11
 
+### Overtime and labor burden
+
+- Settings > Time is for an owner or admin. Overtime starts off. When it is on, daily overtime, weekly overtime (40), double time, overtime days, and the 1.5 and 2.0 multipliers use the company workweek and time zone. A labor burden percent applies to the company, and a person can override it.
+- Approved minutes in a workweek split into regular, overtime, and double time. Overtime days come first, then the daily thresholds, then the weekly threshold. A minute lands in one bucket. A shift that crosses midnight stays on the clock-in day. Breaks come off before the split.
+- Approval posts base labor, the overtime premium, and the burden to the job by cost code. A later approval that crosses the weekly line puts the premium on that punch. A punch already on an invoice stays as posted.
+- Job costs list labor, the overtime premium, and the burden. Cost-plus still bills the bill rate. Burden is billed only when the job opts in.
+- Shift types are Regular, PTO, Holiday, Sick, and Training. The non-job shifts go to General, count as hours paid, and stay off the job. They do not count toward overtime unless Settings says so. The week grid can add one of those days.
+- The week grid shows Reg, OT, DT, PTO, and the burdened cost. Hours over 40 stay amber. Field sees their own Reg and OT hours, and does not see rates, burden, or cost.
+- The payroll CSV is one row per person, day, job, and cost code, with regular, overtime, double time, PTO, and the shift type, plus a summary per person. It does not pay anyone.
+- Reports includes Labor cost, with the overtime share. Job profitability uses the burdened labor. Today adds one row when someone is on track to hit weekly overtime within the next two workdays.
+
+## 2026-10-11
+
 ### T&M tickets
 
 - A job can hold T&M tickets for extra work: date, location, who ordered it, a description, photos, and lines for labor, materials, and equipment. Labor uses the crew member’s bill rate, or the company T&M rate when the member has none. Materials use the price book or a typed line. Equipment uses the register rate. Totals are integer cents, with the job’s cost-plus tax rate.
