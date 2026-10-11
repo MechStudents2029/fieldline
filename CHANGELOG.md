@@ -2,6 +2,13 @@
 
 ## 2026-10-11
 
+### Reports
+
+- Reports lists the ready-made reports and any report you save. Pending proposals, AR aging, job profitability, sales by month, time by job and cost code, expiring COIs, and open change orders use one engine. WIP and Variance stay in that list.
+- A new report picks a record type, columns (including custom fields you can see), filters, a date range, a sort, and one group. A grouped report can show a bar or a line. Count, sum, and average sit on the group, with a total row.
+- Save, rename, duplicate, or archive. Share it as Private, Office, or Everyone. Field only opens reports on records that role can already open, and cost columns stay off that view. Every report has CSV and Print.
+- An owner can build a dashboard from number, list, and chart tiles, drag them into order, and assign the board to a role. On Today the tiles sit above the existing rows. On My day they sit under the clock. Owner starts with AR 60+, pending proposals, margin, and underbilled. Field starts with today’s to-dos and open punch items. A tile opens its report.
+
 ### Custom fields
 
 - Settings > Custom fields holds a company’s own fields for jobs, clients, leads, vendors, to-dos, daily logs, and price book items. A field has a label, a type, an optional default, required, a one-line hint, and who can see it.
@@ -12,7 +19,8 @@
 
 ### Safety and automations
 
-- The job Safety tab counts every talk, checklist, and incident. Those three sections use the same table.
+- The job Safety tab counts every talk, checklist, and incident. Talks, checklists, and incidents share one column layout, so the status pill lines up.
+- Custom fields use the same column widths in every section. Drag the handle to reorder. Archive sits in the row menu. Visibility and Required are small pills.
 - Automation rows wrap inside the sheet. Remove is an icon button. Preview on picks a record and shows the result inline.
 
 ## 2026-10-10

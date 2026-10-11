@@ -532,6 +532,19 @@ export function restoreField(actor: Actor, fieldId: string) {
   audit(actor, "Restored custom field", row.id, { label: row.label });
 }
 
+export function orderFields(actor: Actor, recordType: string, ids: string[]) {
+  assertManager(actor);
+  const type = recordTypeOf(recordType);
+  const siblings = defs(actor.orgId, type).filter((item) => !item.archivedAt);
+  const known = new Set(siblings.map((item) => item.id));
+  const next = ids.filter((item) => known.has(item));
+  if (next.length !== siblings.length) throw new ServiceError("That order is missing a field.");
+  next.forEach((fieldId, index) => {
+    getDb().update(customFields).set({ sortOrder: index }).where(eq(customFields.id, fieldId)).run();
+  });
+  audit(actor, "Reordered custom fields", next[0] ?? type, { recordType: type });
+}
+
 export function moveField(actor: Actor, fieldId: string, direction: -1 | 1) {
   assertManager(actor);
   const row = getDb().select().from(customFields).where(and(eq(customFields.orgId, actor.orgId), eq(customFields.id, fieldId))).get();

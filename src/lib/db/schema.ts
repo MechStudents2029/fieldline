@@ -2629,3 +2629,60 @@ export const templateFieldValues = sqliteTable(
   },
   (t) => [uniqueIndex("template_field_values_one").on(t.orgId, t.templateId, t.fieldId)],
 );
+
+export const savedReports = sqliteTable(
+  "saved_reports",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    name: text("name").notNull(),
+    source: text("source").notNull(),
+    definitionJson: text("definition_json").notNull(),
+    share: text("share").notNull(),
+    ownerUserId: text("owner_user_id").notNull(),
+    archivedAt: text("archived_at"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (t) => [index("saved_reports_org").on(t.orgId, t.archivedAt)],
+);
+
+export const dashboards = sqliteTable(
+  "dashboards",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    name: text("name").notNull(),
+    archivedAt: text("archived_at"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    createdBy: text("created_by"),
+  },
+  (t) => [index("dashboards_org").on(t.orgId)],
+);
+
+export const dashboardTiles = sqliteTable(
+  "dashboard_tiles",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    dashboardId: text("dashboard_id").notNull(),
+    title: text("title").notNull(),
+    kind: text("kind").notNull(),
+    reportKey: text("report_key").notNull(),
+    configJson: text("config_json").notNull().default("{}"),
+    sortOrder: integer("sort_order").notNull().default(0),
+  },
+  (t) => [index("dashboard_tiles_dash").on(t.orgId, t.dashboardId, t.sortOrder)],
+);
+
+export const dashboardRoles = sqliteTable(
+  "dashboard_roles",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    role: text("role").notNull(),
+    dashboardId: text("dashboard_id").notNull(),
+  },
+  (t) => [uniqueIndex("dashboard_roles_one").on(t.orgId, t.role)],
+);

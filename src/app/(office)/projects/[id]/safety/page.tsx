@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Fragment } from "react";
+import { Fragment, type ReactNode } from "react";
 import { ActionForm } from "@/components/action-form";
 import { ChecklistForm } from "@/components/checklist-form";
 import { FileButton } from "@/components/file-button";
@@ -14,6 +14,20 @@ import { localDay } from "@/lib/time/calendar";
 
 function one(value: string | string[] | undefined) {
   return (Array.isArray(value) ? value[0] : value) || "";
+}
+
+function SafetyTable({ children }: { children: ReactNode }) {
+  return (
+    <table className="mac-table safety-table w-full">
+      <colgroup>
+        <col style={{ width: "46%" }} />
+        <col style={{ width: "16%" }} />
+        <col style={{ width: "18%" }} />
+        <col style={{ width: "20%" }} />
+      </colgroup>
+      <tbody>{children}</tbody>
+    </table>
+  );
 }
 
 function officeDay(orgId: string) {
@@ -70,41 +84,43 @@ export default async function JobSafetyPage({
           <section aria-label="Talks" className="mb-6">
             <h2 className="mac-t11 mb-2 font-semibold text-[var(--mac-secondary)]">Talks</h2>
             {board.talks.length === 0 ? <p className="mac-t13 text-[var(--mac-secondary)]">No talks</p> : null}
-            <table className="mac-table w-full">
-              <tbody>
+            <SafetyTable>
                 {board.talks.map((talk) => (
                   <tr key={talk.id} data-mac-row={talk.title}>
                     <td>
                       <Link href={talk.href}>{talk.title}</Link>
                     </td>
                     <td className="num">{formatCalendarDay(talk.when)}</td>
+                    <td />
                     <td>
-                      <span className="fl-pill" data-status={talk.status}>
+                      <span className="fl-pill" data-safety-pill data-status={talk.status}>
                         {talk.statusLabel}
                       </span>
                     </td>
                   </tr>
                 ))}
-              </tbody>
-            </table>
+            </SafetyTable>
           </section>
           <section aria-label="Checklists" className="mb-6">
             <h2 className="mac-t11 mb-2 font-semibold text-[var(--mac-secondary)]">Checklists</h2>
             {board.checks.length === 0 ? <p className="mac-t13 text-[var(--mac-secondary)]">No checklists</p> : null}
-            <table className="mac-table w-full">
-              <tbody>
+            <SafetyTable>
                 {board.checks.map((check) => (
                   <Fragment key={check.id}>
                     <tr data-check={check.id} data-mac-row={check.title}>
                       <td>{check.title}</td>
                       <td className="num">{formatCalendarDay(check.when)}</td>
+                      <td />
                       <td>
-                        <span className="fl-pill">{check.statusLabel}</span>
+                        <span className="fl-pill" data-safety-pill>
+                          {check.statusLabel}
+                        </span>
                       </td>
                     </tr>
                     {check.items.map((item) => (
                       <tr key={item.id}>
                         <td className="mac-t13">{item.title}</td>
+                        <td />
                         <td>
                           <span className="flex items-center gap-2">
                             {item.result === "fail" && board.canWrite && !item.todoId ? (
@@ -136,20 +152,20 @@ export default async function JobSafetyPage({
                           </span>
                         </td>
                         <td>
-                          <span className="fl-pill">{item.result === "na" ? "N/A" : item.result === "fail" ? "Fail" : "Pass"}</span>
+                          <span className="fl-pill" data-safety-pill>
+                            {item.result === "na" ? "N/A" : item.result === "fail" ? "Fail" : "Pass"}
+                          </span>
                         </td>
                       </tr>
                     ))}
                   </Fragment>
                 ))}
-              </tbody>
-            </table>
+            </SafetyTable>
           </section>
           <section aria-label="Incidents">
             <h2 className="mac-t11 mb-2 font-semibold text-[var(--mac-secondary)]">Incidents</h2>
             {board.incidents.length === 0 ? <p className="mac-t13 text-[var(--mac-secondary)]">No incidents</p> : null}
-            <table className="mac-table w-full">
-              <tbody>
+            <SafetyTable>
                 {board.incidents.map((incident) => (
                   <tr key={incident.id} data-mac-row={incident.title}>
                     <td>
@@ -160,12 +176,13 @@ export default async function JobSafetyPage({
                       <span className="mac-t11 text-[var(--mac-secondary)]">{incident.kindLabel}</span>
                     </td>
                     <td>
-                      <span className="fl-pill">{incident.statusLabel}</span>
+                      <span className="fl-pill" data-safety-pill>
+                        {incident.statusLabel}
+                      </span>
                     </td>
                   </tr>
                 ))}
-              </tbody>
-            </table>
+            </SafetyTable>
           </section>
         </div>
       </div>

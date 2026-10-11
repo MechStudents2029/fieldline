@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import type { ActionState } from "@/app/actions";
 import { requireSession } from "@/lib/auth/session";
 import { ServiceError } from "@/lib/services/errors";
-import { archiveField, createField, moveField, restoreField, saveRecordFields, updateField } from "@/lib/services/custom-fields";
+import { archiveField, createField, moveField, orderFields, restoreField, saveRecordFields, updateField } from "@/lib/services/custom-fields";
 
 function fail(error: unknown): ActionState {
   return { error: error instanceof ServiceError ? error.message : "Could not save." };
@@ -78,6 +78,12 @@ export async function archiveFieldAction(formData: FormData) {
 export async function restoreFieldAction(formData: FormData) {
   const session = await requireSession();
   restoreField(session, String(formData.get("id") || ""));
+  revalidatePath("/settings/fields");
+}
+
+export async function orderFieldsAction(formData: FormData) {
+  const session = await requireSession();
+  orderFields(session, String(formData.get("recordType") || ""), formData.getAll("ids").map(String));
   revalidatePath("/settings/fields");
 }
 

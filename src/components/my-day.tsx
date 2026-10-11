@@ -20,6 +20,8 @@ import { submittalQueue } from "@/lib/services/submittals";
 import { FileButton } from "@/components/file-button";
 import { memberAssignments } from "@/lib/services/schedule";
 import { overdueTodoCount } from "@/lib/services/todos";
+import { DashboardStrip } from "@/components/dashboard-strip";
+import { dashboardForRole } from "@/lib/services/dashboards";
 import { formatHours, timeBoard } from "@/lib/services/time";
 
 function clock(iso: string) {
@@ -46,6 +48,7 @@ export function MyDay({ actor }: { actor: Actor }) {
   const overdueTodos = overdueTodoCount(actor);
   const notices = noticesFor(actor);
   const talks = leaderTalks(actor);
+  const home = dashboardForRole(actor);
   const open = day.open;
   return (
     <div className="mx-auto flex max-w-lg flex-col gap-7 md:max-w-none md:px-6">
@@ -161,6 +164,7 @@ export function MyDay({ actor }: { actor: Actor }) {
           <ClockInForm jobs={day.clockJobs} codes={day.codes} scope={{ orgId: actor.orgId, userId: actor.userId }} />
         </section>
       )}
+      {home ? <DashboardStrip name={home.name} tiles={home.tiles} /> : null}
       {talks.length > 0 ? (
         <section aria-label="Toolbox" className="flex flex-col gap-2">
           <h2 className="fl-section">Toolbox</h2>
