@@ -1,11 +1,17 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { shiftScheduleDatesAction } from "@/app/actions";
 import { DELAY_REASONS } from "@/lib/schedule/delays";
 
 export function ScheduleShiftForm({ itemId, startDate, endDate }: { itemId: string; startDate: string; endDate: string }) {
   const [state, action, pending] = useActionState(shiftScheduleDatesAction, null);
+  const [end, setEnd] = useState(endDate);
+  const [fromServer, setFromServer] = useState(endDate);
+  if (fromServer !== endDate) {
+    setFromServer(endDate);
+    setEnd(endDate);
+  }
   return (
     <form action={action} className="flex max-w-sm flex-col gap-2" aria-busy={pending}>
       <input type="hidden" name="itemId" value={itemId} />
@@ -33,7 +39,7 @@ export function ScheduleShiftForm({ itemId, startDate, endDate }: { itemId: stri
       ) : null}
       <label className="text-sm">
         End
-        <input name="endDate" type="date" aria-label="End" defaultValue={endDate} required className="field mt-1" />
+        <input name="endDate" type="date" aria-label="End" value={end} required className="field mt-1" onChange={(event) => setEnd(event.target.value)} />
       </label>
       {state?.confirm ? <p role="status">{state.confirm}</p> : null}
       {state?.error ? <p role="alert" className="text-sm text-destructive">{state.error}</p> : null}

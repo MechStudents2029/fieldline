@@ -95,7 +95,7 @@ test.describe("templates on a phone", () => {
     await page.goto("/schedule");
     await page.getByRole("link", { name: /Phone bath/ }).first().click();
     await expect(page.getByRole("heading", { name: "Demo" })).toBeVisible();
-    const end = page.getByLabel("End");
+    const end = page.getByLabel("End", { exact: true });
     const current = await end.inputValue();
     const later = new Date(`${current}T12:00:00Z`);
     later.setUTCDate(later.getUTCDate() + 5);

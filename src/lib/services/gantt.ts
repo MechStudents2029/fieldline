@@ -26,6 +26,7 @@ export type GanttBar = {
   float: number;
   critical: boolean;
   held: string | null;
+  confirm: string | null;
   baselineStart: string | null;
   baselineEnd: string | null;
   href: string;
@@ -141,6 +142,7 @@ function barsFor(
         float: mark?.float ?? 0,
         critical: mark?.critical ?? false,
         held: gates.get(row.id) ?? (row.held ? "Held" : null),
+        confirm: row.confirmStatus === "requested" ? "Requested" : row.confirmStatus === "confirmed" ? "Confirmed" : row.confirmStatus === "declined" ? "Declined" : null,
         baselineStart: base?.start ?? null,
         baselineEnd: base?.end ?? null,
         href: `/schedule/items/${row.id}`,

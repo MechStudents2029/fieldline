@@ -591,39 +591,6 @@ export function TakeoffStage({ board, estimateId }: { board: TakeoffBoard; estim
             </button>
           </form>
         ) : null}
-        {showForm ? (
-          <form className="flex flex-wrap items-center gap-2" onSubmit={(event) => void saveDrawing(event)}>
-            <input aria-label="Name" className="ctl w-28" value={name} onChange={(event) => setName(event.target.value)} />
-            <input aria-label="Room" className="ctl w-28" value={room} placeholder="Room" onChange={(event) => setRoom(event.target.value)} />
-            {kind === "wall" || selected?.kind === "wall" ? <input aria-label="Height" className="ctl w-20" value={heightText} onChange={(event) => setHeightText(event.target.value)} /> : null}
-            {(kind === "area" || selected?.kind === "area") && (
-              <>
-                <input aria-label="Pitch rise" className="ctl w-16" inputMode="numeric" value={pitchRise} placeholder="Rise" onChange={(event) => setPitchRise(event.target.value)} />
-                <input aria-label="Pitch run" className="ctl w-16" inputMode="numeric" value={pitchRun} placeholder="Run" onChange={(event) => setPitchRun(event.target.value)} />
-                <input aria-label="Depth" className="ctl w-16" inputMode="decimal" value={depthText} placeholder="Depth" onChange={(event) => setDepthText(event.target.value)} />
-              </>
-            )}
-            <select aria-label="Estimate" className="ctl" value={estimate} onChange={(event) => { setEstimate(event.target.value); setMeasurementId("new"); }}>
-              <option value="">Estimate</option>
-              {board.estimates.map((row) => (
-                <option key={row.id} value={row.id}>
-                  {row.title}
-                </option>
-              ))}
-            </select>
-            <select aria-label="Measurement" className="ctl" value={measurementId} onChange={(event) => setMeasurementId(event.target.value)}>
-              <option value="new">New</option>
-              {measures.map((row) => (
-                <option key={row.id} value={row.id}>
-                  {row.name}
-                </option>
-              ))}
-            </select>
-            <button type="submit" className="mac-primary" disabled={busy || !board.canEdit}>
-              Use
-            </button>
-          </form>
-        ) : null}
         {error ? <p role="alert" className="mac-t13" style={{ color: "var(--fl-danger)" }}>{error}</p> : null}
         {notice ? <p className="mac-t13 text-[var(--mac-secondary)]">{notice}</p> : null}
         <div ref={frameRef} className="relative min-h-0 flex-1 overflow-auto rounded-md bg-[var(--mac-box)]">
@@ -647,6 +614,39 @@ export function TakeoffStage({ board, estimateId }: { board: TakeoffBoard; estim
         </div>
       </div>
       <aside data-takeoff-pane data-pane="takeoff" aria-label="Measurements" className="min-h-0 overflow-auto border-t border-[var(--mac-separator)] pt-3 lg:border-t-0 lg:border-l lg:pl-3 lg:pt-0">
+        {showForm ? (
+          <form className="mb-3 flex flex-col gap-2" onSubmit={(event) => void saveDrawing(event)}>
+            <input aria-label="Name" className="ctl" value={name} onChange={(event) => setName(event.target.value)} />
+            <input aria-label="Room" className="ctl" value={room} placeholder="Room" onChange={(event) => setRoom(event.target.value)} />
+            {kind === "wall" || selected?.kind === "wall" ? <input aria-label="Height" className="ctl" value={heightText} onChange={(event) => setHeightText(event.target.value)} /> : null}
+            {(kind === "area" || selected?.kind === "area") && (
+              <>
+                <input aria-label="Pitch rise" className="ctl" inputMode="numeric" value={pitchRise} placeholder="Rise" onChange={(event) => setPitchRise(event.target.value)} />
+                <input aria-label="Pitch run" className="ctl" inputMode="numeric" value={pitchRun} placeholder="Run" onChange={(event) => setPitchRun(event.target.value)} />
+                <input aria-label="Depth" className="ctl" inputMode="decimal" value={depthText} placeholder="Depth" onChange={(event) => setDepthText(event.target.value)} />
+              </>
+            )}
+            <select aria-label="Estimate" className="ctl" value={estimate} onChange={(event) => { setEstimate(event.target.value); setMeasurementId("new"); }}>
+              <option value="">Estimate</option>
+              {board.estimates.map((row) => (
+                <option key={row.id} value={row.id}>
+                  {row.title}
+                </option>
+              ))}
+            </select>
+            <select aria-label="Measurement" className="ctl" value={measurementId} onChange={(event) => setMeasurementId(event.target.value)}>
+              <option value="new">New</option>
+              {measures.map((row) => (
+                <option key={row.id} value={row.id}>
+                  {row.name}
+                </option>
+              ))}
+            </select>
+            <button type="submit" className="mac-primary" disabled={busy || !board.canEdit}>
+              Use
+            </button>
+          </form>
+        ) : null}
         {board.sheets.map((sheet) => (
           <section key={sheet.id} className="mb-4">
             <p className="mac-t11 text-[var(--mac-secondary)]">

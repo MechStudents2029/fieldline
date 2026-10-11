@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { saveCashSettingsAction } from "@/app/(office)/reports/cash/actions";
 import { ActionForm } from "@/components/action-form";
+import { SheetButton } from "@/components/sheet-button";
 import { CashChart } from "@/components/cash-chart";
 import { CashTable } from "@/components/cash-table";
 import { Toolbar } from "@/components/mac/toolbar";
@@ -49,12 +50,11 @@ export default async function CashPage({ searchParams }: { searchParams: Promise
   const index = board.forecast.columns.findIndex((column) => column.key === columnKey);
   const lines = row && index >= 0 ? row.cells[index]?.lines ?? [] : null;
   const column = index >= 0 ? board.forecast.columns[index] : undefined;
-  const ending = board.forecast.rows.find((item) => item.id === "balance")?.cells.at(-1)?.cents ?? board.openingCents;
   return (
     <div className="relative flex min-h-0 flex-1 flex-col">
       <Toolbar
         title="Cash"
-        subtitle={formatWhole(ending)}
+        subtitle={`Starting balance ${formatWhole(board.openingCents)}`}
         search={false}
         trailing={
           <span className="flex items-center gap-2">
@@ -72,8 +72,7 @@ export default async function CashPage({ searchParams }: { searchParams: Promise
       />
       <div className="min-h-0 flex-1 overflow-auto px-4 pb-8">
         <div className="mb-3 flex flex-wrap items-center gap-2">
-          <details>
-            <summary className="mac-glass-btn inline-flex w-fit cursor-pointer list-none">Balance {formatWhole(board.openingCents)}</summary>
+          <SheetButton label="Starting balance">
             <ActionForm action={saveCashSettingsAction} className="mt-2 flex max-w-xl flex-wrap items-end gap-2">
               <label className="text-[13px]">
                 Starting
@@ -103,7 +102,7 @@ export default async function CashPage({ searchParams }: { searchParams: Promise
                 Save
               </button>
             </ActionForm>
-          </details>
+          </SheetButton>
           <form className="flex flex-wrap items-center gap-2" method="get">
             {projected ? <input type="hidden" name="projected" value="1" /> : null}
             <select name="job" aria-label="Job" className="ctl" defaultValue={jobId}>

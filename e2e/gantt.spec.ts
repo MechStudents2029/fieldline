@@ -56,7 +56,16 @@ test("job gantt, critical path, drag, zoom, print, and the Today polish", async 
   const jobChart = page.locator("[data-gantt=job] [data-gantt-chart]");
   const jobChartBox = await jobChart.boundingBox();
   const jobBoardBox = await jobBoard.boundingBox();
-  expect(jobChartBox && jobBoardBox && jobChartBox.width).toBeGreaterThan((jobBoardBox?.width ?? 0) * 0.5);
+  expect(jobBoardBox && jobBoardBox.width).toBeGreaterThan(900);
+  expect(jobChartBox && jobBoardBox && jobChartBox.width).toBeGreaterThan((jobBoardBox?.width ?? 0) * 0.45);
+  await expect(page.locator(".mac-inspector")).toBeHidden();
+  await expect(page.getByLabel("Exception date")).toHaveCount(0);
+  await expect(page.getByRole("list", { name: "Inspections" })).toHaveCount(0);
+  const clipped = await page.locator(".gantt-name", { hasText: "Window delivery" }).evaluate((el) => {
+    const cell = el.closest("td");
+    return !cell || el.scrollWidth > cell.clientWidth + 2;
+  });
+  expect(clipped).toBe(false);
   await page.screenshot({ path: "/opt/cursor/artifacts/gantt-job-light.png" });
   await page.emulateMedia({ colorScheme: "dark" });
   await page.screenshot({ path: "/opt/cursor/artifacts/gantt-job-dark.png" });

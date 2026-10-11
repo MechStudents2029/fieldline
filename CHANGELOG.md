@@ -2,6 +2,39 @@
 
 ## 2026-10-11
 
+### T&M tickets
+
+- A job can hold T&M tickets for extra work: date, location, who ordered it, a description, photos, and lines for labor, materials, and equipment. Labor uses the crew member’s bill rate, or the company T&M rate when the member has none. Materials use the price book or a typed line. Equipment uses the register rate. Totals are integer cents, with the job’s cost-plus tax rate.
+- On the phone, New ticket is on My day and the job. A company signature moves a draft to Ready for review. The customer’s name and drawn signature mark it Field verified and lock the lines. Field logins do not see cost, price, or margin. The office does.
+- The homeowner can sign an unsigned ticket in the client portal. Signed tickets stay there read-only. Request signature only posts a portal notice. No email or SMS.
+- Work > T&M tickets filters by job and status and downloads CSV. Field-verified tickets on one job become a draft change order, with prices on the lines and the ticket photos linked, or, on a cost-plus job, lines on the next draft cost-plus invoice. Voiding that draft or sent change order, or voiding the invoice, returns the tickets to Field verified.
+- Today counts unbilled field-verified tickets and their total. The job overview shows the same. Automations can run on T&M ticket verified. Inbox and the audit log record the signature. The ticket prints on letter paper, the same way a waiver does.
+- Tickets stay online. The offline queue still covers punches, logs, and toolbox talks only.
+
+## 2026-10-11
+
+### Confirmations
+
+- A schedule item with a vendor can be requested once, for that vendor’s next items, or for a date range on the job Gantt. The pill is Requested, Confirmed, or Declined. A decline keeps the reason and an optional proposed date. Accepting that date runs through the cascade preview.
+- Moving a confirmed item, including a cascade, a delay, a gate hold, or a Gantt drag, sets it back to Requested and keeps the history. The preview names the items that would reset.
+- The vendor portal look-ahead is two weeks, or four. It lists only that vendor’s items, with the job, address, gate, and whether they are cleared to start, plus the plans and pins they can already see. Confirm and Decline use the portal request limit. No email or SMS goes out. The office copies the portal link and the message.
+- Work > Confirmations filters by status, vendor, and job, and downloads CSV. Today counts unconfirmed items starting inside the reminder window. Inbox gets a notice when a vendor confirms or declines. Settings can auto-request on assign, off by default, and set the reminder lead in days.
+- Automations can run on Schedule item declined and Unconfirmed N days before start, and can Request confirmation. Reports includes a Confirmations report. Request, confirm, decline, and reset are in the audit log.
+
+### Schedule
+
+- A job’s List and Gantt use the full width. Inspections and non-work days open from Inspections and Days.
+
+### Cash
+
+- The header reads Starting balance, and that amount is edited from a sheet.
+
+### Takeoff
+
+- Name, room, height, pitch, estimate, and Use sit in the measurements pane. The toolbar stays on tools and scale.
+
+## 2026-10-11
+
 ### Takeoff
 
 - Takeoff opens on a plan sheet, and from Measure on plan on a draft estimate. Set the scale with two points and a length, or a standard architectural or engineering scale. A sheet without a scale says No scale.

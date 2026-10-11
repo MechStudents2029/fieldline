@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { approveCoAction, chooseSelectionAction, portalMessageAction } from "@/app/actions";
+import { approveCoAction, chooseSelectionAction, portalMessageAction, portalSignTmAction } from "@/app/actions";
 import { ActionForm } from "@/components/action-form";
 import { FileButton } from "@/components/file-button";
+import { SignaturePad } from "@/components/signature-pad";
 import { PhotoLightbox } from "@/components/portal/photo-lightbox";
 import { formatCalendarDay, formatDate } from "@/lib/format";
 import { formatMoney } from "@/lib/money";
@@ -31,6 +32,7 @@ import { portalSelections, type PortalSelection } from "@/lib/services/selection
 import { clientPortalFiles } from "@/lib/services/files";
 import { clientPortalMarkups, clientPortalPins } from "@/lib/services/markup";
 import { portalPassedInspections } from "@/lib/services/permits";
+import { portalTmTickets } from "@/lib/services/tm";
 
 export const dynamic = "force-dynamic";
 
@@ -57,6 +59,7 @@ export default async function PortalPage({ params }: { params: Promise<{ token: 
   const jobFiles = clientPortalFiles(token);
 
   const orders = homeownerOrders(data.orders);
+  const tmTickets = portalTmTickets(token);
   const money = portalMoney({
     proposalStatus: data.proposal?.status ?? null,
     proposalTotalCents: data.proposal?.totalCents ?? null,
@@ -199,6 +202,50 @@ export default async function PortalPage({ params }: { params: Promise<{ token: 
               <div className="home-stack">
                 {listed.map((order) => (
                   <OrderCard key={order.id} order={order} />
+                ))}
+              </div>
+            </section>
+          ) : null}
+          {tmTickets.length > 0 ? (
+            <section aria-label="T&M tickets">
+              <h2>T&M tickets</h2>
+              <div className="home-stack">
+                {tmTickets.map((ticket) => (
+                  <article key={ticket.id} className="home-card" data-ticket={ticket.title}>
+                    <div className="home-row">
+                      <div>
+                        <p className="home-strong">
+                          {ticket.title} · {ticket.pill}
+                        </p>
+                        <p className="home-sub">{ticket.description}</p>
+                      </div>
+                      <span className="home-money">{ticket.money ? formatMoney(ticket.money.totalCents) : ""}</span>
+                    </div>
+                    <ul className="mt-2">
+                      {ticket.lines.map((line) => (
+                        <li key={line.id} className="home-sub flex justify-between gap-3">
+                          <span>{line.label}</span>
+                          <span className="num">
+                            {line.qtyMilli / 1000} {line.unit}
+                            {"priceCents" in line ? ` · ${formatMoney(line.priceCents)}` : ""}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                    {ticket.clientSignature ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img alt="Customer signature" src={ticket.clientSignature} className="mt-2 h-16 bg-white" />
+                    ) : null}
+                    {ticket.canSign ? (
+                      <ActionForm action={portalSignTmAction.bind(null, token, ticket.id)} className="mt-3 flex flex-col gap-2">
+                        <input name="signer" aria-label="Your name" className="field" />
+                        <SignaturePad name="drawn" label="Customer signature" />
+                        <button type="submit" className="h-11 rounded-lg bg-[var(--fl-accent)] text-sm font-semibold text-white">
+                          Sign
+                        </button>
+                      </ActionForm>
+                    ) : null}
+                  </article>
                 ))}
               </div>
             </section>

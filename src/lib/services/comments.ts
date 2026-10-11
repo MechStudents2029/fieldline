@@ -24,6 +24,7 @@ import {
   rfis,
   scheduleItems,
   tasks,
+  tmTickets,
   users,
 } from "@/lib/db/schema";
 import { id, nowIso } from "@/lib/ids";
@@ -55,7 +56,8 @@ export type CommentEntity =
   | "rfi"
   | "punch_item"
   | "daily_log"
-  | "schedule_item";
+  | "schedule_item"
+  | "tm_ticket";
 
 const ENTITIES = new Set<CommentEntity>([
   "project",
@@ -67,6 +69,7 @@ const ENTITIES = new Set<CommentEntity>([
   "punch_item",
   "daily_log",
   "schedule_item",
+  "tm_ticket",
 ]);
 
 const ROLE_ALIAS: Record<string, MentionRole> = {
@@ -225,6 +228,12 @@ function resolveEntity(db: AppDatabase, orgId: string, type: string, entityId: s
     if (!row) return null;
     const job = jobName(db, orgId, row.projectId);
     return { type: kind, id: row.id, projectId: row.projectId, job, record: row.title, href: `/projects/${row.projectId}/punch/${row.id}` };
+  }
+  if (kind === "tm_ticket") {
+    const row = db.select().from(tmTickets).where(and(eq(tmTickets.orgId, orgId), eq(tmTickets.id, entityId))).get();
+    if (!row) return null;
+    const job = jobName(db, orgId, row.projectId);
+    return { type: kind, id: row.id, projectId: row.projectId, job, record: `TM-${row.number}`, href: `/tm/${row.id}` };
   }
   if (kind === "daily_log") {
     const row = db.select().from(dailyLogs).where(and(eq(dailyLogs.orgId, orgId), eq(dailyLogs.id, entityId))).get();

@@ -54,6 +54,11 @@ import { attachRecordFile, enforceScheduleGate, inspectionTodos, requestReinspec
 import { setScheduleBaseline } from "@/lib/services/schedule-plan";
 import { addWorkException, removeWorkException } from "@/lib/services/work-calendar";
 import { previewScheduleShift, shiftScheduleDates } from "@/lib/services/schedule-shift";
+import { assignScheduleVendor, requestConfirmation, requestConfirmations, requestRange, requestUpcoming, saveConfirmSettings } from "@/lib/services/confirmations";
+import { vendorConfirmSchedule } from "@/lib/services/vendor-portal";
+import { endFromDuration, inclusiveWorkdays } from "@/lib/schedule/workdays";
+import { workCalendarFor } from "@/lib/services/work-calendar";
+import { scheduleItems } from "@/lib/db/schema";
 import { createJobFromTemplate, importTemplate, renameTemplate, saveJobAsTemplate, type TemplatePart } from "@/lib/services/templates";
 import {
   addTodoCheck,
@@ -156,7 +161,7 @@ import {
 import { passwordError } from "@/lib/security";
 import { getDb } from "@/lib/db/client";
 import { dailyLogs, users } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import {
   billDraw,
   createPayApp,
@@ -209,6 +214,20 @@ import {
   updateOrgSettings,
   addManualLine,
 } from "@/lib/services/write";
+import {
+  addTicketLine,
+  addTicketsToCostPlus,
+  attachTicketPhoto,
+  convertTicketsToChangeOrder,
+  createTicket,
+  portalSignTicket,
+  removeTicketLine,
+  requestTicketSignature,
+  signTicket,
+  updateTicketLine,
+  voidChangeOrder,
+  voidTicket,
+} from "@/lib/services/tm";
 
 export type ReceiptDraftState = {
   documentId: string;
@@ -233,6 +252,8 @@ export type ActionState = {
   bill?: BillDraftState;
   feedUrl?: string;
   vendorUrl?: string;
+  confirmUrl?: string;
+  confirmMessage?: string;
   confirm?: string;
   needsReason?: boolean;
   delayDays?: number;
@@ -2197,7 +2218,7 @@ export async function saveScheduleAction(_prev: ActionState, formData: FormData)
     if (existing) {
       const preview = previewScheduleShift(user, existing, input.startDate, input.endDate);
       if (preview.needsReason && !delay) return { needsReason: true, delayDays: preview.days, confirm: preview.count > 1 ? preview.label : undefined };
-      if (!preview.needsReason && preview.count > 1 && formData.get("confirmShift") !== "1") return { confirm: preview.label };
+      if (!preview.needsReason && (preview.count > 1 || preview.resets.length > 0) && formData.get("confirmShift") !== "1") return { confirm: preview.label };
       const gate = scheduleGateStatus(user, existing, { startDate: input.startDate, status: input.status });
       if (gate.action === "block") return { error: gate.reason ?? "This inspection has not passed." };
       if (gate.action === "warn" && formData.get("confirmGate") !== "1") return { needsGate: true, gateReason: gate.reason ?? undefined };
@@ -2210,12 +2231,12 @@ export async function saveScheduleAction(_prev: ActionState, formData: FormData)
   }
 }
 
-export async function previewScheduleShiftAction(input: { id: string; startDate: string; endDate: string }): Promise<{ count: number; label: string; error?: string; needsReason?: boolean; days?: number; needsGate?: boolean; gateReason?: string }> {
+export async function previewScheduleShiftAction(input: { id: string; startDate: string; endDate: string }): Promise<{ count: number; label: string; resets?: { id: string; title: string }[]; error?: string; needsReason?: boolean; days?: number; needsGate?: boolean; gateReason?: string }> {
   try {
     const user = await actor();
     const preview = previewScheduleShift(user, input.id, input.startDate, input.endDate);
     const gate = scheduleGateStatus(user, input.id, { startDate: input.startDate, status: "planned" });
-    return { count: preview.count, label: preview.label, needsReason: preview.needsReason, days: preview.days, needsGate: gate.action === "warn", gateReason: gate.reason ?? undefined };
+    return { count: preview.count, label: preview.label, resets: preview.resets, needsReason: preview.needsReason, days: preview.days, needsGate: gate.action === "warn", gateReason: gate.reason ?? undefined };
   } catch (error) {
     if (error instanceof ServiceError) return { count: 0, label: "", error: error.message };
     throw error;
@@ -2230,8 +2251,8 @@ export async function shiftScheduleDatesAction(_prev: ActionState, formData: For
     const endDate = String(formData.get("endDate") || "");
     const delay = formData.get("reason") ? { reason: String(formData.get("reason") || ""), note: String(formData.get("note") || "") } : null;
     const preview = previewScheduleShift(user, itemId, startDate, endDate);
-    if (preview.needsReason && !delay) return { needsReason: true, delayDays: preview.days, confirm: preview.count > 1 ? preview.label : undefined };
-    if (!preview.needsReason && preview.count > 1 && formData.get("confirmShift") !== "1") return { confirm: preview.label };
+    if (preview.needsReason && !delay) return { needsReason: true, delayDays: preview.days, confirm: preview.count > 1 || preview.resets.length > 0 ? preview.label : undefined };
+    if (!preview.needsReason && (preview.count > 1 || preview.resets.length > 0) && formData.get("confirmShift") !== "1") return { confirm: preview.label };
     const result = shiftScheduleDates(user, itemId, startDate, endDate, delay);
     refreshSchedule("");
     return { ok: result.count > 1 ? result.label : "Saved." };
@@ -2248,7 +2269,7 @@ export async function moveScheduleAction(input: { id: string; startDate: string;
     const gate = scheduleGateStatus(user, input.id, { startDate: input.startDate, status: "planned" });
     if (gate.action === "block") return { error: gate.reason ?? "This inspection has not passed." };
     if (gate.action === "warn" && !input.confirmGate) return { needsGate: true, gateReason: gate.reason ?? undefined };
-    if (preview.needsReason && !delay) return { needsReason: true, delayDays: preview.days, confirm: preview.count > 1 ? preview.label : undefined };
+    if (preview.needsReason && !delay) return { needsReason: true, delayDays: preview.days, confirm: preview.count > 1 || preview.resets.length > 0 ? preview.label : undefined };
     moveScheduleItem(user, input.id, input, delay, Boolean(input.confirmGate));
     refreshSchedule("");
     return { ok: "Saved." };
@@ -2266,12 +2287,120 @@ export async function ganttMoveAction(input: { id: string; startDate: string; en
     const gate = scheduleGateStatus(user, input.id, { startDate: input.startDate, status: "planned" });
     if (gate.action === "block") return { error: gate.reason ?? "This inspection has not passed." };
     if (gate.action === "warn" && !input.confirmGate) return { needsGate: true, gateReason: gate.reason ?? undefined };
-    if (preview.needsReason && !delay) return { needsReason: true, delayDays: preview.days, confirm: preview.count > 1 ? preview.label : undefined };
-    if (!preview.needsReason && preview.count > 1 && !input.confirmShift) return { confirm: preview.label };
+    if (preview.needsReason && !delay) return { needsReason: true, delayDays: preview.days, confirm: preview.count > 1 || preview.resets.length > 0 ? preview.label : undefined };
+    if (!preview.needsReason && (preview.count > 1 || preview.resets.length > 0) && !input.confirmShift) return { confirm: preview.label };
     enforceScheduleGate(user, input.id, { startDate: input.startDate, status: "planned" }, Boolean(input.confirmGate));
     const result = shiftScheduleDates(user, input.id, input.startDate, input.endDate, delay);
     refreshSchedule(result.projectId);
     return { ok: result.count > 1 ? result.label : "Saved." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function requestConfirmationAction(itemId: string, _prev: ActionState, _formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const result = requestConfirmation(user, itemId);
+    refreshSchedule("");
+    return { ok: "Requested.", confirmUrl: result.url, confirmMessage: result.message };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function requestUpcomingAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const next = Number(formData.get("next") || 5);
+    const rows = requestUpcoming(user, String(formData.get("vendorId") || ""), next);
+    refreshSchedule("");
+    return { ok: "Requested.", confirmUrl: rows[0]?.url ?? "", confirmMessage: rows[0]?.message ?? "" };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function requestRangeAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const rows = requestRange(user, {
+      projectId: String(formData.get("projectId") || ""),
+      from: String(formData.get("from") || ""),
+      to: String(formData.get("to") || ""),
+      vendorId: String(formData.get("vendorId") || ""),
+    });
+    refreshSchedule("");
+    return { ok: "Requested.", confirmUrl: rows[0]?.url ?? "", confirmMessage: rows[0]?.message ?? "" };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function requestSelectedAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const rows = requestConfirmations(user, formData.getAll("item").map(String));
+    refreshSchedule("");
+    return { ok: "Requested.", confirmUrl: rows[0]?.url ?? "", confirmMessage: rows[0]?.message ?? "" };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function assignScheduleVendorAction(itemId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    assignScheduleVendor(user, itemId, String(formData.get("vendorId") || ""));
+    refreshSchedule("");
+    return { ok: "Saved." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function acceptProposedAction(itemId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const row = getDb().select().from(scheduleItems).where(and(eq(scheduleItems.orgId, user.orgId), eq(scheduleItems.id, itemId))).get();
+    if (!row?.confirmProposed) return { error: "No proposed date." };
+    const mask = workCalendarFor(user.orgId, row.projectId);
+    const duration = Math.max(1, inclusiveWorkdays(row.startDate, row.endDate, mask));
+    const startDate = row.confirmProposed;
+    const endDate = endFromDuration(startDate, duration, mask);
+    const delay = formData.get("reason") ? { reason: String(formData.get("reason") || ""), note: String(formData.get("note") || "") } : null;
+    const preview = previewScheduleShift(user, itemId, startDate, endDate);
+    if (preview.needsReason && !delay) return { needsReason: true, delayDays: preview.days, confirm: preview.label };
+    if ((preview.count > 1 || preview.resets.length > 0) && formData.get("confirmShift") !== "1") return { confirm: preview.label };
+    if (row.startDate !== startDate || row.endDate !== endDate) shiftScheduleDates(user, itemId, startDate, endDate, delay);
+    requestConfirmation(user, itemId);
+    refreshSchedule(row.projectId);
+    return { ok: "Requested." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function vendorConfirmAction(token: string, itemId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const decision = String(formData.get("decision") || "");
+    if (decision !== "confirm" && decision !== "decline") return { error: "Choose confirm or decline." };
+    vendorConfirmSchedule(token, itemId, { decision, reason: String(formData.get("reason") || ""), proposedDate: String(formData.get("proposed") || "") }, await requestIp());
+    revalidatePath(`/v/${token}`);
+    revalidatePath("/confirmations");
+    revalidatePath("/inbox");
+    return { ok: decision === "confirm" ? "Confirmed." : "Declined." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function saveConfirmSettingsAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    saveConfirmSettings(user, { autoRequest: formData.get("autoRequest") === "1", remindDays: Number(formData.get("remindDays") || 3) });
+    revalidatePath("/settings");
+    return { ok: "Saved." };
   } catch (error) {
     return failure(error);
   }
@@ -3870,6 +3999,181 @@ export async function inspectionTodosAction(projectId: string, inspectionId: str
     refreshPermits(projectId);
     revalidatePath("/todos");
     return { ok: `${result.ids.length}` };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function createTmTicketAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const user = await actor();
+  let ticketId = "";
+  try {
+    ticketId = createTicket(user, {
+      projectId: String(formData.get("projectId") || ""),
+      performedOn: String(formData.get("performedOn") || ""),
+      location: String(formData.get("location") || ""),
+      orderedById: String(formData.get("orderedById") || ""),
+      description: String(formData.get("description") || ""),
+    }).id;
+  } catch (error) {
+    return failure(error);
+  }
+  revalidatePath("/tm");
+  redirect(`/tm/${ticketId}`);
+}
+
+export async function addTmLineAction(ticketId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const kindRaw = String(formData.get("kind") || "labor");
+    const kind = kindRaw === "material" || kindRaw === "equipment" ? kindRaw : "labor";
+    const rawCost = String(formData.get("unitCost") || "").trim();
+    const rawMarkup = String(formData.get("markup") || "").trim();
+    let unitCostCents: number | undefined;
+    let markupBps: number | undefined;
+    if (rawCost) {
+      const parsed = parseMoneyToCents(rawCost);
+      if (parsed == null) return { error: "Unit cost must be zero or a positive amount under $10,000,000." };
+      unitCostCents = parsed;
+    }
+    if (rawMarkup) {
+      const percent = Number(rawMarkup);
+      if (!Number.isFinite(percent) || percent < 0 || percent > 500) return { error: "Markup must be between 0% and 500%." };
+      markupBps = Math.round(percent * 100);
+    }
+    addTicketLine(user, ticketId, {
+      kind,
+      userId: String(formData.get("userId") || ""),
+      hours: Number(formData.get("hours") || 0),
+      catalogCode: String(formData.get("catalog") || ""),
+      label: String(formData.get("label") || ""),
+      qty: Number(formData.get("qty") || 0),
+      equipmentId: String(formData.get("equipmentId") || ""),
+      unitCostCents,
+      markupBps,
+    });
+    revalidatePath(`/tm/${ticketId}`);
+    return { ok: "Added" };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function updateTmLineAction(lineId: string, ticketId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const rawCost = String(formData.get("unitCost") || "").trim();
+    const rawMarkup = String(formData.get("markup") || "").trim();
+    const parsed = rawCost ? parseMoneyToCents(rawCost) : null;
+    if (rawCost && parsed == null) return { error: "Unit cost must be zero or a positive amount under $10,000,000." };
+    const percent = rawMarkup ? Number(rawMarkup) : null;
+    if (percent != null && (!Number.isFinite(percent) || percent < 0 || percent > 500)) return { error: "Markup must be between 0% and 500%." };
+    updateTicketLine(user, lineId, {
+      qty: Number(formData.get("qty") || 0),
+      unitCostCents: parsed ?? undefined,
+      markupBps: percent == null ? undefined : Math.round(percent * 100),
+    });
+    revalidatePath(`/tm/${ticketId}`);
+    return { ok: "Saved" };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function removeTmLineAction(lineId: string, ticketId: string) {
+  const user = await actor();
+  removeTicketLine(user, lineId);
+  revalidatePath(`/tm/${ticketId}`);
+}
+
+export async function attachTmPhotoAction(ticketId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    attachTicketPhoto(user, ticketId, await photoUpload(formData));
+    revalidatePath(`/tm/${ticketId}`);
+    return { ok: "Added" };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function signTmAction(ticketId: string, side: "company" | "client", _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    signTicket(user, ticketId, side, { name: String(formData.get("signer") || ""), drawn: String(formData.get("drawn") || "") });
+    revalidatePath(`/tm/${ticketId}`);
+    revalidatePath("/");
+    revalidatePath("/inbox");
+    return { ok: side === "client" ? "Field verified" : "Ready for review" };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function requestTmSignatureAction(ticketId: string, _prev: ActionState, _formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    requestTicketSignature(user, ticketId);
+    revalidatePath(`/tm/${ticketId}`);
+    return { ok: "Portal" };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function voidTmAction(ticketId: string, _prev: ActionState, _formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    voidTicket(user, ticketId);
+    revalidatePath(`/tm/${ticketId}`);
+    revalidatePath("/tm");
+    return { ok: "Void" };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function convertTmAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const user = await actor();
+  let result: { changeOrderId: string; projectId: string } | null = null;
+  try {
+    result = convertTicketsToChangeOrder(user, formData.getAll("ticketId").map(String));
+  } catch (error) {
+    return failure(error);
+  }
+  revalidatePath("/tm");
+  redirect(`/projects/${result.projectId}/orders/${result.changeOrderId}`);
+}
+
+export async function costPlusTmAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const user = await actor();
+  let result: { invoiceId: string; projectId: string } | null = null;
+  try {
+    result = addTicketsToCostPlus(user, formData.getAll("ticketId").map(String));
+  } catch (error) {
+    return failure(error);
+  }
+  revalidatePath("/tm");
+  redirect(`/projects/${result.projectId}/invoices/${result.invoiceId}`);
+}
+
+export async function voidTmChangeOrderAction(changeOrderId: string, projectId: string, _prev: ActionState, _formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    voidChangeOrder(user, changeOrderId);
+    revalidatePath(`/projects/${projectId}/orders/${changeOrderId}`);
+    revalidatePath("/tm");
+    return { ok: "Void" };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function portalSignTmAction(portalToken: string, ticketId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    portalSignTicket(portalToken, ticketId, { name: String(formData.get("signer") || ""), drawn: String(formData.get("drawn") || "") });
+    revalidatePath(`/portal/${portalToken}`);
+    return { ok: "Signed" };
   } catch (error) {
     return failure(error);
   }

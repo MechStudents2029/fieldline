@@ -461,6 +461,7 @@ export function jobSchedule(actor: Actor, projectId: string) {
       startDate: row.startDate,
       endDate: row.endDate,
       status: row.status,
+      confirmStatus: row.confirmStatus,
       who: who.length ? who.join(", ") : "Unassigned",
     };
   });
@@ -539,7 +540,15 @@ export function saveScheduleItem(actor: Actor, input: ScheduleInput, itemId?: st
   const plan = dateChanged ? buildSchedulePlan(actor, savedId, startDate, endDate) : [];
   if (existing) {
     db.update(scheduleItems)
-      .set({ projectId: project.id, title, startDate, endDate, startTime, status, note, updatedAt: now })
+      .set({
+        projectId: project.id,
+        title,
+        startTime,
+        status,
+        note,
+        updatedAt: now,
+        ...(plan.length ? {} : { startDate, endDate }),
+      })
       .where(and(eq(scheduleItems.orgId, actor.orgId), eq(scheduleItems.id, existing.id)))
       .run();
   } else {

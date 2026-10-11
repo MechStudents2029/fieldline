@@ -15,6 +15,14 @@ test("13-week cash, the cell pane, and the job overview", async ({ page }) => {
 
   await page.goto("/reports/cash");
   await expect(page.getByRole("heading", { name: "Cash" })).toBeVisible();
+  await expect(page.getByText(/Starting balance \$/)).toBeVisible();
+  await expect(page.locator("summary")).toHaveCount(0);
+  await page.getByRole("button", { name: "Starting balance" }).click();
+  const sheet = page.getByRole("dialog", { name: "Starting balance" });
+  await expect(sheet.getByLabel("Starting balance")).toBeVisible();
+  await expect(sheet.getByLabel("Low balance")).toBeVisible();
+  await page.getByRole("button", { name: "Starting balance" }).click();
+  await expect(sheet).toHaveCount(0);
   await expect(page.getByRole("columnheader", { name: "Past due" })).toBeVisible();
   await expect(page.getByRole("columnheader", { name: /Oct \d+/ }).first()).toBeVisible();
   await expect(page.locator("[data-chart=cash]")).toBeVisible();
