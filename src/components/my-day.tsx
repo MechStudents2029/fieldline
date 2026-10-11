@@ -23,6 +23,7 @@ import { overdueTodoCount } from "@/lib/services/todos";
 import { DashboardStrip } from "@/components/dashboard-strip";
 import { dashboardForRole } from "@/lib/services/dashboards";
 import { formatHours, timeBoard } from "@/lib/services/time";
+import { fieldOpenTickets } from "@/lib/services/tm";
 
 function clock(iso: string) {
   const mins = Math.max(0, Math.floor((Date.now() - Date.parse(iso)) / 60000));
@@ -48,6 +49,7 @@ export function MyDay({ actor }: { actor: Actor }) {
   const overdueTodos = overdueTodoCount(actor);
   const notices = noticesFor(actor);
   const talks = leaderTalks(actor);
+  const tickets = fieldOpenTickets(actor);
   const home = dashboardForRole(actor);
   const open = day.open;
   return (
@@ -183,6 +185,25 @@ export function MyDay({ actor }: { actor: Actor }) {
           </ul>
         </section>
       ) : null}
+      <section aria-label="T&M" className="flex flex-col gap-2">
+        <h2 className="fl-section">T&M</h2>
+        <ul className="fl-group">
+          {tickets.map((ticket) => (
+            <li key={ticket.id}>
+              <Link href={ticket.href} className="fl-cell">
+                <span className="min-w-0 flex-1">
+                  <span className="fl-body block truncate">{ticket.title}</span>
+                  <span className="fl-footnote block truncate text-[var(--fl-secondary)]">{ticket.job}</span>
+                </span>
+                <span className="fl-pill">{ticket.pill}</span>
+              </Link>
+            </li>
+          ))}
+        </ul>
+        <Link href="/tm/new" className="inline-flex h-11 items-center justify-center rounded-lg bg-[var(--fl-accent)] text-sm font-semibold text-white">
+          New ticket
+        </Link>
+      </section>
       <section aria-label="Punch" className="flex flex-col gap-2">
         <h2 className="fl-section">Punch</h2>
         <ul className="flex flex-col gap-3">

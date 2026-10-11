@@ -41,6 +41,7 @@ import { jobRfis } from "@/lib/services/rfis";
 import { jobSubmittals } from "@/lib/services/submittals";
 import { bidComposer } from "@/lib/services/bids";
 import { costPlusSummary } from "@/lib/services/cost-plus";
+import { jobUnbilledTm } from "@/lib/services/tm";
 import { drawSchedule } from "@/lib/services/draws";
 import { selectionBoard } from "@/lib/services/selections";
 import { timeBoard } from "@/lib/services/time";
@@ -70,6 +71,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
   const jobBills = detail.money ? projectBills(session.orgId, detail.project.id, session.role) : [];
   const jobOrders = detail.money ? projectPurchaseOrders(session.orgId, detail.project.id, session.role) : [];
   const money = detail.financials;
+  const unbilledTm = jobUnbilledTm(session, detail.project.id);
   const board = timeBoard(session);
   const crew = board.office?.clockedIn.filter((row) => row.projectName === detail.project.name) ?? [];
   const todayKey = officeToday(board.timeZone);
@@ -332,7 +334,19 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
               chevron={Boolean(money)}
             />
           ))}
+          {unbilledTm.count > 0 ? (
+            <GroupedRow
+              href={`/tm?job=${detail.project.id}&status=verified`}
+              title="Unbilled T&M"
+              trailing={money ? `${unbilledTm.count} · ${formatWhole(unbilledTm.totalCents)}` : String(unbilledTm.count)}
+            />
+          ) : null}
         </GroupedList>
+        {session.role !== "viewer" ? (
+          <Link href={`/tm/new?job=${detail.project.id}`} className="ctl mt-3 inline-flex w-fit">
+            New ticket
+          </Link>
+        ) : null}
         {picks && picks.rows.length > 0 ? (
           <GroupedList label="Selections">
             {picks.rows.map((row) => (

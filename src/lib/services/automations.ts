@@ -28,6 +28,7 @@ import {
   taskAssignees,
   taskChecks,
   tasks,
+  tmTickets,
   toolboxTalks,
   templateTaskLinks,
   templateTasks,
@@ -62,7 +63,8 @@ export type Trigger =
   | { kind: "vendor_expiring"; days: number; cert: "insurance" | "license" }
   | { kind: "equipment_overdue" }
   | { kind: "incident_logged" }
-  | { kind: "checklist_failed" };
+  | { kind: "checklist_failed" }
+  | { kind: "tm_verified" };
 
 export type Condition =
   | { kind: "job_type"; value: string }
@@ -161,6 +163,7 @@ export function parseTrigger(raw: string): Trigger | null {
   if (row.kind === "equipment_overdue") return { kind: "equipment_overdue" };
   if (row.kind === "incident_logged") return { kind: "incident_logged" };
   if (row.kind === "checklist_failed") return { kind: "checklist_failed" };
+  if (row.kind === "tm_verified") return { kind: "tm_verified" };
   return null;
 }
 
@@ -233,6 +236,7 @@ export function triggerLabel(trigger: Trigger): string {
   if (trigger.kind === "vendor_expiring") return trigger.cert === "license" ? `License expiring ${trigger.days}d` : `Insurance expiring ${trigger.days}d`;
   if (trigger.kind === "incident_logged") return "Incident logged";
   if (trigger.kind === "checklist_failed") return "Checklist item failed";
+  if (trigger.kind === "tm_verified") return "T&M ticket verified";
   return "Equipment overdue";
 }
 
@@ -362,6 +366,7 @@ function itemNames(orgId: string, ids: string[]) {
 }
 
 function hrefFor(event: AutomationEvent) {
+  if (event.kind === "tm_verified") return `/tm/${event.recordId}`;
   if (event.kind === "equipment_overdue") return "/equipment";
   if ((event.kind === "incident_logged" || event.kind === "checklist_failed") && event.projectId) return `/projects/${event.projectId}/safety`;
   if (event.kind === "vendor_expiring") return "/contacts";
@@ -973,6 +978,8 @@ export function previewRecordLabel(trigger: Trigger) {
   if (trigger.kind === "vendor_expiring") return "Certificate";
   if (trigger.kind === "equipment_overdue") return "Equipment";
   if (trigger.kind === "incident_logged") return "Incident";
+  if (trigger.kind === "checklist_failed") return "Checklist item";
+  if (trigger.kind === "tm_verified") return "T&M ticket";
   return "Checklist item";
 }
 
@@ -1011,6 +1018,14 @@ export function previewChoices(orgId: string, trigger: Trigger) {
       .where(eq(safetyCheckItems.orgId, orgId))
       .all()
       .map((row) => ({ id: row.id, label: row.title }));
+  }
+  if (trigger.kind === "tm_verified") {
+    return db
+      .select()
+      .from(tmTickets)
+      .where(eq(tmTickets.orgId, orgId))
+      .all()
+      .map((row) => ({ id: row.id, label: `TM-${row.number}` }));
   }
   return db.select().from(equipment).where(eq(equipment.orgId, orgId)).all().map((row) => ({ id: row.id, label: row.name }));
 }
@@ -1152,6 +1167,19 @@ function eventFromRecord(orgId: string, trigger: Trigger, recordId: string): Aut
       status: item.result,
     };
   }
+  if (trigger.kind === "tm_verified") {
+    const ticket = db.select().from(tmTickets).where(and(eq(tmTickets.orgId, orgId), eq(tmTickets.id, recordId))).get();
+    if (!ticket) return null;
+    return {
+      orgId,
+      kind: "tm_verified",
+      recordType: "tm_ticket",
+      recordId: ticket.id,
+      recordLabel: `TM-${ticket.number}`,
+      projectId: ticket.projectId,
+      name: `TM-${ticket.number}`,
+    };
+  }
   const item = db.select().from(equipment).where(and(eq(equipment.orgId, orgId), eq(equipment.id, recordId))).get();
   if (!item) return null;
   const open = db
@@ -1241,6 +1269,7 @@ export function ruleFromForm(formData: FormData): RuleDraft {
   } else if (kind === "equipment_overdue") trigger = { kind: "equipment_overdue" };
   else if (kind === "incident_logged") trigger = { kind: "incident_logged" };
   else if (kind === "checklist_failed") trigger = { kind: "checklist_failed" };
+  else if (kind === "tm_verified") trigger = { kind: "tm_verified" };
   if (!trigger) throw new ServiceError("Pick a trigger.");
   const conditions: Condition[] = [];
   const conditionSlots = formSlots(formData, "c");

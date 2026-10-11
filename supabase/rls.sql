@@ -178,6 +178,8 @@ begin
     'daily_log_photos',
     'schedule_items',
     'schedule_confirmations',
+    'tm_tickets',
+    'tm_lines',
     'schedule_assignees',
     'calendar_feeds',
     'import_batches',

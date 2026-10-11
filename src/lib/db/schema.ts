@@ -2783,3 +2783,53 @@ export const dashboardRoles = sqliteTable(
   },
   (t) => [uniqueIndex("dashboard_roles_one").on(t.orgId, t.role)],
 );
+
+/** Extra work signed in the field. Prices live on the lines; field views omit them. */
+export const tmTickets = sqliteTable(
+  "tm_tickets",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    projectId: text("project_id").notNull(),
+    number: integer("number").notNull(),
+    performedOn: text("performed_on").notNull(),
+    location: text("location").notNull().default(""),
+    orderedById: text("ordered_by_id"),
+    description: text("description").notNull(),
+    status: text("status").notNull(),
+    companySigner: text("company_signer"),
+    companySignature: text("company_signature"),
+    companySignedAt: text("company_signed_at"),
+    clientSigner: text("client_signer"),
+    clientSignature: text("client_signature"),
+    clientSignedAt: text("client_signed_at"),
+    requestedAt: text("requested_at"),
+    changeOrderId: text("change_order_id"),
+    invoiceId: text("invoice_id"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    createdBy: text("created_by"),
+  },
+  (t) => [index("tm_tickets_project").on(t.orgId, t.projectId, t.number)],
+);
+
+export const tmLines = sqliteTable(
+  "tm_lines",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    ticketId: text("ticket_id").notNull(),
+    kind: text("kind").notNull(),
+    label: text("label").notNull(),
+    userId: text("user_id"),
+    catalogId: text("catalog_id"),
+    equipmentId: text("equipment_id"),
+    qtyMilli: integer("qty_milli").notNull(),
+    unit: text("unit").notNull(),
+    unitCostCents: integer("unit_cost_cents").notNull(),
+    unitPriceCents: integer("unit_price_cents").notNull(),
+    markupBps: integer("markup_bps").notNull(),
+    sortOrder: integer("sort_order").notNull(),
+  },
+  (t) => [index("tm_lines_ticket").on(t.orgId, t.ticketId, t.sortOrder)],
+);

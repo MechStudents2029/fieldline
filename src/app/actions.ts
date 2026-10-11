@@ -214,6 +214,20 @@ import {
   updateOrgSettings,
   addManualLine,
 } from "@/lib/services/write";
+import {
+  addTicketLine,
+  addTicketsToCostPlus,
+  attachTicketPhoto,
+  convertTicketsToChangeOrder,
+  createTicket,
+  portalSignTicket,
+  removeTicketLine,
+  requestTicketSignature,
+  signTicket,
+  updateTicketLine,
+  voidChangeOrder,
+  voidTicket,
+} from "@/lib/services/tm";
 
 export type ReceiptDraftState = {
   documentId: string;
@@ -3985,6 +3999,181 @@ export async function inspectionTodosAction(projectId: string, inspectionId: str
     refreshPermits(projectId);
     revalidatePath("/todos");
     return { ok: `${result.ids.length}` };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function createTmTicketAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const user = await actor();
+  let ticketId = "";
+  try {
+    ticketId = createTicket(user, {
+      projectId: String(formData.get("projectId") || ""),
+      performedOn: String(formData.get("performedOn") || ""),
+      location: String(formData.get("location") || ""),
+      orderedById: String(formData.get("orderedById") || ""),
+      description: String(formData.get("description") || ""),
+    }).id;
+  } catch (error) {
+    return failure(error);
+  }
+  revalidatePath("/tm");
+  redirect(`/tm/${ticketId}`);
+}
+
+export async function addTmLineAction(ticketId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const kindRaw = String(formData.get("kind") || "labor");
+    const kind = kindRaw === "material" || kindRaw === "equipment" ? kindRaw : "labor";
+    const rawCost = String(formData.get("unitCost") || "").trim();
+    const rawMarkup = String(formData.get("markup") || "").trim();
+    let unitCostCents: number | undefined;
+    let markupBps: number | undefined;
+    if (rawCost) {
+      const parsed = parseMoneyToCents(rawCost);
+      if (parsed == null) return { error: "Unit cost must be zero or a positive amount under $10,000,000." };
+      unitCostCents = parsed;
+    }
+    if (rawMarkup) {
+      const percent = Number(rawMarkup);
+      if (!Number.isFinite(percent) || percent < 0 || percent > 500) return { error: "Markup must be between 0% and 500%." };
+      markupBps = Math.round(percent * 100);
+    }
+    addTicketLine(user, ticketId, {
+      kind,
+      userId: String(formData.get("userId") || ""),
+      hours: Number(formData.get("hours") || 0),
+      catalogCode: String(formData.get("catalog") || ""),
+      label: String(formData.get("label") || ""),
+      qty: Number(formData.get("qty") || 0),
+      equipmentId: String(formData.get("equipmentId") || ""),
+      unitCostCents,
+      markupBps,
+    });
+    revalidatePath(`/tm/${ticketId}`);
+    return { ok: "Added" };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function updateTmLineAction(lineId: string, ticketId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const rawCost = String(formData.get("unitCost") || "").trim();
+    const rawMarkup = String(formData.get("markup") || "").trim();
+    const parsed = rawCost ? parseMoneyToCents(rawCost) : null;
+    if (rawCost && parsed == null) return { error: "Unit cost must be zero or a positive amount under $10,000,000." };
+    const percent = rawMarkup ? Number(rawMarkup) : null;
+    if (percent != null && (!Number.isFinite(percent) || percent < 0 || percent > 500)) return { error: "Markup must be between 0% and 500%." };
+    updateTicketLine(user, lineId, {
+      qty: Number(formData.get("qty") || 0),
+      unitCostCents: parsed ?? undefined,
+      markupBps: percent == null ? undefined : Math.round(percent * 100),
+    });
+    revalidatePath(`/tm/${ticketId}`);
+    return { ok: "Saved" };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function removeTmLineAction(lineId: string, ticketId: string) {
+  const user = await actor();
+  removeTicketLine(user, lineId);
+  revalidatePath(`/tm/${ticketId}`);
+}
+
+export async function attachTmPhotoAction(ticketId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    attachTicketPhoto(user, ticketId, await photoUpload(formData));
+    revalidatePath(`/tm/${ticketId}`);
+    return { ok: "Added" };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function signTmAction(ticketId: string, side: "company" | "client", _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    signTicket(user, ticketId, side, { name: String(formData.get("signer") || ""), drawn: String(formData.get("drawn") || "") });
+    revalidatePath(`/tm/${ticketId}`);
+    revalidatePath("/");
+    revalidatePath("/inbox");
+    return { ok: side === "client" ? "Field verified" : "Ready for review" };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function requestTmSignatureAction(ticketId: string, _prev: ActionState, _formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    requestTicketSignature(user, ticketId);
+    revalidatePath(`/tm/${ticketId}`);
+    return { ok: "Portal" };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function voidTmAction(ticketId: string, _prev: ActionState, _formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    voidTicket(user, ticketId);
+    revalidatePath(`/tm/${ticketId}`);
+    revalidatePath("/tm");
+    return { ok: "Void" };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function convertTmAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const user = await actor();
+  let result: { changeOrderId: string; projectId: string } | null = null;
+  try {
+    result = convertTicketsToChangeOrder(user, formData.getAll("ticketId").map(String));
+  } catch (error) {
+    return failure(error);
+  }
+  revalidatePath("/tm");
+  redirect(`/projects/${result.projectId}/orders/${result.changeOrderId}`);
+}
+
+export async function costPlusTmAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const user = await actor();
+  let result: { invoiceId: string; projectId: string } | null = null;
+  try {
+    result = addTicketsToCostPlus(user, formData.getAll("ticketId").map(String));
+  } catch (error) {
+    return failure(error);
+  }
+  revalidatePath("/tm");
+  redirect(`/projects/${result.projectId}/invoices/${result.invoiceId}`);
+}
+
+export async function voidTmChangeOrderAction(changeOrderId: string, projectId: string, _prev: ActionState, _formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    voidChangeOrder(user, changeOrderId);
+    revalidatePath(`/projects/${projectId}/orders/${changeOrderId}`);
+    revalidatePath("/tm");
+    return { ok: "Void" };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function portalSignTmAction(portalToken: string, ticketId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    portalSignTicket(portalToken, ticketId, { name: String(formData.get("signer") || ""), drawn: String(formData.get("drawn") || "") });
+    revalidatePath(`/portal/${portalToken}`);
+    return { ok: "Signed" };
   } catch (error) {
     return failure(error);
   }

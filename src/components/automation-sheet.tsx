@@ -19,6 +19,7 @@ const TRIGGERS = [
   ["equipment_overdue", "Equipment overdue"],
   ["incident_logged", "Incident logged"],
   ["checklist_failed", "Checklist item failed"],
+  ["tm_verified", "T&M ticket verified"],
 ] as const;
 
 const ACTION_KINDS = [

@@ -1,10 +1,12 @@
 import Link from "next/link";
+import { voidTmChangeOrderAction } from "@/app/actions";
+import { ActionForm } from "@/components/action-form";
 import { CommentThread } from "@/components/comment-thread";
 import { DetailFacts, DetailHeader } from "@/components/detail-header";
 import { MissingRecord } from "@/components/missing-record";
 import { requireSession } from "@/lib/auth/session";
 import { formatMoney, formatQty } from "@/lib/money";
-import { canSeeMoney } from "@/lib/permissions";
+import { canManageMoney, canSeeMoney } from "@/lib/permissions";
 import { changeOrderRecord } from "@/lib/services/purchase-orders";
 
 export default async function ChangeOrderPage({ params }: { params: Promise<{ id: string; orderId: string }> }) {
@@ -58,6 +60,15 @@ export default async function ChangeOrderPage({ params }: { params: Promise<{ id
           </table>
           </div>
         </section>
+      ) : null}
+      {canManageMoney(session.role) && (order.status === "draft" || order.status === "sent") ? (
+        <div className="px-4">
+          <ActionForm action={voidTmChangeOrderAction.bind(null, order.id, order.projectId)}>
+            <button type="submit" className="ctl">
+              Void change order
+            </button>
+          </ActionForm>
+        </div>
       ) : null}
       <div className="px-4">
         <CommentThread entityType="change_order" entityId={order.id} />

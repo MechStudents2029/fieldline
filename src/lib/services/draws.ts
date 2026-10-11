@@ -30,6 +30,7 @@ import { daysFromNow, id, nowIso, token } from "@/lib/ids";
 import { canManageMoney, canManageSettings, canSeeMoney, type Role } from "@/lib/permissions";
 import { ServiceError } from "@/lib/services/errors";
 import { releaseInvoiceCosts } from "@/lib/services/cost-plus";
+import { restoreTmForInvoice } from "@/lib/services/tm";
 import type { Actor } from "@/lib/services/read";
 import { addCalendarDays, localDay } from "@/lib/time/calendar";
 
@@ -775,6 +776,7 @@ export function voidBilling(actor: Actor, invoiceId: string) {
   db.transaction((tx) => {
     tx.update(invoices).set({ status: "void", updatedAt: now }).where(eq(invoices.id, invoice.id)).run();
     releaseInvoiceCosts(tx, actor.orgId, invoice.id);
+    restoreTmForInvoice(tx, actor.orgId, invoice.id);
     const linked = tx.select().from(draws).where(and(eq(draws.orgId, actor.orgId), eq(draws.invoiceId, invoice.id))).all();
     for (const draw of linked) {
       tx.update(draws).set({ invoiceId: null, updatedAt: now }).where(eq(draws.id, draw.id)).run();
