@@ -31,6 +31,7 @@ export function ListToolbar({
   canShare,
   clearHref,
   links = [],
+  columns = [],
   extra,
 }: {
   path: string;
@@ -45,6 +46,7 @@ export function ListToolbar({
   canShare: boolean;
   clearHref: string | null;
   links?: ListLinkSpec[];
+  columns?: { id: string; label: string; href: string; on: boolean }[];
   extra?: React.ReactNode;
 }) {
   const current = views.find((view) => view.id === activeId);
@@ -72,6 +74,7 @@ export function ListToolbar({
           {hidden.map(([name, value]) => (
             <input key={name} type="hidden" name={name} value={value} />
           ))}
+          {query.cols ? <input type="hidden" name="cols" value={query.cols} /> : null}
           <input
             name="q"
             aria-label="Search"
@@ -130,6 +133,12 @@ export function ListToolbar({
         <details className="list-pop">
           <summary aria-label="Saved views" role="button">{current ? current.name : "Views"}</summary>
           <div className="list-menu">
+            {columns.map((column) => (
+              <a key={column.id} href={column.href}>
+                {column.on ? "✓ " : ""}
+                {column.label}
+              </a>
+            ))}
             {views.map((view) => (
               <a key={view.id} href={view.href}>
                 {view.name}

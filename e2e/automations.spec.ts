@@ -25,6 +25,20 @@ test("create a rule, watch it fire, and read the run log", async ({ page }) => {
   await page.emulateMedia({ colorScheme: "light" });
 
   await page.getByRole("link", { name: "Sold kitchen job" }).click();
+  await expect(page.getByText("Preview on")).toBeVisible();
+  await expect(page.getByLabel("Job")).toBeVisible();
+  for (const width of [1280, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    const sheet = page.locator("[data-sheet=automation]");
+    const box = await sheet.boundingBox();
+    const controls = sheet.locator("button, select, input, a");
+    const total = await controls.count();
+    for (let index = 0; index < total; index += 1) {
+      const item = await controls.nth(index).boundingBox();
+      if (!box || !item || item.width === 0) continue;
+      expect(item.x + item.width).toBeLessThanOrEqual(box.x + box.width + 1);
+    }
+  }
   await expect(page.getByText("When")).toBeVisible();
   await expect(page.getByRole("button", { name: "+ Add condition" })).toBeVisible();
   await expect(page.getByRole("button", { name: "+ Add action" })).toBeVisible();

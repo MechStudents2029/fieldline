@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { and, eq } from "drizzle-orm";
 import { dataDir, getDb, type AppDatabase } from "@/lib/db/client";
+import { portalRows } from "@/lib/services/custom-fields";
 import { officeDb } from "@/lib/db/office";
 import {
   auditLogs,
@@ -93,6 +94,7 @@ export type VendorPortalHome = {
     paidOn: string | null;
   }[];
   certificates: { type: string; label: string; statusLabel: string; state: string; expiresOn: string; documentId: string | null }[];
+  fields: { label: string; value: string }[];
 };
 
 export type VendorOffice = {
@@ -493,8 +495,10 @@ export function vendorPortal(token: string): VendorPortalHome | null {
     .all()
     .sort((a, b) => a.title.localeCompare(b.title));
   const certs = certRows(db, orgId, contactId);
+  const fields = portalRows(orgId, "vendor", contactId, "vendor").map((row) => ({ label: row.label, value: row.display }));
   return {
     company: ctx.orgName,
+    fields,
     vendorName: ctx.vendorName,
     today,
     openPos: openOrders.length,

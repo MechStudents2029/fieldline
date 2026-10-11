@@ -16,6 +16,7 @@ export type ContactDraft = {
   notes: string | null;
   type: "client" | "sub" | "vendor";
   asLead: boolean;
+  custom?: Record<string, string>;
 };
 
 export type ItemDraft = {
@@ -26,6 +27,7 @@ export type ItemDraft = {
   unit: string;
   unitCostCents: number;
   defaultMarkupBps: number;
+  custom?: Record<string, string>;
 };
 
 export type ExistingContact = {
@@ -71,6 +73,7 @@ export type MappedContact = {
   zip: string;
   notes: string;
   type: string;
+  custom?: Record<string, string>;
 };
 
 export type MappedItem = {
@@ -83,6 +86,7 @@ export type MappedItem = {
   markup: string;
   code: string;
   category: string;
+  custom?: Record<string, string>;
 };
 
 const UNITS: Record<string, string> = {
@@ -178,6 +182,7 @@ export function reviewContacts(rows: MappedContact[], existing: ExistingContact[
       notes: empty(row.notes),
       type: typed.type,
       asLead: typed.asLead,
+      custom: row.custom,
     };
     const emailKey = normEmail(draft.email);
     const phoneKey = phoneDigits(draft.phone);
@@ -241,6 +246,7 @@ export function reviewPriceBook(rows: MappedItem[], existing: ExistingItem[], de
       unit,
       unitCostCents: priced.cost,
       defaultMarkupBps: priced.markup,
+      custom: row.custom,
     };
     if (known || earlier != null) {
       return {
@@ -313,6 +319,14 @@ export function cellValue(row: string[], mapping: string[], field: string): stri
   return (row[index] || "").trim();
 }
 
+function customFrom(row: string[], mapping: string[]) {
+  const custom: Record<string, string> = {};
+  mapping.forEach((field, index) => {
+    if (field.startsWith("cf_") && row[index]?.trim()) custom[field] = row[index].trim();
+  });
+  return custom;
+}
+
 export function mapContactRow(row: string[], mapping: string[], index: number): MappedContact {
   const display = cellValue(row, mapping, "name");
   const first = cellValue(row, mapping, "first");
@@ -330,6 +344,7 @@ export function mapContactRow(row: string[], mapping: string[], index: number): 
     zip: cellValue(row, mapping, "zip"),
     notes: cellValue(row, mapping, "notes"),
     type: cellValue(row, mapping, "type"),
+    custom: customFrom(row, mapping),
   };
 }
 
@@ -344,6 +359,7 @@ export function mapItemRow(row: string[], mapping: string[], index: number): Map
     markup: cellValue(row, mapping, "markup"),
     code: cellValue(row, mapping, "code"),
     category: cellValue(row, mapping, "category"),
+    custom: customFrom(row, mapping),
   };
 }
 

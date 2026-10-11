@@ -87,6 +87,13 @@ export default async function SettingsPage() {
           ) : null}
           {canManageSettings(session.role) ? (
             <li>
+              <Link href="/settings/fields" className="block py-2 mac-t13 text-[var(--mac-accent)]">
+                Custom fields
+              </Link>
+            </li>
+          ) : null}
+          {canManageSettings(session.role) ? (
+            <li>
               <Link href="/settings/automations" className="block py-2 mac-t13 text-[var(--mac-accent)]">
                 Automations
               </Link>

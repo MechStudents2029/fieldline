@@ -9,7 +9,7 @@ import { FIELD_LABEL, autoMap, fieldsFor, type ImportKind } from "@/lib/import/m
 import { formatWhen } from "@/lib/format";
 import { rowCounts, type ImportHistoryRow, type ImportViewRow } from "@/lib/import/review";
 
-export function ImportWizard({ kind, history }: { kind: ImportKind; history: ImportHistoryRow[] }) {
+export function ImportWizard({ kind, history, extras = [] }: { kind: ImportKind; history: ImportHistoryRow[]; extras?: { id: string; label: string }[] }) {
   const router = useRouter();
   const [text, setText] = useState("");
   const [table, setTable] = useState<CsvTable | null>(null);
@@ -25,7 +25,7 @@ export function ImportWizard({ kind, history }: { kind: ImportKind; history: Imp
       const parsed = parseCsv(csv);
       setText(csv);
       setTable(parsed);
-      setMapping(autoMap(parsed.headers, kind));
+      setMapping(autoMap(parsed.headers, kind, extras));
       setRows(null);
       setStep("map");
       setError(null);
@@ -94,7 +94,7 @@ export function ImportWizard({ kind, history }: { kind: ImportKind; history: Imp
   }
 
   const counts = rows ? rowCounts(rows) : null;
-  const fields = fieldsFor(kind);
+  const fields = [...fieldsFor(kind), ...extras.map((field) => field.id)];
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -140,7 +140,7 @@ export function ImportWizard({ kind, history }: { kind: ImportKind; history: Imp
                     <tr key={`${header}-${index}`}>
                       <td className="px-2">{header}</td>
                       <td className="px-2 text-[var(--mac-secondary)]">{table.rows[0]?.[index] || ""}</td>
-                      <td className="px-2">{fieldSelect(header, index, mapping, fields, setMapping)}</td>
+                      <td className="px-2">{fieldSelect(header, index, mapping, fields, setMapping, Object.fromEntries(extras.map((field) => [field.id, field.label])))}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -151,7 +151,7 @@ export function ImportWizard({ kind, history }: { kind: ImportKind; history: Imp
                 <li key={`${header}-${index}`} className="flex flex-col gap-1">
                   <span className="mac-t13">{header}</span>
                   <span className="mac-t11 text-[var(--mac-secondary)]">{table.rows[0]?.[index] || "—"}</span>
-                  {fieldSelect(header, index, mapping, fields, setMapping)}
+                  {fieldSelect(header, index, mapping, fields, setMapping, Object.fromEntries(extras.map((field) => [field.id, field.label])))}
                 </li>
               ))}
             </ul>
@@ -249,7 +249,7 @@ export function ImportWizard({ kind, history }: { kind: ImportKind; history: Imp
   );
 }
 
-function fieldSelect(header: string, index: number, mapping: string[], fields: readonly string[], setMapping: (next: string[]) => void) {
+function fieldSelect(header: string, index: number, mapping: string[], fields: readonly string[], setMapping: (next: string[]) => void, labels: Record<string, string> = {}) {
   return (
     <select
       aria-label={`${header} column`}
@@ -264,7 +264,7 @@ function fieldSelect(header: string, index: number, mapping: string[], fields: r
       <option value="">Skip</option>
       {fields.map((field) => (
         <option key={field} value={field}>
-          {FIELD_LABEL[field]}
+          {FIELD_LABEL[field] || labels[field] || field}
         </option>
       ))}
     </select>

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Fragment } from "react";
 import { ActionForm } from "@/components/action-form";
 import { ChecklistForm } from "@/components/checklist-form";
 import { FileButton } from "@/components/file-button";
@@ -7,7 +8,7 @@ import { Toolbar } from "@/components/mac/toolbar";
 import { createIncidentAction, linkCheckPunchAction, linkCheckTodoAction, scheduleTalkAction } from "@/app/(office)/safety/actions";
 import { requireSession } from "@/lib/auth/session";
 import { formatCalendarDay } from "@/lib/format";
-import { jobSafety } from "@/lib/services/safety";
+import { jobSafety, safetyTabCount } from "@/lib/services/safety";
 import { calendarForOrg } from "@/lib/services/time";
 import { localDay } from "@/lib/time/calendar";
 
@@ -40,11 +41,11 @@ export default async function JobSafetyPage({
   const mode = one(query.new);
   const today = officeDay(session.orgId);
   return (
-    <div className="flex min-h-0 flex-1">
+    <div className="flex min-h-0 flex-1" data-safety-count={safetyTabCount(board)}>
       <div className="flex min-w-0 flex-1 flex-col">
         <Toolbar
           title="Safety"
-          subtitle={`${board.counts.talks + board.counts.checks + board.counts.incidents}`}
+          subtitle={`${safetyTabCount(board)}`}
           search={false}
           center={jobSectionTabs(id, "safety")}
           trailing={
@@ -90,64 +91,81 @@ export default async function JobSafetyPage({
           <section aria-label="Checklists" className="mb-6">
             <h2 className="mac-t11 mb-2 font-semibold text-[var(--mac-secondary)]">Checklists</h2>
             {board.checks.length === 0 ? <p className="mac-t13 text-[var(--mac-secondary)]">No checklists</p> : null}
-            {board.checks.map((check) => (
-              <div key={check.id} className="mb-3" data-check={check.id}>
-                <div className="mb-1 flex items-center gap-2">
-                  <span className="mac-t13">{check.title}</span>
-                  <span className="fl-pill">{check.statusLabel}</span>
-                  <span className="num mac-t11 text-[var(--mac-secondary)]">{formatCalendarDay(check.when)}</span>
-                </div>
-                <ul>
-                  {check.items.map((item) => (
-                    <li key={item.id} className="flex items-center gap-2 py-1">
-                      <span className="min-w-0 flex-1 truncate mac-t13">{item.title}</span>
-                      <span className="fl-pill">{item.result === "na" ? "N/A" : item.result === "fail" ? "Fail" : "Pass"}</span>
-                      {item.result === "fail" && board.canWrite && !item.todoId ? (
-                        <form action={linkCheckTodoAction.bind(null, item.id)}>
-                          <input type="hidden" name="projectId" value={id} />
-                          <button type="submit" className="ctl">
-                            To-do
-                          </button>
-                        </form>
-                      ) : null}
-                      {item.todoId ? (
-                        <Link href="/todos" className="ctl">
-                          To-do
-                        </Link>
-                      ) : null}
-                      {item.result === "fail" && board.canWrite && !item.punchId ? (
-                        <form action={linkCheckPunchAction.bind(null, item.id)}>
-                          <input type="hidden" name="projectId" value={id} />
-                          <button type="submit" className="ctl">
-                            Punch
-                          </button>
-                        </form>
-                      ) : null}
-                      {item.punchId ? (
-                        <Link href={`/projects/${id}#punch`} className="ctl">
-                          Punch
-                        </Link>
-                      ) : null}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
+            <table className="mac-table w-full">
+              <tbody>
+                {board.checks.map((check) => (
+                  <Fragment key={check.id}>
+                    <tr data-check={check.id} data-mac-row={check.title}>
+                      <td>{check.title}</td>
+                      <td className="num">{formatCalendarDay(check.when)}</td>
+                      <td>
+                        <span className="fl-pill">{check.statusLabel}</span>
+                      </td>
+                    </tr>
+                    {check.items.map((item) => (
+                      <tr key={item.id}>
+                        <td className="mac-t13">{item.title}</td>
+                        <td>
+                          <span className="flex items-center gap-2">
+                            {item.result === "fail" && board.canWrite && !item.todoId ? (
+                              <form action={linkCheckTodoAction.bind(null, item.id)}>
+                                <input type="hidden" name="projectId" value={id} />
+                                <button type="submit" className="ctl">
+                                  To-do
+                                </button>
+                              </form>
+                            ) : null}
+                            {item.todoId ? (
+                              <Link href="/todos" className="ctl">
+                                To-do
+                              </Link>
+                            ) : null}
+                            {item.result === "fail" && board.canWrite && !item.punchId ? (
+                              <form action={linkCheckPunchAction.bind(null, item.id)}>
+                                <input type="hidden" name="projectId" value={id} />
+                                <button type="submit" className="ctl">
+                                  Punch
+                                </button>
+                              </form>
+                            ) : null}
+                            {item.punchId ? (
+                              <Link href={`/projects/${id}#punch`} className="ctl">
+                                Punch
+                              </Link>
+                            ) : null}
+                          </span>
+                        </td>
+                        <td>
+                          <span className="fl-pill">{item.result === "na" ? "N/A" : item.result === "fail" ? "Fail" : "Pass"}</span>
+                        </td>
+                      </tr>
+                    ))}
+                  </Fragment>
+                ))}
+              </tbody>
+            </table>
           </section>
           <section aria-label="Incidents">
             <h2 className="mac-t11 mb-2 font-semibold text-[var(--mac-secondary)]">Incidents</h2>
             {board.incidents.length === 0 ? <p className="mac-t13 text-[var(--mac-secondary)]">No incidents</p> : null}
-            <ul>
-              {board.incidents.map((incident) => (
-                <li key={incident.id} className="flex items-center gap-2 py-1">
-                  <Link href={incident.href} className="min-w-0 flex-1 truncate">
-                    {incident.title}
-                  </Link>
-                  <span className="mac-t11 text-[var(--mac-secondary)]">{incident.kindLabel}</span>
-                  <span className="fl-pill">{incident.statusLabel}</span>
-                </li>
-              ))}
-            </ul>
+            <table className="mac-table w-full">
+              <tbody>
+                {board.incidents.map((incident) => (
+                  <tr key={incident.id} data-mac-row={incident.title}>
+                    <td>
+                      <Link href={incident.href}>{incident.title}</Link>
+                    </td>
+                    <td className="num">{formatCalendarDay(incident.when)}</td>
+                    <td>
+                      <span className="mac-t11 text-[var(--mac-secondary)]">{incident.kindLabel}</span>
+                    </td>
+                    <td>
+                      <span className="fl-pill">{incident.statusLabel}</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </section>
         </div>
       </div>

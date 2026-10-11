@@ -41,6 +41,7 @@ import { latestByRoot } from "@/lib/permits/rules";
 import { ServiceError } from "@/lib/services/errors";
 import type { Actor } from "@/lib/services/read";
 import { applyTemplateTodos } from "@/lib/services/todos";
+import { applyTemplateJobFields, captureTemplateFields } from "@/lib/services/custom-fields";
 import { workCalendarFor } from "@/lib/services/work-calendar";
 
 export const TEMPLATE_PARTS = ["schedule", "estimate", "draws", "selections", "punch", "todos"] as const;
@@ -601,7 +602,7 @@ export function jobPartCounts(actor: Actor, projectId: string): PartCounts | nul
   return countsFor(schedule, estimate, drawCount, selectionCount, punch, todoCount, money(actor));
 }
 
-export function saveJobAsTemplate(actor: Actor, projectId: string, input: { name: string; jobType: string; parts: TemplatePart[] }) {
+export function saveJobAsTemplate(actor: Actor, projectId: string, input: { name: string; jobType: string; parts: TemplatePart[]; fieldIds?: string[] }) {
   assertOffice(actor);
   const db = dbFor(actor);
   const project = db.select().from(projects).where(and(eq(projects.orgId, actor.orgId), eq(projects.id, projectId))).get();
@@ -727,7 +728,9 @@ export function saveJobAsTemplate(actor: Actor, projectId: string, input: { name
   const total =
     draft.tasks.length + draft.lines.length + draft.draws.length + draft.selections.length + draft.checks.length + (draft.todos?.length ?? 0) + (draft.permits?.length ?? 0);
   if (total === 0) throw new ServiceError("That template has nothing to copy.");
-  return createTemplate(actor, draft);
+  const templateId = createTemplate(actor, draft);
+  if (input.fieldIds && input.fieldIds.length > 0) captureTemplateFields(actor, templateId, projectId, input.fieldIds);
+  return templateId;
 }
 
 function selectedParts(parts: TemplatePart[]) {
@@ -1093,6 +1096,7 @@ export function createJobFromTemplate(
       parts: [...parts],
     });
   });
+  applyTemplateJobFields(actor, input.templateId, projectId);
   return { projectId, created };
 }
 

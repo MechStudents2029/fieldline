@@ -12,9 +12,12 @@ import { CERT_TYPES } from "@/lib/vendor/compliance";
 import { contactDetail } from "@/lib/services/read";
 import { vendorOffice } from "@/lib/services/vendor-portal";
 import { outstandingWaivers } from "@/lib/services/waivers";
+import { RecordFields } from "@/components/field-record";
+import { fieldRows } from "@/lib/services/custom-fields";
 
-export default async function ContactPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function ContactPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ fields?: string }> }) {
   const { id } = await params;
+  const query = await searchParams;
   const session = await requireSession();
   const detail = contactDetail(session.orgId, id);
   if (!detail) return <MissingRecord orgName={session.orgName} kind="contact" />;
@@ -29,6 +32,15 @@ export default async function ContactPage({ params }: { params: Promise<{ id: st
           {[detail.contact.company, detail.contact.email, detail.contact.phone, detail.contact.address, detail.contact.city].filter(Boolean).join(" · ")}
         </p>
         {detail.contact.notes ? <p className="mt-2 text-sm">{detail.contact.notes}</p> : null}
+        <RecordFields
+          rows={fieldRows(session, detail.contact.type === "client" ? "client" : "vendor", detail.contact.id, query.fields === "1" ? "edit" : "read")}
+          recordType={detail.contact.type === "client" ? "client" : "vendor"}
+          recordId={detail.contact.id}
+          orgId={session.orgId}
+          editing={query.fields === "1"}
+          editHref={`/contacts/${detail.contact.id}?fields=1`}
+          cancelHref={`/contacts/${detail.contact.id}`}
+        />
         {vendor ? (
           <p className="mt-2">
             <span className="fl-pill" data-compliance={vendor.rollup.state}>

@@ -7,6 +7,7 @@ import {
   automationRuns,
   budgetLines,
   contacts,
+  customFields,
   equipment,
   equipmentAssignments,
   incidents,
@@ -37,6 +38,7 @@ import {
 } from "@/lib/db/schema";
 import { id, nowIso } from "@/lib/ids";
 import { canEditCrm, canManageSettings } from "@/lib/permissions";
+import { fieldConditionMet, setStoredField } from "@/lib/services/custom-fields";
 import { addWorkdays, dateFromOffset, endFromDuration } from "@/lib/schedule/workdays";
 import { ServiceError } from "@/lib/services/errors";
 import type { Actor } from "@/lib/services/read";
@@ -66,7 +68,8 @@ export type Condition =
   | { kind: "cost_code"; value: string }
   | { kind: "item_name"; value: string }
   | { kind: "amount_over"; cents: number }
-  | { kind: "amount_under"; cents: number };
+  | { kind: "amount_under"; cents: number }
+  | { kind: "field"; fieldId: string; op: "eq" | "empty" | "gt"; value: string };
 
 export type Action =
   | { kind: "apply_template"; templateId: string }
@@ -76,7 +79,8 @@ export type Action =
   | { kind: "punch"; title: string }
   | { kind: "hold" }
   | { kind: "release" }
-  | { kind: "schedule_talk"; topicId: string; withinWorkdays: number };
+  | { kind: "schedule_talk"; topicId: string; withinWorkdays: number }
+  | { kind: "set_field"; fieldId: string; value: string };
 
 export type AutomationEvent = {
   orgId: string;
@@ -170,6 +174,8 @@ export function parseConditions(raw: string): Condition[] {
       out.push({ kind: "pm", userId: row.userId });
     } else if ((row.kind === "amount_over" || row.kind === "amount_under") && Number.isInteger(row.cents)) {
       out.push({ kind: row.kind, cents: row.cents as number });
+    } else if (row.kind === "field" && typeof row.fieldId === "string" && (row.op === "eq" || row.op === "empty" || row.op === "gt")) {
+      out.push({ kind: "field", fieldId: row.fieldId, op: row.op, value: typeof row.value === "string" ? row.value : "" });
     }
   }
   return out;
@@ -197,6 +203,8 @@ export function parseActions(raw: string): Action[] {
     else if (row.kind === "schedule_talk" && typeof row.topicId === "string") {
       const withinWorkdays = daysOf(row.withinWorkdays);
       if (withinWorkdays != null) out.push({ kind: "schedule_talk", topicId: row.topicId, withinWorkdays });
+    } else if (row.kind === "set_field" && typeof row.fieldId === "string") {
+      out.push({ kind: "set_field", fieldId: row.fieldId, value: typeof row.value === "string" ? row.value : "" });
     }
   }
   return out;
@@ -277,6 +285,7 @@ function conditionsMatch(conditions: Condition[], event: AutomationEvent) {
       const lines = getDb().select().from(budgetLines).where(and(eq(budgetLines.orgId, event.orgId), eq(budgetLines.projectId, project.id))).all();
       if (!lines.some((line) => (line.costCode ?? "").toLowerCase().includes(condition.value.toLowerCase()))) return false;
     }
+    if (condition.kind === "field" && !fieldConditionMet(event.orgId, condition.fieldId, { projectId: event.projectId, recordId: event.recordId }, condition.op, condition.value)) return false;
   }
   return true;
 }
@@ -617,6 +626,9 @@ function runAction(rule: { id: string; name: string }, action: Action, event: Au
     audit(event.orgId, ruleName, "punch_item", punchId, { title });
     return line;
   }
+  if (action.kind === "set_field") {
+    return setStoredField(event.orgId, action.fieldId, { projectId: event.projectId, recordId: event.recordId }, action.value, dry);
+  }
   if (action.kind === "schedule_talk") {
     const line = `Toolbox talk in ${action.withinWorkdays} workdays`;
     if (dry) return line;
@@ -892,6 +904,14 @@ export function formOptions(orgId: string) {
   return {
     templates: db.select().from(jobTemplates).where(eq(jobTemplates.orgId, orgId)).all().map((row) => ({ id: row.id, name: row.name })),
     topics: db.select().from(safetyTopics).where(eq(safetyTopics.orgId, orgId)).all().sort((a, b) => a.sortOrder - b.sortOrder).map((row) => ({ id: row.id, name: row.title })),
+    fields: db
+      .select()
+      .from(customFields)
+      .where(eq(customFields.orgId, orgId))
+      .all()
+      .filter((row) => !row.archivedAt)
+      .sort((a, b) => a.sortOrder - b.sortOrder || a.label.localeCompare(b.label))
+      .map((row) => ({ id: row.id, label: row.label, recordType: row.recordType, fieldType: row.fieldType })),
     people: db
       .select({ id: users.id, name: users.name })
       .from(memberships)
@@ -900,6 +920,18 @@ export function formOptions(orgId: string) {
       .all()
       .sort((a, b) => a.name.localeCompare(b.name)),
   };
+}
+
+export function previewRecordLabel(trigger: Trigger) {
+  if (trigger.kind === "job_status" || trigger.kind === "proposal_signed") return "Job";
+  if (trigger.kind === "schedule_done") return "Schedule item";
+  if (trigger.kind === "inspection_result") return "Inspection";
+  if (trigger.kind === "punch_verified") return "Punch item";
+  if (trigger.kind === "invoice_overdue") return "Invoice";
+  if (trigger.kind === "vendor_expiring") return "Certificate";
+  if (trigger.kind === "equipment_overdue") return "Equipment";
+  if (trigger.kind === "incident_logged") return "Incident";
+  return "Checklist item";
 }
 
 export function previewChoices(orgId: string, trigger: Trigger) {
@@ -1154,6 +1186,14 @@ export function ruleFromForm(formData: FormData): RuleDraft {
   for (const slot of conditionSlots) {
     const conditionKind = formText(formData, `c${slot}kind`);
     const value = clean(formText(formData, `c${slot}value`), 80);
+    if (conditionKind === "field") {
+      const fieldId = formText(formData, `c${slot}field`);
+      const op = formText(formData, `c${slot}op`);
+      if (!fieldId) throw new ServiceError("Pick a field.");
+      if (op !== "eq" && op !== "empty" && op !== "gt") throw new ServiceError("Pick how to test the field.");
+      conditions.push({ kind: "field", fieldId, op, value: op === "empty" ? "" : value });
+      continue;
+    }
     if (!conditionKind || !value) continue;
     if (conditionKind === "job_type" || conditionKind === "cost_code" || conditionKind === "item_name") conditions.push({ kind: conditionKind, value });
     else if (conditionKind === "template") conditions.push({ kind: "template", templateId: value });
@@ -1194,6 +1234,10 @@ export function ruleFromForm(formData: FormData): RuleDraft {
       if (!topicId) throw new ServiceError("Pick a topic.");
       if (withinWorkdays == null) throw new ServiceError("Enter workdays.");
       actions.push({ kind: "schedule_talk", topicId, withinWorkdays });
+    } else if (actionKind === "set_field") {
+      const fieldId = formText(formData, `a${slot}field`);
+      if (!fieldId) throw new ServiceError("Pick a field.");
+      actions.push({ kind: "set_field", fieldId, value: formText(formData, `a${slot}value`) });
     }
   }
   if (actions.length === 0) throw new ServiceError("Add an action.");

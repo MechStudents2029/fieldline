@@ -6,6 +6,7 @@ import { canEditCrm } from "@/lib/permissions";
 import { jobPartCounts, previewTemplateImport, templateChoices } from "@/lib/services/templates";
 import type { TemplatePart } from "@/lib/services/templates";
 import { calendarForOrg } from "@/lib/services/time";
+import { fieldRows } from "@/lib/services/custom-fields";
 import { localDay } from "@/lib/time/calendar";
 
 const PARTS: { key: TemplatePart; label: string }[] = [
@@ -92,6 +93,13 @@ export default async function JobTemplatePage({
               </label>
             );
           })}
+          {fieldRows(session, "job", id, "read").map((row) => (
+            <label key={row.id} className="flex items-center gap-2 text-sm">
+              <input type="checkbox" name="fieldId" value={row.id} />
+              <span className="flex-1">{row.label}</span>
+              <span className="num">{row.display}</span>
+            </label>
+          ))}
           <button type="submit" className="mac-primary w-fit">
             Save
           </button>

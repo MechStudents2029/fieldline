@@ -11,9 +11,12 @@ import { WEBSITE_FORM_SOURCE } from "@/lib/lead-form/rules";
 import { canSeeMoney } from "@/lib/permissions";
 import { markWebLeadOpened, webLeadSubmission } from "@/lib/services/lead-form";
 import { captionFromMetadata, leadDetail, pipelineBoard } from "@/lib/services/read";
+import { RecordFields } from "@/components/field-record";
+import { fieldRows } from "@/lib/services/custom-fields";
 
-export default async function LeadPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function LeadPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ fields?: string }> }) {
   const { id } = await params;
+  const query = await searchParams;
   const session = await requireSession();
   const detail = leadDetail(session.orgId, id);
   if (!detail?.contact) return <MissingRecord orgName={session.orgName} kind="lead" />;
@@ -128,6 +131,15 @@ export default async function LeadPage({ params }: { params: Promise<{ id: strin
           ))}
         </ul>
       </section>
+      <RecordFields
+        rows={fieldRows(session, "lead", detail.lead.id, query.fields === "1" ? "edit" : "read")}
+        recordType="lead"
+        recordId={detail.lead.id}
+        orgId={session.orgId}
+        editing={query.fields === "1"}
+        editHref={`/leads/${detail.lead.id}?fields=1`}
+        cancelHref={`/leads/${detail.lead.id}`}
+      />
       <section className="grid gap-4 md:grid-cols-2">
         <div className="rounded-xl bg-card p-4 ring-1 ring-foreground/10">
           <h2 className="font-medium">Log a call or note</h2>

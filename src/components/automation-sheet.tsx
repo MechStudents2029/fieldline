@@ -28,6 +28,7 @@ const ACTION_KINDS = [
   ["hold", "Hold schedule"],
   ["release", "Release schedule"],
   ["schedule_talk", "Schedule toolbox talk"],
+  ["set_field", "Set field"],
 ] as const;
 
 const CONDITION_KINDS = [
@@ -38,12 +39,14 @@ const CONDITION_KINDS = [
   ["item_name", "Item name"],
   ["amount_over", "Amount over"],
   ["amount_under", "Amount under"],
+  ["field", "Field"],
 ] as const;
 
 type Options = {
   templates: { id: string; name: string }[];
   people: { id: string; name: string }[];
   topics: { id: string; name: string }[];
+  fields: { id: string; label: string; recordType: string; fieldType: string }[];
 };
 
 function triggerKind(trigger: Trigger | null) {
@@ -55,11 +58,15 @@ export function AutomationSheet({
   options,
   targets,
   preview,
+  previewId,
+  previewLabel,
 }: {
   rule: RuleDraft | null;
   options: Options;
   targets: { id: string; label: string }[];
   preview: string[];
+  previewId: string;
+  previewLabel: string;
 }) {
   const [trigger, setTrigger] = useState<string>(triggerKind(rule?.trigger ?? null));
   const [conditions, setConditions] = useState<Condition[]>(rule?.conditions ?? []);
@@ -128,25 +135,27 @@ export function AutomationSheet({
       {rule?.id ? (
         <form action="/settings/automations" method="get" className="ctl-line">
           <input type="hidden" name="rule" value={rule.id} />
-          <select name="preview" aria-label="Test on" defaultValue="" className="ctl">
-            <option value="">Test on</option>
+          <span>Preview on</span>
+          <select
+            name="preview"
+            aria-label={previewLabel}
+            defaultValue={previewId}
+            className="ctl"
+            onChange={(event) => event.currentTarget.form?.requestSubmit()}
+          >
+            <option value="">{previewLabel}</option>
             {targets.map((target) => (
               <option key={target.id} value={target.id}>
                 {target.label}
               </option>
             ))}
           </select>
-          <button type="submit" className="ctl">
-            Test
-          </button>
         </form>
       ) : null}
       {preview.length > 0 ? (
-        <ul aria-label="Preview" className="mac-t13">
-          {preview.map((line) => (
-            <li key={line}>{line}</li>
-          ))}
-        </ul>
+        <p aria-label="Preview" className="mac-t13">
+          {preview.join(" · ")}
+        </p>
       ) : null}
     </aside>
   );
@@ -199,6 +208,7 @@ function blankCondition(kind: string): Condition {
   if (kind === "pm") return { kind: "pm", userId: "" };
   if (kind === "amount_over" || kind === "amount_under") return { kind, cents: 0 };
   if (kind === "cost_code" || kind === "item_name" || kind === "job_type") return { kind, value: "" };
+  if (kind === "field") return { kind: "field", fieldId: "", op: "eq", value: "" };
   return { kind: "job_type", value: "" };
 }
 
@@ -210,6 +220,7 @@ function blankAction(kind: string): Action {
   if (kind === "punch") return { kind: "punch", title: "" };
   if (kind === "release") return { kind: "release" };
   if (kind === "schedule_talk") return { kind: "schedule_talk", topicId: "", withinWorkdays: 2 };
+  if (kind === "set_field") return { kind: "set_field", fieldId: "", value: "" };
   return { kind: "hold" };
 }
 
@@ -261,11 +272,28 @@ function ConditionRow({
           ))}
         </select>
       ) : null}
-      {condition.kind !== "template" && condition.kind !== "pm" ? (
+      {condition.kind === "field" ? (
+        <>
+          <select name={`c${index}field`} aria-label={`Field ${index + 1}`} defaultValue={condition.fieldId} className="ctl">
+            {options.fields.map((field) => (
+              <option key={field.id} value={field.id}>
+                {field.label}
+              </option>
+            ))}
+          </select>
+          <select name={`c${index}op`} aria-label={`Compare ${index + 1}`} defaultValue={condition.op} className="ctl">
+            <option value="eq">equals</option>
+            <option value="empty">is empty</option>
+            <option value="gt">greater than</option>
+          </select>
+          {condition.op === "empty" ? null : <input name={`c${index}value`} aria-label={`Value ${index + 1}`} defaultValue={condition.value} className="ctl" />}
+        </>
+      ) : null}
+      {condition.kind !== "template" && condition.kind !== "pm" && condition.kind !== "field" ? (
         <input name={`c${index}value`} aria-label={`Value ${index + 1}`} defaultValue={value} className="ctl" />
       ) : null}
-      <button type="button" className="ctl" aria-label={`Remove condition ${index + 1}`} onClick={onRemove}>
-        Remove
+      <button type="button" className="ctl icon" aria-label={`Remove condition ${index + 1}`} onClick={onRemove}>
+        ×
       </button>
     </div>
   );
@@ -338,8 +366,20 @@ function ActionRow({
           <input name={`a${index}days`} aria-label="Workdays" type="number" min={0} max={365} defaultValue={action.withinWorkdays} className="ctl w-16" />
         </>
       ) : null}
-      <button type="button" className="ctl" aria-label={`Remove action ${index + 1}`} onClick={onRemove}>
-        Remove
+      {action.kind === "set_field" ? (
+        <>
+          <select name={`a${index}field`} aria-label={`Field ${index + 1}`} defaultValue={action.fieldId} className="ctl">
+            {options.fields.map((field) => (
+              <option key={field.id} value={field.id}>
+                {field.label}
+              </option>
+            ))}
+          </select>
+          <input name={`a${index}value`} aria-label={`Value ${index + 1}`} defaultValue={action.value} className="ctl" />
+        </>
+      ) : null}
+      <button type="button" className="ctl icon" aria-label={`Remove action ${index + 1}`} onClick={onRemove}>
+        ×
       </button>
     </div>
   );

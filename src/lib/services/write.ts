@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { emitAutomation } from "@/lib/services/automations";
+import { applyDefaults } from "@/lib/services/custom-fields";
 import { dataDir, getDb } from "@/lib/db/client";
 import { officeDb } from "@/lib/db/office";
 import {
@@ -1486,6 +1487,7 @@ export function signProposal(input: {
     return { projectId, portalToken, payToken, invoiceId, totalCents: stored.public.totalCents };
   });
   const project = db.select().from(projects).where(eq(projects.id, signed.projectId)).get();
+  if (project) applyDefaults(project.orgId, "job", project.id);
   emitAutomation({
     orgId: project?.orgId ?? "",
     kind: "proposal_signed",

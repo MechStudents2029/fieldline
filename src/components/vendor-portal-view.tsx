@@ -61,6 +61,16 @@ export function VendorPortalView({
       <header>
         <p className="home-company">{home.company}</p>
         <h1 className="home-title">{home.vendorName}</h1>
+        {home.fields?.length ? (
+          <dl aria-label="Fields">
+            {home.fields.map((row) => (
+              <div key={row.label}>
+                <dt>{row.label}</dt>
+                <dd>{row.value}</dd>
+              </div>
+            ))}
+          </dl>
+        ) : null}
       </header>
       <section className="home-strip vendor-strip" aria-label="Totals">
         <div>

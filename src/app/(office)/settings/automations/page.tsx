@@ -6,7 +6,7 @@ import { toggleAutomationAction } from "@/app/(office)/settings/automations/acti
 import { requireSession } from "@/lib/auth/session";
 import { formatDateTime } from "@/lib/format";
 import { canManageSettings } from "@/lib/permissions";
-import { formOptions, listRules, previewChoices, previewRule, ruleView, runsFor } from "@/lib/services/automations";
+import { formOptions, listRules, previewChoices, previewRecordLabel, previewRule, ruleView, runsFor } from "@/lib/services/automations";
 import { calendarForOrg } from "@/lib/services/time";
 
 function one(value: string | string[] | undefined) {
@@ -72,7 +72,16 @@ export default async function AutomationsPage({ searchParams }: { searchParams: 
             </tbody>
           </table>
         </div>
-        {ruleId ? <AutomationSheet rule={draft} options={options} targets={targets} preview={preview} /> : null}
+        {ruleId ? (
+          <AutomationSheet
+            rule={draft}
+            options={options}
+            targets={targets}
+            preview={preview}
+            previewId={previewId}
+            previewLabel={draft ? previewRecordLabel(draft.trigger) : "Record"}
+          />
+        ) : null}
         {log ? (
           <aside data-detail="log" aria-label="Run log" className="flex w-full shrink-0 flex-col gap-3 border-l border-[var(--mac-separator)] p-4 md:w-[420px]">
             <div className="flex items-center justify-between gap-2">

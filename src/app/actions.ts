@@ -29,6 +29,7 @@ import {
   setLogVisibility,
   voidDailyLog,
 } from "@/lib/services/logs";
+import { saveRecordFields } from "@/lib/services/custom-fields";
 import {
   addManualTime,
   approveEntries,
@@ -1415,6 +1416,16 @@ export async function saveLogAction(logId: string, _prev: ActionState, formData:
     const equipmentIds = formData.get("equipmentSet") ? formData.getAll("equipmentId").map(String) : undefined;
     if (String(formData.get("intent") || "") === "publish") publishDailyLog(user, logId, input, Date.now(), equipmentIds);
     else saveDailyLog(user, logId, input, equipmentIds);
+    const custom: Record<string, string | string[]> = {};
+    for (const [key, value] of formData.entries()) {
+      if (!key.startsWith("cf_")) continue;
+      const text = String(value);
+      const current = custom[key];
+      if (current == null) custom[key] = text;
+      else if (Array.isArray(current)) current.push(text);
+      else custom[key] = [current, text];
+    }
+    if (Object.keys(custom).length > 0) saveRecordFields(user, "log", logId, custom);
     const log = getDb().select().from(dailyLogs).where(eq(dailyLogs.id, logId)).get();
     if (log) refreshLog(log.projectId, log.id);
     return { ok: String(formData.get("intent") || "") === "publish" ? "Published." : "Draft saved." };
@@ -3240,6 +3251,7 @@ export async function saveJobAsTemplateAction(_prev: ActionState, formData: Form
       name: String(formData.get("name") || ""),
       jobType: String(formData.get("jobType") || ""),
       parts: templateParts(formData),
+      fieldIds: formData.getAll("fieldId").map(String),
     });
     revalidatePath("/templates");
     redirect(`/templates/${templateId}`);
