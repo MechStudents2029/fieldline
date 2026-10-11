@@ -30,9 +30,11 @@ test("office punch, closeout, and warranty at 1440", async ({ page, request }) =
   await expect(page.locator("[data-count=open]")).toHaveText("3");
   await expect(page.locator("[data-count=done]")).toHaveText("1");
   await expect(page.locator("[data-count=verified]")).toHaveText("1");
-  await page.getByLabel("Item").fill("Reset the GFCI");
-  await page.getByLabel("Room").fill("Bath");
   await page.getByRole("button", { name: "Add punch" }).click();
+  const punchForm = page.locator("#punch form");
+  await punchForm.getByLabel("Item").fill("Reset the GFCI");
+  await punchForm.getByLabel("Room").fill("Bath");
+  await punchForm.getByRole("button", { name: "Add punch" }).click();
   await expect(page.getByText("Reset the GFCI", { exact: true })).toBeVisible();
   await expect(page.locator("[data-count=open]")).toHaveText("4");
   await page.getByRole("button", { name: "Verify Touch up the ceiling" }).click();

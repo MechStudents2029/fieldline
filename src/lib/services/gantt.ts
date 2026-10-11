@@ -47,6 +47,7 @@ export type GanttModel = {
   zoom: GanttZoom;
   canEdit: boolean;
   today: string;
+  weekStartsOn: number;
   finish: string;
   finishLabel: string;
   days: GanttDay[];
@@ -224,6 +225,7 @@ export function jobGantt(actor: Actor, projectId: string, zoom: GanttZoom = "wee
     zoom: cleanZoom(zoom) ?? "week",
     canEdit: canEditSchedule(actor.role as Role),
     today,
+    weekStartsOn: calendarForOrg(actor.orgId).weekStartsOn,
     finish,
     finishLabel: finish ? formatCalendarDay(finish) : "—",
     days,
@@ -273,6 +275,7 @@ export function orgGantt(actor: Actor, zoom: GanttZoom = "week"): GanttModel {
     zoom: cleanZoom(zoom) ?? "week",
     canEdit: canEditSchedule(actor.role as Role),
     today,
+    weekStartsOn: calendarForOrg(actor.orgId).weekStartsOn,
     finish,
     finishLabel: finish ? formatCalendarDay(finish) : "—",
     days: timeline(

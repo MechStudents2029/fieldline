@@ -15,7 +15,7 @@ export const BUILDER_SOURCES = [
 
 export type BuilderSource = (typeof BUILDER_SOURCES)[number]["id"];
 
-export type SourceId = BuilderSource | "certificates" | "punch";
+export type SourceId = BuilderSource | "certificates" | "punch" | "cash";
 
 export type CatalogColumn = {
   key: string;
@@ -132,6 +132,11 @@ export const CATALOG: Record<SourceId, CatalogColumn[]> = {
     { key: "job", label: "Job", kind: "text" },
     { key: "status", label: "Status", kind: "text" },
     { key: "due", label: "Due", kind: "date" },
+  ],
+  cash: [
+    { key: "week", label: "Week", kind: "text" },
+    { key: "net", label: "Net", kind: "money", money: true },
+    { key: "balance", label: "Balance", kind: "money", money: true },
   ],
 };
 
@@ -265,11 +270,26 @@ export const BUILTINS: BuiltinReport[] = [
       sort: "due",
     }),
   },
+  {
+    id: "cash_13",
+    name: "13-week cash",
+    source: "cash",
+    field: false,
+    href: "/reports/cash",
+    query: query({
+      columns: ["week", "net", "balance"],
+      groupBy: "week",
+      chart: "line",
+      chartColumn: "balance",
+      sort: "week",
+    }),
+  },
 ];
 
 export const PAGE_REPORTS = [
   { id: "wip", name: "WIP", href: "/reports/wip", field: false },
   { id: "variance", name: "Variance", href: "/reports/schedule", field: false },
+  { id: "cash", name: "Cash", href: "/reports/cash", field: false },
 ];
 
 export function builtinById(id: string): BuiltinReport | undefined {
@@ -277,7 +297,7 @@ export function builtinById(id: string): BuiltinReport | undefined {
 }
 
 export function sourceLabel(source: string): string {
-  return BUILDER_SOURCES.find((item) => item.id === source)?.label ?? (source === "certificates" ? "Vendor COIs" : source === "punch" ? "Punch items" : source);
+  return BUILDER_SOURCES.find((item) => item.id === source)?.label ?? (source === "certificates" ? "Vendor COIs" : source === "punch" ? "Punch items" : source === "cash" ? "Cash" : source);
 }
 
 export function customRecord(source: string): string {

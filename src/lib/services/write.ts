@@ -660,7 +660,7 @@ export function saveMeasurement(
   if (existing.some((item) => item.name === name && item.id !== row?.id)) throw new ServiceError(`${name} is already on this estimate.`);
   db.transaction((tx) => {
     if (row) {
-      tx.update(estimateMeasurements).set({ name, valueMilli, unit }).where(eq(estimateMeasurements.id, row.id)).run();
+      tx.update(estimateMeasurements).set({ name, valueMilli, unit, fromPlan: 0 }).where(eq(estimateMeasurements.id, row.id)).run();
     } else {
       tx.insert(estimateMeasurements)
         .values({
@@ -671,12 +671,59 @@ export function saveMeasurement(
           valueMilli,
           unit,
           sortOrder: existing.length,
+          fromPlan: 0,
         })
         .run();
     }
     recalcFormulas(tx, actor.orgId, estimateId);
     tx.update(estimates).set({ updatedAt: nowIso() }).where(eq(estimates.id, estimateId)).run();
   });
+}
+
+function estimateIsLocked(db: Writer, estimateId: string) {
+  return db
+    .select()
+    .from(proposals)
+    .where(eq(proposals.estimateId, estimateId))
+    .all()
+    .some((row) => row.status !== "superseded");
+}
+
+/** Write a plan quantity onto a draft measurement and every formula that uses it. Sent proposals stay frozen. */
+export function applyMeasurementValue(actor: Actor, measurementId: string, valueMilli: number, fromPlan: boolean): { frozen: boolean; estimateId: string } {
+  assertMoney(actor);
+  if (!Number.isSafeInteger(valueMilli) || valueMilli <= 0) throw new ServiceError("The measurement is empty.");
+  const db = staffDb(actor);
+  const measure = db
+    .select()
+    .from(estimateMeasurements)
+    .where(and(eq(estimateMeasurements.id, measurementId), eq(estimateMeasurements.orgId, actor.orgId)))
+    .get();
+  if (!measure) throw new ServiceError("Measurement not found.");
+  const estimate = db.select().from(estimates).where(and(eq(estimates.id, measure.estimateId), eq(estimates.orgId, actor.orgId))).get();
+  if (!estimate) throw new ServiceError("Estimate not found.");
+  if (estimateIsLocked(db, estimate.id)) return { frozen: true, estimateId: estimate.id };
+  const siblings = db
+    .select()
+    .from(estimates)
+    .where(and(eq(estimates.orgId, actor.orgId), eq(estimates.leadId, estimate.leadId)))
+    .all()
+    .filter((row) => !estimateIsLocked(db, row.id));
+  db.transaction((tx) => {
+    for (const draft of siblings) {
+      const rows = measurementRows(tx, actor.orgId, draft.id).filter((row) => (draft.id === estimate.id ? row.id === measure.id : row.name === measure.name && row.unit === measure.unit));
+      if (rows.length === 0) continue;
+      for (const row of rows) {
+        tx.update(estimateMeasurements)
+          .set({ valueMilli, fromPlan: fromPlan ? 1 : 0 })
+          .where(and(eq(estimateMeasurements.id, row.id), eq(estimateMeasurements.orgId, actor.orgId)))
+          .run();
+      }
+      recalcFormulas(tx, actor.orgId, draft.id);
+      tx.update(estimates).set({ updatedAt: nowIso() }).where(eq(estimates.id, draft.id)).run();
+    }
+  });
+  return { frozen: false, estimateId: estimate.id };
 }
 
 export function deleteMeasurement(actor: Actor, estimateId: string, measurementId: string) {

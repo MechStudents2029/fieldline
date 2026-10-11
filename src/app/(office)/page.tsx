@@ -6,6 +6,7 @@ import { Toolbar } from "@/components/mac/toolbar";
 import { FirstProposal, SetupRow } from "@/components/setup-checklist";
 import { requireSession } from "@/lib/auth/session";
 import { formatCalendarDay } from "@/lib/format";
+import { cashAlert } from "@/lib/services/cash";
 import { formatCompact, formatPercent, formatWhole } from "@/lib/money";
 import { canEditCrm, canSeeMoney } from "@/lib/permissions";
 import { companyChecklist, firstProposal } from "@/lib/services/onboarding";
@@ -23,6 +24,7 @@ import { rfiQueue } from "@/lib/services/rfis";
 import { submittalQueue } from "@/lib/services/submittals";
 import { waiverQueue } from "@/lib/services/waivers";
 import { DashboardStrip } from "@/components/dashboard-strip";
+import { KpiTile } from "@/components/kpi-tile";
 import { dashboardForRole } from "@/lib/services/dashboards";
 import { underbilledSummary } from "@/lib/services/wip";
 import { overdueTodoCount } from "@/lib/services/todos";
@@ -107,10 +109,7 @@ function KpiRow({ dashboard, kpis }: { dashboard: React.ReactNode; kpis: { label
     <div className="flex gap-3 overflow-x-auto" data-today-kpis>
       {dashboard}
       {kpis.map((item) => (
-        <div key={item.label} data-kpi={item.label} className="flex h-28 w-44 shrink-0 flex-col justify-center gap-1 rounded-xl bg-[var(--mac-under)] px-3 py-2">
-          <span className="mac-t11 text-[var(--mac-secondary)]">{item.label}</span>
-          <span className="mac-t22 num">{item.value}</span>
-        </div>
+        <KpiTile key={item.label} label={item.label} value={item.value} />
       ))}
     </div>
   );
@@ -252,6 +251,8 @@ export default async function TodayPage() {
   push("sub-over", submittals.overdue.count, submittals.overdue.href, "Submittals overdue", String(submittals.overdue.count));
   push("sub-wait", submittals.awaiting.count, submittals.awaiting.href, "Submittals awaiting your review", String(submittals.awaiting.count));
   push("waivers", waivers.count, waivers.href, "Lien waivers", String(waivers.count));
+  const lowCash = canEditCrm(session.role) ? cashAlert(session) : null;
+  if (lowCash) attention.push({ key: "cash-low", href: lowCash.href, title: `Cash ${lowCash.label}`, count: 1, trailing: formatWhole(lowCash.cents), money: true, danger: true });
   const weekJobs = projects.filter((row) => row.project.status === "active").slice(0, 4);
   const fresh = board.cards.filter((card) => card.stage.kind === "open" && card.stage.name !== "Estimate sent" && card.stage.name !== "Negotiation").slice(0, 3);
   return (

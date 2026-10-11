@@ -43,6 +43,7 @@ function parseConfig(raw: string): TileConfig {
 }
 
 function hrefFor(reportKey: string, filters: ReportQuery["filters"]): string {
+  if (reportKey === "cash_13") return "/reports/cash";
   const saved = !builtinById(reportKey);
   const base = saved ? `/reports/saved/${reportKey}` : `/reports/builtin/${reportKey}`;
   const extra = filters[0];
@@ -190,6 +191,6 @@ export function reportChoices(actor: Actor) {
     .all()
     .filter((row) => !row.archivedAt)
     .map((row) => ({ id: row.id, name: row.name }));
-  const ready = BUILTINS.filter((report) => report.field || actor.role !== "field").map((report) => ({ id: report.id, name: report.name }));
+  const ready = BUILTINS.filter((report) => (report.id === "cash_13" ? actor.role === "owner" || actor.role === "admin" : report.field || actor.role !== "field")).map((report) => ({ id: report.id, name: report.name }));
   return [...ready, ...saved];
 }

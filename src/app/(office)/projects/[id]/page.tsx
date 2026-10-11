@@ -481,7 +481,10 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
       </div>
       <section id="schedule" className="flex flex-col gap-2">
         <div className="flex items-center justify-between gap-2">
-          <h2 className="fl-section">Schedule</h2>
+          <span className="flex items-baseline gap-2">
+            <h2 className="fl-section">Schedule</h2>
+            {gantt ? <span className="num mac-t11 text-[var(--mac-secondary)]" data-finish>{gantt.finishLabel}</span> : null}
+          </span>
           <span className="flex items-center gap-2">
             {compare.variance != null ? <span className="num mac-t13">{formatWorkdayVariance(compare.variance)}</span> : null}
             {canEditSchedule(session.role) ? (

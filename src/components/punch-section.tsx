@@ -20,6 +20,7 @@ import type { PunchBoard } from "@/lib/services/punch";
 import type { RfiListItem } from "@/lib/services/rfis";
 import type { RecordVisual } from "@/lib/services/markup";
 import { LinkedRfis } from "@/components/linked-rfis";
+import { SheetButton } from "@/components/sheet-button";
 
 function Pill({ children }: { children: string }) {
   return <span className="fl-pill">{children}</span>;
@@ -37,26 +38,14 @@ export function PunchSection({
   const { counts, closeout } = board;
   return (
     <section id="punch" aria-label="Punch list" data-today={board.today} className="mb-6">
-      <div className="mac-strip mb-4">
-        <div>
-          <p className="mac-t22 num" data-count="open">
-            {counts.open}
-          </p>
-          <p className="mac-t11 text-[var(--mac-secondary)]">Open</p>
-        </div>
-        <div>
-          <p className="mac-t22 num" data-count="done">
-            {counts.done}
-          </p>
-          <p className="mac-t11 text-[var(--mac-secondary)]">Done</p>
-        </div>
-        <div>
-          <p className="mac-t22 num" data-count="verified">
-            {counts.verified}
-          </p>
-          <p className="mac-t11 text-[var(--mac-secondary)]">Verified</p>
-        </div>
-      </div>
+      <p className="mb-3 mac-t13 text-[var(--mac-secondary)]">
+        <span className="num" data-count="open">{counts.open}</span>
+        {" open · "}
+        <span className="num" data-count="done">{counts.done}</span>
+        {" done · "}
+        <span className="num" data-count="verified">{counts.verified}</span>
+        {" verified"}
+      </p>
       <div className="mb-2 flex justify-end">
         <Link href={`/projects/${board.projectId}/punch/print`} className="mac-t13 text-[var(--mac-accent)]">
           Print
@@ -108,7 +97,9 @@ export function PunchSection({
         ))}
       </ul>
       {board.canEdit ? (
-        <ActionForm action={addPunchAction.bind(null, board.projectId)} className="mb-6 grid gap-2 md:grid-cols-2">
+        <div className="mb-6">
+        <SheetButton label="Add punch">
+        <ActionForm action={addPunchAction.bind(null, board.projectId)} className="grid gap-2 md:grid-cols-2">
           <label className="text-sm">
             Item
             <input name="title" className="field mt-1" />
@@ -165,6 +156,8 @@ export function PunchSection({
             Add punch
           </button>
         </ActionForm>
+        </SheetButton>
+        </div>
       ) : null}
       {board.canEdit || board.showMoney ? (
       <div id="closeout" className="mb-6">

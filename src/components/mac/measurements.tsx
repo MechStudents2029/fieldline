@@ -6,7 +6,7 @@ import { deleteMeasurementAction, saveMeasurementAction } from "@/app/actions";
 import { formulaHint } from "@/lib/estimate/formula";
 import { formatQty } from "@/lib/money";
 
-type MeasureRowData = { id: string; name: string; valueMilli: number; unit: string };
+type MeasureRowData = { id: string; name: string; valueMilli: number; unit: string; fromPlan?: boolean };
 type FormulaLine = { id: string; unit: string; qtyFormula: string | null; wasteBps: number; roundToMilli: number | null };
 type FormulaMeasure = { name: string; valueMilli: number };
 
@@ -128,7 +128,10 @@ function MeasureRow({
   const [menu, setMenu] = useState(false);
   return (
     <tr>
-      <td>{row.name}</td>
+      <td>
+        {row.name}
+        {row.fromPlan ? <span className="fl-pill fl-pill-sm">Updated from plan</span> : null}
+      </td>
       <td>
         <input
           aria-label={row.name}

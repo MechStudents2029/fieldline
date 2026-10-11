@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 export function Toolbar({
   title,
   subtitle,
+  mark,
   leading,
   center,
   primary,
@@ -16,6 +17,7 @@ export function Toolbar({
 }: {
   title: string;
   subtitle?: string;
+  mark?: string;
   leading?: React.ReactNode;
   center?: React.ReactNode;
   primary?: React.ReactNode;
@@ -32,7 +34,11 @@ export function Toolbar({
         {leading}
         <div className="min-w-0">
           <h1 className="truncate mac-t15">{title}</h1>
-          {subtitle ? <p className="truncate mac-t11 text-[var(--mac-secondary)]">{subtitle}</p> : null}
+          {subtitle ? (
+            <p className="truncate mac-t11 text-[var(--mac-secondary)]" data-finish={mark || undefined}>
+              {subtitle}
+            </p>
+          ) : null}
         </div>
       </div>
       {center ? <div className="min-w-0 max-w-[46%] overflow-x-auto">{center}</div> : null}

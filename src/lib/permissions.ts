@@ -17,6 +17,11 @@ export function canManageMoney(role: Role): boolean {
   return role === "owner" || role === "admin" || role === "estimator";
 }
 
+/** 13-week cash is an office forecast. Field and viewer never receive the numbers. */
+export function canSeeCash(role: Role): boolean {
+  return canManageMoney(role);
+}
+
 export function canAddFieldNotes(role: Role): boolean {
   return role !== "viewer";
 }

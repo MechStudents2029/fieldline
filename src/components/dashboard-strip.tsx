@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { KpiTile } from "@/components/kpi-tile";
 import { ReportChart } from "@/components/report-chart";
 import type { DashTile } from "@/lib/services/dashboards";
 
@@ -7,11 +7,9 @@ export function DashboardStrip({ name, tiles }: { name: string; tiles: DashTile[
   return (
     <section aria-label={name} data-dashboard={name} className="flex shrink-0 gap-3">
       {tiles.map((tile) => (
-        <Link key={tile.id} href={tile.href} data-tile={tile.title} className="flex h-28 w-44 shrink-0 flex-col gap-1 overflow-hidden rounded-xl bg-[var(--mac-under)] px-3 py-2">
-          <span className="mac-t11 text-[var(--mac-secondary)]">{tile.title}</span>
-          {tile.kind === "number" ? <span className="mac-t22 num">{tile.value}</span> : null}
+        <KpiTile key={tile.id} label={tile.title} href={tile.href} tile={tile.title} value={tile.kind === "number" ? tile.value : undefined}>
           {tile.kind === "list" ? (
-            <ul className="flex flex-col gap-1 overflow-hidden">
+            <ul className="flex w-full flex-col gap-1 overflow-hidden">
               {tile.rows.slice(0, 3).map((row) => (
                 <li key={row.id} className="flex items-baseline justify-between gap-2 mac-t13">
                   <span className="truncate">{row.title}</span>
@@ -21,7 +19,7 @@ export function DashboardStrip({ name, tiles }: { name: string; tiles: DashTile[
             </ul>
           ) : null}
           {tile.kind === "chart" ? <ReportChart kind={tile.chartKind} points={tile.chart} /> : null}
-        </Link>
+        </KpiTile>
       ))}
     </section>
   );

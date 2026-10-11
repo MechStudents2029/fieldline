@@ -23,6 +23,7 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
         <Toolbar
           title="Schedule"
           subtitle={`Finish ${model.finishLabel}`}
+          mark={model.finishLabel}
           search={false}
           center={
             <span className="inline-flex items-center gap-2">

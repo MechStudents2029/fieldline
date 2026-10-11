@@ -31,7 +31,7 @@ export type WorkspaceLine = {
   qtyOverridden: boolean;
 };
 
-export type WorkspaceMeasure = { id: string; name: string; valueMilli: number; unit: string };
+export type WorkspaceMeasure = { id: string; name: string; valueMilli: number; unit: string; fromPlan?: boolean };
 
 export type WorkspaceGroup = {
   id: string;
@@ -71,6 +71,11 @@ function namedSignature(rows: WorkspaceLine[]) {
         qtyOverridden: row.qtyOverridden,
       })),
   );
+}
+
+function fromPlanLine(line: WorkspaceLine, measurements: WorkspaceMeasure[]) {
+  if (!line.qtyFormula) return false;
+  return measurements.some((row) => row.fromPlan && new RegExp(`\\b${row.name}\\b`).test(line.qtyFormula ?? ""));
 }
 
 function flatten(rows: WorkspaceLine[], sections: WorkspaceSection[]) {
@@ -679,6 +684,7 @@ export function EstimateWorkspace({
                                   />
                                 ) : null}
                                 {measure ? <span className="fl-close est-measure">Measure on site</span> : null}
+                                {fromPlanLine(line, measurements) ? <span className="fl-pill fl-pill-sm">Updated from plan</span> : null}
                                 {line.qtyOverridden ? <span className="est-override">Override</span> : null}
                               </span>
                               <span className="est-code">{line.costCode}</span>

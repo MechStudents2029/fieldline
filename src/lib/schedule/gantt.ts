@@ -28,13 +28,17 @@ export function resizeBar(start: string, end: string, deltaDays: number): { star
   return { startDate: start, endDate: next > cap ? cap : next };
 }
 
-export function dayHeading(date: string, zoom: GanttZoom): string {
+export function dayHeading(date: string, zoom: GanttZoom, weekStartsOn = 1): string {
   const stamp = new Date(`${date}T12:00:00Z`);
   if (Number.isNaN(stamp.getTime())) return "";
   if (zoom === "quarter") {
-    if (stamp.getUTCDay() !== 1) return "";
+    if (stamp.getUTCDate() !== 1) return "";
+    return new Intl.DateTimeFormat("en-US", { month: "short", timeZone: "UTC" }).format(stamp);
+  }
+  if (zoom === "month") {
+    const start = ((weekStartsOn % 7) + 7) % 7;
+    if (stamp.getUTCDay() !== start) return "";
     return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "UTC" }).format(stamp);
   }
-  if (zoom === "month") return String(stamp.getUTCDate());
-  return new Intl.DateTimeFormat("en-US", { weekday: "short", day: "numeric", timeZone: "UTC" }).format(stamp);
+  return String(stamp.getUTCDate());
 }
