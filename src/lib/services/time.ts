@@ -9,6 +9,8 @@ import {
   priceBookItems,
   organizations,
   projects,
+  scheduleAssignees,
+  scheduleItems,
   timeApprovals,
   timeEntries,
   timeEntryEvents,
@@ -27,6 +29,8 @@ import {
   type WorkCalendar,
 } from "@/lib/time/calendar";
 import { aggregateWeek, dayHeading, rangeLabel, reviewDays, reviewView, shiftAnchor, type ReviewView } from "@/lib/time/grid";
+import { isShiftType, projectedWeeklyOt, splitWeek, type PunchSplit, type ShiftType } from "@/lib/time/overtime";
+import { otRulesFor, syncApprovedWeek } from "@/lib/time/post";
 import { canAddFieldNotes, canManageMoney, canManageSettings, type Role } from "@/lib/permissions";
 import { assertCostFree } from "@/lib/services/cost-plus";
 import { ServiceError } from "@/lib/services/errors";
@@ -425,51 +429,18 @@ export function approveTime(actor: Actor, entryId: string, now = Date.now()) {
   if (minutes <= 0) throw new ServiceError("This entry has no time. Edit it before approving.");
   const rate = hourlyCostFor(db, actor.orgId, entry.userId);
   if (rate == null) throw new ServiceError("Set an hourly cost before approving.");
-  const amountCents = laborCostCents(minutes, rate);
-  if (amountCents <= 0) throw new ServiceError("This entry is too short to post. Edit the times first.");
   const worker = db.select().from(users).where(eq(users.id, entry.userId)).get();
   const stamp = new Date(now).toISOString();
-  const costId = id("cost");
-  db.transaction((tx) => {
+  const posted = db.transaction((tx) => {
     const updated = tx
       .update(timeEntries)
       .set({ status: "approved", updatedAt: stamp })
       .where(and(eq(timeEntries.id, entry.id), eq(timeEntries.orgId, actor.orgId), eq(timeEntries.status, "pending")))
       .run() as { changes?: number };
     if (!updated.changes) throw new ServiceError("Only a finished entry can be approved.");
-    tx.insert(costItems)
-      .values({
-        id: costId,
-        orgId: actor.orgId,
-        projectId: entry.projectId,
-        budgetLineId: null,
-        costCode: entry.costCode,
-        amountCents,
-        vendorName: worker?.name || "Crew",
-        memo: entry.note ? `Labor · ${entry.note}` : "Labor",
-        source: "labor",
-        aiExtracted: 0,
-        documentId: null,
-        createdAt: stamp,
-        updatedAt: stamp,
-        createdBy: actor.userId,
-      })
-      .run();
-    tx.insert(timeApprovals)
-      .values({
-        id: id("tap"),
-        orgId: actor.orgId,
-        entryId: entry.id,
-        rateCents: rate,
-        minutes,
-        amountCents,
-        costItemId: costId,
-        status: "active",
-        reason: null,
-        createdAt: stamp,
-        createdBy: actor.userId,
-      })
-      .run();
+    const rows = syncApprovedWeek(tx, actor, entry.userId, entry.clockInAt, stamp);
+    const mine = rows.find((row) => row.entryId === entry.id);
+    if (!mine || mine.amountCents <= 0) throw new ServiceError("This entry is too short to post. Edit the times first.");
     tx.insert(activities)
       .values({
         id: id("act"),
@@ -485,8 +456,17 @@ export function approveTime(actor: Actor, entryId: string, now = Date.now()) {
       })
       .run();
     record(tx, actor, entry.id, "approved", snapshot(entry), { ...snapshot(entry), status: "approved" }, null, stamp);
+    return mine;
   });
-  return { costId, amountCents, rateCents: rate, minutes };
+  return {
+    costId: posted.costId,
+    amountCents: posted.amountCents,
+    rateCents: posted.rateCents,
+    minutes: posted.minutes,
+    baseCents: posted.baseCents,
+    premiumCents: posted.premiumCents,
+    burdenCents: posted.burdenCents,
+  };
 }
 
 export function approveEntries(actor: Actor, entryIds: string[], now = Date.now()) {
@@ -555,11 +535,7 @@ export function reopenTime(actor: Actor, entryId: string, reason: string) {
       .where(and(eq(timeApprovals.entryId, entry.id), eq(timeApprovals.orgId, actor.orgId), eq(timeApprovals.status, "active")))
       .all();
     for (const approval of active) {
-      if (approval.costItemId) {
-        tx.delete(costItems)
-          .where(and(eq(costItems.id, approval.costItemId), eq(costItems.orgId, actor.orgId)))
-          .run();
-      }
+      dropPostedCosts(tx, actor.orgId, approval);
       tx.update(timeApprovals)
         .set({ status: "voided", reason: why })
         .where(eq(timeApprovals.id, approval.id))
@@ -569,6 +545,7 @@ export function reopenTime(actor: Actor, entryId: string, reason: string) {
       .set({ status: "pending", updatedAt: stamp })
       .where(and(eq(timeEntries.id, entry.id), eq(timeEntries.orgId, actor.orgId)))
       .run();
+    syncApprovedWeek(tx, actor, entry.userId, entry.clockInAt, stamp);
     record(tx, actor, entry.id, "reopened", snapshot(entry), { ...snapshot(entry), status: "pending" }, why, stamp);
   });
 }
@@ -589,9 +566,7 @@ export function voidTime(actor: Actor, entryId: string, reason: string, now = Da
         .where(and(eq(timeApprovals.entryId, entry.id), eq(timeApprovals.orgId, actor.orgId), eq(timeApprovals.status, "active")))
         .all();
       for (const approval of active) {
-        if (approval.costItemId) {
-          tx.delete(costItems).where(and(eq(costItems.id, approval.costItemId), eq(costItems.orgId, actor.orgId))).run();
-        }
+        dropPostedCosts(tx, actor.orgId, approval);
         tx.update(timeApprovals).set({ status: "voided", reason: why }).where(eq(timeApprovals.id, approval.id)).run();
       }
     }
@@ -600,6 +575,7 @@ export function voidTime(actor: Actor, entryId: string, reason: string, now = Da
       .set({ status: "void", clockOutAt, breakStartedAt: null, updatedAt: stamp })
       .where(and(eq(timeEntries.id, entry.id), eq(timeEntries.orgId, actor.orgId)))
       .run();
+    syncApprovedWeek(tx, actor, entry.userId, entry.clockInAt, stamp);
     record(tx, actor, entry.id, "voided", snapshot(entry), { ...snapshot(entry), status: "void", clockOutAt }, why, stamp);
   });
 }
@@ -694,18 +670,49 @@ export function approvedHoursCsv(actor: Actor, from: string, to: string): string
       const day = localDay(Date.parse(row.entry.clockInAt), zone);
       return day >= from && day <= to;
     });
-  const totals = new Map<string, { date: string; name: string; email: string; minutes: number }>();
+  const jobs = new Map(db.select({ id: projects.id, name: projects.name }).from(projects).where(eq(projects.orgId, actor.orgId)).all().map((job) => [job.id, job.name]));
+  const splits = splitsById(db, actor.orgId, rows.map((row) => row.entry), Date.now());
+  const grouped = new Map<string, { date: string; name: string; email: string; userId: string; job: string; code: string; shift: string; regular: number; ot: number; dt: number; pto: number }>();
   for (const row of rows) {
     const date = localDay(Date.parse(row.entry.clockInAt), zone);
-    const key = `${date}|${row.entry.userId}`;
-    const current = totals.get(key) ?? { date, name: row.name, email: row.email, minutes: 0 };
-    current.minutes += workedMinutes(row.entry);
-    totals.set(key, current);
+    const shift = isShiftType(row.entry.shiftType) ? row.entry.shiftType : "regular";
+    const split = splits.get(row.entry.id);
+    const key = `${date}|${row.entry.userId}|${row.entry.projectId}|${row.entry.costCode}|${shift}`;
+    const current = grouped.get(key) ?? {
+      date,
+      name: row.name,
+      email: row.email,
+      userId: row.entry.userId,
+      job: row.entry.projectId ? jobs.get(row.entry.projectId) || "Job" : "General",
+      code: row.entry.costCode,
+      shift,
+      regular: 0,
+      ot: 0,
+      dt: 0,
+      pto: 0,
+    };
+    current.regular += split?.regularMinutes ?? 0;
+    current.ot += split?.otMinutes ?? 0;
+    current.dt += split?.dtMinutes ?? 0;
+    current.pto += split?.nonjobMinutes ?? 0;
+    grouped.set(key, current);
   }
-  const lines = [...totals.values()]
-    .sort((a, b) => a.date.localeCompare(b.date) || a.name.localeCompare(b.name))
-    .map((row) => [row.date, csv(row.name), csv(row.email), (row.minutes / 60).toFixed(2)].join(","));
-  return ["date,name,email,hours", ...lines].join("\n");
+  const detail = [...grouped.values()]
+    .sort((a, b) => a.date.localeCompare(b.date) || a.name.localeCompare(b.name) || a.job.localeCompare(b.job) || a.code.localeCompare(b.code))
+    .map((row) => [row.date, csv(row.name), csv(row.email), csv(row.job), csv(row.code), row.shift, hours(row.regular), hours(row.ot), hours(row.dt), hours(row.pto)].join(","));
+  const people = new Map<string, { name: string; email: string; regular: number; ot: number; dt: number; pto: number }>();
+  for (const row of grouped.values()) {
+    const current = people.get(row.userId) ?? { name: row.name, email: row.email, regular: 0, ot: 0, dt: 0, pto: 0 };
+    current.regular += row.regular;
+    current.ot += row.ot;
+    current.dt += row.dt;
+    current.pto += row.pto;
+    people.set(row.userId, current);
+  }
+  const summary = [...people.values()]
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .map((row) => ["summary", csv(row.name), csv(row.email), "", "", "", hours(row.regular), hours(row.ot), hours(row.dt), hours(row.pto)].join(","));
+  return ["date,name,email,job,cost_code,shift,regular_hours,ot_hours,dt_hours,pto_hours", ...detail, ...summary].join("\n");
 }
 
 export function timeBoard(actor: Actor, now = Date.now()) {
@@ -734,6 +741,12 @@ export function timeBoard(actor: Actor, now = Date.now()) {
   const today = localDay(now, calendar.timeZone);
   const countable = mine.filter((entry) => entry.status !== "void");
   const open = mine.find((entry) => entry.status === "open" || entry.status === "break") ?? null;
+  const weekEntries = countable.filter((entry) => {
+    const start = Date.parse(entry.clockInAt);
+    return start >= week.start && start < week.end;
+  });
+  const mineSplits = splitsById(db, actor.orgId, weekEntries, now);
+  const weekParts = sumSplits(weekEntries.map((entry) => mineSplits.get(entry.id)));
   const base = {
     jobs,
     codes,
@@ -741,12 +754,11 @@ export function timeBoard(actor: Actor, now = Date.now()) {
     timeZone: calendar.timeZone,
     weekStartsOn: calendar.weekStartsOn,
     todayMinutes: countable.filter((entry) => localDay(Date.parse(entry.clockInAt), calendar.timeZone) === today).reduce((sum, entry) => sum + workedMinutes(entry, now), 0),
-    weekMinutes: countable
-      .filter((entry) => {
-        const start = Date.parse(entry.clockInAt);
-        return start >= week.start && start < week.end;
-      })
-      .reduce((sum, entry) => sum + workedMinutes(entry, now), 0),
+    weekMinutes: weekEntries.reduce((sum, entry) => sum + workedMinutes(entry, now), 0),
+    weekRegularMinutes: weekParts.regularMinutes,
+    weekOtMinutes: weekParts.otMinutes,
+    weekDtMinutes: weekParts.dtMinutes,
+    weekPtoMinutes: weekParts.nonjobMinutes,
     entries: mine
       .slice()
       .sort((a, b) => b.clockInAt.localeCompare(a.clockInAt))
@@ -776,7 +788,7 @@ export function timeBoard(actor: Actor, now = Date.now()) {
         .map((entry) => ({
           entryId: entry.id,
           name: personName.get(entry.userId) || "Teammate",
-          projectName: names.get(entry.projectId) || "Job",
+          projectName: entry.projectId ? names.get(entry.projectId) || "Job" : "General",
           costCode: entry.costCode,
           since: entry.clockInAt,
           onBreak: entry.status === "break",
@@ -820,7 +832,7 @@ export function timeBoard(actor: Actor, now = Date.now()) {
 export type WeekGrid = {
   days: string[];
   range: string;
-  rows: { userId: string; name: string; hours: number[]; total: number; status: string }[];
+  rows: { userId: string; name: string; hours: number[]; total: number; status: string; regular: number; ot: number; dt: number; pto: number; costCents: number | null }[];
   totalHours: number;
   overtimeHours: number;
   laborCents: number;
@@ -848,16 +860,29 @@ export function weekGrid(actor: Actor, now = Date.now()): WeekGrid {
     : [{ userId: actor.userId, name: actor.name }];
   const grid = aggregateWeek(entries, people, days, calendar, now);
   const laborCents = manage ? approvedLaborCents(db, actor.orgId, entries, days, calendar.timeZone) : 0;
+  const splits = splitsById(db, actor.orgId, entries, now);
   return {
     days,
     range: rangeLabel(days),
-    rows: grid.rows.map((row) => ({
-      userId: row.userId,
-      name: row.name,
-      hours: row.days.map((day) => day.hours),
-      total: row.totalHours,
-      status: row.status,
-    })),
+    rows: grid.rows.map((row) => {
+      const parts = sumSplits(
+        entries
+          .filter((entry) => entry.userId === row.userId && entry.status !== "void" && days.includes(localDay(Date.parse(entry.clockInAt), calendar.timeZone)))
+          .map((entry) => splits.get(entry.id)),
+      );
+      return {
+        userId: row.userId,
+        name: row.name,
+        hours: row.days.map((day) => day.hours),
+        total: row.totalHours,
+        status: row.status,
+        regular: parts.regularMinutes / 60,
+        ot: parts.otMinutes / 60,
+        dt: parts.dtMinutes / 60,
+        pto: parts.nonjobMinutes / 60,
+        costCents: manage ? personCost(db, actor.orgId, row.userId, entries, days, calendar.timeZone) : null,
+      };
+    }),
     totalHours: grid.totalHours,
     overtimeHours: grid.overtimeHours,
     laborCents,
@@ -917,7 +942,13 @@ export type TimeReview = {
     total: number;
     totalTone: "warning" | null;
     status: "Submitted" | "Approved" | "—";
+    regular: number;
+    ot: number;
+    dt: number;
+    pto: number;
+    costCents: number;
   }[];
+  people: { userId: string; name: string }[];
   totalHours: number;
   overtimeHours: number;
   laborCents: number;
@@ -969,6 +1000,7 @@ export function timeReview(actor: Actor, input: { view?: string | null; on?: str
   const flags = detectTimeFlags(entries, now, calendar);
   const danger = new Set(flags.filter((flag) => flag.kind === "overlap" || flag.kind === "open_long").flatMap((flag) => flag.entryIds));
   const grid = aggregateWeek(entries, people, days, calendar, now);
+  const splits = splitsById(db, actor.orgId, entries, now);
   const daySet = new Set(days);
   const visible = entries.filter((entry) => entry.status !== "void" && daySet.has(localDay(Date.parse(entry.clockInAt), calendar.timeZone)));
   const personName = new Map(people.map((person) => [person.userId, person.name]));
@@ -989,6 +1021,20 @@ export function timeReview(actor: Actor, input: { view?: string | null; on?: str
       total: row.totalHours,
       totalTone: row.overtimeMinutes > 0 ? ("warning" as const) : null,
       status: row.status,
+      ...(() => {
+        const parts = sumSplits(
+          entries
+            .filter((entry) => entry.userId === row.userId && entry.status !== "void" && daySet.has(localDay(Date.parse(entry.clockInAt), calendar.timeZone)))
+            .map((entry) => splits.get(entry.id)),
+        );
+        return {
+          regular: parts.regularMinutes / 60,
+          ot: parts.otMinutes / 60,
+          dt: parts.dtMinutes / 60,
+          pto: parts.nonjobMinutes / 60,
+          costCents: personCost(db, actor.orgId, row.userId, entries, days, calendar.timeZone),
+        };
+      })(),
     }));
   const reviewEntries: ReviewEntry[] = visible
     .slice()
@@ -1000,7 +1046,7 @@ export function timeReview(actor: Actor, input: { view?: string | null; on?: str
         id: entry.id,
         userId: entry.userId,
         projectId: entry.projectId,
-        projectName: names.get(entry.projectId) || "Job",
+        projectName: entry.projectId ? names.get(entry.projectId) || "Job" : "General",
         costCode: entry.costCode,
         status: entry.status,
         clockInAt: entry.clockInAt,
@@ -1030,6 +1076,7 @@ export function timeReview(actor: Actor, input: { view?: string | null; on?: str
     periodHref: href("period", anchor),
     stepLabel: view === "day" ? "day" : view === "period" ? "pay period" : "week",
     rows,
+    people,
     totalHours: grid.totalHours,
     overtimeHours: grid.overtimeHours,
     laborCents: approvedLaborCents(db, actor.orgId, entries, days, calendar.timeZone),
@@ -1046,7 +1093,7 @@ export function timeReview(actor: Actor, input: { view?: string | null; on?: str
           userId: entry.userId,
           name: personName.get(entry.userId) || "Teammate",
           initials: initials(personName.get(entry.userId) || "Teammate"),
-          projectName: names.get(entry.projectId) || "Job",
+          projectName: entry.projectId ? names.get(entry.projectId) || "Job" : "General",
           costCode: entry.costCode,
           inLabel: clock(entry.clockInAt),
           elapsed: forgotten ? `Open ${hours}h` : `${hours}h ${minutes % 60}m`,
@@ -1070,7 +1117,7 @@ function toPublic(entry: Entry, names: Map<string, string>, flags: TimeFlag[]): 
     id: entry.id,
     userId: entry.userId,
     projectId: entry.projectId,
-    projectName: names.get(entry.projectId) || "Job",
+    projectName: entry.projectId ? names.get(entry.projectId) || "Job" : "General",
     costCode: entry.costCode,
     status: entry.status,
     clockInAt: entry.clockInAt,
@@ -1080,6 +1127,148 @@ function toPublic(entry: Entry, names: Map<string, string>, flags: TimeFlag[]): 
     minutes: workedMinutes(entry),
     flags: flags.filter((flag) => flag.entryIds.includes(entry.id)).map((flag) => flag.kind),
   };
+}
+
+function hours(minutes: number) {
+  return (Math.max(0, minutes) / 60).toFixed(2);
+}
+
+function shiftOf(value: string | null | undefined): ShiftType {
+  return value && isShiftType(value) ? value : "regular";
+}
+
+export function splitsById(db: Writer, orgId: string, entries: Entry[], now: number): Map<string, PunchSplit> {
+  const rules = otRulesFor(db, orgId);
+  const calendar = calendarForOrg(orgId);
+  const byUser = new Map<string, Entry[]>();
+  for (const entry of entries) {
+    if (entry.status === "void") continue;
+    const list = byUser.get(entry.userId) ?? [];
+    list.push(entry);
+    byUser.set(entry.userId, list);
+  }
+  const out = new Map<string, PunchSplit>();
+  for (const list of byUser.values()) {
+    const ordered = list.slice().sort((a, b) => a.clockInAt.localeCompare(b.clockInAt) || a.id.localeCompare(b.id));
+    const weeks = new Map<string, Entry[]>();
+    for (const entry of ordered) {
+      const bucket = localWeek(Date.parse(entry.clockInAt), calendar).startDay;
+      const group = weeks.get(bucket) ?? [];
+      group.push(entry);
+      weeks.set(bucket, group);
+    }
+    for (const group of weeks.values()) {
+      const splits = splitWeek(
+        group.map((entry) => ({
+          id: entry.id,
+          localDay: localDay(Date.parse(entry.clockInAt), calendar.timeZone),
+          minutes: workedMinutes(entry, now),
+          shiftType: shiftOf(entry.shiftType),
+        })),
+        rules,
+      );
+      for (const split of splits) out.set(split.id, split);
+    }
+  }
+  return out;
+}
+
+function sumSplits(rows: (PunchSplit | undefined)[]) {
+  return rows.reduce(
+    (sum, row) => ({
+      regularMinutes: sum.regularMinutes + (row?.regularMinutes ?? 0),
+      otMinutes: sum.otMinutes + (row?.otMinutes ?? 0),
+      dtMinutes: sum.dtMinutes + (row?.dtMinutes ?? 0),
+      nonjobMinutes: sum.nonjobMinutes + (row?.nonjobMinutes ?? 0),
+    }),
+    { regularMinutes: 0, otMinutes: 0, dtMinutes: 0, nonjobMinutes: 0 },
+  );
+}
+
+function personCost(db: Writer, orgId: string, userId: string, entries: Entry[], days: string[], timeZone: string) {
+  const ids = new Set(
+    entries
+      .filter((entry) => entry.userId === userId && entry.status === "approved" && days.includes(localDay(Date.parse(entry.clockInAt), timeZone)))
+      .map((entry) => entry.id),
+  );
+  return db
+    .select()
+    .from(timeApprovals)
+    .where(and(eq(timeApprovals.orgId, orgId), eq(timeApprovals.status, "active")))
+    .all()
+    .filter((row) => ids.has(row.entryId))
+    .reduce((sum, row) => sum + row.amountCents, 0);
+}
+
+export function weeklyOtWatch(actor: Actor, now = Date.now()) {
+  const db = officeDb(actor.orgId);
+  if (!db) return [];
+  const rules = otRulesFor(db, actor.orgId);
+  const calendar = calendarForOrg(actor.orgId);
+  const today = localDay(now, calendar.timeZone);
+  const week = localWeek(now, calendar);
+  const entries = db.select().from(timeEntries).where(eq(timeEntries.orgId, actor.orgId)).all().filter((entry) => entry.status !== "void");
+  const splits = splitsById(db, actor.orgId, entries, now);
+  const people = db
+    .select({ userId: users.id, name: users.name })
+    .from(memberships)
+    .innerJoin(users, eq(users.id, memberships.userId))
+    .where(eq(memberships.orgId, actor.orgId))
+    .all();
+  const assigned = db
+    .select({ userId: scheduleAssignees.userId, startDate: scheduleItems.startDate, endDate: scheduleItems.endDate })
+    .from(scheduleAssignees)
+    .innerJoin(scheduleItems, and(eq(scheduleItems.id, scheduleAssignees.itemId), eq(scheduleItems.orgId, scheduleAssignees.orgId)))
+    .where(eq(scheduleAssignees.orgId, actor.orgId))
+    .all();
+  const counted = new Map<string, number>();
+  for (const entry of entries) {
+    const day = localDay(Date.parse(entry.clockInAt), calendar.timeZone);
+    if (day < week.startDay || day >= addIsoDay(week.startDay, 7) || day > today) continue;
+    const split = splits.get(entry.id);
+    if (!split) continue;
+    const job = split.regularMinutes + split.otMinutes + split.dtMinutes;
+    const extra = rules.nonjobCountsTowardOt ? split.nonjobMinutes : 0;
+    counted.set(entry.userId, (counted.get(entry.userId) ?? 0) + job + extra);
+  }
+  const daysFor = new Map<string, string[]>();
+  for (const row of assigned) {
+    const list = daysFor.get(row.userId) ?? [];
+    let cursor = row.startDate;
+    while (cursor <= row.endDate && list.length < 21) {
+      list.push(cursor);
+      cursor = addIsoDay(cursor, 1);
+    }
+    daysFor.set(row.userId, list);
+  }
+  return projectedWeeklyOt(
+    rules,
+    today,
+    week.startDay,
+    workdaysForOrg(actor.orgId),
+    people.map((person) => ({
+      userId: person.userId,
+      name: person.name,
+      countedMinutes: counted.get(person.userId) ?? 0,
+      assignmentDays: daysFor.get(person.userId) ?? [],
+    })),
+  ).map((row) => ({
+    userId: row.userId,
+    name: row.name,
+    trailing: `${(row.projectedMinutes / 60).toFixed(0)}h`,
+  }));
+}
+
+function addIsoDay(day: string, count: number) {
+  const [year, month, date] = day.split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, date) + count * 86_400_000).toISOString().slice(0, 10);
+}
+
+function dropPostedCosts(tx: Writer, orgId: string, approval: { costItemId: string | null; premiumCostItemId?: string | null; burdenCostItemId?: string | null }) {
+  for (const costId of [approval.costItemId, approval.premiumCostItemId, approval.burdenCostItemId]) {
+    if (!costId) continue;
+    tx.delete(costItems).where(and(eq(costItems.id, costId), eq(costItems.orgId, orgId))).run();
+  }
 }
 
 function hourlyCostFor(db: Writer, orgId: string, userId: string): number | null {

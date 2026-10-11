@@ -5,6 +5,8 @@ import { Toolbar } from "@/components/mac/toolbar";
 import { requireSession } from "@/lib/auth/session";
 import { formatWhole } from "@/lib/money";
 import { canSeeMoney } from "@/lib/permissions";
+import { billLaborBurdenAction } from "@/app/actions";
+import { ActionForm } from "@/components/action-form";
 import { costPlusBoard } from "@/lib/services/cost-plus";
 import { calendarForOrg } from "@/lib/services/time";
 import { addCalendarDays, localDay } from "@/lib/time/calendar";
@@ -54,6 +56,17 @@ export default async function CostsPage({
           </div>
         </div>
         <DateRangeBar from={from} to={to} />
+        {board.canEdit ? (
+          <ActionForm action={billLaborBurdenAction.bind(null, id)} className="flex items-center gap-2">
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" name="billBurden" defaultChecked={board.billLaborBurden} />
+              Bill labor burden
+            </label>
+            <button type="submit" className="ctl">
+              Save
+            </button>
+          </ActionForm>
+        ) : null}
         <CostsBoard
           projectId={id}
           markupBps={board.markupBps}

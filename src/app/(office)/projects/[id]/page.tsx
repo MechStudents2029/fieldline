@@ -289,6 +289,18 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
                 ))}
               </tbody>
             </table>
+            {(() => {
+              const sum = (source: string) => detail.costs.filter((cost) => cost.source === source).reduce((total, cost) => total + cost.amountCents, 0);
+              const labor = sum("labor");
+              const premium = sum("labor_premium");
+              const burden = sum("labor_burden");
+              if (premium === 0 && burden === 0) return null;
+              return (
+                <p className="mt-2 mac-t11 num text-[var(--mac-secondary)]">
+                  Labor {formatWhole(labor)} · OT premium {formatWhole(premium)} · Burden {formatWhole(burden)}
+                </p>
+              );
+            })()}
           </div>
           <ul className="mt-3 flex flex-col gap-2 md:hidden">
             {money.byCode.map((row) => {

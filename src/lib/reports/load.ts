@@ -6,7 +6,6 @@ import {
   changeOrders,
   contacts,
   invoices,
-  laborRates,
   leads,
   payments,
   pipelineStages,
@@ -15,6 +14,7 @@ import {
   punchItems,
   scheduleItems,
   tasks,
+  timeApprovals,
   timeEntries,
   users,
   vendorCertificates,
@@ -27,7 +27,9 @@ import { customCell, customColumns } from "@/lib/services/custom-fields";
 import { ServiceError } from "@/lib/services/errors";
 import type { Actor } from "@/lib/services/read";
 import { listTodos } from "@/lib/services/todos";
-import { calendarForOrg, formatHours, workedMinutes } from "@/lib/services/time";
+import { calendarForOrg, formatHours, splitsById, workedMinutes } from "@/lib/services/time";
+import { burdenBpsFor, hourlyCostFor, otRulesFor } from "@/lib/time/post";
+import { isNonJob, isShiftType, laborMoney } from "@/lib/time/overtime";
 import { localDay } from "@/lib/time/calendar";
 import { cashForecast } from "@/lib/services/cash";
 import { wipReport } from "@/lib/services/wip";
@@ -321,33 +323,58 @@ function loadTime(actor: Actor, db: AppDatabase, today: string): EngineRow[] {
   const zone = calendarForOrg(orgId).timeZone;
   const jobs = new Map(db.select().from(projects).where(eq(projects.orgId, orgId)).all().map((project) => [project.id, project.name]));
   const people = new Map(db.select().from(users).all().map((user) => [user.id, user.name]));
-  const rates = db.select().from(laborRates).where(eq(laborRates.orgId, orgId)).all();
-  const company = rates.find((rate) => rate.userId === "")?.hourlyCostCents ?? 0;
+  const rules = otRulesFor(db, orgId);
+  const now = Date.parse(today + "T18:00:00Z") || Date.now();
   const field = actor.role === "field";
-  return db
+  const entries = db
     .select()
     .from(timeEntries)
     .where(eq(timeEntries.orgId, orgId))
     .all()
-    .filter((entry) => !field || entry.userId === actor.userId)
-    .map((entry) => {
-      const minutes = workedMinutes(entry, Date.parse(today + "T18:00:00Z") || Date.now());
-      const hourly = rates.find((rate) => rate.userId === entry.userId)?.hourlyCostCents ?? company;
-      const cost = Math.round((minutes / 60) * hourly);
-      const day = localDay(Date.parse(entry.clockInAt), zone);
-      return {
-        id: entry.id,
-        href: "/time",
-        cells: {
-          job: text(jobs.get(entry.projectId) ?? ""),
-          code: text(entry.costCode),
-          person: text(people.get(entry.userId) ?? ""),
-          day: date(day),
-          hours: num(Math.round((minutes / 60) * 10) / 10, formatHours(minutes)),
-          cost: money(cost),
-        },
-      };
-    });
+    .filter((entry) => entry.status !== "void")
+    .filter((entry) => !field || entry.userId === actor.userId);
+  const splits = splitsById(db, orgId, entries, now);
+  const approvals = new Map(
+    db
+      .select()
+      .from(timeApprovals)
+      .where(and(eq(timeApprovals.orgId, orgId), eq(timeApprovals.status, "active")))
+      .all()
+      .map((row) => [row.entryId, row]),
+  );
+  return entries.map((entry) => {
+    const split = splits.get(entry.id) ?? { id: entry.id, regularMinutes: 0, otMinutes: 0, dtMinutes: 0, nonjobMinutes: 0 };
+    const minutes = workedMinutes(entry, now);
+    const approval = approvals.get(entry.id);
+    const legacy = approval != null && approval.baseCents + approval.premiumCents + approval.burdenCents === 0 && approval.amountCents > 0;
+    const rate = hourlyCostFor(db, orgId, entry.userId) ?? 0;
+    const priced = laborMoney(split, rate, rules, burdenBpsFor(db, orgId, entry.userId, rules));
+    const cost = approval ? approval.amountCents : priced.totalCents;
+    const premium = legacy ? 0 : approval ? approval.premiumCents : priced.premiumCents;
+    const burden = legacy ? 0 : approval ? approval.burdenCents : priced.burdenCents;
+    const jobMinutes = split.regularMinutes + split.otMinutes + split.dtMinutes;
+    const share = jobMinutes > 0 ? Math.round((split.otMinutes * 10_000) / jobMinutes) : 0;
+    const shift = isShiftType(entry.shiftType) ? entry.shiftType : "regular";
+    const day = localDay(Date.parse(entry.clockInAt), zone);
+    return {
+      id: entry.id,
+      href: "/time",
+      cells: {
+        job: text(entry.projectId ? (jobs.get(entry.projectId) ?? "") : "General"),
+        code: text(entry.costCode),
+        person: text(people.get(entry.userId) ?? ""),
+        day: date(day),
+        hours: num(Math.round((minutes / 60) * 10) / 10, formatHours(minutes)),
+        ot: num(Math.round((split.otMinutes / 60) * 10) / 10, formatHours(split.otMinutes)),
+        dt: num(Math.round((split.dtMinutes / 60) * 10) / 10, formatHours(split.dtMinutes)),
+        pto: num(Math.round((split.nonjobMinutes / 60) * 10) / 10, formatHours(split.nonjobMinutes)),
+        premium: money(isNonJob(shift) ? 0 : premium),
+        burden: money(isNonJob(shift) ? 0 : burden),
+        cost: money(isNonJob(shift) ? 0 : cost),
+        share: { text: formatPercent(share), sort: share, value: share },
+      },
+    };
+  });
 }
 
 function loadChanges(db: AppDatabase, orgId: string): EngineRow[] {

@@ -7,6 +7,7 @@ import type { AppDatabase } from "@/lib/db/client";
 import { addMonths } from "@/lib/closeout/check";
 import { usFederalHolidays } from "@/lib/schedule/holidays";
 import { addCalendarDays, localDay, localWeek, zonedTimeToUtc } from "@/lib/time/calendar";
+import { laborMoney, splitWeek, type OtRules } from "@/lib/time/overtime";
 import { CATALOG_FORMULAS, northlineCatalog, riveraCatalog } from "@/lib/db/catalog";
 import {
   activities,
@@ -173,7 +174,7 @@ import {
   WEBSITE_FORM_SOURCE,
 } from "@/lib/lead-form/rules";
 
-export const SEED_VERSION = "45";
+export const SEED_VERSION = "46";
 
 const ORG = "org_rivera";
 const NORTH = "org_northline";
@@ -237,6 +238,15 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
         termsVersion: "2026-09-01",
         timeZone: "America/New_York",
         weekStartsOn: 1,
+        otEnabled: 1,
+        otDailyMinutes: 8 * 60,
+        otWeeklyMinutes: 40 * 60,
+        dtDailyMinutes: null,
+        otDaysMask: 1,
+        otMultiplierBps: 15_000,
+        dtMultiplierBps: 20_000,
+        burdenBps: 1_200,
+        nonjobCountsOt: 0,
         warrantyMonths: 12,
         vendorComplianceMode: "warn",
         vendorRequiredTypes: "general_liability,workers_comp",
@@ -1748,6 +1758,7 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
     .values([
       { id: "rate_rivera", orgId: ORG, userId: "", hourlyCostCents: 4500, updatedAt: created, updatedBy: "user_maya" },
       { id: "rate_dana", orgId: ORG, userId: "user_dana", hourlyCostCents: 5200, updatedAt: created, updatedBy: "user_maya" },
+      { id: "rate_luis", orgId: ORG, userId: "user_luis", hourlyCostCents: 4500, burdenBps: 1800, updatedAt: created, updatedBy: "user_maya" },
       { id: "rate_north", orgId: NORTH, userId: "", hourlyCostCents: 4800, updatedAt: created, updatedBy: "user_jordan" },
     ])
     .run();
@@ -1894,6 +1905,168 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
       reason: null,
       createdAt: approvedOut,
       createdBy: "user_maya",
+    })
+    .run();
+  const otRules: OtRules = {
+    enabled: true,
+    dailyOtMinutes: 8 * 60,
+    weeklyOtMinutes: 40 * 60,
+    dailyDtMinutes: null,
+    otDaysMask: 1,
+    otMultiplierBps: 15_000,
+    dtMultiplierBps: 20_000,
+    burdenBps: 1_200,
+    nonjobCountsTowardOt: false,
+  };
+  const luisSplit = splitWeek([{ id: "time_luis_week", localDay: weekStart, minutes: 44 * 60, shiftType: "regular" }], otRules)[0];
+  const luisMoney = laborMoney(luisSplit!, 4500, otRules, 1800);
+  const sunday = addCalendarDays(weekStart, 6);
+  const sundayIn = riveraAt(sunday, 8);
+  const sundayOut = riveraAt(sunday, 12);
+  const samSplit = splitWeek([{ id: "time_sam_sunday", localDay: sunday, minutes: 4 * 60, shiftType: "regular" }], otRules)[0];
+  const samMoney = laborMoney(samSplit!, 4500, otRules, 1200);
+  const ptoDay = addCalendarDays(weekStart, 2);
+  const ptoIn = riveraAt(ptoDay, 8);
+  const ptoOut = riveraAt(ptoDay, 16);
+  db.insert(timeEntries)
+    .values([
+      {
+        id: "time_sam_sunday",
+        orgId: ORG,
+        userId: "user_sam",
+        projectId: "proj_brooks",
+        costCode: "FRM-LABOR",
+        shiftType: "regular",
+        status: "approved",
+        clockInAt: sundayIn,
+        clockOutAt: sundayOut,
+        breakMinutes: 0,
+        breakStartedAt: null,
+        note: "Sunday framing",
+        clockInLatE6: null,
+        clockInLngE6: null,
+        clockOutLatE6: null,
+        clockOutLngE6: null,
+        source: "manual",
+        createdAt: sundayIn,
+        updatedAt: sundayOut,
+        createdBy: "user_maya",
+      },
+      {
+        id: "time_sam_pto",
+        orgId: ORG,
+        userId: "user_sam",
+        projectId: "",
+        costCode: "PTO",
+        shiftType: "pto",
+        status: "approved",
+        clockInAt: ptoIn,
+        clockOutAt: ptoOut,
+        breakMinutes: 0,
+        breakStartedAt: null,
+        note: null,
+        clockInLatE6: null,
+        clockInLngE6: null,
+        clockOutLatE6: null,
+        clockOutLngE6: null,
+        source: "manual",
+        createdAt: ptoIn,
+        updatedAt: ptoOut,
+        createdBy: "user_maya",
+      },
+    ])
+    .run();
+  db.insert(costItems)
+    .values([
+      { id: "cost_luis_labor", orgId: ORG, projectId: "proj_brooks", budgetLineId: null, costCode: "FRM-LABOR", amountCents: luisMoney.baseCents, vendorName: "Luis Ortega", memo: "Labor", source: "labor", aiExtracted: 0, documentId: null, createdAt: luisIn, updatedAt: luisIn, createdBy: "user_maya" },
+      { id: "cost_luis_premium", orgId: ORG, projectId: "proj_brooks", budgetLineId: null, costCode: "FRM-LABOR", amountCents: luisMoney.premiumCents, vendorName: "Luis Ortega", memo: "OT premium", source: "labor_premium", aiExtracted: 0, documentId: null, createdAt: luisIn, updatedAt: luisIn, createdBy: "user_maya" },
+      { id: "cost_luis_burden", orgId: ORG, projectId: "proj_brooks", budgetLineId: null, costCode: "FRM-LABOR", amountCents: luisMoney.burdenCents, vendorName: "Luis Ortega", memo: "Burden", source: "labor_burden", aiExtracted: 0, documentId: null, createdAt: luisIn, updatedAt: luisIn, createdBy: "user_maya" },
+      { id: "cost_sam_labor", orgId: ORG, projectId: "proj_brooks", budgetLineId: null, costCode: "FRM-LABOR", amountCents: samMoney.baseCents, vendorName: "Sam Patel", memo: "Labor", source: "labor", aiExtracted: 0, documentId: null, createdAt: sundayIn, updatedAt: sundayIn, createdBy: "user_maya" },
+      { id: "cost_sam_premium", orgId: ORG, projectId: "proj_brooks", budgetLineId: null, costCode: "FRM-LABOR", amountCents: samMoney.premiumCents, vendorName: "Sam Patel", memo: "OT premium", source: "labor_premium", aiExtracted: 0, documentId: null, createdAt: sundayIn, updatedAt: sundayIn, createdBy: "user_maya" },
+      { id: "cost_sam_burden", orgId: ORG, projectId: "proj_brooks", budgetLineId: null, costCode: "FRM-LABOR", amountCents: samMoney.burdenCents, vendorName: "Sam Patel", memo: "Burden", source: "labor_burden", aiExtracted: 0, documentId: null, createdAt: sundayIn, updatedAt: sundayIn, createdBy: "user_maya" },
+    ])
+    .run();
+  db.insert(timeApprovals)
+    .values([
+      {
+        id: "tap_luis_week",
+        orgId: ORG,
+        entryId: "time_luis_week",
+        rateCents: 4500,
+        minutes: 44 * 60,
+        amountCents: luisMoney.totalCents,
+        costItemId: "cost_luis_labor",
+        regularMinutes: luisSplit!.regularMinutes,
+        otMinutes: luisSplit!.otMinutes,
+        dtMinutes: luisSplit!.dtMinutes,
+        nonjobMinutes: 0,
+        baseCents: luisMoney.baseCents,
+        premiumCents: luisMoney.premiumCents,
+        burdenCents: luisMoney.burdenCents,
+        premiumCostItemId: "cost_luis_premium",
+        burdenCostItemId: "cost_luis_burden",
+        status: "active",
+        reason: null,
+        createdAt: luisIn,
+        createdBy: "user_maya",
+      },
+      {
+        id: "tap_sam_sunday",
+        orgId: ORG,
+        entryId: "time_sam_sunday",
+        rateCents: 4500,
+        minutes: 4 * 60,
+        amountCents: samMoney.totalCents,
+        costItemId: "cost_sam_labor",
+        regularMinutes: samSplit!.regularMinutes,
+        otMinutes: samSplit!.otMinutes,
+        dtMinutes: 0,
+        nonjobMinutes: 0,
+        baseCents: samMoney.baseCents,
+        premiumCents: samMoney.premiumCents,
+        burdenCents: samMoney.burdenCents,
+        premiumCostItemId: samMoney.premiumCents > 0 ? "cost_sam_premium" : null,
+        burdenCostItemId: samMoney.burdenCents > 0 ? "cost_sam_burden" : null,
+        status: "active",
+        reason: null,
+        createdAt: sundayIn,
+        createdBy: "user_maya",
+      },
+      {
+        id: "tap_sam_pto",
+        orgId: ORG,
+        entryId: "time_sam_pto",
+        rateCents: 4500,
+        minutes: 8 * 60,
+        amountCents: 0,
+        costItemId: null,
+        regularMinutes: 0,
+        otMinutes: 0,
+        dtMinutes: 0,
+        nonjobMinutes: 8 * 60,
+        baseCents: 0,
+        premiumCents: 0,
+        burdenCents: 0,
+        premiumCostItemId: null,
+        burdenCostItemId: null,
+        status: "active",
+        reason: null,
+        createdAt: ptoIn,
+        createdBy: "user_maya",
+      },
+    ])
+    .run();
+  db.insert(auditLogs)
+    .values({
+      id: "aud_luis_ot",
+      orgId: ORG,
+      actorId: "user_maya",
+      action: "time.premium",
+      entityType: "time_entry",
+      entityId: "time_luis_week",
+      payloadJson: JSON.stringify(luisMoney),
+      ip: null,
+      createdAt: luisIn,
     })
     .run();
   db.insert(timeEntryEvents)

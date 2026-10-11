@@ -131,6 +131,7 @@ export function ensureReady(holder: Holder) {
   ensureTakeoff(holder);
   ensureConfirmations(holder);
   ensureTm(holder);
+  ensureOvertime(holder);
   const version = holder.sqlite.prepare("select value from app_meta where key = ?").get("seed_version") as
     | { value: string }
     | undefined;
@@ -2606,6 +2607,30 @@ function ensureConfirmations(holder: Holder) {
     )`);
   }
   holder.sqlite.exec("create index if not exists schedule_confirmations_item on schedule_confirmations (org_id, item_id, created_at)");
+}
+
+function ensureOvertime(holder: Holder) {
+  ensureColumn(holder, "organizations", "ot_enabled", "integer not null default 0");
+  ensureColumn(holder, "organizations", "ot_daily_minutes", "integer");
+  ensureColumn(holder, "organizations", "ot_weekly_minutes", "integer not null default 2400");
+  ensureColumn(holder, "organizations", "dt_daily_minutes", "integer");
+  ensureColumn(holder, "organizations", "ot_days_mask", "integer not null default 0");
+  ensureColumn(holder, "organizations", "ot_multiplier_bps", "integer not null default 15000");
+  ensureColumn(holder, "organizations", "dt_multiplier_bps", "integer not null default 20000");
+  ensureColumn(holder, "organizations", "burden_bps", "integer not null default 0");
+  ensureColumn(holder, "organizations", "nonjob_counts_ot", "integer not null default 0");
+  ensureColumn(holder, "labor_rates", "burden_bps", "integer");
+  ensureColumn(holder, "projects", "bill_labor_burden", "integer not null default 0");
+  ensureColumn(holder, "time_entries", "shift_type", "text not null default 'regular'");
+  ensureColumn(holder, "time_approvals", "regular_minutes", "integer not null default 0");
+  ensureColumn(holder, "time_approvals", "ot_minutes", "integer not null default 0");
+  ensureColumn(holder, "time_approvals", "dt_minutes", "integer not null default 0");
+  ensureColumn(holder, "time_approvals", "nonjob_minutes", "integer not null default 0");
+  ensureColumn(holder, "time_approvals", "base_cents", "integer not null default 0");
+  ensureColumn(holder, "time_approvals", "premium_cents", "integer not null default 0");
+  ensureColumn(holder, "time_approvals", "burden_cents", "integer not null default 0");
+  ensureColumn(holder, "time_approvals", "premium_cost_item_id", "text");
+  ensureColumn(holder, "time_approvals", "burden_cost_item_id", "text");
 }
 
 function ensureGantt(holder: Holder) {

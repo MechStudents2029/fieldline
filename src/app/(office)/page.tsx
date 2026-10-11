@@ -38,7 +38,7 @@ import { unbilledTm } from "@/lib/services/tm";
 import { slippedSchedule } from "@/lib/services/schedule-plan";
 import { staleClientUpdates } from "@/lib/services/client-updates";
 import { overdueSelections } from "@/lib/services/selections";
-import { timeBoard } from "@/lib/services/time";
+import { timeBoard, weeklyOtWatch } from "@/lib/services/time";
 import { addCalendarDays, localDay } from "@/lib/time/calendar";
 
 function officeDay(timeZone: string) {
@@ -233,6 +233,9 @@ export default async function TodayPage() {
   const unconfirmed = unconfirmedSoon(session.orgId);
   const tm = money ? unbilledTm(session.orgId) : { count: 0, totalCents: 0, href: "/tm" };
   push("unconfirmed", unconfirmed.count, unconfirmed.count > 0 ? unconfirmed.href : null, `${unconfirmed.count} unconfirmed starting in ${unconfirmed.days} days`, String(unconfirmed.count));
+  for (const watch of weeklyOtWatch(session)) {
+    attention.push({ key: `ot-${watch.userId}`, href: "/time", title: `${watch.name} · weekly OT`, count: 1, trailing: watch.trailing, money: false });
+  }
   push("tm", tm.count, tm.count > 0 ? tm.href : null, "Unbilled T&M", `${tm.count} · ${formatWhole(tm.totalCents)}`, true);
   push("inspections", inspections.upcoming.count, inspections.upcoming.href, "Inspections", String(inspections.upcoming.count));
   push("failed-inspections", inspections.failed.count, inspections.failed.href, "Failed inspections", String(inspections.failed.count));

@@ -48,6 +48,7 @@ import {
   updateWorkCalendar,
   voidTime,
 } from "@/lib/services/time";
+import { addNonJobShift, saveOvertimeSettings, setBillLaborBurden } from "@/lib/time/post";
 import type { TimeUndo } from "@/lib/services/time";
 import { moveScheduleItem, rotateCalendarFeed, saveScheduleItem, type ScheduleStatus } from "@/lib/services/schedule";
 import { attachRecordFile, enforceScheduleGate, inspectionTodos, requestReinspection, saveInspection, savePermit, scheduleGateStatus, setInspectionGateMode } from "@/lib/services/permits";
@@ -2161,6 +2162,65 @@ export async function voidPurchaseOrderAction(poId: string, _prev: ActionState, 
     voidPurchaseOrder(user, poId, String(formData.get("reason") || ""));
     refreshPurchaseOrder(String(formData.get("projectId") || ""), poId);
     return { ok: "Purchase order voided." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function overtimeSettingsAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const daily = String(formData.get("dailyHours") || "").trim();
+    const doubleHours = String(formData.get("doubleHours") || "").trim();
+    const burdens = formData
+      .getAll("burdenUser")
+      .map((value) => String(value))
+      .map((userId) => {
+        const raw = String(formData.get(`burden_${userId}`) || "").trim();
+        return { userId, percent: raw === "" ? null : Number(raw) };
+      });
+    saveOvertimeSettings(user, {
+      enabled: formData.get("enabled") === "on",
+      dailyHours: daily === "" ? null : Number(daily),
+      weeklyHours: Number(formData.get("weeklyHours") || 40),
+      doubleHours: doubleHours === "" ? null : Number(doubleHours),
+      otMultiplier: Number(formData.get("otMultiplier") || 1.5),
+      dtMultiplier: Number(formData.get("dtMultiplier") || 2),
+      burdenPercent: Number(formData.get("burdenPercent") || 0),
+      otDays: formData.getAll("otDay").map((day) => Number(day)),
+      nonjobCountsTowardOt: formData.get("nonjobCounts") === "on",
+      burdenByUser: burdens,
+    });
+    revalidatePath("/settings/time");
+    revalidatePath("/time");
+    return { ok: "Time settings saved." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function addPtoAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    addNonJobShift(user, {
+      userId: String(formData.get("userId") || ""),
+      day: String(formData.get("day") || ""),
+      hours: Number(formData.get("hours") || 0),
+      shiftType: String(formData.get("shiftType") || "pto"),
+    });
+    revalidatePath("/time");
+    return { ok: "PTO added." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function billLaborBurdenAction(projectId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    setBillLaborBurden(user, projectId, formData.get("billBurden") === "on");
+    revalidatePath(`/projects/${projectId}/costs`);
+    return { ok: "Billing updated." };
   } catch (error) {
     return failure(error);
   }

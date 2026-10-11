@@ -61,6 +61,7 @@ export type CostPlusBoard = {
   markupBps: number;
   taxBps: number;
   canEdit: boolean;
+  billLaborBurden: boolean;
   costs: CostRow[];
   codes: { costCode: string; name: string; markupBps: number; custom: boolean }[];
   unbilledCostCents: number;
@@ -104,7 +105,9 @@ type RawCost = Omit<CostRow, "state" | "invoiceId" | "invoiceNumber" | "markupBp
 
 function rawCosts(db: Writer, orgId: string, projectId: string): RawCost[] {
   const zone = zoneOf(db, orgId);
+  const project = db.select().from(projects).where(and(eq(projects.id, projectId), eq(projects.orgId, orgId))).get();
   const rates = db.select().from(laborRates).where(eq(laborRates.orgId, orgId)).all();
+  const orgBurden = db.select({ burdenBps: organizations.burdenBps }).from(organizations).where(eq(organizations.id, orgId)).get()?.burdenBps ?? 0;
   const vendorRows = db.select().from(contacts).where(eq(contacts.orgId, orgId)).all();
   const vendorName = new Map(vendorRows.map((row) => [row.id, row.company || row.name]));
   const approved = db
@@ -169,14 +172,18 @@ function rawCosts(db: Writer, orgId: string, projectId: string): RawCost[] {
     const minutes = closedMinutes(entry);
     const rate = billRateFor(rates, entry.userId);
     if (rate == null || minutes <= 0) continue;
+    const bill = billableLaborCents(minutes, rate);
+    const personalBurden = rates.find((row) => row.userId === entry.userId)?.burdenBps;
+    const burdenBps = personalBurden ?? orgBurden;
+    const burden = project?.billLaborBurden === 1 ? Math.round((bill * Math.max(0, burdenBps)) / 10_000) : 0;
     rows.push({
       key: `time:${entry.id}`,
       kind: "time",
       sourceId: entry.id,
       costCode: entry.costCode || "Uncoded",
-      label: `Labor, ${hoursLabel(minutes)}`,
+      label: burden > 0 ? `Labor, ${hoursLabel(minutes)} · burden` : `Labor, ${hoursLabel(minutes)}`,
       occurredOn: localDay(Date.parse(entry.clockInAt), zone),
-      costCents: billableLaborCents(minutes, rate),
+      costCents: bill + burden,
       billRateCents: rate,
     });
   }
@@ -261,6 +268,7 @@ export function costPlusBoard(actor: Actor, projectId: string): CostPlusBoard | 
     markupBps: project.markupBps,
     taxBps: project.taxBps,
     canEdit: canManageMoney(actor.role as Role),
+    billLaborBurden: project.billLaborBurden === 1,
     costs,
     codes: [...codes.entries()]
       .sort((a, b) => a[0].localeCompare(b[0]))
