@@ -2,6 +2,13 @@
 
 ## 2026-10-11
 
+### Takeoff
+
+- Takeoff opens on a plan sheet, and from Measure on plan on a draft estimate. Set the scale with two points and a length, or a standard architectural or engineering scale. A sheet without a scale says No scale.
+- Linear, wall area, area, and count. Area can take a pitch and a depth. Each measurement has a name, a color, and a room. Vertices move. Undo, redo, and delete. Snaps to a vertex already on the sheet.
+- A measurement can use an existing estimate measurement or add one. Redrawing it updates that measurement and every formula on a draft estimate. The line says Updated from plan. A sent or approved proposal keeps the numbers it was sent with.
+- The side pane lists measurements by sheet, with totals. A new revision carries the scale and the measurements and marks them Review.
+
 ### Cash
 
 - Cash, under Reports, is the next 13 weeks. Office and Owner only. Invoices, draws, unbilled change orders, and retainage come in. Bills, open purchase orders, retainage releases, and scheduled labor go out. Net and the running balance sit on the last rows. Past due is the first column.

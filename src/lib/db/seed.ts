@@ -30,6 +30,7 @@ import {
   dashboards,
   costItems,
   documents,
+  estimateGroups,
   estimateMeasurements,
   estimateSections,
   estimates,
@@ -97,6 +98,7 @@ import {
   markups,
   permits,
   planPins,
+  planScales,
   equipment,
   equipmentAssignments,
   incidentActions,
@@ -108,6 +110,7 @@ import {
   safetyTemplates,
   safetyTopics,
   toolboxAttendees,
+  takeoffs,
   toolboxTalks,
   planRefs,
   recordFiles,
@@ -142,7 +145,7 @@ import {
 import { retainageByLine } from "@/lib/draws/math";
 import { billableLaborCents, costPlusTotals, priceCost } from "@/lib/invoice/cost-plus";
 import { assembleSnapshot, defaultSchedule, type StoredSnapshot } from "@/lib/domain/snapshot";
-import { DEMO_ASSEMBLIES } from "@/lib/estimate/assembly";
+import { DEMO_ASSEMBLIES, bindFormula, partQtyMilli } from "@/lib/estimate/assembly";
 import { vasquezLines, vasquezMeasurements, vasquezSections } from "@/lib/estimate/vasquez";
 import { hashPassword, newSalt } from "@/lib/auth/password";
 import { canonicalJson, sha256 } from "@/lib/esign/hash";
@@ -167,7 +170,7 @@ import {
   WEBSITE_FORM_SOURCE,
 } from "@/lib/lead-form/rules";
 
-export const SEED_VERSION = "42";
+export const SEED_VERSION = "43";
 
 const ORG = "org_rivera";
 const NORTH = "org_northline";
@@ -4091,6 +4094,205 @@ function seedTemplates(db: AppDatabase, now: string) {
       { id: "pin_ok_vanity", orgId: ORG, projectId: "proj_okonkwo", jobFileId: "jf_ok_a101_r2", number: 2, xMilli: 686, yMilli: 318, linkType: "punch", linkId: "punch_ok_vanity", note: "", cropDocumentId: "doc_pin_vanity", copiedFromId: null, reviewed: 1, createdAt: daysAgo(1), createdBy: "user_maya" },
       { id: "pin_ok_valve", orgId: ORG, projectId: "proj_okonkwo", jobFileId: "jf_ok_a101_r2", number: 3, xMilli: 506, yMilli: 722, linkType: "rfi", linkId: "rfi_ok_valve", note: "Check before tile.", cropDocumentId: "doc_pin_valve", copiedFromId: null, reviewed: 1, createdAt: daysAgo(1), createdBy: "user_maya" },
       { id: "pin_ok_r1", orgId: ORG, projectId: "proj_okonkwo", jobFileId: "jf_ok_a101_r1", number: 1, xMilli: 200, yMilli: 240, linkType: "punch", linkId: "punch_ok_paint", note: "Superseded.", cropDocumentId: "doc_pin_r1", copiedFromId: null, reviewed: 1, createdAt: daysAgo(8), createdBy: "user_luis" },
+    ])
+    .run();
+  const shower = DEMO_ASSEMBLIES.find((row) => row.id === "asm_shower");
+  if (!shower) throw new Error("Tile shower wall is missing from the catalog.");
+  const wallMilli = 80_000;
+  db.insert(estimates)
+    .values({
+      id: "est_ok_takeoff",
+      orgId: ORG,
+      leadId: "lead_okonkwo",
+      version: 1,
+      status: "draft",
+      title: "Okonkwo shower",
+      markupBps: 3500,
+      taxBps: 0,
+      marginTargetBps: 3000,
+      notes: null,
+      createdAt: daysAgo(1),
+      updatedAt: daysAgo(1),
+      createdBy: "user_luis",
+    })
+    .run();
+  db.insert(estimateSections).values({ id: "sec_ok_takeoff", orgId: ORG, estimateId: "est_ok_takeoff", name: "Shower", sortOrder: 0 }).run();
+  db.insert(estimateMeasurements)
+    .values([
+      { id: "meas_ok_walls", orgId: ORG, estimateId: "est_ok_takeoff", name: "Walls", valueMilli: wallMilli, unit: "sf", sortOrder: 0, fromPlan: 1 },
+      { id: "meas_ok_curb", orgId: ORG, estimateId: "est_ok_takeoff", name: "Curb", valueMilli: 30_000, unit: "lf", sortOrder: 1, fromPlan: 1 },
+      { id: "meas_ok_valves", orgId: ORG, estimateId: "est_ok_takeoff", name: "Valves", valueMilli: 3_000, unit: "ea", sortOrder: 2, fromPlan: 1 },
+    ])
+    .run();
+  db.insert(estimateGroups)
+    .values({
+      id: "grp_ok_shower",
+      orgId: ORG,
+      estimateId: "est_ok_takeoff",
+      sectionId: "sec_ok_takeoff",
+      assemblyId: "asm_shower",
+      name: "Tile shower wall",
+      measurementId: "meas_ok_walls",
+      presentAs: "one",
+      sortOrder: 0,
+    })
+    .run();
+  db.insert(lineItems)
+    .values(
+      shower.parts.map((part, index) => ({
+        id: `li_ok_${["water", "tile", "grout", "labor"][index] ?? index}`,
+        orgId: ORG,
+        sectionId: "sec_ok_takeoff",
+        estimateId: "est_ok_takeoff",
+        priceBookItemId: part.code ? `pb_${part.code.toLowerCase()}` : null,
+        name: part.name,
+        description: null,
+        qtyMilli: partQtyMilli(part, "Walls", wallMilli),
+        unit: part.unit,
+        unitCostCents: part.unitCostCents,
+        markupBps: 3500,
+        costCode: part.code,
+        source: "manual",
+        aiConfidenceMilli: null,
+        sourceNote: null,
+        sortOrder: index,
+        billing: "included",
+        qtyFormula: bindFormula(part.formula, "Walls"),
+        wasteBps: part.wasteBps,
+        roundToMilli: part.roundToMilli,
+        groupId: "grp_ok_shower",
+        qtyOverridden: 0,
+      })),
+    )
+    .run();
+  db.insert(planScales)
+    .values({
+      id: "psc_ok_a101",
+      orgId: ORG,
+      projectId: "proj_okonkwo",
+      jobFileId: "jf_ok_a101_r2",
+      mode: "segment",
+      preset: null,
+      ax: 0,
+      ay: 50_000,
+      bx: 10_000,
+      by: 50_000,
+      realInches: 120,
+      paperWidthInches: 36,
+      aspectBps: 10_000,
+      updatedAt: daysAgo(1),
+      updatedBy: "user_luis",
+    })
+    .run();
+  db.insert(takeoffs)
+    .values([
+      {
+        id: "to_ok_curb",
+        orgId: ORG,
+        projectId: "proj_okonkwo",
+        jobFileId: "jf_ok_a101_r2",
+        kind: "linear",
+        name: "Curb",
+        color: "teal",
+        room: "Bath",
+        pointsJson: JSON.stringify([
+          { x: 10_000, y: 40_000 },
+          { x: 40_000, y: 40_000 },
+        ]),
+        heightInches: null,
+        pitchRise: null,
+        pitchRun: null,
+        depthInches: null,
+        estimateId: "est_ok_takeoff",
+        measurementId: "meas_ok_curb",
+        copiedFromId: null,
+        reviewed: 1,
+        sortOrder: 0,
+        createdAt: daysAgo(1),
+        updatedAt: daysAgo(1),
+        createdBy: "user_luis",
+      },
+      {
+        id: "to_ok_walls",
+        orgId: ORG,
+        projectId: "proj_okonkwo",
+        jobFileId: "jf_ok_a101_r2",
+        kind: "wall",
+        name: "Walls",
+        color: "blue",
+        room: "Shower",
+        pointsJson: JSON.stringify([
+          { x: 10_000, y: 10_000 },
+          { x: 20_000, y: 10_000 },
+        ]),
+        heightInches: 96,
+        pitchRise: null,
+        pitchRun: null,
+        depthInches: null,
+        estimateId: "est_ok_takeoff",
+        measurementId: "meas_ok_walls",
+        copiedFromId: null,
+        reviewed: 1,
+        sortOrder: 1,
+        createdAt: daysAgo(1),
+        updatedAt: daysAgo(1),
+        createdBy: "user_luis",
+      },
+      {
+        id: "to_ok_valves",
+        orgId: ORG,
+        projectId: "proj_okonkwo",
+        jobFileId: "jf_ok_a101_r2",
+        kind: "count",
+        name: "Valves",
+        color: "orange",
+        room: "Shower",
+        pointsJson: JSON.stringify([
+          { x: 15_000, y: 20_000 },
+          { x: 25_000, y: 20_000 },
+          { x: 35_000, y: 20_000 },
+        ]),
+        heightInches: null,
+        pitchRise: null,
+        pitchRun: null,
+        depthInches: null,
+        estimateId: "est_ok_takeoff",
+        measurementId: "meas_ok_valves",
+        copiedFromId: null,
+        reviewed: 1,
+        sortOrder: 2,
+        createdAt: daysAgo(1),
+        updatedAt: daysAgo(1),
+        createdBy: "user_luis",
+      },
+      {
+        id: "to_ok_floor",
+        orgId: ORG,
+        projectId: "proj_okonkwo",
+        jobFileId: "jf_ok_a101_r2",
+        kind: "area",
+        name: "Floor",
+        color: "purple",
+        room: "Bath",
+        pointsJson: JSON.stringify([
+          { x: 50_000, y: 50_000 },
+          { x: 60_000, y: 50_000 },
+          { x: 60_000, y: 60_000 },
+          { x: 50_000, y: 60_000 },
+        ]),
+        heightInches: null,
+        pitchRise: null,
+        pitchRun: null,
+        depthInches: null,
+        estimateId: null,
+        measurementId: null,
+        copiedFromId: null,
+        reviewed: 1,
+        sortOrder: 3,
+        createdAt: daysAgo(1),
+        updatedAt: daysAgo(1),
+        createdBy: "user_luis",
+      },
     ])
     .run();
   db.insert(auditLogs)

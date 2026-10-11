@@ -53,6 +53,7 @@ import { rfiLabel } from "@/lib/rfis/format";
 import { attachmentExtension, attachmentUploadError } from "@/lib/security";
 import { ServiceError } from "@/lib/services/errors";
 import { carryPlanPins, clientMayReadVisual } from "@/lib/services/markup";
+import { carryTakeoffs } from "@/lib/services/takeoff";
 import type { Actor } from "@/lib/services/read";
 import { submittalLabel } from "@/lib/submittals/format";
 import { hashVendorToken, vendorTokenMatches } from "@/lib/vendor/token";
@@ -519,6 +520,7 @@ export function reviseJobFile(actor: Actor, input: { projectId: string; fileId: 
     })
     .run();
   carryPlanPins(db, actor.orgId, current.id, fileId, actor.userId);
+  carryTakeoffs(db, actor.orgId, current.id, fileId, actor.userId);
   writeAudit(db, actor.orgId, actor.userId, "file.revision", fileId, { groupId: current.revisionGroupId, revision: current.revision + 1 });
   return { id: fileId, revision: current.revision + 1 };
 }

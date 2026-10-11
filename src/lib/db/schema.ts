@@ -358,6 +358,8 @@ export const estimateMeasurements = sqliteTable(
     valueMilli: integer("value_milli").notNull(),
     unit: text("unit").notNull(),
     sortOrder: integer("sort_order").notNull(),
+    /** 1 when the last value came from a plan takeoff. */
+    fromPlan: integer("from_plan").notNull().default(0),
   },
   (t) => [uniqueIndex("estimate_measurements_name").on(t.orgId, t.estimateId, t.name)],
 );
@@ -2293,6 +2295,58 @@ export const planPins = sqliteTable(
     createdBy: text("created_by"),
   },
   (t) => [index("plan_pins_file").on(t.orgId, t.jobFileId)],
+);
+
+/** One scale per plan revision. Segment calibration or a standard paper scale. */
+export const planScales = sqliteTable(
+  "plan_scales",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    projectId: text("project_id").notNull(),
+    jobFileId: text("job_file_id").notNull(),
+    mode: text("mode").notNull(),
+    preset: text("preset"),
+    ax: integer("ax"),
+    ay: integer("ay"),
+    bx: integer("bx"),
+    by: integer("by"),
+    realInches: integer("real_inches"),
+    paperWidthInches: integer("paper_width_inches").notNull().default(36),
+    aspectBps: integer("aspect_bps").notNull().default(10000),
+    updatedAt: text("updated_at").notNull(),
+    updatedBy: text("updated_by"),
+  },
+  (t) => [uniqueIndex("plan_scales_file").on(t.orgId, t.jobFileId)],
+);
+
+/** A measured path on one plan revision. copiedFromId is set when a new revision carries it forward. */
+export const takeoffs = sqliteTable(
+  "takeoffs",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    projectId: text("project_id").notNull(),
+    jobFileId: text("job_file_id").notNull(),
+    kind: text("kind").notNull(),
+    name: text("name").notNull(),
+    color: text("color").notNull(),
+    room: text("room").notNull().default(""),
+    pointsJson: text("points_json").notNull(),
+    heightInches: integer("height_inches"),
+    pitchRise: integer("pitch_rise"),
+    pitchRun: integer("pitch_run"),
+    depthInches: integer("depth_inches"),
+    estimateId: text("estimate_id"),
+    measurementId: text("measurement_id"),
+    copiedFromId: text("copied_from_id"),
+    reviewed: integer("reviewed").notNull().default(1),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    createdBy: text("created_by"),
+  },
+  (t) => [index("takeoffs_file").on(t.orgId, t.jobFileId), index("takeoffs_project").on(t.orgId, t.projectId)],
 );
 
 /** Company tool or machine. Money fields are cents. One open assignment at a time. */

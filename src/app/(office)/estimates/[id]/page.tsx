@@ -12,6 +12,7 @@ import type { Billing } from "@/lib/estimate/pricing";
 import { formatQty, formatWhole, milliToQty } from "@/lib/money";
 import { canSeeMoney } from "@/lib/permissions";
 import { captionFromMetadata, estimateDetail, listAssemblies } from "@/lib/services/read";
+import { estimatePlanHref } from "@/lib/services/takeoff";
 
 export default async function EstimatePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -42,6 +43,7 @@ export default async function EstimatePage({ params }: { params: Promise<{ id: s
     qtyOverridden: Boolean(line.qtyOverridden),
   }));
   const budget = detail.lead?.scopeText?.match(/\$\d+–\d+k/i)?.[0] ?? null;
+  const planHref = estimatePlanHref(session.orgId, detail.estimate.leadId, detail.estimate.id);
   return (
     <div className="estimate-screen">
       <div className="estimate-top">
@@ -60,6 +62,12 @@ export default async function EstimatePage({ params }: { params: Promise<{ id: s
             <StatusPill>{statusWord(detail.estimate.status)}</StatusPill>
           </p>
         </div>
+        <div className="flex items-center gap-2">
+          {planHref ? (
+            <Link href={planHref} className="mac-glass-btn">
+              Measure on plan
+            </Link>
+          ) : null}
         {detail.locked ? (
           <ActionForm action={reviseAction.bind(null, detail.estimate.id)}>
             <Button type="submit" className="fl-primary">
@@ -77,6 +85,7 @@ export default async function EstimatePage({ params }: { params: Promise<{ id: s
             </Button>
           </ActionForm>
         )}
+        </div>
       </div>
       <EstimateWorkspace
         userId={session.userId}
@@ -89,6 +98,7 @@ export default async function EstimatePage({ params }: { params: Promise<{ id: s
           name: row.name,
           valueMilli: row.valueMilli,
           unit: row.unit,
+          fromPlan: row.fromPlan === 1,
         }))}
         groups={detail.groups.map((group) => ({
           id: group.id,

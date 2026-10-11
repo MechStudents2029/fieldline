@@ -128,6 +128,7 @@ export function ensureReady(holder: Holder) {
   ensureReports(holder);
   ensureGantt(holder);
   ensureCash(holder);
+  ensureTakeoff(holder);
   const version = holder.sqlite.prepare("select value from app_meta where key = ?").get("seed_version") as
     | { value: string }
     | undefined;
@@ -2475,6 +2476,58 @@ function ensureCash(holder: Holder) {
   ensureColumn(holder, "organizations", "cash_opening_cents", "integer not null default 0");
   ensureColumn(holder, "organizations", "cash_low_cents", "integer not null default 0");
   ensureColumn(holder, "contacts", "cash_days_late", "integer");
+}
+
+function ensureTakeoff(holder: Holder) {
+  const pk = holder.dialect === "postgres" ? "text primary key" : "text primary key not null";
+  ensureColumn(holder, "estimate_measurements", "from_plan", "integer not null default 0");
+  if (!tableExists(holder.sqlite, "plan_scales", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists plan_scales (
+      id ${pk},
+      org_id text not null,
+      project_id text not null,
+      job_file_id text not null,
+      mode text not null,
+      preset text,
+      ax integer,
+      ay integer,
+      bx integer,
+      by integer,
+      real_inches integer,
+      paper_width_inches integer not null default 36,
+      aspect_bps integer not null default 10000,
+      updated_at text not null,
+      updated_by text
+    )`);
+  }
+  holder.sqlite.exec("create unique index if not exists plan_scales_file on plan_scales (org_id, job_file_id)");
+  if (!tableExists(holder.sqlite, "takeoffs", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists takeoffs (
+      id ${pk},
+      org_id text not null,
+      project_id text not null,
+      job_file_id text not null,
+      kind text not null,
+      name text not null,
+      color text not null,
+      room text not null default '',
+      points_json text not null,
+      height_inches integer,
+      pitch_rise integer,
+      pitch_run integer,
+      depth_inches integer,
+      estimate_id text,
+      measurement_id text,
+      copied_from_id text,
+      reviewed integer not null default 1,
+      sort_order integer not null default 0,
+      created_at text not null,
+      updated_at text not null,
+      created_by text
+    )`);
+  }
+  holder.sqlite.exec("create index if not exists takeoffs_file on takeoffs (org_id, job_file_id)");
+  holder.sqlite.exec("create index if not exists takeoffs_project on takeoffs (org_id, project_id)");
 }
 
 function ensureGantt(holder: Holder) {
