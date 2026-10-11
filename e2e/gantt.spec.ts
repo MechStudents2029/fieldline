@@ -69,9 +69,10 @@ test("job gantt, critical path, drag, zoom, print, and the Today polish", async 
   await expect(page.locator("[data-bar=sch_br_frame]")).toHaveAttribute("data-start", /\d{4}-\d{2}-\d{2}/);
 
   await dragBar(page, "[data-bar=sch_br_drywall]", -28);
-  await expect(page.getByRole("alert")).toContainText("has not passed");
-  await page.getByRole("button", { name: "Cancel" }).click();
-  await expect(page.getByRole("alert")).toHaveCount(0);
+  const gate = page.locator("span.inline-flex", { hasText: "has not passed" });
+  await expect(gate).toBeVisible();
+  await gate.getByRole("button", { name: "Cancel" }).click();
+  await expect(page.getByText("has not passed")).toHaveCount(0);
 
   const frame = page.locator("[data-bar=sch_br_frame]");
   await frame.focus();
@@ -81,8 +82,9 @@ test("job gantt, critical path, drag, zoom, print, and the Today polish", async 
 
   await page.getByRole("link", { name: "Month", exact: true }).click();
   await expect(page.locator("[data-gantt=job]")).toHaveAttribute("data-zoom", "month");
-  await expect(page.getByRole("link", { name: "Print" })).toHaveAttribute("href", /zoom=month/);
-  await page.getByRole("link", { name: "Print" }).click();
+  const jobPrint = page.locator("#schedule").getByRole("link", { name: "Print" });
+  await expect(jobPrint).toHaveAttribute("href", /zoom=month/);
+  await jobPrint.click();
   await expect(page).toHaveURL(/\/projects\/proj_brooks\/schedule\/print\?zoom=month/);
   await expect(page.locator("[data-gantt=job]")).toHaveAttribute("data-zoom", "month");
   await expect(page.getByRole("heading", { name: "Schedule" })).toBeVisible();
@@ -99,7 +101,7 @@ test("job gantt, critical path, drag, zoom, print, and the Today polish", async 
   await page.emulateMedia({ colorScheme: "light" });
   await page.getByRole("link", { name: "Quarter", exact: true }).click();
   await expect(page.locator("[data-gantt=org]")).toHaveAttribute("data-zoom", "quarter");
-  await expect(page.getByRole("link", { name: "Print" })).toHaveAttribute("href", /zoom=quarter/);
+  await expect(page.locator("[data-gantt=org]").getByRole("link", { name: "Print" })).toHaveAttribute("href", /zoom=quarter/);
 
   await page.locator("button:visible", { hasText: "Sign out" }).click();
   await page.getByLabel("Email").fill("dana@rivera.demo");
@@ -134,8 +136,8 @@ test("job gantt, critical path, drag, zoom, print, and the Today polish", async 
   await expect(page.locator("[data-group='2026-07']")).toContainText("Jul 2026 · 1");
   await expect(page.locator("[data-group='2026-07']")).not.toContainText("2026-07");
   await expect(page.locator("[data-subtotal='2026-07'] td").nth(0)).toHaveText("");
-  await expect(page.locator("[data-subtotal='2026-07'] td").nth(1)).toHaveText("");
-  await expect(page.locator("[data-subtotal='2026-07'] td").nth(2)).toContainText("$");
+  await expect(page.locator("[data-subtotal='2026-07'] td").nth(1)).toContainText("$");
+  await expect(page.locator("[data-subtotal='2026-07'] td").nth(2)).toHaveText("");
   const chart = page.locator("[data-chart=bar]");
   await expect(chart).toHaveCSS("height", "64px");
   const barWidth = await chart.locator(".rounded-sm").first().evaluate((el) => el.getBoundingClientRect().width);

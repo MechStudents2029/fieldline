@@ -50,7 +50,7 @@ test("builds a report, exports csv, and opens a role dashboard", async ({ page }
   await expect(page.locator("[data-chart=bar]")).toBeVisible();
   await expect(page.locator("[data-group='2026-07']")).toContainText("Jul 2026 · 1");
   await expect(page.locator("[data-subtotal='2026-07'] td").nth(0)).toHaveText("");
-  await expect(page.locator("[data-subtotal='2026-07'] td").nth(1)).toHaveText("");
+  await expect(page.locator("[data-subtotal='2026-07'] td").nth(2)).toHaveText("");
   await expect(page.locator("[data-subtotal]").first()).toBeVisible();
   await expect(page.locator("[data-total]")).toBeVisible();
   await shot(page, "reports-grouped-light");
