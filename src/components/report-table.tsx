@@ -1,8 +1,13 @@
 import { Fragment } from "react";
-import { subtotalLabel, type EngineResult } from "@/lib/reports/engine";
+import { groupHeading, subtotalLabel, type EngineColumn, type EngineResult } from "@/lib/reports/engine";
 
 function numeric(kind: string) {
   return kind === "money" || kind === "number" || kind === "percent" || kind === "date";
+}
+
+function aggregateCell(column: EngineColumn, index: number, label: string, mode: "sub" | "total") {
+  if (column.kind === "text" || column.kind === "date") return mode === "total" && index === 0 ? label : "";
+  return label;
 }
 
 export function ReportTable({ result }: { result: EngineResult }) {
@@ -25,7 +30,7 @@ export function ReportTable({ result }: { result: EngineResult }) {
               {result.grouped ? (
                 <tr data-group={group.key}>
                   <td colSpan={result.columns.length} className="!h-8 bg-[var(--mac-under)] mac-t11 font-semibold">
-                    {group.key} {group.rows.length}
+                    {groupHeading(group.key, group.rows.length)}
                   </td>
                 </tr>
               ) : null}
@@ -47,7 +52,7 @@ export function ReportTable({ result }: { result: EngineResult }) {
                 <tr data-subtotal={group.key}>
                   {result.columns.map((column, index) => (
                     <td key={column.key} className={`font-semibold ${numeric(column.kind) ? "num text-right" : ""}`}>
-                      {index === 0 ? group.rows.length : subtotalLabel(column, group.subtotal[column.key])}
+                      {aggregateCell(column, index, subtotalLabel(column, group.subtotal[column.key]), "sub")}
                     </td>
                   ))}
                 </tr>
@@ -57,7 +62,7 @@ export function ReportTable({ result }: { result: EngineResult }) {
           <tr data-total="1">
             {result.columns.map((column, index) => (
               <td key={column.key} className={`font-semibold ${numeric(column.kind) ? "num text-right" : ""}`}>
-                {index === 0 ? `Total ${count}` : subtotalLabel(column, result.total[column.key])}
+                {aggregateCell(column, index, index === 0 ? `Total ${count}` : subtotalLabel(column, result.total[column.key]), "total")}
               </td>
             ))}
           </tr>

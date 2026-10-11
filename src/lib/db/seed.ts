@@ -167,7 +167,7 @@ import {
   WEBSITE_FORM_SOURCE,
 } from "@/lib/lead-form/rules";
 
-export const SEED_VERSION = "41";
+export const SEED_VERSION = "42";
 
 const ORG = "org_rivera";
 const NORTH = "org_northline";
@@ -2184,17 +2184,19 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
     note: string | null;
     assignees: string[];
     vendorContactId?: string | null;
+    phase?: string | null;
+    progressBps?: number;
   }[] = [
-    { id: "sch_ok_demo", projectId: "proj_okonkwo", title: "Demo", start: addCalendarDays(today, -2), end: addCalendarDays(today, -1), time: null, status: "done", note: null, assignees: [] },
-    { id: "sch_ok_tile", projectId: "proj_okonkwo", title: "Tile shower", start: today, end: tomorrow, time: "07:30", status: "confirmed", note: "Homeowner home after 3", assignees: ["user_dana"] },
-    { id: "sch_ok_plumb", projectId: "proj_okonkwo", title: "Set the valve", start: today, end: today, time: "09:00", status: "confirmed", note: null, assignees: [], vendorContactId: "c_harbor" },
+    { id: "sch_ok_demo", projectId: "proj_okonkwo", title: "Demo", start: addCalendarDays(today, -2), end: addCalendarDays(today, -1), time: null, status: "done", note: null, assignees: [], phase: "Rough", progressBps: 10000 },
+    { id: "sch_ok_tile", projectId: "proj_okonkwo", title: "Tile shower", start: today, end: tomorrow, time: "07:30", status: "confirmed", note: "Homeowner home after 3", assignees: ["user_dana"], phase: "Finish", progressBps: 4000 },
+    { id: "sch_ok_plumb", projectId: "proj_okonkwo", title: "Set the valve", start: today, end: today, time: "09:00", status: "confirmed", note: null, assignees: [], vendorContactId: "c_harbor", phase: "Rough", progressBps: 2000 },
     { id: "sch_chen_conflict", projectId: "proj_chen", title: "Vanity set", start: today, end: today, time: null, status: "planned", note: null, assignees: ["user_dana"] },
-    { id: "sch_br_frame", projectId: "proj_brooks", title: "Framing walk", start: scheduleDay(0), end: scheduleDay(1), time: "08:00", status: "confirmed", note: null, assignees: ["user_luis"] },
-    { id: "sch_ok_walk", projectId: "proj_okonkwo", title: "Client walk", start: scheduleDay(4), end: scheduleDay(4), time: null, status: "planned", note: null, assignees: ["user_maya"] },
+    { id: "sch_br_frame", projectId: "proj_brooks", title: "Framing walk", start: scheduleDay(0), end: scheduleDay(1), time: "08:00", status: "confirmed", note: null, assignees: ["user_luis"], phase: "Framing", progressBps: 6000 },
+    { id: "sch_ok_walk", projectId: "proj_okonkwo", title: "Client walk", start: scheduleDay(4), end: scheduleDay(4), time: null, status: "planned", note: null, assignees: ["user_maya"], phase: "Finish" },
     { id: "sch_dz_punch", projectId: "proj_diaz", title: "Punch list", start: scheduleDay(2), end: scheduleDay(2), time: null, status: "done", note: null, assignees: [] },
     { id: "sch_chen_measure", projectId: "proj_chen", title: "Measure", start: scheduleDay(8), end: scheduleDay(8), time: "09:00", status: "planned", note: null, assignees: ["user_sam"] },
-    { id: "sch_br_delivery", projectId: "proj_brooks", title: "Window delivery", start: scheduleDay(10), end: scheduleDay(10), time: null, status: "confirmed", note: null, assignees: ["user_dana"] },
-    { id: "sch_br_drywall", projectId: "proj_brooks", title: "Drywall", start: scheduleDay(8), end: scheduleDay(9), time: null, status: "planned", note: null, assignees: ["user_luis"], vendorContactId: "c_harbor" },
+    { id: "sch_br_delivery", projectId: "proj_brooks", title: "Window delivery", start: scheduleDay(10), end: scheduleDay(10), time: null, status: "confirmed", note: null, assignees: ["user_dana"], phase: "Close-in" },
+    { id: "sch_br_drywall", projectId: "proj_brooks", title: "Drywall", start: scheduleDay(8), end: scheduleDay(9), time: null, status: "planned", note: null, assignees: ["user_luis"], vendorContactId: "c_harbor", phase: "Close-in" },
   ];
   db.insert(scheduleItems)
     .values(
@@ -2209,6 +2211,8 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
         status: item.status,
         note: item.note,
         vendorContactId: item.vendorContactId ?? null,
+        phase: item.phase ?? null,
+        progressBps: item.progressBps ?? 0,
         createdAt: now,
         updatedAt: now,
         createdBy: "user_maya",
@@ -2226,6 +2230,15 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
         })),
       ),
     )
+    .run();
+  db.insert(scheduleLinks)
+    .values([
+      { id: "slnk_ok_valve", orgId: ORG, projectId: "proj_okonkwo", itemId: "sch_ok_plumb", predecessorId: "sch_ok_demo", lagWorkdays: 0 },
+      { id: "slnk_ok_tile", orgId: ORG, projectId: "proj_okonkwo", itemId: "sch_ok_tile", predecessorId: "sch_ok_plumb", lagWorkdays: 0 },
+      { id: "slnk_ok_walk", orgId: ORG, projectId: "proj_okonkwo", itemId: "sch_ok_walk", predecessorId: "sch_ok_tile", lagWorkdays: 1 },
+      { id: "slnk_br_dry", orgId: ORG, projectId: "proj_brooks", itemId: "sch_br_drywall", predecessorId: "sch_br_frame", lagWorkdays: 1 },
+      { id: "slnk_br_del", orgId: ORG, projectId: "proj_brooks", itemId: "sch_br_delivery", predecessorId: "sch_br_drywall", lagWorkdays: 0 },
+    ])
     .run();
 
   const holidayYear = Number(today.slice(0, 4));

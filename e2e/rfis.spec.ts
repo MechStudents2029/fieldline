@@ -1,5 +1,5 @@
 import { devices, expect, test, type Page } from "@playwright/test";
-import { resetDemo, signIn } from "./helpers";
+import { resetDemo, revealToday, signIn } from "./helpers";
 
 const harbor = "/v/demo_vendor_harbor_m3p8qx7k";
 
@@ -15,6 +15,7 @@ async function signBackIn(page: Page) {
 }
 
 async function officeVendorClientClose(page: Page) {
+  await revealToday(page, "RFIs overdue");
   await expect(page.locator("a:visible", { hasText: "RFIs overdue" })).toBeVisible();
   await page.goto("/projects/proj_okonkwo");
   const width = page.viewportSize()?.width ?? 1440;

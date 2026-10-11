@@ -2,6 +2,19 @@
 
 ## 2026-10-11
 
+### Schedule
+
+- A job’s Schedule has List and Gantt. The company Schedule has Grid and Gantt. The choice is remembered for that person. Field can look and cannot drag.
+- The Gantt lists name, start, finish, workdays, and percent done, with the bars on a timeline. Phases roll up. Dependencies connect. Non-work days are shaded. Today is a line. A baseline shows as a tick. A gated item says Held. The toolbar shows the finish date.
+- Critical uses the longest path to the job finish, with workday lag and non-work days. Critical bars are teal and the rest dim. The item shows float in workdays. A loop is still refused.
+- Drag a bar to move it, or its end to resize it. Arrow keys do the same, and Shift changes the finish. A move that pulls other items says how many, and a gate still warns. The audit log records the shift.
+- Week, Month, and Quarter change the scale. Print keeps that scale. The company Gantt lists each job as a row that opens.
+
+### Today and reports
+
+- Today’s numbers sit on one row. Rows with a count of one, and no money, sit under More.
+- A grouped report heading reads Jul 2026 · 1. Subtotal text stays blank. The bar chart is short, with thin bars. Pinned jobs in the sidebar have space between them.
+
 ### Reports
 
 - Reports lists the ready-made reports and any report you save. Pending proposals, AR aging, job profitability, sales by month, time by job and cost code, expiring COIs, and open change orders use one engine. WIP and Variance stay in that list.

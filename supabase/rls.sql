@@ -144,6 +144,7 @@ begin
     'custom_field_values',
     'template_field_values',
     'saved_reports',
+    'user_prefs',
     'dashboards',
     'dashboard_tiles',
     'dashboard_roles',

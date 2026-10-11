@@ -157,6 +157,20 @@ export function subtotalLabel(column: EngineColumn, agg: Agg | undefined): strin
   return subtotalText(column, agg);
 }
 
+/** Month keys render as `Jul 2026`. Anything else stays as stored. */
+export function axisLabel(key: string): string {
+  const month = /^(\d{4})-(\d{2})$/.exec(key);
+  if (!month) return key;
+  return new Intl.DateTimeFormat("en-US", { month: "short", year: "numeric", timeZone: "UTC" }).format(
+    new Date(Date.UTC(Number(month[1]), Number(month[2]) - 1, 1)),
+  );
+}
+
+export function groupHeading(key: string, count: number): string {
+  const label = axisLabel(key);
+  return label ? `${label} · ${count}` : String(count);
+}
+
 export function runEngine(rows: EngineRow[], columns: EngineColumn[], query: ReportQuery): EngineResult {
   const selected = columns.filter((column) => query.columns.length === 0 || query.columns.includes(column.key));
   const keys = new Set(selected.map((column) => column.key));

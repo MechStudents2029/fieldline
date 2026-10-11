@@ -81,12 +81,14 @@ export function Sidebar({
           {item("/projects", "Jobs", <Briefcase size={16} strokeWidth={1.6} />, chrome.pins.length)}
           {item("/todos", "To-dos", <ListTodo size={16} strokeWidth={1.6} />)}
           {item("/templates", "Templates", <Copy size={16} strokeWidth={1.6} />)}
-          {chrome.pins.map((job) => (
-            <Link key={job.id} href={`/projects/${job.id}`} aria-label="Pin" className="mac-sidebar-row pl-7" aria-current={pathname === `/projects/${job.id}` ? "page" : undefined}>
-              <span aria-hidden className="size-1 shrink-0 rounded-full bg-[var(--mac-tertiary)]" />
-              <span className="truncate" aria-hidden="true">{job.name}</span>
-            </Link>
-          ))}
+          <div className="my-1 flex flex-col gap-1.5 py-0.5">
+            {chrome.pins.map((job) => (
+              <Link key={job.id} href={`/projects/${job.id}`} aria-label="Pin" className="mac-sidebar-row h-8 pl-7" aria-current={pathname === `/projects/${job.id}` ? "page" : undefined}>
+                <span aria-hidden className="size-1 shrink-0 rounded-full bg-[var(--mac-tertiary)]" />
+                <span className="truncate" aria-hidden="true">{job.name}</span>
+              </Link>
+            ))}
+          </div>
           {field ? null : item("/estimates", "Estimates", <FileText size={16} strokeWidth={1.6} />, chrome.estimateCount)}
           {item("/schedule", "Schedule", <Calendar size={16} strokeWidth={1.6} />)}
           {item("/rfis", "RFIs", <MessageSquare size={16} strokeWidth={1.6} />)}

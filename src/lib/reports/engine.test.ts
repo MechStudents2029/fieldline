@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { emptyQuery, runEngine, shareAllowed, sourceAllowed, visibleColumns, type EngineColumn, type EngineRow } from "@/lib/reports/engine";
+import { emptyQuery, groupHeading, runEngine, shareAllowed, sourceAllowed, visibleColumns, type EngineColumn, type EngineRow } from "@/lib/reports/engine";
 
 const columns: EngineColumn[] = [
   { key: "name", label: "Name", kind: "text" },
@@ -83,5 +83,10 @@ describe("report engine", () => {
     expect(shareAllowed("field", "user_dana", "office", "user_maya")).toBe(false);
     expect(shareAllowed("field", "user_dana", "private", "user_maya")).toBe(false);
     expect(shareAllowed("estimator", "user_luis", "office", "user_maya")).toBe(true);
+  });
+
+  it("renders a month group as a short label", () => {
+    expect(groupHeading("2026-07", 1)).toBe("Jul 2026 · 1");
+    expect(groupHeading("Active", 2)).toBe("Active · 2");
   });
 });

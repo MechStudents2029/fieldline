@@ -1055,6 +1055,8 @@ export const scheduleItems = sqliteTable(
     startTime: text("start_time"),
     status: text("status").notNull(),
     held: integer("held").notNull().default(0),
+    phase: text("phase"),
+    progressBps: integer("progress_bps").notNull().default(0),
     note: text("note"),
     vendorContactId: text("vendor_contact_id"),
     createdAt: text("created_at").notNull(),
@@ -2628,6 +2630,18 @@ export const templateFieldValues = sqliteTable(
     valueText: text("value_text").notNull().default(""),
   },
   (t) => [uniqueIndex("template_field_values_one").on(t.orgId, t.templateId, t.fieldId)],
+);
+
+export const userPrefs = sqliteTable(
+  "user_prefs",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    userId: text("user_id").notNull(),
+    key: text("key").notNull(),
+    value: text("value").notNull(),
+  },
+  (t) => [uniqueIndex("user_prefs_key").on(t.orgId, t.userId, t.key)],
 );
 
 export const savedReports = sqliteTable(

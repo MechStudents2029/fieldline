@@ -1,5 +1,5 @@
 import { devices, expect, test, type Page } from "@playwright/test";
-import { resetDemo } from "./helpers";
+import { resetDemo, revealToday } from "./helpers";
 
 function dueDate() {
   const day = new Date();
@@ -83,6 +83,7 @@ test("office bid, vendor prices, and per-line award at 1440", async ({ page, req
   await page.setViewportSize({ width: 1440, height: 900 });
   await resetDemo(request);
   await signInAs(page, "maya@rivera.demo");
+  await revealToday(page, "Bids due");
   await expect(page.locator("a:visible", { hasText: "Bids due" })).toContainText("1");
   await expect(page.locator("a:visible", { hasText: "Bids to award" })).toContainText("1");
   await expect(page.locator("a:visible", { hasText: "Floor tile" })).toHaveCount(1);

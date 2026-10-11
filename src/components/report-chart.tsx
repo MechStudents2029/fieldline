@@ -1,3 +1,5 @@
+import { axisLabel } from "@/lib/reports/engine";
+
 export function ReportChart({ kind, points }: { kind: "bar" | "line"; points: { label: string; value: number }[] }) {
   if (points.length === 0) return null;
   const max = Math.max(...points.map((point) => Math.abs(point.value)), 1);
@@ -19,11 +21,11 @@ export function ReportChart({ kind, points }: { kind: "bar" | "line"; points: { 
     );
   }
   return (
-    <div data-chart="bar" className="flex h-32 items-end gap-2">
+    <div data-chart="bar" className="flex h-16 items-end gap-3 px-2">
       {points.map((point) => (
-        <div key={point.label} className="flex h-full min-w-0 flex-1 flex-col justify-end gap-1">
-          <div className="w-full rounded-sm bg-[var(--mac-accent)]" style={{ height: `${Math.max(8, (Math.abs(point.value) / max) * 88)}%` }} />
-          <span className="truncate text-center mac-t11 text-[var(--mac-secondary)]">{point.label}</span>
+        <div key={point.label} className="flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-1">
+          <div className="w-1.5 rounded-sm bg-[var(--mac-accent)]" style={{ height: `${Math.max(8, (Math.abs(point.value) / max) * 70)}%` }} />
+          <span className="w-full truncate text-center mac-t11 text-[var(--mac-secondary)]">{axisLabel(point.label)}</span>
         </div>
       ))}
     </div>

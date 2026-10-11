@@ -286,12 +286,17 @@ export function ScheduleBoard({ board, openJobId }: { board: Board; openJobId: s
           </span>
         }
         center={
-          <Segmented
-            items={[
-              { href: board.hrefs.week, label: "Week", current: board.span === 7 },
-              { href: board.hrefs.two, label: "2 weeks", current: board.span === 14 },
-            ]}
-          />
+          <span className="inline-flex items-center gap-2">
+            <Segmented
+              items={[
+                { href: board.hrefs.week, label: "Week", current: board.span === 7 },
+                { href: board.hrefs.two, label: "2 weeks", current: board.span === 14 },
+              ]}
+            />
+            <a href="/schedule?view=gantt" className="mac-glass-btn">
+              Gantt
+            </a>
+          </span>
         }
       />
       <div className="min-h-0 flex-1 overflow-auto px-4" onKeyDown={onGridKey}>

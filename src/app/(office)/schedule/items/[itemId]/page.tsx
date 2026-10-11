@@ -19,6 +19,11 @@ export default async function ScheduleItemPage({ params }: { params: Promise<{ i
       </Link>
       <h1 className="fl-title">{heading.title}</h1>
       <p className="mac-t13 text-[var(--mac-secondary)]">{heading.job}</p>
+      {brief.float != null ? (
+        <p className="mac-t13">
+          Float <span className="num" data-float>{brief.float} wd</span>
+        </p>
+      ) : null}
       {brief.canEdit ? <ScheduleShiftForm itemId={brief.id} startDate={brief.startDate} endDate={brief.endDate} /> : null}
       <CommentThread entityType="schedule_item" entityId={itemId} />
     </div>

@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import { expect, test } from "@playwright/test";
-import { resetDemo, signIn } from "./helpers";
+import { resetDemo, revealToday, signIn } from "./helpers";
 
 function shot(page: import("@playwright/test").Page, name: string) {
   fs.mkdirSync("/opt/cursor/artifacts", { recursive: true });
@@ -12,6 +12,7 @@ test("bill cost-plus costs and show the invoice on the portal", async ({ page })
   await page.setViewportSize({ width: 1440, height: 900 });
   await resetDemo(page.request);
   await signIn(page);
+  await revealToday(page, "Unbilled costs");
   await expect(page.getByRole("link", { name: /Unbilled costs/ })).toContainText("1");
 
   await page.goto("/projects/proj_ellis/costs");

@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import { expect, test } from "@playwright/test";
-import { resetDemo, signIn } from "./helpers";
+import { resetDemo, revealToday, signIn } from "./helpers";
 
 function shot(page: import("@playwright/test").Page, name: string) {
   fs.mkdirSync("/opt/cursor/artifacts", { recursive: true });
@@ -41,6 +41,7 @@ test("equipment register, checkout, a daily log tag, and a printed label", async
   await page.emulateMedia({ colorScheme: "light" });
 
   await page.goto("/");
+  await revealToday(page, "Overdue returns");
   const overdue = page.getByRole("link", { name: "Overdue returns" });
   await overdue.scrollIntoViewIfNeeded();
   await expect(overdue).toBeVisible();

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { completeTaskAction } from "@/app/actions";
 import { EmptyState } from "@/components/empty-state";
-import { GroupedList, GroupedRow, LargeTitle, NumberStrip, PlusLink } from "@/components/ios";
+import { GroupedList, GroupedRow, LargeTitle, PlusLink } from "@/components/ios";
 import { Toolbar } from "@/components/mac/toolbar";
 import { FirstProposal, SetupRow } from "@/components/setup-checklist";
 import { requireSession } from "@/lib/auth/session";
@@ -74,6 +74,46 @@ function initials(name: string) {
 
 function shortJob(name: string) {
   return name.split(" ").slice(0, 2).join(" ");
+}
+
+type AttentionRow = { key: string; href: string; title: string; count: number; money: boolean; trailing: string; danger?: boolean };
+
+function Attention({ rows }: { rows: AttentionRow[] }) {
+  const primary = rows.filter((row) => row.money || row.count > 1);
+  const rest = rows.filter((row) => !row.money && row.count <= 1);
+  if (rows.length === 0) return null;
+  const item = (row: AttentionRow) => (
+    <GroupedRow key={row.key} href={row.href} title={row.title} trailing={<span className={row.danger ? "num text-[var(--mac-danger)]" : "num"}>{row.trailing}</span>} />
+  );
+  return (
+    <div className="flex flex-col gap-2">
+      {primary.length > 0 ? <ul className="fl-group">{primary.map(item)}</ul> : null}
+      {rest.length > 0 ? (
+        <details data-today-more>
+          <summary className="fl-cell fl-group">
+            <span className="min-w-0 flex-1">More</span>
+            <span className="num">{rest.length}</span>
+          </summary>
+          <ul className="fl-group mt-2">{rest.map(item)}</ul>
+        </details>
+      ) : null}
+    </div>
+  );
+}
+
+function KpiRow({ dashboard, kpis }: { dashboard: React.ReactNode; kpis: { label: string; value: string }[] }) {
+  if (!dashboard && kpis.length === 0) return null;
+  return (
+    <div className="flex gap-3 overflow-x-auto" data-today-kpis>
+      {dashboard}
+      {kpis.map((item) => (
+        <div key={item.label} data-kpi={item.label} className="flex h-28 w-44 shrink-0 flex-col justify-center gap-1 rounded-xl bg-[var(--mac-under)] px-3 py-2">
+          <span className="mac-t11 text-[var(--mac-secondary)]">{item.label}</span>
+          <span className="mac-t22 num">{item.value}</span>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 export default async function TodayPage() {
@@ -170,59 +210,59 @@ export default async function TodayPage() {
     return next.dueDate.slice(0, 10) < todayKey ? `${label} late` : `${label} due ${formatCalendarDay(next.dueDate)}`;
   };
   const home = dashboardForRole(session);
+  const kpis = money
+    ? [
+        { label: "Pipeline", value: formatCompact(data.pipelineCents) },
+        { label: "To collect", value: formatCompact(data.receivableCents) },
+        { label: "On site", value: String(crew.length) },
+        { label: "Avg margin", value: formatPercent(avgMargin) },
+      ]
+    : [];
+  const attention: AttentionRow[] = [];
+  const push = (key: string, count: number, href: string | null, title: string, trailing: string, moneyRow = false, danger = false) => {
+    if (count > 0 && href) attention.push({ key, href, title, count, trailing, money: moneyRow, danger });
+  };
+  for (const notice of notices) attention.push({ key: notice.id, href: notice.href, title: notice.title, count: 2, trailing: "", money: false });
+  push("talks", safety.missed.count, safety.missed.href, "Talks missed", String(safety.missed.count));
+  push("checks", safety.failed.count, safety.failed.href, "Failed checks", String(safety.failed.count));
+  push("incidents", safety.actions.count, safety.actions.href, "Open incidents", String(safety.actions.count));
+  push("updates", staleUpdates.count, staleUpdates.href, "Client updates", String(staleUpdates.count));
+  push("unbilled", agedCosts.count, agedCosts.href, "Unbilled costs", String(agedCosts.count));
+  push("slip", scheduleSlip.count, scheduleSlip.href, "Schedule slip", String(scheduleSlip.count));
+  push("inspections", inspections.upcoming.count, inspections.upcoming.href, "Inspections", String(inspections.upcoming.count));
+  push("failed-inspections", inspections.failed.count, inspections.failed.href, "Failed inspections", String(inspections.failed.count));
+  push("permits", inspections.expiring.count, inspections.expiring.href, "Permits expiring", String(inspections.expiring.count));
+  push("returns", gear.overdue.count, gear.overdue.href, "Overdue returns", String(gear.overdue.count));
+  push("service", gear.service.count, gear.service.href, "Service due", String(gear.service.count));
+  push("stranded", gear.stranded.count, gear.stranded.href, "Left on closed jobs", String(gear.stranded.count));
+  push("todos", overdueTodos, overdueTodos > 0 ? "/todos?due=overdue" : null, "Overdue to-dos", String(overdueTodos));
+  push("under", under.count, under.count > 0 ? "/reports/wip?sort=under&dir=asc" : null, "Underbilled", `${under.count} · ${formatWhole(Math.abs(under.cents))}`, true, true);
+  push("mentions", mentions, mentions > 0 ? "/inbox" : null, "Mentions", String(mentions));
+  push("leads", webLeadCount, webLeadCount > 0 ? webLeadHref : null, "New web leads", String(webLeadCount));
+  push("warranty", warranty.count, warranty.href, "Warranty requests", String(warranty.count));
+  push("vendor-bills", vendorBills.count, vendorBills.href, "Vendor bills", String(vendorBills.count));
+  push("certs", vendorCerts.count, vendorCerts.href, "Vendor certificates", String(vendorCerts.count));
+  push("bids-due", bids.due.count, bids.due.href, "Bids due", String(bids.due.count));
+  push("bids-award", bids.award.count, bids.award.href, "Bids to award", String(bids.award.count));
+  push("bill", ready.count, ready.href, "Ready to bill", `${ready.count} · ${formatWhole(ready.cents)}`, true);
+  push("pay", payReady.count, payReady.href, "Ready to pay", `${payReady.count} · ${formatWhole(payReady.cents)}`, true);
+  push("retainage", heldRetainage.cents > 0 ? 1 : 0, heldRetainage.cents > 0 ? "/bills" : null, "Retainage held", formatWhole(heldRetainage.cents), true);
+  push("rfi-over", rfis.overdue.count, rfis.overdue.href, "RFIs overdue", String(rfis.overdue.count));
+  push("rfi-wait", rfis.awaiting.count, rfis.awaiting.href, "RFIs awaiting your answer", String(rfis.awaiting.count));
+  push("sub-over", submittals.overdue.count, submittals.overdue.href, "Submittals overdue", String(submittals.overdue.count));
+  push("sub-wait", submittals.awaiting.count, submittals.awaiting.href, "Submittals awaiting your review", String(submittals.awaiting.count));
+  push("waivers", waivers.count, waivers.href, "Lien waivers", String(waivers.count));
   const weekJobs = projects.filter((row) => row.project.status === "active").slice(0, 4);
   const fresh = board.cards.filter((card) => card.stage.kind === "open" && card.stage.name !== "Estimate sent" && card.stage.name !== "Negotiation").slice(0, 3);
   return (
     <>
     <div className="mx-auto flex max-w-lg flex-col gap-7 md:hidden">
       <LargeTitle title="Today" subtitle={longDate(time.timeZone)} action={<PlusLink href="/leads/new" label="Add a lead" />} />
-      {home ? <DashboardStrip name={home.name} tiles={home.tiles} /> : null}
+      <KpiRow dashboard={home ? <DashboardStrip name={home.name} tiles={home.tiles} /> : null} kpis={kpis} />
       {showSetup ? <SetupRow steps={checklist.steps} /> : null}
       {proposal ? <FirstProposal steps={proposal} /> : null}
-      {money ? (
-        <NumberStrip
-          items={[
-            { label: "Pipeline", value: formatCompact(data.pipelineCents) },
-            { label: "To collect", value: formatCompact(data.receivableCents) },
-            { label: "On site", value: String(crew.length) },
-          ]}
-        />
-      ) : null}
       {quiet ? <EmptyState title="No jobs yet" why="Add a lead to start your pipeline." href="/leads/new" action="Add a lead" /> : null}
-      {staleUpdates.count > 0 || agedCosts.count > 0 || scheduleSlip.count > 0 || inspections.upcoming.count > 0 || inspections.failed.count > 0 || inspections.expiring.count > 0 || gear.overdue.count > 0 || gear.service.count > 0 || gear.stranded.count > 0 || under.count > 0 || overdueTodos > 0 || webLeadCount > 0 || warranty.count > 0 || vendorBills.count > 0 || vendorCerts.count > 0 || bids.due.count > 0 || bids.award.count > 0 || ready.count > 0 || payReady.count > 0 || heldRetainage.cents > 0 || rfis.overdue.count > 0 || rfis.awaiting.count > 0 || submittals.overdue.count > 0 || submittals.awaiting.count > 0 || waivers.count > 0 || mentions > 0 || notices.length > 0 || safety.missed.count > 0 || safety.failed.count > 0 || safety.actions.count > 0 ? (
-        <ul className="fl-group">
-          {notices.map((notice) => <GroupedRow key={notice.id} href={notice.href} title={notice.title} />)}
-          {safety.missed.count > 0 && safety.missed.href ? <GroupedRow href={safety.missed.href} title="Talks missed" trailing={<span className="num">{safety.missed.count}</span>} /> : null}
-          {safety.failed.count > 0 && safety.failed.href ? <GroupedRow href={safety.failed.href} title="Failed checks" trailing={<span className="num">{safety.failed.count}</span>} /> : null}
-          {safety.actions.count > 0 && safety.actions.href ? <GroupedRow href={safety.actions.href} title="Open incidents" trailing={<span className="num">{safety.actions.count}</span>} /> : null}
-          {staleUpdates.count > 0 && staleUpdates.href ? <GroupedRow href={staleUpdates.href} title="Client updates" trailing={<span className="num">{staleUpdates.count}</span>} /> : null}
-          {agedCosts.count > 0 && agedCosts.href ? <GroupedRow href={agedCosts.href} title="Unbilled costs" trailing={<span className="num">{agedCosts.count}</span>} /> : null}
-          {scheduleSlip.count > 0 && scheduleSlip.href ? <GroupedRow href={scheduleSlip.href} title="Schedule slip" trailing={<span className="num">{scheduleSlip.count}</span>} /> : null}
-          {inspections.upcoming.count > 0 && inspections.upcoming.href ? <GroupedRow href={inspections.upcoming.href} title="Inspections" trailing={<span className="num">{inspections.upcoming.count}</span>} /> : null}
-          {inspections.failed.count > 0 && inspections.failed.href ? <GroupedRow href={inspections.failed.href} title="Failed inspections" trailing={<span className="num">{inspections.failed.count}</span>} /> : null}
-          {inspections.expiring.count > 0 && inspections.expiring.href ? <GroupedRow href={inspections.expiring.href} title="Permits expiring" trailing={<span className="num">{inspections.expiring.count}</span>} /> : null}
-          {gear.overdue.count > 0 && gear.overdue.href ? <GroupedRow href={gear.overdue.href} title="Overdue returns" trailing={<span className="num">{gear.overdue.count}</span>} /> : null}
-          {gear.service.count > 0 && gear.service.href ? <GroupedRow href={gear.service.href} title="Service due" trailing={<span className="num">{gear.service.count}</span>} /> : null}
-          {gear.stranded.count > 0 && gear.stranded.href ? <GroupedRow href={gear.stranded.href} title="Left on closed jobs" trailing={<span className="num">{gear.stranded.count}</span>} /> : null}
-          {overdueTodos > 0 ? <GroupedRow href="/todos?due=overdue" title="Overdue to-dos" trailing={<span className="num">{overdueTodos}</span>} /> : null}
-          {under.count > 0 ? <GroupedRow href="/reports/wip?sort=under&dir=asc" title="Underbilled" trailing={<span className="num fl-late">{under.count} · {formatWhole(Math.abs(under.cents))}</span>} /> : null}
-          {mentions > 0 ? <GroupedRow href="/inbox" title="Mentions" trailing={<span className="num">{mentions}</span>} /> : null}
-          {webLeadCount > 0 ? <GroupedRow href={webLeadHref} title="New web leads" trailing={<span className="num">{webLeadCount}</span>} /> : null}
-          {warranty.count > 0 && warranty.href ? <GroupedRow href={warranty.href} title="Warranty requests" trailing={<span className="num">{warranty.count}</span>} /> : null}
-          {vendorBills.count > 0 && vendorBills.href ? <GroupedRow href={vendorBills.href} title="Vendor bills" trailing={<span className="num">{vendorBills.count}</span>} /> : null}
-          {vendorCerts.count > 0 && vendorCerts.href ? <GroupedRow href={vendorCerts.href} title="Vendor certificates" trailing={<span className="num">{vendorCerts.count}</span>} /> : null}
-          {bids.due.count > 0 && bids.due.href ? <GroupedRow href={bids.due.href} title="Bids due" trailing={<span className="num">{bids.due.count}</span>} /> : null}
-          {bids.award.count > 0 && bids.award.href ? <GroupedRow href={bids.award.href} title="Bids to award" trailing={<span className="num">{bids.award.count}</span>} /> : null}
-          {ready.count > 0 && ready.href ? <GroupedRow href={ready.href} title="Ready to bill" trailing={<span className="num">{ready.count} · {formatWhole(ready.cents)}</span>} /> : null}
-          {payReady.count > 0 && payReady.href ? <GroupedRow href={payReady.href} title="Ready to pay" trailing={<span className="num">{payReady.count} · {formatWhole(payReady.cents)}</span>} /> : null}
-          {heldRetainage.cents > 0 ? <GroupedRow href="/bills" title="Retainage held" trailing={<span className="num">{formatWhole(heldRetainage.cents)}</span>} /> : null}
-          {rfis.overdue.count > 0 && rfis.overdue.href ? <GroupedRow href={rfis.overdue.href} title="RFIs overdue" trailing={<span className="num">{rfis.overdue.count}</span>} /> : null}
-          {rfis.awaiting.count > 0 && rfis.awaiting.href ? <GroupedRow href={rfis.awaiting.href} title="RFIs awaiting your answer" trailing={<span className="num">{rfis.awaiting.count}</span>} /> : null}
-          {submittals.overdue.count > 0 && submittals.overdue.href ? <GroupedRow href={submittals.overdue.href} title="Submittals overdue" trailing={<span className="num">{submittals.overdue.count}</span>} /> : null}
-          {submittals.awaiting.count > 0 && submittals.awaiting.href ? <GroupedRow href={submittals.awaiting.href} title="Submittals awaiting your review" trailing={<span className="num">{submittals.awaiting.count}</span>} /> : null}
-          {waivers.count > 0 && waivers.href ? <GroupedRow href={waivers.href} title="Lien waivers" trailing={<span className="num">{waivers.count}</span>} /> : null}
-        </ul>
-      ) : null}
+      <Attention rows={attention} />
       {shown.length > 0 ? (
         <GroupedList label="Needs you">
           {shown.map((row) => (
@@ -282,66 +322,13 @@ export default async function TodayPage() {
     <div className="hidden md:flex md:flex-col">
       <Toolbar title="Today" subtitle={longDate(time.timeZone)} primaryHref="/leads/new" />
       <div className="flex flex-col gap-5 px-6 pb-8">
-        {home ? <DashboardStrip name={home.name} tiles={home.tiles} /> : null}
+        <KpiRow dashboard={home ? <DashboardStrip name={home.name} tiles={home.tiles} /> : null} kpis={kpis} />
         {showSetup ? <SetupRow steps={checklist.steps} /> : null}
         {proposal ? <FirstProposal steps={proposal} /> : null}
-        {money ? (
-          <div className="mac-strip">
-            <div>
-              <p className="mac-t22 num">{formatCompact(data.pipelineCents)}</p>
-              <p className="mac-t11 text-[var(--mac-secondary)]">Pipeline</p>
-            </div>
-            <div>
-              <p className="mac-t22 num">{formatCompact(data.receivableCents)}</p>
-              <p className="mac-t11 text-[var(--mac-secondary)]">To collect</p>
-            </div>
-            <div>
-              <p className="mac-t22 num">{crew.length}</p>
-              <p className="mac-t11 text-[var(--mac-secondary)]">On site</p>
-            </div>
-            <div>
-              <p className="mac-t22 num">{formatPercent(avgMargin)}</p>
-              <p className="mac-t11 text-[var(--mac-secondary)]">Avg margin</p>
-            </div>
-          </div>
-        ) : null}
         {quiet ? <EmptyState title="No jobs yet" why="Add a lead to start your pipeline." href="/leads/new" action="Add a lead" /> : null}
         <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_400px]">
           <div className="flex flex-col gap-6">
-            {staleUpdates.count > 0 || agedCosts.count > 0 || scheduleSlip.count > 0 || inspections.upcoming.count > 0 || inspections.failed.count > 0 || inspections.expiring.count > 0 || gear.overdue.count > 0 || gear.service.count > 0 || gear.stranded.count > 0 || under.count > 0 || overdueTodos > 0 || webLeadCount > 0 || warranty.count > 0 || vendorBills.count > 0 || vendorCerts.count > 0 || bids.due.count > 0 || bids.award.count > 0 || ready.count > 0 || payReady.count > 0 || heldRetainage.cents > 0 || rfis.overdue.count > 0 || rfis.awaiting.count > 0 || submittals.overdue.count > 0 || submittals.awaiting.count > 0 || waivers.count > 0 || mentions > 0 || notices.length > 0 || safety.missed.count > 0 || safety.failed.count > 0 || safety.actions.count > 0 ? (
-              <ul className="fl-group">
-                {notices.map((notice) => <GroupedRow key={notice.id} href={notice.href} title={notice.title} />)}
-                {safety.missed.count > 0 && safety.missed.href ? <GroupedRow href={safety.missed.href} title="Talks missed" trailing={<span className="num">{safety.missed.count}</span>} /> : null}
-                {safety.failed.count > 0 && safety.failed.href ? <GroupedRow href={safety.failed.href} title="Failed checks" trailing={<span className="num">{safety.failed.count}</span>} /> : null}
-                {safety.actions.count > 0 && safety.actions.href ? <GroupedRow href={safety.actions.href} title="Open incidents" trailing={<span className="num">{safety.actions.count}</span>} /> : null}
-                {staleUpdates.count > 0 && staleUpdates.href ? <GroupedRow href={staleUpdates.href} title="Client updates" trailing={<span className="num">{staleUpdates.count}</span>} /> : null}
-          {agedCosts.count > 0 && agedCosts.href ? <GroupedRow href={agedCosts.href} title="Unbilled costs" trailing={<span className="num">{agedCosts.count}</span>} /> : null}
-          {scheduleSlip.count > 0 && scheduleSlip.href ? <GroupedRow href={scheduleSlip.href} title="Schedule slip" trailing={<span className="num">{scheduleSlip.count}</span>} /> : null}
-          {inspections.upcoming.count > 0 && inspections.upcoming.href ? <GroupedRow href={inspections.upcoming.href} title="Inspections" trailing={<span className="num">{inspections.upcoming.count}</span>} /> : null}
-          {inspections.failed.count > 0 && inspections.failed.href ? <GroupedRow href={inspections.failed.href} title="Failed inspections" trailing={<span className="num">{inspections.failed.count}</span>} /> : null}
-          {inspections.expiring.count > 0 && inspections.expiring.href ? <GroupedRow href={inspections.expiring.href} title="Permits expiring" trailing={<span className="num">{inspections.expiring.count}</span>} /> : null}
-                {gear.overdue.count > 0 && gear.overdue.href ? <GroupedRow href={gear.overdue.href} title="Overdue returns" trailing={<span className="num">{gear.overdue.count}</span>} /> : null}
-                {gear.service.count > 0 && gear.service.href ? <GroupedRow href={gear.service.href} title="Service due" trailing={<span className="num">{gear.service.count}</span>} /> : null}
-                {gear.stranded.count > 0 && gear.stranded.href ? <GroupedRow href={gear.stranded.href} title="Left on closed jobs" trailing={<span className="num">{gear.stranded.count}</span>} /> : null}
-                {overdueTodos > 0 ? <GroupedRow href="/todos?due=overdue" title="Overdue to-dos" trailing={<span className="num">{overdueTodos}</span>} /> : null}
-                {under.count > 0 ? <GroupedRow href="/reports/wip?sort=under&dir=asc" title="Underbilled" trailing={<span className="num text-[var(--mac-danger)]">{under.count} · {formatWhole(Math.abs(under.cents))}</span>} /> : null}
-                {mentions > 0 ? <GroupedRow href="/inbox" title="Mentions" trailing={<span className="num">{mentions}</span>} /> : null}
-                {webLeadCount > 0 ? <GroupedRow href={webLeadHref} title="New web leads" trailing={<span className="num">{webLeadCount}</span>} /> : null}
-                {warranty.count > 0 && warranty.href ? <GroupedRow href={warranty.href} title="Warranty requests" trailing={<span className="num">{warranty.count}</span>} /> : null}
-                {vendorBills.count > 0 && vendorBills.href ? <GroupedRow href={vendorBills.href} title="Vendor bills" trailing={<span className="num">{vendorBills.count}</span>} /> : null}
-                {vendorCerts.count > 0 && vendorCerts.href ? <GroupedRow href={vendorCerts.href} title="Vendor certificates" trailing={<span className="num">{vendorCerts.count}</span>} /> : null}
-                {bids.due.count > 0 && bids.due.href ? <GroupedRow href={bids.due.href} title="Bids due" trailing={<span className="num">{bids.due.count}</span>} /> : null}
-                {bids.award.count > 0 && bids.award.href ? <GroupedRow href={bids.award.href} title="Bids to award" trailing={<span className="num">{bids.award.count}</span>} /> : null}
-          {ready.count > 0 && ready.href ? <GroupedRow href={ready.href} title="Ready to bill" trailing={<span className="num">{ready.count} · {formatWhole(ready.cents)}</span>} /> : null}
-          {payReady.count > 0 && payReady.href ? <GroupedRow href={payReady.href} title="Ready to pay" trailing={<span className="num">{payReady.count} · {formatWhole(payReady.cents)}</span>} /> : null}
-          {heldRetainage.cents > 0 ? <GroupedRow href="/bills" title="Retainage held" trailing={<span className="num">{formatWhole(heldRetainage.cents)}</span>} /> : null}
-                {rfis.overdue.count > 0 && rfis.overdue.href ? <GroupedRow href={rfis.overdue.href} title="RFIs overdue" trailing={<span className="num">{rfis.overdue.count}</span>} /> : null}
-                {rfis.awaiting.count > 0 && rfis.awaiting.href ? <GroupedRow href={rfis.awaiting.href} title="RFIs awaiting your answer" trailing={<span className="num">{rfis.awaiting.count}</span>} /> : null}
-                {submittals.overdue.count > 0 && submittals.overdue.href ? <GroupedRow href={submittals.overdue.href} title="Submittals overdue" trailing={<span className="num">{submittals.overdue.count}</span>} /> : null}
-                {submittals.awaiting.count > 0 && submittals.awaiting.href ? <GroupedRow href={submittals.awaiting.href} title="Submittals awaiting your review" trailing={<span className="num">{submittals.awaiting.count}</span>} /> : null}
-                {waivers.count > 0 && waivers.href ? <GroupedRow href={waivers.href} title="Lien waivers" trailing={<span className="num">{waivers.count}</span>} /> : null}
-              </ul>
-            ) : null}
+            <Attention rows={attention} />
             {shown.length > 0 ? (
               <GroupedList label="Needs you">
                 {shown.map((row) => (
