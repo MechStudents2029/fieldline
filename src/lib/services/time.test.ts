@@ -216,7 +216,9 @@ describe("time tracking", () => {
     const posted = approveTime(maya, clocked.entryId, start + 4 * HOUR);
     expect(posted).toMatchObject({ minutes: 105, rateCents: 5200, amountCents: 10_192 });
     expect(jobCost("proj_okonkwo")).toBe(before + 14_872);
-    const cost = getDb().select().from(costItems).where(eq(costItems.id, posted.costId)).get();
+    expect(posted.costId).toEqual(expect.any(String));
+    const costId = posted.costId ?? "";
+    const cost = getDb().select().from(costItems).where(eq(costItems.id, costId)).get();
     expect(cost?.source).toBe("labor");
     expect(cost?.costCode).toBe("TILE-SHOWER");
     expect(cost?.vendorName).toBe("Dana Cho");
@@ -240,7 +242,7 @@ describe("time tracking", () => {
       }),
     ).toThrow(/Reopen this entry/);
     reopenTime(maya, clocked.entryId, "Hours were short");
-    expect(getDb().select().from(costItems).where(eq(costItems.id, posted.costId)).get()).toBeUndefined();
+    expect(getDb().select().from(costItems).where(eq(costItems.id, costId)).get()).toBeUndefined();
     expect(getDb().select().from(timeApprovals).where(eq(timeApprovals.entryId, clocked.entryId)).get()?.status).toBe("voided");
     expect(getDb().select().from(timeEntries).where(eq(timeEntries.id, clocked.entryId)).get()?.status).toBe("pending");
     expect(jobCost("proj_okonkwo")).toBe(before + 11_400);
