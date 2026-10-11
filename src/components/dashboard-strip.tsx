@@ -5,7 +5,7 @@ import type { DashTile } from "@/lib/services/dashboards";
 export function DashboardStrip({ name, tiles }: { name: string; tiles: DashTile[] }) {
   if (tiles.length === 0) return null;
   return (
-    <section aria-label={name} data-dashboard={name} className="flex gap-3 overflow-x-auto">
+    <section aria-label={name} data-dashboard={name} className="flex shrink-0 gap-3">
       {tiles.map((tile) => (
         <Link key={tile.id} href={tile.href} data-tile={tile.title} className="flex h-28 w-44 shrink-0 flex-col gap-1 overflow-hidden rounded-xl bg-[var(--mac-under)] px-3 py-2">
           <span className="mac-t11 text-[var(--mac-secondary)]">{tile.title}</span>

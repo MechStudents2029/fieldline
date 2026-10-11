@@ -48,6 +48,9 @@ test("builds a report, exports csv, and opens a role dashboard", async ({ page }
 
   await page.goto("/reports/builtin/sales_month");
   await expect(page.locator("[data-chart=bar]")).toBeVisible();
+  await expect(page.locator("[data-group='2026-07']")).toContainText("Jul 2026 · 1");
+  await expect(page.locator("[data-subtotal='2026-07'] td").nth(0)).toHaveText("");
+  await expect(page.locator("[data-subtotal='2026-07'] td").nth(1)).toHaveText("");
   await expect(page.locator("[data-subtotal]").first()).toBeVisible();
   await expect(page.locator("[data-total]")).toBeVisible();
   await shot(page, "reports-grouped-light");
@@ -56,6 +59,10 @@ test("builds a report, exports csv, and opens a role dashboard", async ({ page }
   await page.emulateMedia({ colorScheme: "light" });
 
   await page.goto("/");
+  const kpis = page.locator("[data-today-kpis]:visible");
+  await expect(kpis.getByText("Pending proposals")).toBeVisible();
+  await expect(kpis.getByText("Pipeline")).toBeVisible();
+  await expect(page.locator("details[data-today-more]:visible")).toBeVisible();
   const board = page.locator("[data-dashboard=Owner]:visible");
   await expect(board.getByText("Pending proposals")).toBeVisible();
   await expect(board.getByText("AR 60+")).toBeVisible();

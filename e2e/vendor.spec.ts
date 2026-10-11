@@ -1,5 +1,5 @@
 import { devices, expect, test, type Page } from "@playwright/test";
-import { resetDemo } from "./helpers";
+import { resetDemo, revealToday } from "./helpers";
 
 const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x00]);
 const portal = "/v/demo_vendor_harbor_m3p8qx7k";
@@ -48,6 +48,7 @@ test("office vendor compliance, portal bill, and draft review at 1440", async ({
   await resetDemo(request);
   await page.setViewportSize({ width: 1440, height: 900 });
   await signInAs(page, "maya@rivera.demo");
+  await revealToday(page, "Vendor certificates");
   await expect(page.locator("a:visible", { hasText: "Vendor certificates" })).toContainText("1");
   await expect(page.locator("a:visible", { hasText: "Warranty requests" })).toContainText("1");
   await expect(page.locator("a:visible", { hasText: "Floor tile" })).toHaveCount(1);
@@ -62,6 +63,7 @@ test("office vendor compliance, portal bill, and draft review at 1440", async ({
   await acceptAndBill(page, "HP-902");
 
   await signInAs(page, "maya@rivera.demo");
+  await revealToday(page, "Vendor bills");
   await expect(page.locator("a:visible", { hasText: "Vendor bills" })).toContainText("1");
   await page.locator("a:visible", { hasText: "Vendor bills" }).click();
   await expect(page.getByRole("heading", { name: "HP-902" })).toBeVisible();
@@ -83,6 +85,7 @@ test.describe("vendor portal on a phone", () => {
     await resetDemo(request);
     await acceptAndBill(page, "HP-903");
     await signInAs(page, "maya@rivera.demo");
+    await revealToday(page, "Vendor bills");
     await expect(page.locator("a:visible", { hasText: "Vendor bills" })).toContainText("1");
     await page.locator("a:visible", { hasText: "Vendor bills" }).click();
     await expect(page.getByRole("heading", { name: "HP-903" })).toBeVisible();

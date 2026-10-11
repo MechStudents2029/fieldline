@@ -1,5 +1,5 @@
 import { devices, expect, test, type Page } from "@playwright/test";
-import { resetDemo } from "./helpers";
+import { resetDemo, revealToday } from "./helpers";
 
 const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x00]);
 
@@ -20,6 +20,7 @@ test("office punch, closeout, and warranty at 1440", async ({ page, request }) =
   await resetDemo(request);
   await page.setViewportSize({ width: 1440, height: 900 });
   await signInAs(page, "maya@rivera.demo");
+  await revealToday(page, "Warranty requests");
   await expect(page.locator("a:visible", { hasText: "Warranty requests" })).toHaveCount(1);
   await expect(page.locator("a:visible", { hasText: "Warranty requests" })).toContainText("1");
   await expect(page.locator("a:visible", { hasText: "Floor tile" })).toHaveCount(1);

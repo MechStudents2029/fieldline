@@ -126,6 +126,7 @@ export function ensureReady(holder: Holder) {
   ensureSafety(holder);
   ensureCustomFields(holder);
   ensureReports(holder);
+  ensureGantt(holder);
   const version = holder.sqlite.prepare("select value from app_meta where key = ?").get("seed_version") as
     | { value: string }
     | undefined;
@@ -2467,6 +2468,22 @@ function ensureReports(holder: Holder) {
     )`);
   }
   holder.sqlite.exec("create unique index if not exists dashboard_roles_one on dashboard_roles (org_id, role)");
+}
+
+function ensureGantt(holder: Holder) {
+  const pk = holder.dialect === "postgres" ? "text primary key" : "text primary key not null";
+  ensureColumn(holder, "schedule_items", "phase", "text");
+  ensureColumn(holder, "schedule_items", "progress_bps", "integer not null default 0");
+  if (!tableExists(holder.sqlite, "user_prefs", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists user_prefs (
+      id ${pk},
+      org_id text not null,
+      user_id text not null,
+      key text not null,
+      value text not null
+    )`);
+  }
+  holder.sqlite.exec("create unique index if not exists user_prefs_key on user_prefs (org_id, user_id, key)");
 }
 
 export function resetDatabase(): AppDatabase {

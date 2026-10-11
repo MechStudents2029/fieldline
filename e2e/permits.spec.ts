@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import { expect, test } from "@playwright/test";
-import { resetDemo, signIn } from "./helpers";
+import { resetDemo, revealToday, signIn } from "./helpers";
 
 function shot(page: import("@playwright/test").Page, name: string) {
   fs.mkdirSync("/opt/cursor/artifacts", { recursive: true });
@@ -43,6 +43,7 @@ test("permits, a failed inspection, the gate, and the variance report", async ({
   await page.emulateMedia({ colorScheme: "light" });
 
   await page.goto("/");
+  await revealToday(page, "Inspections");
   await expect(page.getByRole("link", { name: /^Inspections/ })).toContainText("1");
   await expect(page.getByRole("link", { name: /^Failed inspections/ })).toContainText("1");
   await expect(page.getByRole("link", { name: /^Permits expiring/ })).toContainText("1");

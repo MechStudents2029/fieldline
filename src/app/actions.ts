@@ -50,7 +50,7 @@ import {
 } from "@/lib/services/time";
 import type { TimeUndo } from "@/lib/services/time";
 import { moveScheduleItem, rotateCalendarFeed, saveScheduleItem, type ScheduleStatus } from "@/lib/services/schedule";
-import { attachRecordFile, inspectionTodos, requestReinspection, saveInspection, savePermit, scheduleGateStatus, setInspectionGateMode } from "@/lib/services/permits";
+import { attachRecordFile, enforceScheduleGate, inspectionTodos, requestReinspection, saveInspection, savePermit, scheduleGateStatus, setInspectionGateMode } from "@/lib/services/permits";
 import { setScheduleBaseline } from "@/lib/services/schedule-plan";
 import { addWorkException, removeWorkException } from "@/lib/services/work-calendar";
 import { previewScheduleShift, shiftScheduleDates } from "@/lib/services/schedule-shift";
@@ -2252,6 +2252,26 @@ export async function moveScheduleAction(input: { id: string; startDate: string;
     moveScheduleItem(user, input.id, input, delay, Boolean(input.confirmGate));
     refreshSchedule("");
     return { ok: "Saved." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+/** Date-only move from the Gantt. Assignees stay. Cascade, delay, and gate match the grid. */
+export async function ganttMoveAction(input: { id: string; startDate: string; endDate: string; reason?: string; note?: string; confirmGate?: boolean; confirmShift?: boolean }): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const delay = input.reason ? { reason: input.reason, note: input.note || "" } : null;
+    const preview = previewScheduleShift(user, input.id, input.startDate, input.endDate);
+    const gate = scheduleGateStatus(user, input.id, { startDate: input.startDate, status: "planned" });
+    if (gate.action === "block") return { error: gate.reason ?? "This inspection has not passed." };
+    if (gate.action === "warn" && !input.confirmGate) return { needsGate: true, gateReason: gate.reason ?? undefined };
+    if (preview.needsReason && !delay) return { needsReason: true, delayDays: preview.days, confirm: preview.count > 1 ? preview.label : undefined };
+    if (!preview.needsReason && preview.count > 1 && !input.confirmShift) return { confirm: preview.label };
+    enforceScheduleGate(user, input.id, { startDate: input.startDate, status: "planned" }, Boolean(input.confirmGate));
+    const result = shiftScheduleDates(user, input.id, input.startDate, input.endDate, delay);
+    refreshSchedule(result.projectId);
+    return { ok: result.count > 1 ? result.label : "Saved." };
   } catch (error) {
     return failure(error);
   }

@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import { devices, expect, test, type Page } from "@playwright/test";
-import { resetDemo, signIn } from "./helpers";
+import { resetDemo, revealToday, signIn } from "./helpers";
 
 const harbor = "/v/demo_vendor_harbor_m3p8qx7k";
 const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x00]);
@@ -23,6 +23,7 @@ async function signBackIn(page: Page) {
 }
 
 async function officeAndVendor(page: Page, shots: boolean) {
+  await revealToday(page, "Submittals overdue");
   await expect(page.locator("a:visible", { hasText: "Submittals overdue" })).toBeVisible();
   await expect(page.locator("a:visible", { hasText: "Submittals awaiting your review" })).toBeVisible();
   await page.goto("/submittals");

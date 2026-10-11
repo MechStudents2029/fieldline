@@ -5,6 +5,14 @@ export async function resetDemo(request: APIRequestContext) {
   expect(response.ok()).toBeTruthy();
 }
 
+/** Count-1 Today rows sit under More. Open it when the link is not already on screen. */
+export async function revealToday(page: Page, name: string | RegExp) {
+  const link = page.locator("a:visible", { hasText: name });
+  if (await link.count()) return;
+  const more = page.locator("details[data-today-more]:visible > summary");
+  if (await more.count()) await more.click();
+}
+
 export async function signIn(page: Page) {
   await page.goto("/login");
   await page.getByLabel("Email").fill("maya@rivera.demo");

@@ -19,6 +19,11 @@ import { projectBills } from "@/lib/services/bills";
 import { projectPurchaseOrders } from "@/lib/services/purchase-orders";
 import { captionFromMetadata, listPriceBook, listProjects, pipelineBoard, projectDetail } from "@/lib/services/read";
 import { jobInspectionMarks, scheduleGateLabels } from "@/lib/services/permits";
+import { GanttBoard } from "@/components/gantt-board";
+import { Segmented } from "@/components/mac/toolbar";
+import { cleanZoom } from "@/lib/schedule/gantt";
+import { jobGantt } from "@/lib/services/gantt";
+import { getPref, setPref } from "@/lib/services/prefs";
 import { jobSchedule } from "@/lib/services/schedule";
 import { scheduleCompare } from "@/lib/services/schedule-plan";
 import { listWorkExceptions } from "@/lib/services/work-calendar";
@@ -51,7 +56,7 @@ function codeTone(percent: number | null, level: string) {
   return "text-[var(--fl-secondary)]";
 }
 
-export default async function ProjectPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ created?: string; fields?: string }> }) {
+export default async function ProjectPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ created?: string; fields?: string; view?: string; zoom?: string; critical?: string }> }) {
   const { id } = await params;
   const query = await searchParams;
   const created = query.created;
@@ -67,6 +72,12 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
   const crew = board.office?.clockedIn.filter((row) => row.projectName === detail.project.name) ?? [];
   const todayKey = officeToday(board.timeZone);
   const schedule = jobSchedule(session, detail.project.id);
+  const zoom = cleanZoom(query.zoom) ?? cleanZoom(getPref(session, "ganttZoom")) ?? "week";
+  if (cleanZoom(query.zoom)) setPref(session, "ganttZoom", query.zoom!);
+  const requestedView = query.view === "gantt" || query.view === "list" ? query.view : null;
+  if (requestedView) setPref(session, "jobScheduleView", requestedView);
+  const scheduleView = requestedView ?? (getPref(session, "jobScheduleView") === "gantt" ? "gantt" : "list");
+  const gantt = scheduleView === "gantt" ? jobGantt(session, detail.project.id, zoom) : null;
   const marks = jobInspectionMarks(session, detail.project.id);
   const gates = scheduleGateLabels(session.orgId);
   const compare = scheduleCompare(session, detail.project.id);
@@ -485,8 +496,26 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
                 Add
               </Link>
             ) : null}
+            <Segmented
+              items={[
+                { href: `/projects/${detail.project.id}?view=list#schedule`, label: "List", current: scheduleView !== "gantt" },
+                { href: `/projects/${detail.project.id}?view=gantt&zoom=${zoom}#schedule`, label: "Gantt", current: scheduleView === "gantt" },
+              ]}
+            />
           </span>
         </div>
+        {gantt ? (
+          <div className="flex flex-col gap-2">
+            <Segmented
+              items={[
+                { href: `/projects/${detail.project.id}?view=gantt&zoom=week#schedule`, label: "Week", current: zoom === "week" },
+                { href: `/projects/${detail.project.id}?view=gantt&zoom=month#schedule`, label: "Month", current: zoom === "month" },
+                { href: `/projects/${detail.project.id}?view=gantt&zoom=quarter#schedule`, label: "Quarter", current: zoom === "quarter" },
+              ]}
+            />
+            <GanttBoard model={gantt} critical={query.critical === "1"} printHref={`/projects/${detail.project.id}/schedule/print`} />
+          </div>
+        ) : null}
         {marks.length > 0 ? (
           <ul className="fl-group" aria-label="Inspections">
             {marks.map((mark) => (
@@ -505,7 +534,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
             ))}
           </ul>
         ) : null}
-        <ul className="fl-group">
+        {gantt ? null : <ul className="fl-group">
           {schedule.length === 0 ? <li className="fl-cell">No items</li> : null}
           {schedule.map((item) => {
             const late = (rfiBoard?.items ?? []).some((rfi) => rfi.relatedType === "schedule" && rfi.relatedId === item.id && rfi.overdue);
@@ -528,7 +557,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
             </li>
             );
           })}
-        </ul>
+        </ul>}
         {jobDays.length > 0 || canEditSchedule(session.role) ? (
           <div className="flex flex-col gap-2">
             {jobDays.map((day) => (

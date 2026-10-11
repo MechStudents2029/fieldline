@@ -949,6 +949,22 @@ button.switch[aria-checked="true"] span {
 .plan-pin.is-open { background: var(--mac-accent); color: white; }
 .plan-pin.is-done, .plan-pin.is-verified { background: var(--mac-fill); color: var(--mac-label); box-shadow: inset 0 0 0 0.5px var(--mac-separator); }
 .mac-table td.wrap, .mac-table th.wrap { white-space: normal; min-width: 11rem; height: auto; line-height: 16px; padding-top: 4px; padding-bottom: 4px; }
+.gantt-names { width: 400px; table-layout: fixed; }
+.gantt-names th, .gantt-names td { height: 32px; }
+.gantt-names col.name { width: 168px; }
+.gantt-bar { height: 18px; overflow: hidden; border-radius: 4px; background: var(--mac-fill); }
+.gantt-bar:disabled { cursor: default; }
+.gantt-progress { display: block; height: 100%; background: color-mix(in srgb, var(--mac-accent) 50%, transparent); }
+[data-critical-on="1"] .gantt-bar[data-critical="1"] { background: var(--mac-accent); }
+[data-critical-on="1"] .gantt-bar[data-critical="1"] .gantt-progress { background: color-mix(in srgb, white 40%, transparent); }
+[data-critical-on="1"] .gantt-bar[data-critical="0"] { opacity: 0.35; }
+.gantt-off { background: color-mix(in srgb, var(--mac-label) 8%, transparent); }
+.gantt-today { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--mac-accent); }
+.gantt-base { top: 24px; height: 2px; border-radius: 1px; background: color-mix(in srgb, var(--mac-label) 55%, transparent); }
+.gantt-roll { height: 10px; overflow: hidden; border-radius: 4px; background: var(--mac-fill); }
+.gantt-roll > span { display: block; height: 100%; background: var(--mac-accent); }
+details[data-today-more] > summary { list-style: none; cursor: pointer; }
+details[data-today-more] > summary::-webkit-details-marker { display: none; }
 .mac-schedule th.is-off { background: color-mix(in srgb, var(--mac-label) 8%, var(--mac-window)); }
 .mac-schedule td.is-off,
 .mac-schedule tbody tr:nth-child(even) td.is-off { background: color-mix(in srgb, var(--mac-label) 8%, var(--mac-window)); }

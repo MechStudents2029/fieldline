@@ -129,7 +129,7 @@ export function shiftScheduleDates(actor: Actor, itemId: string, startDate: stri
     writeScheduleShifts(writer, actor, shifts);
     if (needs && reason) writeDelay(writer, actor, item.projectId, itemId, needs.days, reason);
   });
-  return { count, label: movesLabel(count), shifts };
+  return { count, label: movesLabel(count), shifts, projectId: item.projectId };
 }
 
 export function replaceScheduleLinks(actor: Actor, itemId: string, links: ScheduleLinkInput[]) {

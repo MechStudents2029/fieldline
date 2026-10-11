@@ -19,6 +19,7 @@ import { unlinkScheduleTodos } from "@/lib/services/todos";
 import { cleanDelay, delayRequirement, writeDelay, type DelayInput } from "@/lib/services/schedule-plan";
 import { buildSchedulePlan, replaceScheduleLinks, writeScheduleShifts, type ScheduleLinkInput } from "@/lib/services/schedule-shift";
 import type { Actor } from "@/lib/services/read";
+import { floatForItem } from "@/lib/services/gantt";
 import { calendarForOrg } from "@/lib/services/time";
 import { workCalendarFor } from "@/lib/services/work-calendar";
 import { addCalendarDays, localDay, zonedTimeToUtc } from "@/lib/time/calendar";
@@ -424,6 +425,7 @@ export function scheduleItemBrief(actor: Actor, itemId: string) {
     startDate: item.item.startDate,
     endDate: item.item.endDate,
     canEdit: canEditSchedule(actor.role as Role),
+    float: floatForItem(actor, itemId),
   };
 }
 
