@@ -2,7 +2,17 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { TYPE_LABEL, type FieldDef } from "@/lib/services/custom-fields";
+
+type FieldRow = {
+  id: string;
+  label: string;
+  typeLabel: string;
+  required: boolean;
+  office: boolean;
+  field: boolean;
+  vendor: boolean;
+  client: boolean;
+};
 
 export function FieldTable({
   recordType,
@@ -11,7 +21,7 @@ export function FieldTable({
   orderAction,
 }: {
   recordType: string;
-  rows: FieldDef[];
+  rows: FieldRow[];
   archiveAction: (formData: FormData) => void;
   orderAction: (formData: FormData) => void;
 }) {
@@ -76,7 +86,7 @@ export function FieldTable({
               <td>
                 <Link href={`/settings/fields?field=${field.id}`}>{field.label}</Link>
               </td>
-              <td>{TYPE_LABEL[field.fieldType]}</td>
+              <td>{field.typeLabel}</td>
               <td>
                 <span className="flex flex-wrap gap-1">
                   {pills.map((pill) => (

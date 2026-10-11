@@ -105,7 +105,25 @@ export default async function CustomFieldsPage({ searchParams }: { searchParams:
                     New
                   </Link>
                 </div>
-                {rows.length === 0 ? <p className="mac-t13 text-[var(--mac-secondary)]">None</p> : <FieldTable recordType={recordType} rows={rows} archiveAction={archiveFieldAction} orderAction={orderFieldsAction} />}
+                {rows.length === 0 ? (
+                  <p className="mac-t13 text-[var(--mac-secondary)]">None</p>
+                ) : (
+                  <FieldTable
+                    recordType={recordType}
+                    rows={rows.map((field) => ({
+                      id: field.id,
+                      label: field.label,
+                      typeLabel: TYPE_LABEL[field.fieldType],
+                      required: field.required,
+                      office: field.office,
+                      field: field.field,
+                      vendor: field.vendor,
+                      client: field.client,
+                    }))}
+                    archiveAction={archiveFieldAction}
+                    orderAction={orderFieldsAction}
+                  />
+                )}
               </section>
             );
           })}
