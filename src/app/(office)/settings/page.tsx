@@ -187,6 +187,10 @@ export default async function SettingsPage() {
             <input name="vendorRetainage" type="number" min={0} max={100} defaultValue={(billingDefaults.vendorRetainageBps / 100).toFixed(0)} className="field mt-1 w-24" />
           </label>
           <label className="text-sm">
+            Credit age days
+            <input name="creditStaleDays" type="number" min={1} max={90} defaultValue={org.creditStaleDays} aria-label="Credit age days" className="field mt-1 w-24" />
+          </label>
+          <label className="text-sm">
             Warranty months
             <input name="warrantyMonths" type="number" min={1} max={120} defaultValue={org.warrantyMonths} className="field mt-1" />
           </label>

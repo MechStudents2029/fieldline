@@ -154,6 +154,8 @@ import {
   voidBill,
 } from "@/lib/services/bills";
 import { billReceived, parseReceiveLines, receiveDelivery, voidReceipt } from "@/lib/services/receiving";
+import { createCreditFromLine, createCreditFromOrder, createCreditFromPunch, createCreditFromReceipt, issueCredit, setCreditStaleDays, voidCredit } from "@/lib/services/vendor-credits";
+import { respondPortalCredit } from "@/lib/services/vendor-portal";
 import {
   closePurchaseOrder,
   createPurchaseOrder,
@@ -1001,6 +1003,8 @@ export async function settingsAction(_prev: ActionState, formData: FormData): Pr
         ...(workdays.length ? { workdays } : {}),
       });
     }
+    const creditStaleDays = formData.get("creditStaleDays");
+    if (creditStaleDays != null && String(creditStaleDays).trim()) setCreditStaleDays(user, Math.round(Number(creditStaleDays)));
     const warrantyMonths = formData.get("warrantyMonths");
     if (warrantyMonths != null && String(warrantyMonths).trim()) setWarrantyMonths(user, Number(warrantyMonths));
     const vendorMode = formData.get("vendorComplianceMode");
@@ -1700,6 +1704,98 @@ export async function voidReceiptAction(_prev: ActionState, formData: FormData):
   }
 }
 
+export async function createCreditFromReceiptAction(receiptId: string, _prev: ActionState, _formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const saved = createCreditFromReceipt(user, receiptId, { another: _formData.get("another") === "1" });
+    revalidatePath("/vendor-credits");
+    revalidatePath("/");
+    if (user.role === "field") return { ok: saved.existing ? "Already proposed." : "Draft saved." };
+    redirect(`/vendor-credits/${saved.id}`);
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function createCreditFromOrderAction(purchaseOrderId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const saved = createCreditFromOrder(user, purchaseOrderId, { another: formData.get("another") === "1" });
+    revalidatePath("/vendor-credits");
+    revalidatePath("/deliveries");
+    if (user.role === "field") return { ok: saved.existing ? "Already proposed." : "Draft saved." };
+    redirect(`/vendor-credits/${saved.id}`);
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function createCreditFromLineAction(lineId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const saved = createCreditFromLine(user, lineId, { another: formData.get("another") === "1" });
+    revalidatePath("/vendor-credits");
+    redirect(`/vendor-credits/${saved.id}`);
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function createCreditFromPunchAction(punchItemId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const amount = String(formData.get("amount") || "");
+    const saved = createCreditFromPunch(user, punchItemId, {
+      another: formData.get("another") === "1",
+      reason: String(formData.get("reason") || ""),
+      amountCents: amount ? Math.round(Number(amount) * 100) : undefined,
+    });
+    revalidatePath("/vendor-credits");
+    revalidatePath("/");
+    if (user.role === "field") return { ok: saved.existing ? "Already proposed." : "Draft saved." };
+    redirect(`/vendor-credits/${saved.id}`);
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function issueCreditAction(creditId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    issueCredit(user, creditId, Math.round(Number(formData.get("amount") || 0) * 100));
+    revalidatePath(`/vendor-credits/${creditId}`);
+    revalidatePath("/vendor-credits");
+    revalidatePath("/");
+    return { ok: "Issued." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function voidCreditAction(creditId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const saved = voidCredit(user, creditId, String(formData.get("reason") || ""));
+    revalidatePath(`/vendor-credits/${creditId}`);
+    revalidatePath(`/projects/${saved.projectId}`);
+    revalidatePath("/vendor-credits");
+    return { ok: "Voided. The job cost is back." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function respondPortalCreditAction(token: string, creditId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const saved = respondPortalCredit(token, creditId, String(formData.get("decision") || ""), String(formData.get("note") || ""));
+    revalidatePath(`/v/${token}`);
+    revalidatePath("/inbox");
+    return { ok: saved.number };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
 export async function billReceivedAction(purchaseOrderId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
   try {
     const user = await actor();
@@ -1729,10 +1825,16 @@ export async function unapproveBillAction(billId: string, _prev: ActionState, fo
 export async function payBillAction(billId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
   try {
     const user = await actor();
+    const applications = formData
+      .getAll("creditId")
+      .map(String)
+      .map((creditId) => ({ creditId, amountCents: Math.round(Number(formData.get(`creditAmount:${creditId}`) || 0) * 100) }))
+      .filter((row) => row.amountCents > 0);
     const paid = markBillPaid(user, billId, {
       paidOn: String(formData.get("paidOn") || ""),
       method: String(formData.get("method") || ""),
       reference: String(formData.get("reference") || ""),
+      applications,
     });
     refreshBill(String(formData.get("projectId") || ""), billId);
     return { ok: paid.warning ? `Marked paid. ${paid.warning}` : "Marked paid." };

@@ -29,6 +29,7 @@ import { assertBillFree } from "@/lib/services/cost-plus";
 import { ServiceError } from "@/lib/services/errors";
 import { assessBill } from "@/lib/services/pay-ready";
 import { vendorCommitmentTotals } from "@/lib/services/purchase-orders";
+import { planBillApplications, recordApplicationsOnBill } from "@/lib/services/vendor-credits";
 import type { Actor } from "@/lib/services/read";
 import { saveUploadedText } from "@/lib/services/write";
 import { addCalendarDays, localDay } from "@/lib/time/calendar";
@@ -599,7 +600,7 @@ export function unapproveBill(actor: Actor, billId: string, reason: string) {
   return { id: bill.id };
 }
 
-export function markBillPaid(actor: Actor, billId: string, input: { paidOn: string; method: string; reference: string }) {
+export function markBillPaid(actor: Actor, billId: string, input: { paidOn: string; method: string; reference: string; applications?: { creditId: string; amountCents: number }[] }) {
   assertOffice(actor);
   const db = dbFor(actor);
   const bill = loadBill(db, actor.orgId, billId);
@@ -613,8 +614,10 @@ export function markBillPaid(actor: Actor, billId: string, input: { paidOn: stri
   const gate = assessBill(db, actor.orgId, bill);
   if (gate.payError) throw new ServiceError(gate.payError);
   const before = snapshot(bill, loadLines(db, actor.orgId, bill.id));
+  const plan = planBillApplications(actor.orgId, bill, input.applications ?? []);
   const now = nowIso();
   db.transaction((tx) => {
+    recordApplicationsOnBill(tx, actor.orgId, actor.userId, bill.id, plan.slices);
     tx.update(bills)
       .set({ status: "paid", paidAt: input.paidOn, payMethod: method, payReference: reference, updatedAt: now })
       .where(and(eq(bills.id, bill.id), eq(bills.orgId, actor.orgId)))
@@ -627,11 +630,11 @@ export function markBillPaid(actor: Actor, billId: string, input: { paidOn: stri
       "paid",
       null,
       before,
-      JSON.stringify({ status: "paid", paidOn: input.paidOn, method, reference }),
+      JSON.stringify({ status: "paid", paidOn: input.paidOn, method, reference, netPaidCents: plan.netPaidCents, appliedCents: plan.appliedCents }),
     );
     noteActivity(tx, actor.orgId, bill.projectId, actor.userId, `Marked bill ${bill.billNumber} paid by ${method} ${reference}. No payment was sent.`);
   });
-  return { id: bill.id, warning: gate.payWarning };
+  return { id: bill.id, warning: gate.payWarning, netPaidCents: plan.netPaidCents, appliedCents: plan.appliedCents };
 }
 
 export function markBillsPaid(actor: Actor, billIds: string[], input: { paidOn: string; method: string; reference: string }) {

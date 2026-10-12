@@ -655,6 +655,20 @@ create policy saved_view_pins_scope on public.saved_view_pins
   using (org_id in (select public.current_org_ids()) and user_id = public.current_user_id())
   with check (org_id in (select public.current_org_ids()) and user_id = public.current_user_id());
 
+alter table public.vendor_credits enable row level security;
+drop policy if exists vendor_credits_scope on public.vendor_credits;
+create policy vendor_credits_scope on public.vendor_credits
+  for all to authenticated
+  using (org_id in (select public.current_org_ids()))
+  with check (org_id in (select public.current_org_ids()));
+
+alter table public.vendor_credit_applications enable row level security;
+drop policy if exists vendor_credit_applications_scope on public.vendor_credit_applications;
+create policy vendor_credit_applications_scope on public.vendor_credit_applications
+  for all to authenticated
+  using (org_id in (select public.current_org_ids()))
+  with check (org_id in (select public.current_org_ids()));
+
 alter table public.wip_attempts enable row level security;
 drop policy if exists wip_attempts_scope on public.wip_attempts;
 create policy wip_attempts_scope on public.wip_attempts

@@ -23,6 +23,7 @@ const TRIGGERS = [
   ["selection_confirmed", "Selection confirmed"],
   ["delivery_late", "Delivery late"],
   ["delivery_received", "Delivery received"],
+  ["vendor_credit_issued", "Vendor credit issued"],
 ] as const;
 
 const ACTION_KINDS = [

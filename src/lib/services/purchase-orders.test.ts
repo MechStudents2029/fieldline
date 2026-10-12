@@ -76,11 +76,11 @@ describe("purchase orders", () => {
     const row = code("proj_okonkwo", "PLB-SHOWER");
     expect(row).toMatchObject({
       budgetCents: 520_000,
-      actualCents: 730_000,
+      actualCents: 362_000,
       committedOpenCents: 450_000,
-      projectedCents: 1_180_000,
+      projectedCents: 812_000,
       costToCompleteCents: 450_000,
-      varianceCents: -660_000,
+      varianceCents: -292_000,
       level: "over",
       suggestDraft: true,
     });

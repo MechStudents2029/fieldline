@@ -138,6 +138,8 @@ import {
   timeEntryEvents,
   users,
   vendorCertificates,
+  vendorCreditApplications,
+  vendorCredits,
   vendorPortals,
   bidInvites,
   bidLines,
@@ -176,7 +178,7 @@ import {
   WEBSITE_FORM_SOURCE,
 } from "@/lib/lead-form/rules";
 
-export const SEED_VERSION = "48";
+export const SEED_VERSION = "49";
 
 const ORG = "org_rivera";
 const NORTH = "org_northline";
@@ -1863,6 +1865,34 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
       expectedOn: null,
       note: null,
     })
+    .run();
+  const creditIssued = daysAgo(10);
+  db.insert(costItems)
+    .values([
+      { id: "cost_vc_short", orgId: ORG, projectId: "proj_okonkwo", budgetLineId: null, costCode: "PLB-SHOWER", amountCents: -250000, vendorName: "Harbor Plumbing", memo: "BC-1044", source: "vendor_credit", aiExtracted: 0, documentId: null, createdAt: creditIssued, updatedAt: creditIssued, createdBy: "user_sam" },
+      { id: "cost_vc_punch", orgId: ORG, projectId: "proj_okonkwo", budgetLineId: null, costCode: "PLB-SHOWER", amountCents: -18000, vendorName: "Harbor Plumbing", memo: "BC-1045", source: "vendor_credit", aiExtracted: 0, documentId: null, createdAt: daysAgo(12), updatedAt: daysAgo(12), createdBy: "user_sam" },
+      { id: "cost_vc_dispute", orgId: ORG, projectId: "proj_brooks", budgetLineId: null, costCode: "WIN-REPL", amountCents: -22000, vendorName: "Summit Lumber", memo: "BC-1046", source: "vendor_credit", aiExtracted: 0, documentId: null, createdAt: daysAgo(3), updatedAt: daysAgo(3), createdBy: "user_maya" },
+      { id: "cost_vc_partial", orgId: ORG, projectId: "proj_okonkwo", budgetLineId: null, costCode: "PLB-SHOWER", amountCents: -100000, vendorName: "Harbor Plumbing", memo: "BC-1047", source: "vendor_credit", aiExtracted: 0, documentId: null, createdAt: daysAgo(11), updatedAt: daysAgo(11), createdBy: "user_sam" },
+    ])
+    .run();
+  db.insert(vendorCredits)
+    .values([
+      { id: "vc_short", orgId: ORG, number: "BC-1044", projectId: "proj_okonkwo", vendorContactId: "c_harbor", kind: "backcharge", reason: "Short one pallet", amountCents: 250000, costCode: "PLB-SHOWER", status: "acknowledged", purchaseOrderId: "po_ok_harbor", purchaseOrderLineId: "pol_ok_harbor", receiptId: "rcp_ok_partial", punchItemId: null, billId: null, sourceKey: "receipt:rcp_ok_partial", costItemId: "cost_vc_short", documentId: "doc_o1", disputeNote: null, issuedAt: creditIssued, voidReason: null, createdAt: creditIssued, updatedAt: creditIssued, createdBy: "user_sam" },
+      { id: "vc_punch", orgId: ORG, number: "BC-1045", projectId: "proj_okonkwo", vendorContactId: "c_harbor", kind: "backcharge", reason: "Replace the escutcheon", amountCents: 18000, costCode: "PLB-SHOWER", status: "issued", purchaseOrderId: null, purchaseOrderLineId: null, receiptId: null, punchItemId: "punch_ok_esc", billId: null, sourceKey: "punch:punch_ok_esc", costItemId: "cost_vc_punch", documentId: null, disputeNote: null, issuedAt: daysAgo(12), voidReason: null, createdAt: daysAgo(12), updatedAt: daysAgo(12), createdBy: "user_sam" },
+      { id: "vc_dispute", orgId: ORG, number: "BC-1046", projectId: "proj_brooks", vendorContactId: "c_summit", kind: "backcharge", reason: "Cleanup after the window delivery", amountCents: 22000, costCode: "WIN-REPL", status: "disputed", purchaseOrderId: "po_br_windows", purchaseOrderLineId: "pol_br_windows", receiptId: null, punchItemId: null, billId: null, sourceKey: null, costItemId: "cost_vc_dispute", documentId: null, disputeNote: "We left the site clean.", issuedAt: daysAgo(3), voidReason: null, createdAt: daysAgo(3), updatedAt: daysAgo(2), createdBy: "user_maya" },
+      { id: "vc_partial", orgId: ORG, number: "BC-1047", projectId: "proj_okonkwo", vendorContactId: "c_harbor", kind: "credit", reason: "Trim credit", amountCents: 100000, costCode: "PLB-SHOWER", status: "acknowledged", purchaseOrderId: "po_ok_harbor", purchaseOrderLineId: "pol_ok_harbor", receiptId: null, punchItemId: null, billId: "bill_ok_harbor", sourceKey: null, costItemId: "cost_vc_partial", documentId: null, disputeNote: null, issuedAt: daysAgo(11), voidReason: null, createdAt: daysAgo(11), updatedAt: daysAgo(4), createdBy: "user_sam" },
+    ])
+    .run();
+  db.insert(vendorCreditApplications)
+    .values({ id: "vca_partial", orgId: ORG, creditId: "vc_partial", billId: "bill_ok_harbor", amountCents: 40000, createdAt: daysAgo(4), createdBy: "user_sam" })
+    .run();
+  db.insert(auditLogs)
+    .values([
+      { id: "audit_vc_short", orgId: ORG, actorId: "user_sam", action: "credit.issue", entityType: "vendor_credit", entityId: "vc_short", payloadJson: JSON.stringify({ number: "BC-1044" }), ip: null, createdAt: creditIssued },
+      { id: "audit_vc_punch", orgId: ORG, actorId: "user_sam", action: "credit.issue", entityType: "vendor_credit", entityId: "vc_punch", payloadJson: JSON.stringify({ number: "BC-1045" }), ip: null, createdAt: daysAgo(12) },
+      { id: "audit_vc_dispute", orgId: ORG, actorId: null, action: "credit.dispute", entityType: "vendor_credit", entityId: "vc_dispute", payloadJson: JSON.stringify({ number: "BC-1046", note: "We left the site clean." }), ip: null, createdAt: daysAgo(2) },
+      { id: "audit_vc_partial", orgId: ORG, actorId: "user_sam", action: "credit.apply", entityType: "vendor_credit", entityId: "vc_partial", payloadJson: JSON.stringify({ billId: "bill_ok_harbor", amountCents: 40000 }), ip: null, createdAt: daysAgo(4) },
+    ])
     .run();
   db.insert(auditLogs)
     .values({

@@ -11,6 +11,7 @@ import { poRetainage } from "@/lib/services/pay-ready";
 import { officeTargetPlans, planChoices } from "@/lib/services/files";
 import { relatedRfis } from "@/lib/services/rfis";
 import { listContacts, listPriceBook, listProjects } from "@/lib/services/read";
+import { creditableReceiptIds, poFactsFor } from "@/lib/services/vendor-credits";
 
 export default async function PurchaseOrderPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -26,6 +27,9 @@ export default async function PurchaseOrderPage({ params }: { params: Promise<{ 
     .filter((contact) => contact.type === "sub" || contact.type === "vendor")
     .map((contact) => ({ id: contact.id, label: contact.company || contact.name }));
   const retainage = poRetainage(session.orgId, detail.po.id);
+  const billed = detail.lines.reduce((sum, line) => sum + line.billedCents, 0);
+  const facts = poFactsFor(session.orgId, detail.po, billed);
+  const creditable = [...creditableReceiptIds(session.orgId)];
   return (
     <div className="flex flex-col gap-4">
       <div className="px-4 pt-3">
@@ -84,8 +88,10 @@ export default async function PurchaseOrderPage({ params }: { params: Promise<{ 
           today: companyToday(session.orgId),
           canBill: office && canBillReceived(session.orgId, detail.po.id),
         }}
+        facts={facts}
+        creditableReceipts={creditable}
       />
-      <div className="px-4">
+      <div className="max-w-md px-4">
         <CommentThread entityType="purchase_order" entityId={detail.po.id} />
       </div>
     </div>

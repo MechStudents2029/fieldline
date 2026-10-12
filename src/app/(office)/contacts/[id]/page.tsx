@@ -12,6 +12,7 @@ import { CERT_TYPES } from "@/lib/vendor/compliance";
 import { contactDetail } from "@/lib/services/read";
 import { vendorOffice } from "@/lib/services/vendor-portal";
 import { outstandingWaivers } from "@/lib/services/waivers";
+import { openCreditBalance } from "@/lib/services/vendor-credits";
 import { RecordFields } from "@/components/field-record";
 import { fieldRows } from "@/lib/services/custom-fields";
 
@@ -23,6 +24,7 @@ export default async function ContactPage({ params, searchParams }: { params: Pr
   if (!detail) return <MissingRecord orgName={session.orgName} kind="contact" />;
   const vendor = vendorOffice(session, id);
   const waivers = canSeeMoney(session.role) ? outstandingWaivers(session, id) : [];
+  const credits = canSeeMoney(session.role) ? openCreditBalance(session.orgId, id) : { cents: 0, count: 0 };
   return (
     <div className="flex flex-col gap-4">
       <div>
@@ -49,6 +51,15 @@ export default async function ContactPage({ params, searchParams }: { params: Pr
           </p>
         ) : null}
       </div>
+      {credits.count ? (
+        <section aria-label="Credits">
+          <h2 className="mac-t13 font-semibold">Credits</h2>
+          <p className="mac-t13">
+            <Link href={`/vendor-credits?vendor=${id}`}>{credits.count} open</Link>
+            <span className="num"> · {formatMoney(credits.cents)}</span>
+          </p>
+        </section>
+      ) : null}
       {vendor ? (
         <section className="flex flex-col gap-3" aria-label="Certificates">
           {vendor.canEdit ? <VendorLink contactId={vendor.contactId} hasPortal={vendor.hasPortal} /> : null}

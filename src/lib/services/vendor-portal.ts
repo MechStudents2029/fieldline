@@ -16,6 +16,7 @@ import {
   organizations,
   projects,
   punchItems,
+  vendorCredits,
   purchaseOrderEvents,
   purchaseOrderLines,
   purchaseOrders,
@@ -40,6 +41,7 @@ import { targetPlans, vendorMayReadJobFile } from "@/lib/services/files";
 import { scheduleGateLabels } from "@/lib/services/permits";
 import { vendorMayReadVisual } from "@/lib/services/markup";
 import { ServiceError } from "@/lib/services/errors";
+import { portalCredits, respondVendorCredit } from "@/lib/services/vendor-credits";
 import type { Actor } from "@/lib/services/read";
 import { localDay } from "@/lib/time/calendar";
 import {
@@ -101,6 +103,17 @@ export type VendorPortalHome = {
     cleared: boolean;
   }[];
   punch: { id: string; title: string; location: string; dueDate: string | null; status: string; statusLabel: string }[];
+  credits: {
+    id: string;
+    number: string;
+    job: string;
+    reason: string;
+    amountCents: number;
+    statusLabel: string;
+    disputeNote: string | null;
+    documentId: string | null;
+    canRespond: boolean;
+  }[];
   bills: {
     id: string;
     number: string;
@@ -587,6 +600,7 @@ export function vendorPortal(token: string): VendorPortalHome | null {
         cleared: !held,
       };
     }),
+    credits: portalCredits(db, orgId, contactId),
     punch: punch.map((row) => ({
       id: row.id,
       title: row.title,
@@ -874,6 +888,12 @@ export function vendorFileAllowed(token: string, documentId: string): boolean {
     .where(and(eq(punchItems.orgId, ctx.orgId), eq(punchItems.assigneeContactId, ctx.contactId)))
     .all();
   if (punch.some((row) => row.afterDocumentId === document.id || row.beforeDocumentId === document.id)) return true;
+  const credit = ctx.db
+    .select()
+    .from(vendorCredits)
+    .where(and(eq(vendorCredits.orgId, ctx.orgId), eq(vendorCredits.vendorContactId, ctx.contactId), eq(vendorCredits.documentId, document.id)))
+    .get();
+  if (credit && credit.status !== "draft") return true;
   const bill = ctx.db
     .select()
     .from(bills)
@@ -909,6 +929,14 @@ export function vendorFileAllowed(token: string, documentId: string): boolean {
   if (attachment && bidIds.has(attachment.bidId)) return true;
   if (document.type === "markup" || document.type === "plan_crop") return vendorMayReadVisual(ctx.db, ctx.orgId, ctx.contactId, document.id);
   return vendorMayReadJobFile(ctx.db, ctx.orgId, ctx.contactId, document.id);
+}
+
+export function respondPortalCredit(token: string, creditId: string, decision: string, note: string) {
+  const ctx = portalContext(token);
+  if (!ctx) throw new ServiceError("This link is not active.");
+  const choice = decision === "acknowledge" ? "acknowledge" : decision === "dispute" ? "dispute" : null;
+  if (!choice) throw new ServiceError("Acknowledge or dispute the credit.");
+  return respondVendorCredit(ctx.db, ctx.orgId, ctx.contactId, ctx.vendorName, { creditId, decision: choice, note });
 }
 
 export function vendorMoneyHiddenFrom(role: Role) {

@@ -17,7 +17,8 @@ export type CashGroup =
   | "bill"
   | "po"
   | "retainage_out"
-  | "labor";
+  | "labor"
+  | "credit";
 
 export type CashLine = {
   id: string;
@@ -126,6 +127,16 @@ export type CashSnap = {
     contactId: string;
   }[];
   leads: { id: string; title: string; status: string; contactId: string; valueCents: number }[];
+  credits?: {
+    id: string;
+    projectId: string;
+    number: string;
+    status: string;
+    amountCents: number;
+    purchaseOrderId: string | null;
+    issuedOn: string | null;
+    applications: { billId: string; amountCents: number }[];
+  }[];
 };
 
 const IN_ROWS: { id: CashGroup; label: string; projected?: boolean }[] = [
@@ -135,6 +146,7 @@ const IN_ROWS: { id: CashGroup; label: string; projected?: boolean }[] = [
   { id: "retainage_in", label: "Retainage" },
   { id: "proposal", label: "Proposals", projected: true },
   { id: "lead", label: "Leads", projected: true },
+  { id: "credit", label: "Vendor credits" },
 ];
 
 const OUT_ROWS: { id: CashGroup; label: string }[] = [
@@ -555,7 +567,55 @@ export function forecastLines(snap: CashSnap): CashLine[] {
     }
   }
 
+  applyVendorCredits(lines, snap);
   return lines.filter((row) => row.cents > 0 && row.date);
+}
+
+function applyVendorCredits(lines: CashLine[], snap: CashSnap) {
+  const credits = snap.credits ?? [];
+  for (const credit of credits) {
+    if (credit.status === "draft" || credit.status === "void") continue;
+    for (const app of credit.applications) {
+      const bill = lines.find((row) => row.group === "bill" && row.id === app.billId);
+      if (!bill) continue;
+      const cut = Math.min(bill.cents, Math.max(0, app.amountCents));
+      bill.cents -= cut;
+    }
+  }
+  for (const credit of credits) {
+    if (credit.status === "draft" || credit.status === "void") continue;
+    let left = Math.max(0, credit.amountCents - credit.applications.reduce((sum, row) => sum + row.amountCents, 0));
+    if (left < 1) continue;
+    if (credit.purchaseOrderId) {
+      for (const row of lines) {
+        if (left < 1) break;
+        if (row.group !== "po" || !row.id.startsWith(`${credit.purchaseOrderId}:`)) continue;
+        const cut = Math.min(row.cents, left);
+        row.cents -= cut;
+        left -= cut;
+      }
+    }
+    if (left < 1) continue;
+    const job = snap.projects.find((project) => project.id === credit.projectId);
+    const customerId = job?.contactId ?? "";
+    const customer = snap.contacts.find((contact) => contact.id === customerId)?.name ?? "";
+    lines.push(
+      line({
+        id: credit.id,
+        group: "credit",
+        direction: "in",
+        kind: "committed",
+        cents: left,
+        date: (credit.issuedOn ?? snap.today).slice(0, 10) || snap.today,
+        jobId: credit.projectId,
+        job: job?.name ?? "",
+        customerId,
+        customer,
+        doc: credit.number,
+        href: `/vendor-credits/${credit.id}`,
+      }),
+    );
+  }
 }
 
 function emptyCells(count: number): CashCell[] {

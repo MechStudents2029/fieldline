@@ -2,6 +2,7 @@ import {
   acceptVendorPoAction,
   declineVendorPoAction,
   markVendorPunchAction,
+  respondPortalCreditAction,
   vendorConfirmAction,
   saveVendorCertificateAction,
   signVendorWaiverAction,
@@ -438,6 +439,44 @@ export function VendorPortalView({
                 </li>
               );
             })}
+          </ul>
+        </section>
+        <section aria-label="Credits">
+          <h2>Credits</h2>
+          {home.credits.length === 0 ? <p className="home-sub">No credits</p> : null}
+          <ul className="home-stack">
+            {home.credits.map((credit) => (
+              <li key={credit.id} className="home-card">
+                <div className="home-row">
+                  <span>{credit.number}</span>
+                  <span className="fl-pill">{credit.statusLabel}</span>
+                </div>
+                <p className="home-sub">
+                  {credit.job} · {credit.reason} · <span className="num">{formatWhole(credit.amountCents)}</span>
+                </p>
+                {credit.documentId ? (
+                  <a href={`/api/files/${credit.documentId}?vendor=${encodeURIComponent(token)}`}>Photo</a>
+                ) : null}
+                {credit.disputeNote ? <p className="home-sub">{credit.disputeNote}</p> : null}
+                {credit.canRespond ? (
+                  <div className="flex flex-col gap-2">
+                    <ActionForm action={respondPortalCreditAction.bind(null, token, credit.id)}>
+                      <input type="hidden" name="decision" value="acknowledge" />
+                      <button type="submit" className="home-btn-quiet">
+                        Acknowledge
+                      </button>
+                    </ActionForm>
+                    <ActionForm action={respondPortalCreditAction.bind(null, token, credit.id)} className="home-form">
+                      <input type="hidden" name="decision" value="dispute" />
+                      <input name="note" aria-label={`Dispute ${credit.number}`} placeholder="Note" className="field" required />
+                      <button type="submit" className="home-btn-quiet">
+                        Dispute
+                      </button>
+                    </ActionForm>
+                  </div>
+                ) : null}
+              </li>
+            ))}
           </ul>
         </section>
         <section aria-label="Punch">

@@ -3,7 +3,11 @@ import { CommentThread } from "@/components/comment-thread";
 import { MarkedPhoto } from "@/components/marked-photo";
 import { MissingRecord } from "@/components/missing-record";
 import { requireSession } from "@/lib/auth/session";
+import { createCreditFromPunchAction } from "@/app/actions";
+import { ActionForm } from "@/components/action-form";
 import { recordHeading } from "@/lib/services/comments";
+import { canManageMoney } from "@/lib/permissions";
+import { punchCanCredit } from "@/lib/services/vendor-credits";
 import { recordVisual } from "@/lib/services/markup";
 
 export default async function PunchItemPage({ params }: { params: Promise<{ id: string; itemId: string }> }) {
@@ -33,6 +37,26 @@ export default async function PunchItemPage({ params }: { params: Promise<{ id: 
         <Link href={`/projects/${id}/markup/${visual.photoDocumentId}`} className="ctl w-fit">
           Mark up
         </Link>
+      ) : null}
+      {punchCanCredit(session, itemId) ? (
+        <ActionForm action={createCreditFromPunchAction.bind(null, itemId)} className="grid max-w-md gap-2">
+          <label className="text-sm">
+            Reason
+            <input name="reason" aria-label="Backcharge reason" defaultValue={heading.title} className="field mt-1" required />
+          </label>
+          {canManageMoney(session.role) ? (
+            <label className="text-sm">
+              Amount
+              <input name="amount" aria-label="Amount" inputMode="decimal" className="field mt-1" required />
+            </label>
+          ) : null}
+          <label className="mac-t13">
+            <input type="checkbox" name="another" value="1" /> Another credit
+          </label>
+          <button type="submit" className="mac-primary w-fit">
+            Backcharge
+          </button>
+        </ActionForm>
       ) : null}
       <CommentThread entityType="punch_item" entityId={itemId} projectId={id} />
     </div>

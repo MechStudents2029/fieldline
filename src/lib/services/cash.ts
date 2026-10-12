@@ -23,6 +23,8 @@ import {
   proposals,
   purchaseOrderLines,
   purchaseOrders,
+  vendorCreditApplications,
+  vendorCredits,
   scheduleAssignees,
   scheduleItems,
   users,
@@ -235,6 +237,26 @@ function snapFor(actor: Actor, projected: boolean): { snap: CashSnap; openingCen
           status: lead.status,
           contactId: lead.contactId,
           valueCents: lead.valueEstCents ?? 0,
+        })),
+      credits: db
+        .select()
+        .from(vendorCredits)
+        .where(eq(vendorCredits.orgId, orgId))
+        .all()
+        .map((credit) => ({
+          id: credit.id,
+          projectId: credit.projectId,
+          number: credit.number,
+          status: credit.status,
+          amountCents: credit.amountCents,
+          purchaseOrderId: credit.purchaseOrderId,
+          issuedOn: credit.issuedAt,
+          applications: db
+            .select()
+            .from(vendorCreditApplications)
+            .where(and(eq(vendorCreditApplications.orgId, orgId), eq(vendorCreditApplications.creditId, credit.id)))
+            .all()
+            .map((row) => ({ billId: row.billId, amountCents: row.amountCents })),
         })),
     },
   };

@@ -4,7 +4,10 @@ import { ReceiveSheet } from "@/components/receive-sheet";
 import { requireSession } from "@/lib/auth/session";
 import { formatCalendarDay } from "@/lib/format";
 import { formatMoney } from "@/lib/money";
+import { createCreditFromOrderAction } from "@/app/actions";
+import { ActionForm } from "@/components/action-form";
 import { companyToday, deliveryBoard, receiveChoices } from "@/lib/services/receiving";
+import { creditableOrderIds } from "@/lib/services/vendor-credits";
 import { listProjects } from "@/lib/services/read";
 
 const FILTERS = [
@@ -30,6 +33,7 @@ export default async function DeliveriesPage({
   const jobs = listProjects(session.orgId);
   const today = companyToday(session.orgId);
   const choices = receiveChoices(session);
+  const creditable = creditableOrderIds(session.orgId);
   const csv = `/api/export/deliveries?status=${encodeURIComponent(bucket)}`;
   return (
     <div className="flex flex-col gap-3">
@@ -105,6 +109,13 @@ export default async function DeliveriesPage({
                 <td>
                   <span className="fl-pill">{row.label}</span>
                   {row.backordered ? <span className="fl-pill ml-2">Backordered</span> : null}
+                  {creditable.has(row.poId) ? (
+                    <ActionForm action={createCreditFromOrderAction.bind(null, row.poId)} className="inline">
+                      <button type="submit" className="ml-2 mac-t13 text-[var(--mac-accent)]">
+                        Backcharge
+                      </button>
+                    </ActionForm>
+                  ) : null}
                 </td>
                 <td className="num">{row.text}</td>
                 {board.seeMoney ? <td className="num text-right">{row.amountCents == null ? "" : formatMoney(row.amountCents)}</td> : null}
