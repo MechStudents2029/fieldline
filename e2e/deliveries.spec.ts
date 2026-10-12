@@ -55,13 +55,13 @@ test("bill past received warns and needs an override", async ({ page, request })
   await resetDemo(request);
   await signIn(page);
   await page.goto("/bills/bill_ok_over");
-  await expect(page.getByRole("alert")).toContainText("Billed past received");
+  await expect(page.getByText(/Billed past received on PO-1044/)).toBeVisible();
   await shot(page, "bill-warning");
   await page.getByRole("button", { name: "Approve bill" }).click();
   await expect(page.getByText("Enter a reason to bill more than received.")).toBeVisible();
   await page.getByLabel("Override reason").fill("Accepted the short ship");
   await page.getByRole("button", { name: "Approve bill" }).click();
-  await expect(page.getByRole("status")).toContainText("Approved");
+  await expect(page.getByText("Approved", { exact: true }).first()).toBeVisible();
 });
 
 test("Today lists deliveries due today and late ones", async ({ page, request }) => {
