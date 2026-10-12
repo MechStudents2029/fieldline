@@ -669,6 +669,34 @@ create policy vendor_credit_applications_scope on public.vendor_credit_applicati
   using (org_id in (select public.current_org_ids()))
   with check (org_id in (select public.current_org_ids()));
 
+alter table public.stock_items enable row level security;
+drop policy if exists stock_items_scope on public.stock_items;
+create policy stock_items_scope on public.stock_items
+  for all to authenticated
+  using (org_id in (select public.current_org_ids()))
+  with check (org_id in (select public.current_org_ids()));
+
+alter table public.stock_locations enable row level security;
+drop policy if exists stock_locations_scope on public.stock_locations;
+create policy stock_locations_scope on public.stock_locations
+  for all to authenticated
+  using (org_id in (select public.current_org_ids()))
+  with check (org_id in (select public.current_org_ids()));
+
+alter table public.stock_balances enable row level security;
+drop policy if exists stock_balances_scope on public.stock_balances;
+create policy stock_balances_scope on public.stock_balances
+  for all to authenticated
+  using (org_id in (select public.current_org_ids()))
+  with check (org_id in (select public.current_org_ids()));
+
+alter table public.stock_movements enable row level security;
+drop policy if exists stock_movements_scope on public.stock_movements;
+create policy stock_movements_scope on public.stock_movements
+  for all to authenticated
+  using (org_id in (select public.current_org_ids()))
+  with check (org_id in (select public.current_org_ids()));
+
 alter table public.wip_attempts enable row level security;
 drop policy if exists wip_attempts_scope on public.wip_attempts;
 create policy wip_attempts_scope on public.wip_attempts

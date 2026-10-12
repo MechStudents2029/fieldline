@@ -154,6 +154,8 @@ import {
   voidBill,
 } from "@/lib/services/bills";
 import { billReceived, parseReceiveLines, receiveDelivery, voidReceipt } from "@/lib/services/receiving";
+import { adjustStock, issueStock, reorderStock, returnStock, transferJobStock, transferStock, voidMovement } from "@/lib/services/inventory";
+import { parseQtyMilli } from "@/lib/receiving/match";
 import { createCreditFromLine, createCreditFromOrder, createCreditFromPunch, createCreditFromReceipt, issueCredit, setCreditStaleDays, voidCredit } from "@/lib/services/vendor-credits";
 import { respondPortalCredit } from "@/lib/services/vendor-portal";
 import {
@@ -1681,11 +1683,132 @@ export async function receiveDeliveryAction(_prev: ActionState, formData: FormDa
       note: String(formData.get("receiptNote") || "") || null,
       documentId,
       lines,
+      stockTo: String(formData.get("stockTo") || "job"),
     });
     revalidatePath("/deliveries");
     revalidatePath("/");
     refreshPurchaseOrder(order.projectId, order.id);
     return { ok: `${saved.number} received` };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+function stockQty(formData: FormData) {
+  const qty = parseQtyMilli(String(formData.get("qty") || ""));
+  if (qty == null || qty < 1) throw new ServiceError("Enter a quantity.");
+  return qty;
+}
+
+export async function issueStockAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const stockItemId = String(formData.get("stockItemId") || "");
+    const saved = issueStock(user, {
+      stockItemId,
+      fromLocationId: String(formData.get("fromLocationId") || ""),
+      projectId: String(formData.get("projectId") || ""),
+      qtyMilli: stockQty(formData),
+      sourceKey: String(formData.get("sourceKey") || ""),
+    });
+    revalidatePath("/inventory");
+    revalidatePath(`/inventory/${stockItemId}`);
+    revalidatePath("/projects");
+    return { ok: saved.existing ? "Already recorded." : "Issued." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function returnStockAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const saved = returnStock(user, {
+      stockItemId: String(formData.get("stockItemId") || ""),
+      fromLocationId: String(formData.get("fromLocationId") || ""),
+      toLocationId: String(formData.get("toLocationId") || ""),
+      qtyMilli: stockQty(formData),
+      sourceKey: String(formData.get("sourceKey") || ""),
+    });
+    revalidatePath("/inventory");
+    return { ok: saved.existing ? "Already recorded." : "Returned." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function transferStockAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const saved = transferStock(user, {
+      stockItemId: String(formData.get("stockItemId") || ""),
+      fromLocationId: String(formData.get("fromLocationId") || ""),
+      toLocationId: String(formData.get("toLocationId") || ""),
+      qtyMilli: stockQty(formData),
+      sourceKey: String(formData.get("sourceKey") || ""),
+    });
+    revalidatePath("/inventory");
+    return { ok: saved.existing ? "Already recorded." : "Transferred." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function transferJobStockAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const saved = transferJobStock(user, {
+      stockItemId: String(formData.get("stockItemId") || ""),
+      fromProjectId: String(formData.get("fromProjectId") || ""),
+      toProjectId: String(formData.get("toProjectId") || ""),
+      qtyMilli: stockQty(formData),
+      sourceKey: String(formData.get("sourceKey") || ""),
+    });
+    revalidatePath("/inventory");
+    return { ok: saved.existing ? "Already recorded." : "Transferred." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function adjustStockAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const direction = String(formData.get("direction") || "out") === "in" ? "in" : "out";
+    const saved = adjustStock(user, {
+      stockItemId: String(formData.get("stockItemId") || ""),
+      locationId: String(formData.get("locationId") || ""),
+      qtyMilli: stockQty(formData),
+      direction,
+      reason: String(formData.get("reason") || ""),
+      sourceKey: String(formData.get("sourceKey") || ""),
+    });
+    revalidatePath("/inventory");
+    return { ok: saved.existing ? "Already recorded." : "Adjusted." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function voidMovementAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const saved = voidMovement(user, String(formData.get("movementId") || ""), String(formData.get("reason") || ""));
+    revalidatePath("/inventory");
+    revalidatePath(`/inventory/${saved.stockItemId}`);
+    return { ok: "Movement voided." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function reorderStockAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const saved = reorderStock(user, String(formData.get("stockItemId") || ""), String(formData.get("projectId") || ""));
+    revalidatePath("/inventory");
+    revalidatePath("/purchase-orders");
+    redirect(`/purchase-orders/${saved.id}`);
   } catch (error) {
     return failure(error);
   }

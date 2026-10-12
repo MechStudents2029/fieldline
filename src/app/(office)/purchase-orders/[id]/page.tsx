@@ -12,6 +12,7 @@ import { officeTargetPlans, planChoices } from "@/lib/services/files";
 import { relatedRfis } from "@/lib/services/rfis";
 import { listContacts, listPriceBook, listProjects } from "@/lib/services/read";
 import { creditableReceiptIds, poFactsFor } from "@/lib/services/vendor-credits";
+import { stockPlaces } from "@/lib/services/inventory";
 
 export default async function PurchaseOrderPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -87,6 +88,7 @@ export default async function PurchaseOrderPage({ params }: { params: Promise<{ 
           choices: session.role === "viewer" ? [] : receiveChoices(session).filter((order) => order.id === detail.po.id),
           today: companyToday(session.orgId),
           canBill: office && canBillReceived(session.orgId, detail.po.id),
+          places: stockPlaces(session.orgId),
         }}
         facts={facts}
         creditableReceipts={creditable}

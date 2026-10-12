@@ -2,6 +2,19 @@
 
 ## 2026-10-12
 
+### Material inventory
+
+- A stock item is a price-book row: name, unit, cost code, and default unit cost stay on the catalog. The stock row adds an optional SKU, a reorder point, and a preferred vendor.
+- Locations are the yard, a warehouse, a truck, or a job. Each item keeps on hand, allocated, and available at each location. Available is on hand minus allocated. Allocated is the quantity already issued to that job.
+- Cost is a moving average per location. A receipt blends its cost into that location. An issue, return, transfer, or adjustment takes a proportional share of the location value, and the last units take the remaining cents.
+- Movements are received, adjusted, issued, returned, transferred, or moved job to job. None of them edit an older row. Void writes the reason and puts the quantity and the cost back. The same source key does not post twice.
+- Receive can put a good line on the job or in a stock location. Short, damaged, and backordered lines do not add available stock.
+- Issue posts job cost at the stock cost on the catalog cost code. Return posts the opposite cost. A job-to-job move carries the quantity and reclasses that cost. A yard-to-truck transfer does not post job cost.
+- An item at or below its reorder point shows on Today. Order creates one draft purchase order to the preferred vendor. A second click opens that draft instead of adding another line.
+- Field can issue from a truck or return leftover to the yard. Field does not see cost. Work > Inventory lists on hand, available, and value, filters by location and low stock, and downloads CSV. A job overview shows materials issued and the quantity on the job.
+- Job cost, WIP, and profitability include issued stock. Voiding the movement takes it back. The bills CSV adds inventory issues as job cost. An automation can run on low stock.
+- Seed: the yard and Truck 1 hold floor tile. Two shower valves sit below the reorder point. Eight square feet of tile moved from Okonkwo to Brooks with the cost.
+
 ### Vendor credits and backcharges
 
 - A vendor credit or backcharge belongs to a vendor and a job. It can point at a purchase-order line, a receipt, a punch item, or a bill. It stores a reason, an amount in cents, a cost code, and a photo. Status is Draft, Issued, Acknowledged, Disputed, Partially applied, Applied, or Void.

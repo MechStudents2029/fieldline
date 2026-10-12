@@ -2944,3 +2944,75 @@ export const vendorCreditApplications = sqliteTable(
   },
   (t) => [index("vendor_credit_applications_credit").on(t.orgId, t.creditId)],
 );
+
+/** A price-book row the company keeps on hand. Name, unit, and cost code stay on the book. */
+export const stockItems = sqliteTable(
+  "stock_items",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    priceBookItemId: text("price_book_item_id").notNull(),
+    sku: text("sku"),
+    reorderPointMilli: integer("reorder_point_milli").notNull(),
+    preferredVendorContactId: text("preferred_vendor_contact_id"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (t) => [uniqueIndex("stock_items_book").on(t.orgId, t.priceBookItemId), index("stock_items_org").on(t.orgId)],
+);
+
+/** Yard, warehouse, and truck rows have a null project. A job row is that job's laydown. */
+export const stockLocations = sqliteTable(
+  "stock_locations",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    name: text("name").notNull(),
+    kind: text("kind").notNull(),
+    projectId: text("project_id"),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [index("stock_locations_org").on(t.orgId, t.kind)],
+);
+
+export const stockBalances = sqliteTable(
+  "stock_balances",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    stockItemId: text("stock_item_id").notNull(),
+    locationId: text("location_id").notNull(),
+    onHandMilli: integer("on_hand_milli").notNull(),
+    allocatedMilli: integer("allocated_milli").notNull(),
+    valueCents: integer("value_cents").notNull(),
+  },
+  (t) => [uniqueIndex("stock_balances_place").on(t.orgId, t.stockItemId, t.locationId)],
+);
+
+export const stockMovements = sqliteTable(
+  "stock_movements",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    number: text("number").notNull(),
+    stockItemId: text("stock_item_id").notNull(),
+    type: text("type").notNull(),
+    status: text("status").notNull(),
+    qtyMilli: integer("qty_milli").notNull(),
+    costCents: integer("cost_cents").notNull(),
+    fromLocationId: text("from_location_id"),
+    toLocationId: text("to_location_id"),
+    projectId: text("project_id"),
+    fromProjectId: text("from_project_id"),
+    costItemId: text("cost_item_id"),
+    counterCostItemId: text("counter_cost_item_id"),
+    sourceKey: text("source_key"),
+    receiptId: text("receipt_id"),
+    reason: text("reason"),
+    voidReason: text("void_reason"),
+    createdAt: text("created_at").notNull(),
+    createdBy: text("created_by"),
+    voidedAt: text("voided_at"),
+  },
+  (t) => [index("stock_movements_item").on(t.orgId, t.stockItemId, t.createdAt), index("stock_movements_key").on(t.orgId, t.sourceKey)],
+);

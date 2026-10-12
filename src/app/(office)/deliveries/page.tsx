@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { SheetButton } from "@/components/sheet-button";
 import { ReceiveSheet } from "@/components/receive-sheet";
+import { Toolbar } from "@/components/mac/toolbar";
 import { requireSession } from "@/lib/auth/session";
 import { formatCalendarDay } from "@/lib/format";
 import { formatMoney } from "@/lib/money";
 import { createCreditFromOrderAction } from "@/app/actions";
 import { ActionForm } from "@/components/action-form";
+import { stockPlaces } from "@/lib/services/inventory";
 import { companyToday, deliveryBoard, receiveChoices } from "@/lib/services/receiving";
 import { creditableOrderIds } from "@/lib/services/vendor-credits";
 import { listProjects } from "@/lib/services/read";
@@ -35,48 +37,63 @@ export default async function DeliveriesPage({
   const choices = receiveChoices(session);
   const creditable = creditableOrderIds(session.orgId);
   const csv = `/api/export/deliveries?status=${encodeURIComponent(bucket)}`;
+  const places = stockPlaces(session.orgId);
+  const subtitle = `${rows.length} ${rows.length === 1 ? "delivery" : "deliveries"}`;
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center justify-between gap-3 px-4 pt-3">
+      <div className="hidden md:block">
+        <Toolbar
+          title="Deliveries"
+          subtitle={subtitle}
+          search={false}
+          trailing={
+            <span className="flex items-center gap-2">
+              <SheetButton label="Receive">
+                <ReceiveSheet orders={choices} today={today} places={places} />
+              </SheetButton>
+              <a href={csv}>CSV</a>
+            </span>
+          }
+        />
+      </div>
+      <div className="flex flex-wrap items-center justify-between gap-3 px-4 pt-3 md:hidden">
         <h1 className="fl-large-title">Deliveries</h1>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex items-center gap-2">
           <SheetButton label="Receive">
-            <ReceiveSheet orders={choices} today={today} />
-          </SheetButton>
-          <SheetButton label="Filter">
-            <form method="get" className="grid gap-2" action="/deliveries">
-              <label className="text-sm">
-                Status
-                <select name="status" aria-label="Status" className="field mt-1" defaultValue={status}>
-                  {FILTERS.map(([value, label]) => (
-                    <option key={value || "all"} value={value}>
-                      {label}
-                    </option>
-                  ))}
-                  <option value="today">Today</option>
-                </select>
-              </label>
-              <label className="text-sm">
-                Job
-                <select name="job" aria-label="Job" className="field mt-1" defaultValue={job}>
-                  <option value="">Any</option>
-                  {jobs.map((row) => (
-                    <option key={row.project.id} value={row.project.id}>
-                      {row.project.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <button type="submit" className="mac-primary w-fit">
-                Show
-              </button>
-            </form>
+            <ReceiveSheet orders={choices} today={today} places={places} />
           </SheetButton>
           <a href={csv} className="ctl">
             CSV
           </a>
         </div>
       </div>
+      <form method="get" action="/deliveries" className="flex flex-wrap items-end gap-2 px-4">
+        <label className="text-sm">
+          Status
+          <select name="status" aria-label="Status" className="field mt-1" defaultValue={status}>
+            {FILTERS.map(([value, label]) => (
+              <option key={value || "all"} value={value}>
+                {label}
+              </option>
+            ))}
+            <option value="today">Today</option>
+          </select>
+        </label>
+        <label className="text-sm">
+          Job
+          <select name="job" aria-label="Job" className="field mt-1" defaultValue={job}>
+            <option value="">Any</option>
+            {jobs.map((row) => (
+              <option key={row.project.id} value={row.project.id}>
+                {row.project.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <button type="submit" className="ctl">
+          Show
+        </button>
+      </form>
       <div className="overflow-x-auto px-4">
         <table className="mac-table" aria-label="Deliveries">
           <thead>

@@ -22,6 +22,7 @@ import { projectPurchaseOrders } from "@/lib/services/purchase-orders";
 import { captionFromMetadata, listPriceBook, listProjects, pipelineBoard, projectDetail } from "@/lib/services/read";
 import { deliveryHolds } from "@/lib/receiving/facts";
 import { openDeliveries } from "@/lib/services/receiving";
+import { jobStockSummary } from "@/lib/services/inventory";
 import { jobCreditSummary } from "@/lib/services/vendor-credits";
 import { jobInspectionMarks, scheduleGateLabels } from "@/lib/services/permits";
 import { GanttBoard } from "@/components/gantt-board";
@@ -212,6 +213,17 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
           </p>
         );
       })() : null}
+      {(() => {
+        const stock = jobStockSummary(session.orgId, detail.project.id, session.role);
+        if (!stock) return null;
+        return (
+          <p className="mb-5 px-4 mac-t13" data-issued={stock.issuedCents ?? ""}>
+            <Link href={stock.href}>Materials</Link>
+            {stock.issuedCents != null ? <span className="num"> · {formatMoney(stock.issuedCents)} issued</span> : null}
+            {stock.qty ? <span className="num"> · {stock.qty}</span> : null}
+          </p>
+        );
+      })()}
       {openDeliveryRows.length ? (
         <section aria-label="Open deliveries" className="mb-5 px-4">
           <h2 className="mac-t13 text-[var(--mac-secondary)]">Open deliveries</h2>
