@@ -146,10 +146,10 @@ describe("job-site geofence", () => {
     const maya = actor("maya@rivera.demo");
     const start = Date.now() - 25 * 60 * 1000;
     const opened = clockIn(maya, { projectId: "proj_okonkwo", costCode: "TILE-SHOWER", lat: "37.7994", lng: "-122.247", accuracy: "6" }, start);
-    const next = switchJob(maya, { projectId: "proj_chen", costCode: "GC-SUPER", lat: "37.81", lng: "-122.247", accuracy: "6" }, start + 5 * 60 * 1000);
-    expect(entry(opened.entryId).geoOutVerdict).toBe("outside");
+    const next = switchJob(maya, { projectId: "proj_chen", costCode: "GC-SUPER", lat: "37.7994", lng: "-122.247", accuracy: "6" }, start + 5 * 60 * 1000);
+    expect(entry(opened.entryId).geoOutVerdict).toBe("inside");
     expect(entry(next.entryId).geoInVerdict).toBe("outside");
-    expect(entry(next.entryId).clockInLatE6).toBe(37_810_000);
+    expect(entry(next.entryId).clockInLatE6).toBe(37_799_400);
     clockOut(maya, { lat: "37.7994", lng: "-122.247" }, start + 10 * 60 * 1000);
 
     const captured = new Date(Date.now() - 20_000).toISOString();

@@ -221,7 +221,7 @@ export function clockIn(
       })
       .run();
     record(tx, actor, entryId, "created", null, { status: "open", projectId, costCode, clockInAt: stamp }, null, stamp);
-    return stampEdge(tx, actor, entryId, "in", { projectId, shiftType: "regular", ...input });
+    return stampEdge(tx, actor, entryId, "in", { ...input, projectId, shiftType: "regular" });
   });
   flushSiteEvents([site]);
   return { entryId };
@@ -251,7 +251,7 @@ export function switchJob(
       .where(and(eq(timeEntries.id, current.id), eq(timeEntries.orgId, actor.orgId)))
       .run();
     record(tx, actor, current.id, "switched", snapshot(current), snapshot({ ...current, ...closed }), null, stamp);
-    const outSite = stampEdge(tx, actor, current.id, "out", { projectId: current.projectId, shiftType: current.shiftType, ...input });
+    const outSite = stampEdge(tx, actor, current.id, "out", { ...input, projectId: current.projectId, shiftType: current.shiftType });
     tx.insert(timeEntries)
       .values({
         id: nextId,
@@ -276,7 +276,7 @@ export function switchJob(
       })
       .run();
     record(tx, actor, nextId, "created", null, { status: "open", projectId, costCode, clockInAt: stamp }, null, stamp);
-    const inSite = stampEdge(tx, actor, nextId, "in", { projectId, shiftType: "regular", ...input });
+    const inSite = stampEdge(tx, actor, nextId, "in", { ...input, projectId, shiftType: "regular" });
     return [outSite, inSite];
   });
   flushSiteEvents(sites);
@@ -334,7 +334,7 @@ export function clockOut(
       .where(and(eq(timeEntries.id, current.id), eq(timeEntries.orgId, actor.orgId)))
       .run();
     record(tx, actor, current.id, "clocked_out", snapshot(current), { ...snapshot({ ...current, ...closed }), note }, null, stamp);
-    return stampEdge(tx, actor, current.id, "out", { projectId: current.projectId, shiftType: current.shiftType, ...input });
+    return stampEdge(tx, actor, current.id, "out", { ...input, projectId: current.projectId, shiftType: current.shiftType });
   });
   flushSiteEvents([site]);
 }
