@@ -2,10 +2,12 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { closePurchaseOrderAction, issuePurchaseOrderAction, referencePlanAction, releasePoRetainageAction, saveBillAction, voidPurchaseOrderAction } from "@/app/actions";
+import { billReceivedAction, closePurchaseOrderAction, issuePurchaseOrderAction, referencePlanAction, releasePoRetainageAction, saveBillAction, voidPurchaseOrderAction, voidReceiptAction } from "@/app/actions";
 import { ActionForm } from "@/components/action-form";
 import { DetailFacts, DetailHeader, recordStatus } from "@/components/detail-header";
 import { PurchaseOrderForm } from "@/components/purchase-order-form";
+import { ReceiveSheet, type ReceiveChoice } from "@/components/receive-sheet";
+import { SheetButton } from "@/components/sheet-button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { overRemainingMessage } from "@/lib/bills/from-po";
 import { netPayableCents, retainedCents } from "@/lib/bills/retainage";
@@ -50,6 +52,7 @@ export function PurchaseOrderDetail({
   orders,
   codes,
   office,
+  receiving,
 }: {
   po: {
     id: string;
@@ -81,11 +84,21 @@ export function PurchaseOrderDetail({
   orders: Choice[];
   codes: string[];
   office: boolean;
+  receiving: {
+    label: string | null;
+    lines: { id: string; text: string; expectedOn: string | null; label: string }[];
+    receipts: { id: string; receivedOn: string; person: string; summary: string; status: string; note: string | null }[];
+    choices: ReceiveChoice[];
+    today: string;
+    canBill: boolean;
+  };
 }) {
   const [editing, setEditing] = useState(false);
   const [billing, setBilling] = useState(false);
   const [more, setMore] = useState(false);
   const editable = office && (po.status === "draft" || po.status === "issued");
+  const tracked = new Map(receiving.lines.map((line) => [line.id, line]));
+  const showQty = receiving.lines.length > 0;
   const billed = lines.reduce((sum, line) => sum + line.billedCents, 0);
   const prefill = lines.filter((line) => line.remainingCents > 0);
   return (
@@ -96,6 +109,7 @@ export function PurchaseOrderDetail({
         meta={
           <>
             {po.kind === "work" ? "Work order" : "Purchase order"} · {po.vendorName} · <Link href={`/projects/${po.projectId}`}>{po.projectName}</Link>
+            {receiving.label ? <span className="fl-pill ml-2">{receiving.label}</span> : null}
           </>
         }
         actions={
@@ -110,6 +124,33 @@ export function PurchaseOrderDetail({
                 <button type="button" className="mac-primary" onClick={() => setBilling(true)}>
                   New bill
                 </button>
+              ) : null}
+              {receiving.choices.length ? (
+                <SheetButton label="Receive">
+                  <ReceiveSheet orders={receiving.choices} fixedId={po.id} today={receiving.today} />
+                </SheetButton>
+              ) : null}
+              {receiving.canBill ? (
+                <SheetButton label="Bill received">
+                  <ActionForm action={billReceivedAction.bind(null, po.id)} className="grid gap-2">
+                    <input type="hidden" name="projectId" value={po.projectId} />
+                    <label className="text-sm">
+                      Bill number
+                      <input name="billNumber" aria-label="Bill number" className="field mt-1" required />
+                    </label>
+                    <label className="text-sm">
+                      Bill date
+                      <input name="billDate" type="date" aria-label="Bill date" defaultValue={receiving.today} className="field mt-1" required />
+                    </label>
+                    <label className="text-sm">
+                      Due
+                      <input name="dueDate" type="date" aria-label="Due date" defaultValue={receiving.today} className="field mt-1" required />
+                    </label>
+                    <button type="submit" className="mac-primary w-fit">
+                      Save draft
+                    </button>
+                  </ActionForm>
+                </SheetButton>
               ) : null}
               {po.status === "draft" ? (
                 <ActionForm action={issuePurchaseOrderAction.bind(null, po.id)}>
@@ -205,6 +246,8 @@ export function PurchaseOrderDetail({
             <tr>
               <th>Cost code</th>
               <th>Description</th>
+              {showQty ? <th>Qty</th> : null}
+              {showQty ? <th>Expected</th> : null}
               <th className="text-right">Amount</th>
               <th className="text-right">Billed</th>
               <th className="text-right">Remaining</th>
@@ -215,6 +258,8 @@ export function PurchaseOrderDetail({
               <tr key={line.id} data-code={line.costCode}>
                 <td>{line.costCode}</td>
                 <td>{line.description}</td>
+                {showQty ? <td className="num">{tracked.get(line.id)?.text}</td> : null}
+                {showQty ? <td className="num">{tracked.get(line.id)?.expectedOn ? formatCalendarDay(tracked.get(line.id)?.expectedOn || "") : "—"}</td> : null}
                 <td className="fit num text-right" data-fit="amount">{formatMoney(line.amountCents)}</td>
                 <td className="fit num text-right" data-fit="amount" data-kind="billed">{formatMoney(line.billedCents)}</td>
                 <td className="fit num text-right" data-fit="amount" data-kind="remaining">{formatMoney(line.remainingCents)}</td>
@@ -224,6 +269,47 @@ export function PurchaseOrderDetail({
         </table>
         </div>
       </section>
+      {receiving.receipts.length ? (
+        <section className="px-4" aria-label="Receipts">
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="mac-t13 text-[var(--mac-secondary)]">Receipts</h2>
+            {office && receiving.receipts.some((row) => row.status !== "void") ? (
+              <SheetButton label="Void receipt">
+                <ActionForm action={voidReceiptAction} className="grid gap-2">
+                  <label className="text-sm">
+                    Receipt
+                    <select name="receiptId" aria-label="Receipt" className="field mt-1">
+                      {receiving.receipts
+                        .filter((row) => row.status !== "void")
+                        .map((row) => (
+                          <option key={row.id} value={row.id}>
+                            {row.receivedOn} · {row.summary}
+                          </option>
+                        ))}
+                    </select>
+                  </label>
+                  <label className="text-sm">
+                    Reason
+                    <input name="reason" aria-label="Void reason" className="field mt-1" required />
+                  </label>
+                  <button type="submit" className="ctl w-fit">
+                    Void
+                  </button>
+                </ActionForm>
+              </SheetButton>
+            ) : null}
+          </div>
+          <ul className="mt-1">
+            {receiving.receipts.map((row) => (
+              <li key={row.id} className="mac-t13">
+                <span className="num">{formatCalendarDay(row.receivedOn)}</span> · {row.person} · {row.summary}
+                {row.status === "void" ? <span className="fl-pill ml-2">Void</span> : null}
+                {row.note ? ` · ${row.note}` : ""}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
       <section className="px-4" aria-label="Bills">
         <h2 className="mac-t13 text-[var(--mac-secondary)]">Bills</h2>
         <div className="overflow-x-auto">

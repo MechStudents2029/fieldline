@@ -21,6 +21,8 @@ const TRIGGERS = [
   ["checklist_failed", "Checklist item failed"],
   ["tm_verified", "T&M ticket verified"],
   ["selection_confirmed", "Selection confirmed"],
+  ["delivery_late", "Delivery late"],
+  ["delivery_received", "Delivery received"],
 ] as const;
 
 const ACTION_KINDS = [

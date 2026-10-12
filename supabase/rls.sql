@@ -163,6 +163,8 @@ begin
     'purchase_orders',
     'purchase_order_lines',
     'purchase_order_events',
+    'receipts',
+    'receipt_lines',
     'cost_items',
     'documents',
     'message_threads',

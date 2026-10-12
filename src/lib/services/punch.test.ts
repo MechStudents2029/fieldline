@@ -67,7 +67,7 @@ describe("punch list and warranty", () => {
       ["punch", 4],
       ["invoice", 1],
       ["changes", 1],
-      ["bills", 1],
+      ["bills", 2],
       ["orders", 2],
       ["time", 3],
       ["permits", 0],

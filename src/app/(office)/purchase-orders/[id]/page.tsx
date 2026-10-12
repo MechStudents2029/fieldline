@@ -4,6 +4,8 @@ import { LinkedRfis } from "@/components/linked-rfis";
 import { PurchaseOrderDetail } from "@/components/purchase-order-detail";
 import { requireSession } from "@/lib/auth/session";
 import { canManageMoney, canSeeMoney } from "@/lib/permissions";
+import { poReceiving } from "@/lib/receiving/facts";
+import { canBillReceived, companyToday, receiveChoices } from "@/lib/services/receiving";
 import { changeOrderChoices, purchaseOrderDetail } from "@/lib/services/purchase-orders";
 import { poRetainage } from "@/lib/services/pay-ready";
 import { officeTargetPlans, planChoices } from "@/lib/services/files";
@@ -69,6 +71,19 @@ export default async function PurchaseOrderPage({ params }: { params: Promise<{ 
         orders={changeOrderChoices(session.orgId)}
         codes={listPriceBook(session.orgId).map((item) => item.code)}
         office={office}
+        receiving={{
+          label: poReceiving(session.orgId, detail.po.id).label,
+          lines: poReceiving(session.orgId, detail.po.id).lines.map((line) => ({
+            id: line.id,
+            text: line.text,
+            expectedOn: line.expectedOn,
+            label: line.label,
+          })),
+          receipts: poReceiving(session.orgId, detail.po.id).receipts,
+          choices: session.role === "viewer" ? [] : receiveChoices(session).filter((order) => order.id === detail.po.id),
+          today: companyToday(session.orgId),
+          canBill: office && canBillReceived(session.orgId, detail.po.id),
+        }}
       />
       <div className="px-4">
         <CommentThread entityType="purchase_order" entityId={detail.po.id} />

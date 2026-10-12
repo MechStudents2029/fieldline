@@ -51,6 +51,8 @@ import {
   purchaseOrderEvents,
   purchaseOrderLines,
   purchaseOrders,
+  receiptLines,
+  receipts,
   jobTemplates,
   scheduleAssignees,
   scheduleLinks,
@@ -174,7 +176,7 @@ import {
   WEBSITE_FORM_SOURCE,
 } from "@/lib/lead-form/rules";
 
-export const SEED_VERSION = "47";
+export const SEED_VERSION = "48";
 
 const ORG = "org_rivera";
 const NORTH = "org_northline";
@@ -1559,6 +1561,29 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
         retainageCents: 10000,
         kind: "standard",
       },
+      {
+        id: "bill_ok_over",
+        orgId: ORG,
+        projectId: "proj_okonkwo",
+        vendorContactId: "c_harbor",
+        billNumber: "HP-443",
+        billDate: billToday,
+        amountCents: 50000,
+        dueDate: billDueSoon,
+        status: "draft",
+        memo: "Billed past what arrived",
+        voidReason: null,
+        paidAt: null,
+        payMethod: null,
+        payReference: null,
+        documentId: null,
+        purchaseOrderId: "po_ok_harbor",
+        approvedAt: null,
+        lowConfidence: 0,
+        createdAt: daysAgo(1),
+        updatedAt: daysAgo(1),
+        createdBy: "user_sam",
+      },
     ])
     .run();
   db.insert(billLines)
@@ -1571,6 +1596,7 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
       { id: "bln_harbor_req", orgId: ORG, billId: "bill_ok_harbor_req", costCode: "PLB-SHOWER", description: "Trim balance", amountCents: 96000, costItemId: null, sortOrder: 0 },
       { id: "bln_ok_ret_ready", orgId: ORG, billId: "bill_ok_ret_ready", costCode: "PLB-SHOWER", description: "Shower package", amountCents: 200000, costItemId: "cost_bill_hp510", sortOrder: 0 },
       { id: "bln_ok_ret_blocked", orgId: ORG, billId: "bill_ok_ret_blocked", costCode: "PLB-SHOWER", description: "Shower balance", amountCents: 100000, costItemId: "cost_bill_hp511", sortOrder: 0 },
+      { id: "bln_ok_over", orgId: ORG, billId: "bill_ok_over", costCode: "PLB-SHOWER", description: "Short ship", amountCents: 50000, costItemId: null, sortOrder: 0 },
     ])
     .run();
   db.insert(billEvents)
@@ -1711,6 +1737,9 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
       description: "Valve, trim, and remaining rough",
       amountCents: 400000,
       sortOrder: 0,
+      qtyMilli: 4000,
+      unitCostCents: 100000,
+      expectedOn: billToday,
     })
     .run();
   db.insert(purchaseOrderEvents)
@@ -1801,6 +1830,152 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
       payloadJson: JSON.stringify({ number: "PO-1056" }),
       ip: null,
       createdAt: daysAgo(4),
+    })
+    .run();
+
+  const deliveryYesterday = addCalendarDays(billToday, -1);
+  const deliveryLater = addCalendarDays(billToday, 14);
+  db.insert(receipts)
+    .values({
+      id: "rcp_ok_partial",
+      orgId: ORG,
+      projectId: "proj_okonkwo",
+      purchaseOrderId: "po_ok_harbor",
+      receivedOn: deliveryYesterday,
+      note: "Short one pallet",
+      documentId: null,
+      status: "posted",
+      voidReason: null,
+      createdAt: daysAgo(1),
+      createdBy: "user_sam",
+      voidedAt: null,
+    })
+    .run();
+  db.insert(receiptLines)
+    .values({
+      id: "rcl_ok_partial",
+      orgId: ORG,
+      receiptId: "rcp_ok_partial",
+      purchaseOrderLineId: "pol_ok_harbor",
+      qtyMilli: 1500,
+      percentBps: 0,
+      condition: "short",
+      expectedOn: null,
+      note: null,
+    })
+    .run();
+  db.insert(auditLogs)
+    .values({
+      id: "audit_rcp_partial",
+      orgId: ORG,
+      actorId: "user_sam",
+      action: "receipt.receive",
+      entityType: "receipt",
+      entityId: "rcp_ok_partial",
+      payloadJson: JSON.stringify({ number: "PO-1044", lines: 1 }),
+      ip: null,
+      createdAt: daysAgo(1),
+    })
+    .run();
+  db.insert(purchaseOrders)
+    .values({
+      id: "po_br_windows",
+      orgId: ORG,
+      projectId: "proj_brooks",
+      vendorContactId: "c_summit",
+      changeOrderId: null,
+      number: "PO-1042",
+      scope: "Window package and door hardware.",
+      status: "issued",
+      voidReason: null,
+      issuedAt: daysAgo(3),
+      closedAt: null,
+      createdAt: daysAgo(4),
+      updatedAt: daysAgo(3),
+      createdBy: "user_maya",
+      kind: "purchase",
+    })
+    .run();
+  db.insert(purchaseOrderLines)
+    .values([
+      {
+        id: "pol_br_windows",
+        orgId: ORG,
+        purchaseOrderId: "po_br_windows",
+        costCode: "WIN-REPL",
+        description: "Window package",
+        amountCents: 180000,
+        sortOrder: 0,
+        qtyMilli: 1000,
+        unitCostCents: 180000,
+        expectedOn: deliveryYesterday,
+        scheduleItemId: "sch_br_delivery",
+      },
+      {
+        id: "pol_br_hardware",
+        orgId: ORG,
+        purchaseOrderId: "po_br_windows",
+        costCode: "HDW-DOOR",
+        description: "Door hardware",
+        amountCents: 42000,
+        sortOrder: 1,
+        qtyMilli: 1000,
+        unitCostCents: 42000,
+        expectedOn: deliveryLater,
+        scheduleItemId: "sch_br_delivery",
+      },
+    ])
+    .run();
+  db.insert(receipts)
+    .values({
+      id: "rcp_br_back",
+      orgId: ORG,
+      projectId: "proj_brooks",
+      purchaseOrderId: "po_br_windows",
+      receivedOn: deliveryYesterday,
+      note: "Hardware backordered",
+      documentId: null,
+      status: "posted",
+      voidReason: null,
+      createdAt: daysAgo(1),
+      createdBy: "user_maya",
+      voidedAt: null,
+    })
+    .run();
+  db.insert(receiptLines)
+    .values({
+      id: "rcl_br_back",
+      orgId: ORG,
+      receiptId: "rcp_br_back",
+      purchaseOrderLineId: "pol_br_hardware",
+      qtyMilli: 0,
+      percentBps: 0,
+      condition: "backordered",
+      expectedOn: deliveryLater,
+      note: null,
+    })
+    .run();
+  db.insert(purchaseOrderEvents)
+    .values([
+      { id: "poe_br_created", orgId: ORG, purchaseOrderId: "po_br_windows", actorId: "user_maya", type: "created", reason: null, beforeJson: null, afterJson: null, createdAt: daysAgo(4) },
+      { id: "poe_br_issued", orgId: ORG, purchaseOrderId: "po_br_windows", actorId: "user_maya", type: "issued", reason: null, beforeJson: null, afterJson: JSON.stringify({ status: "issued" }), createdAt: daysAgo(3) },
+    ])
+    .run();
+  db.insert(notifications)
+    .values({
+      id: "note_del_late",
+      orgId: ORG,
+      userId: "user_maya",
+      kind: "delivery",
+      commentId: null,
+      entityType: "purchase_order",
+      entityId: "po_br_windows",
+      projectId: "proj_brooks",
+      actorId: null,
+      actorName: "Fieldline",
+      snippet: "PO-1042 is late",
+      readAt: null,
+      createdAt: daysAgo(20),
     })
     .run();
 

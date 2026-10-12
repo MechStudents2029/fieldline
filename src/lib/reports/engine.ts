@@ -216,7 +216,7 @@ export function runEngine(rows: EngineRow[], columns: EngineColumn[], query: Rep
   return { columns: selected, groups, total, chart, grouped };
 }
 
-const FIELD_SOURCES = new Set(["jobs", "clients", "leads", "time", "todos", "punch"]);
+const FIELD_SOURCES = new Set(["jobs", "clients", "leads", "time", "todos", "punch", "deliveries"]);
 
 export function sourceAllowed(role: Role, source: string): boolean {
   if (source === "cash") return canSeeCash(role);

@@ -112,7 +112,7 @@ export type CashSnap = {
   }[];
   billLines: { billId: string; costCode: string; amountCents: number }[];
   pos: { id: string; projectId: string; number: string; status: string; issuedAt: string | null; vendorId: string }[];
-  poLines: { purchaseOrderId: string; costCode: string; description: string | null; amountCents: number }[];
+  poLines: { purchaseOrderId: string; costCode: string; description: string | null; amountCents: number; expectedOn?: string | null }[];
   proposals: {
     id: string;
     leadId: string;
@@ -455,28 +455,30 @@ export function forecastLines(snap: CashSnap): CashLine[] {
   for (const po of snap.pos) {
     if (SKIP_PO.has(po.status)) continue;
     const billed = (billsByPo.get(po.id) ?? []).flatMap((bill) => linesByBill.get(bill.id) ?? []);
-    const remaining = lineFigures(
+    const figures = lineFigures(
       snap.poLines.filter((row) => row.purchaseOrderId === po.id),
       billed.map((row) => ({ costCode: row.costCode, amountCents: row.amountCents })),
-    ).reduce((sum, row) => sum + row.remainingCents, 0);
-    if (remaining <= 0) continue;
-    const job = jobOf(po.projectId);
-    lines.push(
-      line({
-        id: po.id,
-        group: "po",
-        direction: "out",
-        kind: "committed",
-        cents: remaining,
-        date: day(po.issuedAt) || snap.today,
-        jobId: job.jobId,
-        job: job.job,
-        customerId: job.customerId,
-        customer: job.customer,
-        doc: po.number,
-        href: `/projects/${po.projectId}`,
-      }),
     );
+    const job = jobOf(po.projectId);
+    figures.forEach((figure, index) => {
+      if (figure.remainingCents <= 0) return;
+      lines.push(
+        line({
+          id: `${po.id}:${index}`,
+          group: "po",
+          direction: "out",
+          kind: "committed",
+          cents: figure.remainingCents,
+          date: figure.expectedOn || day(po.issuedAt) || snap.today,
+          jobId: job.jobId,
+          job: job.job,
+          customerId: job.customerId,
+          customer: job.customer,
+          doc: po.number,
+          href: `/projects/${po.projectId}`,
+        }),
+      );
+    });
   }
 
   const heldByProject = new Map<string, { retained: number; released: number }>();

@@ -53,6 +53,22 @@ function cell(lines: ReturnType<typeof forecastLines>, row: string, column: stri
 }
 
 describe("cash forecast buckets", () => {
+  it("dates remaining PO lines by expected delivery", () => {
+    const lines = forecastLines(
+      snap({
+        pos: [{ id: "po", projectId: "p", number: "PO-1", status: "issued", issuedAt: "2026-10-01", vendorId: "c" }],
+        poLines: [
+          { purchaseOrderId: "po", costCode: "A", description: "Early", amountCents: 1000, expectedOn: "2026-10-12" },
+          { purchaseOrderId: "po", costCode: "B", description: "Later", amountCents: 2000, expectedOn: "2026-10-20" },
+        ],
+      }),
+    );
+    const early = cell(lines, "po", "2026-10-12");
+    const later = cell(lines, "po", "2026-10-19");
+    expect(early.lines.some((row) => row.id === "po:0" && row.cents === 1000)).toBe(true);
+    expect(later.lines.some((row) => row.id === "po:1" && row.cents === 2000)).toBe(true);
+  });
+
   it("hides the forecast from field and viewer", () => {
     expect(cashAllowed("owner")).toBe(true);
     expect(cashAllowed("admin")).toBe(true);

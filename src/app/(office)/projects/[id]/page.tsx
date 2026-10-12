@@ -14,12 +14,14 @@ import { formatCalendarDay, formatDateTime, formatWarrantyDay } from "@/lib/form
 import { formatWorkdayVariance } from "@/lib/schedule/delays";
 import { overBudgetPercent } from "@/lib/margin/category";
 import { formatMoney, formatPercent, formatWhole } from "@/lib/money";
-import { canEditCrm, canEditSchedule, canManageMoney } from "@/lib/permissions";
+import { canEditCrm, canEditSchedule, canManageMoney, canSeeMoney } from "@/lib/permissions";
 import { OrderPicker } from "@/components/order-picker";
 import { budgetCandidates, orderDesk } from "@/lib/services/order-from";
 import { projectBills } from "@/lib/services/bills";
 import { projectPurchaseOrders } from "@/lib/services/purchase-orders";
 import { captionFromMetadata, listPriceBook, listProjects, pipelineBoard, projectDetail } from "@/lib/services/read";
+import { deliveryHolds } from "@/lib/receiving/facts";
+import { openDeliveries } from "@/lib/services/receiving";
 import { jobInspectionMarks, scheduleGateLabels } from "@/lib/services/permits";
 import { GanttBoard } from "@/components/gantt-board";
 import { SheetButton } from "@/components/sheet-button";
@@ -86,6 +88,8 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
   const gantt = query.view === "gantt" ? jobGantt(session, detail.project.id, zoom) : null;
   const marks = jobInspectionMarks(session, detail.project.id);
   const gates = scheduleGateLabels(session.orgId);
+  const holds = deliveryHolds(session.orgId);
+  const openDeliveryRows = openDeliveries(session.orgId, detail.project.id, canSeeMoney(session.role));
   const compare = scheduleCompare(session, detail.project.id);
   const compareById = new Map(compare.items.map((item) => [item.id, item]));
   const jobDays = listWorkExceptions(session, detail.project.id);
@@ -196,6 +200,21 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
             <p className="mac-t11 text-[var(--mac-secondary)]">Paid</p>
           </div>
         </div>
+      ) : null}
+      {openDeliveryRows.length ? (
+        <section aria-label="Open deliveries" className="mb-5 px-4">
+          <h2 className="mac-t13 text-[var(--mac-secondary)]">Open deliveries</h2>
+          <ul className="mt-1">
+            {openDeliveryRows.map((row) => (
+              <li key={row.id} className="mac-t13">
+                <Link href={detail.money ? `/purchase-orders/${row.poId}` : "/deliveries"}>{row.number}</Link>
+                <span> · {row.description}</span>
+                <span className="fl-pill ml-2">{row.label}</span>
+                {row.expectedOn ? <span className="num"> · {formatCalendarDay(row.expectedOn)}</span> : null}
+              </li>
+            ))}
+          </ul>
+        </section>
       ) : null}
       <JobEquipment actor={session} projectId={detail.project.id} />
       <CommentThread entityType="project" entityId={detail.project.id} />
@@ -656,6 +675,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
                   {base?.baselineEnd ? ` · Baseline ${formatCalendarDay(base.baselineStart || base.baselineEnd)}${base.baselineEnd !== base.baselineStart ? ` – ${formatCalendarDay(base.baselineEnd)}` : ""}` : ""}
                   {base?.variance != null && base.variance !== 0 ? ` · ${formatWorkdayVariance(base.variance)}` : ""}
                   {gates.get(item.id) ? ` · ${gates.get(item.id)}` : ""}
+                  {holds.get(item.id) ? ` · ${holds.get(item.id)}` : ""}
                 </span>
                 <LinkedRfis rows={(rfiBoard?.items ?? []).filter((rfi) => rfi.relatedType === "schedule" && rfi.relatedId === item.id && rfi.status !== "void")} />
               </span>

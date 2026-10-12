@@ -2,6 +2,7 @@ import { and, eq, gte, inArray, isNull, lte } from "drizzle-orm";
 import { getDb } from "@/lib/db/client";
 import { officeDb } from "@/lib/db/office";
 import { calendarFeeds, memberships, projects, scheduleAssignees, scheduleBaselineItems, scheduleBaselines, scheduleItems, scheduleLinks, users, workdayExceptions } from "@/lib/db/schema";
+import { deliveryHolds } from "@/lib/receiving/facts";
 import { emitAutomation } from "@/lib/services/automations";
 import { overdueScheduleIds } from "@/lib/services/rfis";
 import { id, nowIso } from "@/lib/ids";
@@ -66,6 +67,7 @@ export type ScheduleChip = {
   rfiDue: boolean;
   variance: string | null;
   gate: string | null;
+  delivery?: string | null;
   kind: "item" | "inspection";
   baseline: boolean;
 };
@@ -264,6 +266,7 @@ export function scheduleBoard(actor: Actor, query: { on?: string; span?: string 
     baselineOf.set(row.id, { end: base.endDate, label });
   }
   const gateLabels = scheduleGateLabels(actor.orgId);
+  const deliveryNotes = deliveryHolds(actor.orgId);
   const milestones = scheduleMilestones(actor.orgId);
   const crew = loadCrew(db, actor.orgId);
   const people = new Map(crew.map((person) => [person.id, person.name]));
@@ -282,6 +285,7 @@ export function scheduleBoard(actor: Actor, query: { on?: string; span?: string 
     rfiDue: lateRfi.has(row.id),
     variance: varianceOf.get(row.id) ?? null,
     gate: gateLabels.get(row.id) ?? (row.held ? "Held" : null),
+    delivery: deliveryNotes.get(row.id) ?? null,
     kind: "item",
     baseline: baselineOf.has(row.id),
   });

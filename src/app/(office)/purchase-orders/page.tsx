@@ -6,6 +6,7 @@ import { requireSession } from "@/lib/auth/session";
 import { one, pinnedTarget, readQuery } from "@/lib/lists/query";
 import { formatMoney } from "@/lib/money";
 import { canEditCrm, canManageMoney, canSeeMoney } from "@/lib/permissions";
+import { orderReceiptLabel } from "@/lib/receiving/facts";
 import { listPurchaseOrders } from "@/lib/services/purchase-orders";
 import { listContacts, listProjects } from "@/lib/services/read";
 import { LIST_FILTERS, listSavedViews, viewHref } from "@/lib/services/saved-views";
@@ -34,6 +35,7 @@ export default async function PurchaseOrdersPage({
     return !needle || `${order.number} ${order.vendorName} ${order.projectName}`.toLowerCase().includes(needle);
   });
   const jobs = listProjects(session.orgId);
+  const receiptLabels = orderReceiptLabel(session.orgId);
   const vendors = listContacts(session.orgId).filter((contact) => contact.type === "sub" || contact.type === "vendor");
   return (
     <div className="flex flex-col gap-3">
@@ -91,6 +93,7 @@ export default async function PurchaseOrdersPage({
                 <td className="clip" title={order.projectName}>{order.projectName}</td>
                 <td className="fit" data-fit="status">
                   {order.status === "draft" ? <span className="fl-pill">{order.status}</span> : order.status}
+                  {receiptLabels.get(order.id) ? <span className="fl-pill ml-2">{receiptLabels.get(order.id)}</span> : null}
                   {order.status === "issued" ? <span className="num"> · {formatMoney(order.openCents)}</span> : ""}
                 </td>
                 <td className="fit num text-right" data-fit="amount">{formatMoney(order.amountCents)}</td>

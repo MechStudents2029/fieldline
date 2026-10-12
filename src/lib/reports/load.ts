@@ -26,6 +26,7 @@ import type { EngineCell, EngineColumn, EngineRow } from "@/lib/reports/engine";
 import { customCell, customColumns } from "@/lib/services/custom-fields";
 import { ServiceError } from "@/lib/services/errors";
 import type { Actor } from "@/lib/services/read";
+import { deliveryRows } from "@/lib/receiving/facts";
 import { listTodos } from "@/lib/services/todos";
 import { calendarForOrg, formatHours, splitsById, workedMinutes } from "@/lib/services/time";
 import { burdenBpsFor, hourlyCostFor, otRulesFor } from "@/lib/time/post";
@@ -109,10 +110,28 @@ export function loadSource(actor: Actor, source: SourceId, today: string): Engin
   if (source === "time") return loadTime(actor, db, today);
   if (source === "change_orders") return loadChanges(db, actor.orgId);
   if (source === "todos") return loadTodoRows(actor);
+  if (source === "deliveries") return loadDeliveries(actor);
   if (source === "certificates") return loadCerts(db, actor.orgId, today);
   if (source === "cash") return loadCash(actor);
   if (source === "confirmations") return loadConfirmations(db, actor.orgId);
   return loadPunch(db, actor.orgId);
+}
+
+function loadDeliveries(actor: Actor): EngineRow[] {
+  const see = canSeeMoney(actor.role as Role);
+  return deliveryRows(actor.orgId, see).map((row) => ({
+    id: row.id,
+    href: see ? `/purchase-orders/${row.poId}` : "/deliveries",
+    cells: {
+      order: text(row.number),
+      job: text(row.job),
+      vendor: text(row.vendor),
+      line: text(row.description),
+      expected: date(row.expectedOn ?? ""),
+      status: text(row.backordered ? `${row.label} · backordered` : row.label),
+      qty: text(row.text),
+    },
+  }));
 }
 
 function loadCash(actor: Actor): EngineRow[] {

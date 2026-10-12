@@ -11,6 +11,7 @@ export const BUILDER_SOURCES = [
   { id: "time", label: "Time entries", custom: "" },
   { id: "change_orders", label: "Change orders", custom: "" },
   { id: "todos", label: "To-dos", custom: "todo" },
+  { id: "deliveries", label: "Deliveries", custom: "" },
 ] as const;
 
 export type BuilderSource = (typeof BUILDER_SOURCES)[number]["id"];
@@ -126,6 +127,15 @@ export const CATALOG: Record<SourceId, CatalogColumn[]> = {
     { key: "status", label: "Status", kind: "text" },
     { key: "assignee", label: "Assignee", kind: "text" },
     { key: "due", label: "Due", kind: "date" },
+  ],
+  deliveries: [
+    { key: "order", label: "Order", kind: "text" },
+    { key: "job", label: "Job", kind: "text" },
+    { key: "vendor", label: "Vendor", kind: "text" },
+    { key: "line", label: "Line", kind: "text" },
+    { key: "expected", label: "Expected", kind: "date" },
+    { key: "status", label: "Status", kind: "text" },
+    { key: "qty", label: "Qty", kind: "text" },
   ],
   certificates: [
     { key: "vendor", label: "Vendor", kind: "text" },
@@ -306,6 +316,17 @@ export const BUILTINS: BuiltinReport[] = [
     query: query({
       columns: ["job", "item", "vendor", "status", "start", "proposed"],
       sort: "start",
+    }),
+  },
+  {
+    id: "deliveries",
+    name: "Deliveries",
+    source: "deliveries",
+    field: true,
+    href: "/deliveries",
+    query: query({
+      columns: ["order", "job", "vendor", "line", "expected", "status", "qty"],
+      sort: "expected",
     }),
   },
   {
