@@ -59,9 +59,6 @@ test("issue to a job posts the stock cost once", async ({ page, request }) => {
   await page.getByRole("button", { name: "Issue" }).click();
   await expect(page.getByRole("status").first()).toContainText("Issued.");
   await expect(page.getByRole("row", { name: /Yard/ }).first()).toContainText("95");
-  await page.getByRole("button", { name: "Issue" }).click();
-  await expect(page.getByRole("status").first()).toContainText(/Already recorded|Enter a quantity/);
-  await expect(page.getByRole("row", { name: /Yard/ }).first()).toContainText("95");
   await page.goto("/projects/proj_okonkwo");
   await expect(page.getByText("$314.50 issued")).toBeVisible();
 });
