@@ -16,8 +16,10 @@ import {
   projects,
   purchaseOrderLines,
   purchaseOrders,
+  auditLogs,
 } from "@/lib/db/schema";
 import { poOverageMessage } from "@/lib/bills/from-po";
+import { receiveGap } from "@/lib/receiving/facts";
 import { netPayableCents, retainedCents } from "@/lib/bills/retainage";
 import { id, nowIso } from "@/lib/ids";
 import { overageByCode } from "@/lib/margin/commitment";
@@ -321,6 +323,18 @@ function poWarning(db: Writer, orgId: string, purchaseOrderId: string | null | u
   return message ? `${message} It was still saved.` : null;
 }
 
+function billWarnings(
+  db: Writer,
+  orgId: string,
+  purchaseOrderId: string | null | undefined,
+  lines: { costCode: string; amountCents: number }[],
+  exceptBillId?: string,
+) {
+  const over = poWarning(db, orgId, purchaseOrderId, lines, exceptBillId);
+  const gap = purchaseOrderId ? receiveGap(db, orgId, purchaseOrderId, lines, exceptBillId) : null;
+  return { text: [over, gap].filter(Boolean).join(" ") || null, gap };
+}
+
 export function createBill(actor: Actor, input: BillInput) {
   assertOffice(actor);
   const db = dbFor(actor);
@@ -384,7 +398,7 @@ export function createBill(actor: Actor, input: BillInput) {
     }
     throw error;
   }
-  return { id: billId, warning: poWarning(db, actor.orgId, order?.id, lines) };
+  return { id: billId, warning: billWarnings(db, actor.orgId, order?.id, lines).text };
 }
 
 export function updateDraft(actor: Actor, billId: string, input: BillInput) {
@@ -426,7 +440,7 @@ export function updateDraft(actor: Actor, billId: string, input: BillInput) {
     const after = loadBill(tx, actor.orgId, bill.id);
     writeEvent(tx, actor.orgId, bill.id, actor.userId, "updated", null, before, after ? snapshot(after, loadLines(tx, actor.orgId, bill.id)) : null);
   });
-  return { id: bill.id, warning: poWarning(db, actor.orgId, order?.id, lines, bill.id) };
+  return { id: bill.id, warning: billWarnings(db, actor.orgId, order?.id, lines, bill.id).text };
 }
 
 export function confirmBillRead(actor: Actor, billId: string) {
@@ -498,7 +512,7 @@ function reverseLines(db: Writer, orgId: string, billId: string) {
   return removed;
 }
 
-export function approveBill(actor: Actor, billId: string) {
+export function approveBill(actor: Actor, billId: string, override?: string) {
   assertOffice(actor);
   const db = dbFor(actor);
   const bill = loadBill(db, actor.orgId, billId);
@@ -510,7 +524,10 @@ export function approveBill(actor: Actor, billId: string) {
   }
   const vendor = requireVendor(db, actor.orgId, bill.vendorContactId ?? "");
   const lines = loadLines(db, actor.orgId, bill.id);
-  const warning = poWarning(db, actor.orgId, bill.purchaseOrderId, lines, bill.id);
+  const warnings = billWarnings(db, actor.orgId, bill.purchaseOrderId, lines, bill.id);
+  const reason = override?.trim() ?? "";
+  if (warnings.gap && reason.length < 3) throw new ServiceError("Enter a reason to bill more than received.");
+  const warning = warnings.text;
   const before = snapshot(bill, lines);
   db.transaction((tx) => {
     const costItemIds = postLines(tx, actor, bill, vendorLabel(vendor));
@@ -523,10 +540,26 @@ export function approveBill(actor: Actor, billId: string) {
         status: "approved",
         approvedAt: now,
         updatedAt: now,
+        matchOverride: reason || null,
         retainageCents: bill.kind === "release" ? 0 : retainedCents(bill.amountCents, order?.retainageBps ?? 0),
       })
       .where(and(eq(bills.id, bill.id), eq(bills.orgId, actor.orgId)))
       .run();
+    if (warnings.gap) {
+      tx.insert(auditLogs)
+        .values({
+          id: id("audit"),
+          orgId: actor.orgId,
+          actorId: actor.userId,
+          action: "bill.match_override",
+          entityType: "bill",
+          entityId: bill.id,
+          payloadJson: JSON.stringify({ reason, warning: warnings.gap }),
+          ip: null,
+          createdAt: now,
+        })
+        .run();
+    }
     const after = loadBill(tx, actor.orgId, bill.id);
     writeEvent(
       tx,
@@ -761,6 +794,7 @@ export function billDetail(orgId: string, billId: string, role: Role, now = Date
     purchaseOrderId: bill.purchaseOrderId,
     purchaseOrderNumber: order?.number ?? null,
     poWarning: poWarning(scoped.db, orgId, bill.purchaseOrderId, lines, bill.id),
+    receiveWarning: bill.purchaseOrderId ? receiveGap(scoped.db, orgId, bill.purchaseOrderId, lines, bill.id) : null,
   };
 }
 

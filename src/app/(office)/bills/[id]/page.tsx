@@ -39,8 +39,9 @@ export default async function BillPage({ params }: { params: Promise<{ id: strin
         }
         actions={
           office && bill.status === "draft" && !bill.lowConfidence ? (
-            <ActionForm action={approveBillAction.bind(null, bill.id)}>
+            <ActionForm action={approveBillAction.bind(null, bill.id)} className="flex flex-wrap items-center gap-2">
               <input type="hidden" name="projectId" value={bill.projectId} />
+              {detail.receiveWarning ? <input name="matchOverride" aria-label="Override reason" placeholder="Reason" className="ctl" /> : null}
               <button type="submit" className="mac-primary">
                 Approve bill
               </button>
@@ -79,6 +80,11 @@ export default async function BillPage({ params }: { params: Promise<{ id: strin
           ...(bill.lowConfidence ? [{ label: "Read", value: "Low confidence" }] : []),
         ]}
       />
+      {detail.receiveWarning ? (
+        <p role="alert" className="px-4 text-sm">
+          {detail.receiveWarning}
+        </p>
+      ) : null}
       {detail.poWarning ? (
         <p role="status" className="px-4 text-sm">
           {detail.poWarning}

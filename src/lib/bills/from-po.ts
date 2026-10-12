@@ -8,6 +8,7 @@ export type PoLineInput = {
   costCode: string;
   description: string | null;
   amountCents: number;
+  expectedOn?: string | null;
 };
 
 export type PoLineFigure = PoLineInput & {

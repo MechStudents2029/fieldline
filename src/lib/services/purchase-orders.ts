@@ -213,11 +213,17 @@ function noteActivity(db: Writer, orgId: string, projectId: string, actorId: str
     .run();
 }
 
-function insertLines(db: Writer, orgId: string, purchaseOrderId: string, lines: ReturnType<typeof cleanLines>) {
+type StoredLine = ReturnType<typeof cleanLines>[number] & {
+  id?: string;
+  expectedOn?: string | null;
+  scheduleItemId?: string | null;
+};
+
+function insertLines(db: Writer, orgId: string, purchaseOrderId: string, lines: StoredLine[]) {
   lines.forEach((line, index) => {
     db.insert(purchaseOrderLines)
       .values({
-        id: id("pol"),
+        id: line.id || id("pol"),
         orgId,
         purchaseOrderId,
         costCode: line.costCode,
@@ -229,6 +235,8 @@ function insertLines(db: Writer, orgId: string, purchaseOrderId: string, lines: 
         sourceKind: line.sourceKind,
         sourceId: line.sourceId,
         note: line.note,
+        expectedOn: line.expectedOn ?? null,
+        scheduleItemId: line.scheduleItemId ?? null,
       })
       .run();
   });
@@ -237,20 +245,22 @@ function insertLines(db: Writer, orgId: string, purchaseOrderId: string, lines: 
 function replaceLines(db: Writer, orgId: string, purchaseOrderId: string, lines: ReturnType<typeof cleanLines>) {
   const existing = loadLines(db, orgId, purchaseOrderId);
   const used = new Set<string>();
-  const merged = lines.map((line) => {
-    if (line.sourceId) return line;
+  const merged: StoredLine[] = lines.map((line) => {
     const match = existing.find(
       (row) => !used.has(row.id) && row.costCode === line.costCode && row.amountCents === line.amountCents && (row.description ?? null) === line.description,
     );
-    if (!match?.sourceId) return line;
+    if (!match) return line;
     used.add(match.id);
     return {
       ...line,
+      id: match.id,
       qtyMilli: line.qtyMilli ?? match.qtyMilli,
       unitCostCents: line.unitCostCents ?? match.unitCostCents,
-      sourceKind: match.sourceKind,
-      sourceId: match.sourceId,
+      sourceKind: match.sourceKind || line.sourceKind,
+      sourceId: match.sourceId || line.sourceId,
       note: line.note ?? match.note,
+      expectedOn: match.expectedOn,
+      scheduleItemId: match.scheduleItemId,
     };
   });
   db.delete(purchaseOrderLines)

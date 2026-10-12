@@ -8,6 +8,7 @@ export function FileButton({
   accept,
   multiple,
   empty = "Photo",
+  capture,
   onPick,
 }: {
   name: string;
@@ -15,6 +16,7 @@ export function FileButton({
   accept: string;
   multiple?: boolean;
   empty?: string;
+  capture?: boolean | "user" | "environment";
   onPick?: (file: File | null) => void;
 }) {
   const ref = useRef<HTMLInputElement>(null);
@@ -32,6 +34,7 @@ export function FileButton({
         type="file"
         name={name}
         accept={accept}
+        capture={capture === true ? "environment" : capture || undefined}
         multiple={multiple}
         aria-label={label}
         tabIndex={-1}

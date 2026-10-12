@@ -372,6 +372,7 @@ export function ScheduleBoard({ board, openJobId }: { board: Board; openJobId: s
                             <span className="block truncate text-[11px] leading-4 text-[var(--mac-secondary)]">
                               {item.title}
                               {item.gate ? <span> · {item.gate}</span> : null}
+                              {item.delivery ? <span> · {item.delivery}</span> : null}
                               {item.variance ? <span className="num"> · {item.variance}</span> : null}
                             </span>
                             {item.baseline ? <span className="baseline-tick" /> : null}

@@ -19,6 +19,7 @@ import {
   organizations,
   projects,
   proposals,
+  purchaseOrders,
   punchItems,
   safetyCheckItems,
   safetyChecks,
@@ -47,6 +48,8 @@ import { ServiceError } from "@/lib/services/errors";
 import { createOrdersFrom } from "@/lib/services/order-from";
 import { ticketLabel } from "@/lib/tm/number";
 import type { Actor } from "@/lib/services/read";
+import { deliveryRows } from "@/lib/receiving/facts";
+import { notifyDelivery } from "@/lib/receiving/notify";
 import { workCalendarFor } from "@/lib/services/work-calendar";
 import { addCalendarDays, localDay } from "@/lib/time/calendar";
 
@@ -68,7 +71,9 @@ export type Trigger =
   | { kind: "incident_logged" }
   | { kind: "checklist_failed" }
   | { kind: "tm_verified" }
-  | { kind: "selection_confirmed" };
+  | { kind: "selection_confirmed" }
+  | { kind: "delivery_late" }
+  | { kind: "delivery_received" };
 
 export type Condition =
   | { kind: "job_type"; value: string }
@@ -170,6 +175,8 @@ export function parseTrigger(raw: string): Trigger | null {
   if (row.kind === "checklist_failed") return { kind: "checklist_failed" };
   if (row.kind === "tm_verified") return { kind: "tm_verified" };
   if (row.kind === "selection_confirmed") return { kind: "selection_confirmed" };
+  if (row.kind === "delivery_late") return { kind: "delivery_late" };
+  if (row.kind === "delivery_received") return { kind: "delivery_received" };
   return null;
 }
 
@@ -244,6 +251,8 @@ export function triggerLabel(trigger: Trigger): string {
   if (trigger.kind === "checklist_failed") return "Checklist item failed";
   if (trigger.kind === "tm_verified") return "T&M ticket verified";
   if (trigger.kind === "selection_confirmed") return "Selection confirmed";
+  if (trigger.kind === "delivery_late") return "Delivery late";
+  if (trigger.kind === "delivery_received") return "Delivery received";
   return "Equipment overdue";
 }
 
@@ -375,6 +384,7 @@ function itemNames(orgId: string, ids: string[]) {
 function hrefFor(event: AutomationEvent) {
   if (event.kind === "tm_verified") return `/tm/${event.recordId}`;
   if (event.kind === "selection_confirmed" && event.projectId) return `/projects/${event.projectId}/selections`;
+  if (event.kind === "delivery_late" || event.kind === "delivery_received") return `/purchase-orders/${event.recordId}`;
   if (event.kind === "equipment_overdue") return "/equipment";
   if ((event.kind === "incident_logged" || event.kind === "checklist_failed") && event.projectId) return `/projects/${event.projectId}/safety`;
   if (event.kind === "vendor_expiring") return "/contacts";
@@ -893,6 +903,27 @@ export function scanAutomationClock(orgId: string) {
       scheduleItemId: item.id,
     });
   }
+  const seenLate = new Set<string>();
+  for (const row of deliveryRows(orgId, false)) {
+    if (row.bucket !== "late" || seenLate.has(row.poId)) continue;
+    seenLate.add(row.poId);
+    emitAutomation({
+      orgId,
+      kind: "delivery_late",
+      recordType: "purchase_order",
+      recordId: row.poId,
+      recordLabel: row.number,
+      projectId: row.projectId,
+      name: row.number,
+    });
+    notifyDelivery(orgId, {
+      entityType: "purchase_order",
+      entityId: row.poId,
+      projectId: row.projectId,
+      snippet: `${row.number} is late`,
+      actorName: "Fieldline",
+    });
+  }
   const after = getDb().select().from(automationRuns).where(eq(automationRuns.orgId, orgId)).all().length;
   return { ran: after - before };
 }
@@ -1001,6 +1032,7 @@ export function previewRecordLabel(trigger: Trigger) {
   if (trigger.kind === "checklist_failed") return "Checklist item";
   if (trigger.kind === "tm_verified") return "T&M ticket";
   if (trigger.kind === "selection_confirmed") return "Selection";
+  if (trigger.kind === "delivery_late" || trigger.kind === "delivery_received") return "Purchase order";
   return "Checklist item";
 }
 
@@ -1050,6 +1082,15 @@ export function previewChoices(orgId: string, trigger: Trigger) {
   }
   if (trigger.kind === "selection_confirmed") {
     return db.select().from(selections).where(eq(selections.orgId, orgId)).all().map((row) => ({ id: row.id, label: row.title }));
+  }
+  if (trigger.kind === "delivery_late" || trigger.kind === "delivery_received") {
+    return db
+      .select()
+      .from(purchaseOrders)
+      .where(eq(purchaseOrders.orgId, orgId))
+      .all()
+      .filter((row) => row.status === "issued" || row.status === "closed")
+      .map((row) => ({ id: row.id, label: row.number }));
   }
   return db.select().from(equipment).where(eq(equipment.orgId, orgId)).all().map((row) => ({ id: row.id, label: row.name }));
 }
@@ -1217,6 +1258,19 @@ function eventFromRecord(orgId: string, trigger: Trigger, recordId: string): Aut
       name: selection.title,
     };
   }
+  if (trigger.kind === "delivery_late" || trigger.kind === "delivery_received") {
+    const order = db.select().from(purchaseOrders).where(and(eq(purchaseOrders.orgId, orgId), eq(purchaseOrders.id, recordId))).get();
+    if (!order) return null;
+    return {
+      orgId,
+      kind: trigger.kind,
+      recordType: "purchase_order",
+      recordId: order.id,
+      recordLabel: order.number,
+      projectId: order.projectId,
+      name: order.number,
+    };
+  }
   const item = db.select().from(equipment).where(and(eq(equipment.orgId, orgId), eq(equipment.id, recordId))).get();
   if (!item) return null;
   const open = db
@@ -1308,6 +1362,8 @@ export function ruleFromForm(formData: FormData): RuleDraft {
   else if (kind === "checklist_failed") trigger = { kind: "checklist_failed" };
   else if (kind === "tm_verified") trigger = { kind: "tm_verified" };
   else if (kind === "selection_confirmed") trigger = { kind: "selection_confirmed" };
+  else if (kind === "delivery_late") trigger = { kind: "delivery_late" };
+  else if (kind === "delivery_received") trigger = { kind: "delivery_received" };
   if (!trigger) throw new ServiceError("Pick a trigger.");
   const conditions: Condition[] = [];
   const conditionSlots = formSlots(formData, "c");

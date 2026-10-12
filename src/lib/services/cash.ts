@@ -213,6 +213,7 @@ function snapFor(actor: Actor, projected: boolean): { snap: CashSnap; openingCen
           costCode: row.costCode,
           description: row.description,
           amountCents: row.amountCents,
+          expectedOn: row.expectedOn,
         })),
       proposals: proposalRows.map((proposal) => ({
         id: proposal.id,

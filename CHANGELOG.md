@@ -2,6 +2,15 @@
 
 ## 2026-10-12
 
+### Deliveries and three-way match
+
+- An issued purchase order line can carry an expected date. The order shows Not received, Partially received, or Received from its lines. A work order tracks percent complete.
+- Receive from the office or the field. The quantity starts at what is still open. A line can be short, damaged, or backordered, and a backorder takes a new expected date. A packing-slip photo is optional. Each receipt records the date and the person, and voiding it puts the quantity back. Field does not see prices.
+- A bill linked to a tracked order warns when the amount is past what was received. Approving that bill needs a reason, and the reason is audited. Bill received starts a draft from what arrived and is not yet billed.
+- Today lists deliveries expected today and deliveries that are late. A job shows its open deliveries. The 13-week cash forecast dates the remaining purchase-order balance on the expected delivery date. Work > Deliveries filters expected, late, and received, and downloads CSV. Reports includes Deliveries.
+- A line can point at a schedule item. A late or backordered line shows on that item, and on the items that follow it.
+- Automations can run on Delivery late and Delivery received. Inbox and the audit log record both.
+
 ### Purchase orders from selections
 
 - An approved selection, an approved change-order line, or an open budget line that is not already committed can become a draft purchase order or be added to an existing draft. The line keeps the cost code, description, quantity, and unit cost, and a second open line is not created for the same choice.

@@ -14,6 +14,7 @@ import {
   tasks,
   vendorPortals,
 } from "@/lib/db/schema";
+import { deliveryHolds } from "@/lib/receiving/facts";
 import { emitAutomation } from "@/lib/services/automations";
 import { id, nowIso } from "@/lib/ids";
 import { canEditCrm, canSeeMoney, type Role } from "@/lib/permissions";
@@ -533,13 +534,16 @@ export function scheduleGateStatus(actor: Actor, itemId: string, next: { startDa
   if (!item) return { action: "allow", reason: null };
   const org = db.select({ inspectionGate: organizations.inspectionGate }).from(organizations).where(eq(organizations.id, actor.orgId)).get();
   const open = activeGate(actor.orgId, itemId);
-  return gateDecision({
+  const decision = gateDecision({
     mode: gateMode(org?.inspectionGate),
     name: open?.name ?? null,
     scheduledOn: open?.scheduledOn ?? null,
     previous: { startDate: item.startDate, status: item.status },
     next,
   });
+  const hold = deliveryHolds(actor.orgId).get(itemId);
+  if (hold && decision.reason) return { action: decision.action, reason: `${decision.reason} · ${hold}` };
+  return decision;
 }
 
 export function enforceScheduleGate(actor: Actor, itemId: string, next: { startDate: string; status: string }, confirm: boolean) {

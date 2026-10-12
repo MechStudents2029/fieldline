@@ -39,6 +39,7 @@ import { slippedSchedule } from "@/lib/services/schedule-plan";
 import { staleClientUpdates } from "@/lib/services/client-updates";
 import { overdueSelections } from "@/lib/services/selections";
 import { selectionsNeedingPo } from "@/lib/services/order-from";
+import { deliveryAttention } from "@/lib/services/receiving";
 import { timeBoard, weeklyOtWatch } from "@/lib/services/time";
 import { addCalendarDays, localDay } from "@/lib/time/calendar";
 
@@ -236,6 +237,9 @@ export default async function TodayPage() {
   push("unconfirmed", unconfirmed.count, unconfirmed.count > 0 ? unconfirmed.href : null, `${unconfirmed.count} unconfirmed starting in ${unconfirmed.days} days`, String(unconfirmed.count));
   const toOrder = selectionsNeedingPo(session.orgId);
   push("sel-po", toOrder.length, toOrder[0]?.href ?? null, "Selections to order", String(toOrder.length));
+  const deliveries = deliveryAttention(session.orgId);
+  push("deliveries-today", deliveries.today.count, deliveries.today.href, "Deliveries today", String(deliveries.today.count));
+  push("deliveries-late", deliveries.late.count, deliveries.late.href, "Late deliveries", String(deliveries.late.count));
   for (const watch of weeklyOtWatch(session)) {
     attention.push({ key: `ot-${watch.userId}`, href: "/time", title: `${watch.name} · weekly OT`, count: 1, trailing: watch.trailing, money: false });
   }

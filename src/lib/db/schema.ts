@@ -625,6 +625,7 @@ export const bills = sqliteTable(
     portalSubmitted: integer("portal_submitted").notNull().default(0),
     retainageCents: integer("retainage_cents").notNull().default(0),
     kind: text("kind").notNull().default("standard"),
+    matchOverride: text("match_override"),
   },
   (t) => [index("bills_org").on(t.orgId), index("bills_vendor").on(t.orgId, t.vendorContactId)],
 );
@@ -702,8 +703,45 @@ export const purchaseOrderLines = sqliteTable(
     sourceKind: text("source_kind").notNull().default(""),
     sourceId: text("source_id").notNull().default(""),
     note: text("note"),
+    expectedOn: text("expected_on"),
+    scheduleItemId: text("schedule_item_id"),
   },
   (t) => [index("purchase_order_lines_po").on(t.orgId, t.purchaseOrderId)],
+);
+
+export const receipts = sqliteTable(
+  "receipts",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    projectId: text("project_id").notNull(),
+    purchaseOrderId: text("purchase_order_id").notNull(),
+    receivedOn: text("received_on").notNull(),
+    note: text("note"),
+    documentId: text("document_id"),
+    status: text("status").notNull(),
+    voidReason: text("void_reason"),
+    createdAt: text("created_at").notNull(),
+    createdBy: text("created_by"),
+    voidedAt: text("voided_at"),
+  },
+  (t) => [index("receipts_po").on(t.orgId, t.purchaseOrderId)],
+);
+
+export const receiptLines = sqliteTable(
+  "receipt_lines",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    receiptId: text("receipt_id").notNull(),
+    purchaseOrderLineId: text("purchase_order_line_id").notNull(),
+    qtyMilli: integer("qty_milli").notNull().default(0),
+    percentBps: integer("percent_bps").notNull().default(0),
+    condition: text("condition").notNull(),
+    expectedOn: text("expected_on"),
+    note: text("note"),
+  },
+  (t) => [index("receipt_lines_receipt").on(t.orgId, t.receiptId)],
 );
 
 export const purchaseOrderEvents = sqliteTable(

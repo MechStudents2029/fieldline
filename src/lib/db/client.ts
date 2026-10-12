@@ -133,6 +133,7 @@ export function ensureReady(holder: Holder) {
   ensureTm(holder);
   ensureOvertime(holder);
   ensurePurchasing(holder);
+  ensureReceiving(holder);
   const version = holder.sqlite.prepare("select value from app_meta where key = ?").get("seed_version") as
     | { value: string }
     | undefined;
@@ -2617,6 +2618,44 @@ function ensurePurchasing(holder: Holder) {
   ensureColumn(holder, "purchase_order_lines", "source_kind", "text not null default ''");
   ensureColumn(holder, "purchase_order_lines", "source_id", "text not null default ''");
   ensureColumn(holder, "purchase_order_lines", "note", "text");
+}
+
+function ensureReceiving(holder: Holder) {
+  const pk = holder.dialect === "postgres" ? "text primary key" : "text primary key not null";
+  ensureColumn(holder, "purchase_order_lines", "expected_on", "text");
+  ensureColumn(holder, "purchase_order_lines", "schedule_item_id", "text");
+  ensureColumn(holder, "bills", "match_override", "text");
+  if (!tableExists(holder.sqlite, "receipts", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists receipts (
+      id ${pk},
+      org_id text not null,
+      project_id text not null,
+      purchase_order_id text not null,
+      received_on text not null,
+      note text,
+      document_id text,
+      status text not null,
+      void_reason text,
+      created_at text not null,
+      created_by text,
+      voided_at text
+    )`);
+  }
+  holder.sqlite.exec("create index if not exists receipts_po on receipts (org_id, purchase_order_id)");
+  if (!tableExists(holder.sqlite, "receipt_lines", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists receipt_lines (
+      id ${pk},
+      org_id text not null,
+      receipt_id text not null,
+      purchase_order_line_id text not null,
+      qty_milli integer not null default 0,
+      percent_bps integer not null default 0,
+      condition text not null,
+      expected_on text,
+      note text
+    )`);
+  }
+  holder.sqlite.exec("create index if not exists receipt_lines_receipt on receipt_lines (org_id, receipt_id)");
 }
 
 function ensureOvertime(holder: Holder) {

@@ -59,7 +59,7 @@ import { assignScheduleVendor, requestConfirmation, requestConfirmations, reques
 import { vendorConfirmSchedule } from "@/lib/services/vendor-portal";
 import { endFromDuration, inclusiveWorkdays } from "@/lib/schedule/workdays";
 import { workCalendarFor } from "@/lib/services/work-calendar";
-import { scheduleItems } from "@/lib/db/schema";
+import { purchaseOrders, scheduleItems } from "@/lib/db/schema";
 import { createJobFromTemplate, importTemplate, renameTemplate, saveJobAsTemplate, type TemplatePart } from "@/lib/services/templates";
 import {
   addTodoCheck,
@@ -153,6 +153,7 @@ import {
   updateDraft,
   voidBill,
 } from "@/lib/services/bills";
+import { billReceived, parseReceiveLines, receiveDelivery, voidReceipt } from "@/lib/services/receiving";
 import {
   closePurchaseOrder,
   createPurchaseOrder,
@@ -1640,10 +1641,75 @@ export async function saveBillAction(_prev: ActionState, formData: FormData): Pr
 export async function approveBillAction(billId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
   try {
     const user = await actor();
-    const result = approveBill(user, billId);
+    const result = approveBill(user, billId, String(formData.get("matchOverride") || ""));
     refreshBill(String(formData.get("projectId") || ""), billId);
     const base = result.posted ? "Approved. The job cost includes this bill." : "This bill was already on the job.";
     return { ok: result.warning ? `${base} ${result.warning}` : base };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function receiveDeliveryAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const purchaseOrderId = String(formData.get("purchaseOrderId") || "");
+    const order = getDb().select().from(purchaseOrders).where(and(eq(purchaseOrders.id, purchaseOrderId), eq(purchaseOrders.orgId, user.orgId))).get();
+    if (!order) return { error: "Purchase order not found." };
+    const ids = formData.getAll("lineId").map(String);
+    const lines = parseReceiveLines(
+      order.kind,
+      ids.map((lineId, index) => ({
+        lineId,
+        qty: String(formData.getAll("qty")[index] ?? ""),
+        pct: String(formData.getAll("pct")[index] ?? ""),
+        condition: String(formData.getAll("condition")[index] ?? "ok"),
+        expectedOn: String(formData.getAll("expectedOn")[index] ?? ""),
+        scheduleItemId: String(formData.getAll("scheduleItemId")[index] ?? ""),
+        note: String(formData.getAll("lineNote")[index] ?? ""),
+      })),
+    );
+    const upload = await photoUpload(formData);
+    const documentId = upload ? attachPhotoNote(user, order.projectId, "Packing slip", upload).documentId : null;
+    const saved = receiveDelivery(user, {
+      purchaseOrderId,
+      receivedOn: String(formData.get("receivedOn") || ""),
+      note: String(formData.get("receiptNote") || "") || null,
+      documentId,
+      lines,
+    });
+    revalidatePath("/deliveries");
+    revalidatePath("/");
+    refreshPurchaseOrder(order.projectId, order.id);
+    return { ok: `${saved.number} received` };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function voidReceiptAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const result = voidReceipt(user, String(formData.get("receiptId") || ""), String(formData.get("reason") || ""));
+    revalidatePath("/deliveries");
+    revalidatePath("/");
+    refreshPurchaseOrder(result.projectId, result.purchaseOrderId);
+    return { ok: "Receipt voided." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function billReceivedAction(purchaseOrderId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const saved = billReceived(user, purchaseOrderId, {
+      billNumber: String(formData.get("billNumber") || ""),
+      billDate: String(formData.get("billDate") || ""),
+      dueDate: String(formData.get("dueDate") || ""),
+    });
+    refreshBill(String(formData.get("projectId") || ""), saved.id);
+    redirect(`/bills/${saved.id}`);
   } catch (error) {
     return failure(error);
   }
