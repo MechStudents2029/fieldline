@@ -1993,6 +1993,33 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
       createdBy: "user_maya",
     })
     .run();
+  if (yesterday < weekStart) {
+    const end = Math.min(Date.now() - 5 * 60_000, Date.parse(riveraAt(today, 12)));
+    const start = Math.max(weekStartMs + 30 * 60_000, end - 2 * 3_600_000);
+    db.insert(timeEntries)
+      .values({
+        id: "time_chen_week",
+        orgId: ORG,
+        userId: "user_sam",
+        projectId: "proj_chen",
+        costCode: "GC-SUPER",
+        status: "pending",
+        clockInAt: new Date(start).toISOString(),
+        clockOutAt: new Date(Math.max(start + 30 * 60_000, end)).toISOString(),
+        breakMinutes: 0,
+        breakStartedAt: null,
+        note: "Walked the powder room",
+        clockInLatE6: null,
+        clockInLngE6: null,
+        clockOutLatE6: null,
+        clockOutLngE6: null,
+        source: "manual",
+        createdAt: new Date(start).toISOString(),
+        updatedAt: new Date(end).toISOString(),
+        createdBy: "user_maya",
+      })
+      .run();
+  }
   const otRules: OtRules = {
     enabled: true,
     dailyOtMinutes: 8 * 60,

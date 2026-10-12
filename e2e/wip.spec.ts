@@ -77,7 +77,7 @@ test.describe("WIP report", () => {
     await expect(page.getByRole("cell", { name: "Brooks powder room" })).toBeVisible();
 
     await page.goto("/schedule");
-    await page.getByRole("button", { name: /Okonkwo primary bath Demo/ }).first().click();
+    await page.getByRole("button", { name: /Okonkwo primary bath Set the valve/ }).first().click();
     const item = page.getByRole("dialog", { name: "Schedule item" });
     await expect(item.getByLabel("Title")).toBeVisible();
     const titleInside = await item.evaluate((node) => {

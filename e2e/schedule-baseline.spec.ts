@@ -30,7 +30,11 @@ test("baseline, a delay reason, and the variance report", async ({ page }) => {
 
   await page.goto("/schedule?span=14");
   const chip = page.getByRole("button", { name: /Brooks family room addition Window delivery/ });
-  await chip.dragTo(page.getByRole("button", { name: "Add Dana Cho 2026-10-16" }));
+  const start = await chip.getAttribute("data-start");
+  if (!start) throw new Error("Window delivery has no start.");
+  const [year, month, day] = start.split("-").map(Number);
+  const next = new Date(Date.UTC(year!, month! - 1, day! + 1)).toISOString().slice(0, 10);
+  await chip.dragTo(page.getByRole("button", { name: `Add Dana Cho ${next}` }));
   const delay = page.getByRole("dialog", { name: "Delay" });
   await expect(delay).toBeVisible();
   await shot(page, "schedule-delay-light");

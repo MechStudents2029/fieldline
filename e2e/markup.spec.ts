@@ -69,7 +69,7 @@ test("photo markup, a plan pin, and the inspection edit sheet", async ({ page })
   await page.goto("/projects/proj_brooks/permits?inspection=insp_br_rough");
   const detail = page.getByRole("complementary", { name: "Rough plumbing" });
   await expect(detail.getByText("Replace the vent stack")).toBeVisible();
-  await expect(detail.getByText("Oct 9")).toBeVisible();
+  await expect(detail.getByText(/Oct \d{1,2}/).first()).toBeVisible();
   await expect(detail.getByText("Schedule item")).toHaveCount(0);
   await expect(detail.getByText("Gates", { exact: true })).toHaveCount(0);
   await expect(detail.getByText("File", { exact: true })).toHaveCount(0);

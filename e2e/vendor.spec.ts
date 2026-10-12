@@ -27,7 +27,7 @@ async function acceptAndBill(page: Page, billNumber: string) {
   await expect(page.getByText("Amara")).toHaveCount(0);
   await expect(page.getByText("Dana Cho")).toHaveCount(0);
   await expect(page.getByText("$46,200")).toHaveCount(0);
-  const orders = page.getByRole("region", { name: "Purchase orders" });
+  const orders = page.getByRole("region", { name: "Orders" });
   await orders.getByLabel("Name PO-1044").fill("Pete Alvarez");
   await orders.getByRole("button", { name: "Accept PO-1044" }).click();
   await expect(orders.getByText("Accepted", { exact: true })).toBeVisible();
