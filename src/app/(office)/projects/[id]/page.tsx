@@ -22,6 +22,7 @@ import { projectPurchaseOrders } from "@/lib/services/purchase-orders";
 import { captionFromMetadata, listPriceBook, listProjects, pipelineBoard, projectDetail } from "@/lib/services/read";
 import { deliveryHolds } from "@/lib/receiving/facts";
 import { openDeliveries } from "@/lib/services/receiving";
+import { jobCreditSummary } from "@/lib/services/vendor-credits";
 import { jobInspectionMarks, scheduleGateLabels } from "@/lib/services/permits";
 import { GanttBoard } from "@/components/gantt-board";
 import { SheetButton } from "@/components/sheet-button";
@@ -201,6 +202,16 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
           </div>
         </div>
       ) : null}
+      {detail.money ? (() => {
+        const credits = jobCreditSummary(session.orgId, detail.project.id);
+        if (!credits) return null;
+        return (
+          <p className="mb-5 px-4 mac-t13">
+            <Link href={credits.href}>Vendor credits</Link>
+            <span className="num"> · {formatMoney(credits.openCents)} open</span>
+          </p>
+        );
+      })() : null}
       {openDeliveryRows.length ? (
         <section aria-label="Open deliveries" className="mb-5 px-4">
           <h2 className="mac-t13 text-[var(--mac-secondary)]">Open deliveries</h2>

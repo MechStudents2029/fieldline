@@ -26,6 +26,7 @@ import {
   tasks,
   tmTickets,
   users,
+  vendorCredits,
 } from "@/lib/db/schema";
 import { id, nowIso } from "@/lib/ids";
 import { canAddFieldNotes, canSeeMoney, type Role } from "@/lib/permissions";
@@ -39,7 +40,7 @@ import type { Actor } from "@/lib/services/read";
 export const EDIT_WINDOW_MS = 15 * 60 * 1000;
 export const COMMENT_USER_LIMIT = 20;
 export const COMMENT_WINDOW_MS = 10 * 60 * 1000;
-export const FINANCIAL_ENTITIES = ["estimate", "change_order", "purchase_order", "bill"] as const;
+export const FINANCIAL_ENTITIES = ["estimate", "change_order", "purchase_order", "bill", "vendor_credit"] as const;
 
 export const ROLE_GROUPS = {
   office: ["estimator"],
@@ -58,7 +59,8 @@ export type CommentEntity =
   | "punch_item"
   | "daily_log"
   | "schedule_item"
-  | "tm_ticket";
+  | "tm_ticket"
+  | "vendor_credit";
 
 const ENTITIES = new Set<CommentEntity>([
   "project",
@@ -71,6 +73,7 @@ const ENTITIES = new Set<CommentEntity>([
   "daily_log",
   "schedule_item",
   "tm_ticket",
+  "vendor_credit",
 ]);
 
 const ROLE_ALIAS: Record<string, MentionRole> = {
@@ -211,6 +214,12 @@ function resolveEntity(db: AppDatabase, orgId: string, type: string, entityId: s
     if (!row) return null;
     const job = jobName(db, orgId, row.projectId);
     return { type: kind, id: row.id, projectId: row.projectId, job, record: row.number, href: `/purchase-orders/${row.id}` };
+  }
+  if (kind === "vendor_credit") {
+    const row = db.select().from(vendorCredits).where(and(eq(vendorCredits.orgId, orgId), eq(vendorCredits.id, entityId))).get();
+    if (!row) return null;
+    const job = jobName(db, orgId, row.projectId);
+    return { type: kind, id: row.id, projectId: row.projectId, job, record: row.number, href: `/vendor-credits/${row.id}` };
   }
   if (kind === "bill") {
     const row = db.select().from(bills).where(and(eq(bills.orgId, orgId), eq(bills.id, entityId))).get();

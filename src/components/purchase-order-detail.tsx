@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { billReceivedAction, closePurchaseOrderAction, issuePurchaseOrderAction, referencePlanAction, releasePoRetainageAction, saveBillAction, voidPurchaseOrderAction, voidReceiptAction } from "@/app/actions";
+import { billReceivedAction, closePurchaseOrderAction, createCreditFromLineAction, createCreditFromReceiptAction, issuePurchaseOrderAction, referencePlanAction, releasePoRetainageAction, saveBillAction, voidPurchaseOrderAction, voidReceiptAction } from "@/app/actions";
 import { ActionForm } from "@/components/action-form";
 import { DetailFacts, DetailHeader, recordStatus } from "@/components/detail-header";
 import { PurchaseOrderForm } from "@/components/purchase-order-form";
@@ -53,6 +53,8 @@ export function PurchaseOrderDetail({
   codes,
   office,
   receiving,
+  facts,
+  creditableReceipts,
 }: {
   po: {
     id: string;
@@ -92,6 +94,8 @@ export function PurchaseOrderDetail({
     today: string;
     canBill: boolean;
   };
+  facts: { committedCents: number; billedCents: number; openCents: number; creditCents: number };
+  creditableReceipts: string[];
 }) {
   const [editing, setEditing] = useState(false);
   const [billing, setBilling] = useState(false);
@@ -99,17 +103,15 @@ export function PurchaseOrderDetail({
   const editable = office && (po.status === "draft" || po.status === "issued");
   const tracked = new Map(receiving.lines.map((line) => [line.id, line]));
   const showQty = receiving.lines.length > 0;
-  const billed = lines.reduce((sum, line) => sum + line.billedCents, 0);
   const prefill = lines.filter((line) => line.remainingCents > 0);
   return (
     <div className="flex flex-col gap-4 pb-6">
       <DetailHeader
         title={po.number}
-        status={po.status}
+        status={receiving.label ? `${po.status} · ${receiving.label}` : po.status}
         meta={
           <>
             {po.kind === "work" ? "Work order" : "Purchase order"} · {po.vendorName} · <Link href={`/projects/${po.projectId}`}>{po.projectName}</Link>
-            {receiving.label ? <span className="fl-pill ml-2">{receiving.label}</span> : null}
           </>
         }
         actions={
@@ -207,26 +209,29 @@ export function PurchaseOrderDetail({
       <DetailFacts
         label="Purchase order"
         rows={[
-          { label: "Amount", value: <span className="num">{formatMoney(po.amountCents)}</span> },
-          { label: "Committed", value: <span className="num">{formatMoney(po.status === "issued" ? po.amountCents : 0)}</span> },
-          { label: "Billed", value: <span className="num">{formatMoney(billed)}</span> },
-          { label: "Open", value: <span className="num">{formatMoney(po.openCents)}</span> },
-          { label: "Retainage", value: <span className="num">{Math.round(po.retainageBps / 100)}%</span> },
-          { label: "Retained", value: <span className="num">{formatMoney(retainage?.retainedCents ?? 0)}</span> },
-          {
-            label: "Released",
-            value: (
-              <span className="num">
-                {formatMoney(retainage?.releasedCents ?? 0)}
-                {retainage?.releaseId && retainage.releaseNumber ? (
-                  <>
-                    {" "}
-                    · <Link href={`/bills/${retainage.releaseId}`}>{retainage.releaseNumber}</Link>
-                  </>
-                ) : null}
-              </span>
-            ),
-          },
+          ...(po.amountCents ? [{ label: "Amount", value: <span className="num">{formatMoney(po.amountCents)}</span> }] : []),
+          ...(facts.committedCents ? [{ label: "Committed", value: <span className="num">{formatMoney(facts.committedCents)}</span> }] : []),
+          ...(facts.billedCents ? [{ label: "Billed", value: <span className="num">{formatMoney(facts.billedCents)}</span> }] : []),
+          ...(facts.openCents ? [{ label: "Open", value: <span className="num">{formatMoney(facts.openCents)}</span> }] : []),
+          ...(facts.creditCents ? [{ label: "Credits", value: <span className="num">{formatMoney(facts.creditCents)}</span> }] : []),
+          ...(po.retainageBps ? [{ label: "Retainage", value: <span className="num">{Math.round(po.retainageBps / 100)}%</span> }] : []),
+          ...(retainage?.retainedCents ? [{ label: "Retained", value: <span className="num">{formatMoney(retainage.retainedCents)}</span> }] : []),
+          ...(retainage?.releasedCents
+            ? [{
+                label: "Released",
+                value: (
+                  <span className="num">
+                    {formatMoney(retainage.releasedCents)}
+                    {retainage.releaseId && retainage.releaseNumber ? (
+                      <>
+                        {" "}
+                        · <Link href={`/bills/${retainage.releaseId}`}>{retainage.releaseNumber}</Link>
+                      </>
+                    ) : null}
+                  </span>
+                ),
+              }]
+            : []),
           {
             label: "Plan",
             value: <PlanValue projectId={po.projectId} poId={po.id} plans={plans} choices={planChoices} office={office} />,
@@ -262,7 +267,16 @@ export function PurchaseOrderDetail({
                 {showQty ? <td className="num">{tracked.get(line.id)?.expectedOn ? formatCalendarDay(tracked.get(line.id)?.expectedOn || "") : "—"}</td> : null}
                 <td className="fit num text-right" data-fit="amount">{formatMoney(line.amountCents)}</td>
                 <td className="fit num text-right" data-fit="amount" data-kind="billed">{formatMoney(line.billedCents)}</td>
-                <td className="fit num text-right" data-fit="amount" data-kind="remaining">{formatMoney(line.remainingCents)}</td>
+                <td className="fit num text-right" data-fit="amount" data-kind="remaining">
+                  {formatMoney(line.remainingCents)}
+                  {office && po.status !== "void" ? (
+                    <ActionForm action={createCreditFromLineAction.bind(null, line.id)} className="inline">
+                      <button type="submit" aria-label="Backcharge line" className="ml-2 mac-t13 text-[var(--mac-accent)]">
+                        Credit
+                      </button>
+                    </ActionForm>
+                  ) : null}
+                </td>
               </tr>
             ))}
           </tbody>
@@ -271,40 +285,34 @@ export function PurchaseOrderDetail({
       </section>
       {receiving.receipts.length ? (
         <section className="px-4" aria-label="Receipts">
-          <div className="flex items-center justify-between gap-2">
-            <h2 className="mac-t13 text-[var(--mac-secondary)]">Receipts</h2>
-            {office && receiving.receipts.some((row) => row.status !== "void") ? (
-              <SheetButton label="Void receipt">
-                <ActionForm action={voidReceiptAction} className="grid gap-2">
-                  <label className="text-sm">
-                    Receipt
-                    <select name="receiptId" aria-label="Receipt" className="field mt-1">
-                      {receiving.receipts
-                        .filter((row) => row.status !== "void")
-                        .map((row) => (
-                          <option key={row.id} value={row.id}>
-                            {row.receivedOn} · {row.summary}
-                          </option>
-                        ))}
-                    </select>
-                  </label>
-                  <label className="text-sm">
-                    Reason
-                    <input name="reason" aria-label="Void reason" className="field mt-1" required />
-                  </label>
-                  <button type="submit" className="ctl w-fit">
-                    Void
-                  </button>
-                </ActionForm>
-              </SheetButton>
-            ) : null}
-          </div>
+          <h2 className="mac-t13 text-[var(--mac-secondary)]">Receipts</h2>
           <ul className="mt-1">
             {receiving.receipts.map((row) => (
-              <li key={row.id} className="mac-t13">
-                <span className="num">{formatCalendarDay(row.receivedOn)}</span> · {row.person} · {row.summary}
-                {row.status === "void" ? <span className="fl-pill ml-2">Void</span> : null}
-                {row.note ? ` · ${row.note}` : ""}
+              <li key={row.id} className="mac-t13 flex flex-wrap items-center gap-2">
+                <span>
+                  <span className="num">{formatCalendarDay(row.receivedOn)}</span> · {row.person} · {row.summary}
+                  {row.status === "void" ? <span className="fl-pill ml-2">Void</span> : null}
+                  {row.note ? ` · ${row.note}` : ""}
+                </span>
+                {office && row.status !== "void" && creditableReceipts.includes(row.id) ? (
+                  <ActionForm action={createCreditFromReceiptAction.bind(null, row.id)}>
+                    <button type="submit" className="mac-t13 text-[var(--mac-accent)]">
+                      Backcharge
+                    </button>
+                  </ActionForm>
+                ) : null}
+                {office && row.status !== "void" ? (
+                  <details>
+                    <summary className="mac-t13 text-[var(--mac-accent)]">Void</summary>
+                    <ActionForm action={voidReceiptAction} className="mt-1 flex flex-wrap items-center gap-2">
+                      <input type="hidden" name="receiptId" value={row.id} />
+                      <input name="reason" aria-label={`Void reason ${row.receivedOn}`} className="ctl" required />
+                      <button type="submit" className="ctl">
+                        Void receipt
+                      </button>
+                    </ActionForm>
+                  </details>
+                ) : null}
               </li>
             ))}
           </ul>
@@ -434,14 +442,16 @@ function PlanValue({
           {plan.name}
         </a>
       ))}
-      {office && choices.length > 0 ? (
+      {office && choices.filter((choice) => !plans.some((plan) => plan.name === choice.name)).length > 0 ? (
         <ActionForm action={referencePlanAction.bind(null, projectId, "purchase_order", poId)} className="inline-flex items-center gap-2">
-          <select name="groupId" aria-label="Plan" className="ctl" defaultValue={choices[0]?.groupId}>
-            {choices.map((choice) => (
-              <option key={choice.groupId} value={choice.groupId}>
-                {choice.name}
-              </option>
-            ))}
+          <select name="groupId" aria-label="Plan" className="ctl" defaultValue={choices.find((choice) => !plans.some((plan) => plan.name === choice.name))?.groupId}>
+            {choices
+              .filter((choice) => !plans.some((plan) => plan.name === choice.name))
+              .map((choice) => (
+                <option key={choice.groupId} value={choice.groupId}>
+                  {choice.name}
+                </option>
+              ))}
           </select>
           <button type="submit" className="ctl">
             Add

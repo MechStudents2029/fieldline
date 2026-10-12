@@ -134,6 +134,7 @@ export function ensureReady(holder: Holder) {
   ensureOvertime(holder);
   ensurePurchasing(holder);
   ensureReceiving(holder);
+  ensureVendorCredits(holder);
   const version = holder.sqlite.prepare("select value from app_meta where key = ?").get("seed_version") as
     | { value: string }
     | undefined;
@@ -2656,6 +2657,52 @@ function ensureReceiving(holder: Holder) {
     )`);
   }
   holder.sqlite.exec("create index if not exists receipt_lines_receipt on receipt_lines (org_id, receipt_id)");
+}
+
+function ensureVendorCredits(holder: Holder) {
+  const pk = holder.dialect === "postgres" ? "text primary key" : "text primary key not null";
+  ensureColumn(holder, "organizations", "credit_stale_days", "integer not null default 7");
+  if (!tableExists(holder.sqlite, "vendor_credits", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists vendor_credits (
+      id ${pk},
+      org_id text not null,
+      number text not null,
+      project_id text not null,
+      vendor_contact_id text not null,
+      kind text not null,
+      reason text not null,
+      amount_cents integer not null,
+      cost_code text,
+      status text not null,
+      purchase_order_id text,
+      purchase_order_line_id text,
+      receipt_id text,
+      punch_item_id text,
+      bill_id text,
+      source_key text,
+      cost_item_id text,
+      document_id text,
+      dispute_note text,
+      issued_at text,
+      void_reason text,
+      created_at text not null,
+      updated_at text not null,
+      created_by text
+    )`);
+  }
+  holder.sqlite.exec("create index if not exists vendor_credits_org on vendor_credits (org_id, vendor_contact_id, status)");
+  if (!tableExists(holder.sqlite, "vendor_credit_applications", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists vendor_credit_applications (
+      id ${pk},
+      org_id text not null,
+      credit_id text not null,
+      bill_id text not null,
+      amount_cents integer not null,
+      created_at text not null,
+      created_by text
+    )`);
+  }
+  holder.sqlite.exec("create index if not exists vendor_credit_applications_credit on vendor_credit_applications (org_id, credit_id)");
 }
 
 function ensureOvertime(holder: Holder) {

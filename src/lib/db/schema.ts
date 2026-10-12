@@ -27,6 +27,7 @@ export const organizations = sqliteTable("organizations", {
   inspectionGate: text("inspection_gate").notNull().default("warn"),
   vendorRequiredTypes: text("vendor_required_types").notNull().default("general_liability,workers_comp"),
   paymentTermsDays: integer("payment_terms_days").notNull().default(7),
+  creditStaleDays: integer("credit_stale_days").notNull().default(7),
   defaultRetainageBps: integer("default_retainage_bps").notNull().default(0),
   vendorRetainageBps: integer("vendor_retainage_bps").notNull().default(0),
   cashOpeningCents: integer("cash_opening_cents").notNull().default(0),
@@ -2897,4 +2898,49 @@ export const tmLines = sqliteTable(
     sortOrder: integer("sort_order").notNull(),
   },
   (t) => [index("tm_lines_ticket").on(t.orgId, t.ticketId, t.sortOrder)],
+);
+
+export const vendorCredits = sqliteTable(
+  "vendor_credits",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    number: text("number").notNull(),
+    projectId: text("project_id").notNull(),
+    vendorContactId: text("vendor_contact_id").notNull(),
+    kind: text("kind").notNull(),
+    reason: text("reason").notNull(),
+    amountCents: integer("amount_cents").notNull(),
+    costCode: text("cost_code"),
+    status: text("status").notNull(),
+    purchaseOrderId: text("purchase_order_id"),
+    purchaseOrderLineId: text("purchase_order_line_id"),
+    receiptId: text("receipt_id"),
+    punchItemId: text("punch_item_id"),
+    billId: text("bill_id"),
+    sourceKey: text("source_key"),
+    costItemId: text("cost_item_id"),
+    documentId: text("document_id"),
+    disputeNote: text("dispute_note"),
+    issuedAt: text("issued_at"),
+    voidReason: text("void_reason"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    createdBy: text("created_by"),
+  },
+  (t) => [index("vendor_credits_org").on(t.orgId, t.vendorContactId, t.status)],
+);
+
+export const vendorCreditApplications = sqliteTable(
+  "vendor_credit_applications",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    creditId: text("credit_id").notNull(),
+    billId: text("bill_id").notNull(),
+    amountCents: integer("amount_cents").notNull(),
+    createdAt: text("created_at").notNull(),
+    createdBy: text("created_by"),
+  },
+  (t) => [index("vendor_credit_applications_credit").on(t.orgId, t.creditId)],
 );

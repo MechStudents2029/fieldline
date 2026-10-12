@@ -23,6 +23,7 @@ import { formatMoney, parseMoneyToCents } from "@/lib/money";
 import { canManageMoney, canManageSettings, canSeeMoney, type Role } from "@/lib/permissions";
 import { attachmentExtension, attachmentUploadError } from "@/lib/security";
 import { ServiceError } from "@/lib/services/errors";
+import { accountingCreditRows, appliedCentsForBill } from "@/lib/services/vendor-credits";
 import type { Actor } from "@/lib/services/read";
 import { localDay } from "@/lib/time/calendar";
 import {
@@ -226,8 +227,13 @@ function cleanThrough(value: string) {
   return text;
 }
 
-function amountOrBill(raw: string | null | undefined, bill: BillRow) {
-  if (raw == null || raw.trim() === "") return bill.amountCents;
+function amountOrBill(db: AppDatabase, orgId: string, raw: string | null | undefined, bill: BillRow) {
+  if (raw == null || raw.trim() === "") {
+    const kind = bill.kind === "release" ? "release" : "standard";
+    const net = netPayableCents(bill.amountCents, bill.retainageCents, kind) - appliedCentsForBill(db, orgId, bill.id);
+    if (net <= 0) throw new ServiceError("The net is already covered.");
+    return net;
+  }
   const cents = parseMoneyToCents(raw);
   if (cents == null || cents <= 0) throw new ServiceError("Enter the waiver amount.");
   return cents;
@@ -278,7 +284,7 @@ export function requestWaiver(actor: Actor, billId: string, input: { type: strin
   const bill = billIn(db, actor.orgId, billId);
   if (!bill) throw new ServiceError("Bill not found.");
   const through = input.throughDate?.trim() ? cleanThrough(input.throughDate) : bill.billDate || todayFor(db, actor.orgId);
-  const amount = amountOrBill(input.amount, bill);
+  const amount = amountOrBill(db, actor.orgId, input.amount, bill);
   return { id: insertWaiver(db, actor, bill, input.type, amount, through) };
 }
 
@@ -296,7 +302,7 @@ export function requestWaivers(actor: Actor, billIds: string[], type: string) {
     const rows = waiversFor(db, actor.orgId, bill.id);
     if (liveOfType(rows, type)) continue;
     const through = bill.billDate || todayFor(db, actor.orgId);
-    insertWaiver(db, actor, bill, type, bill.amountCents, through);
+    insertWaiver(db, actor, bill, type, amountOrBill(db, actor.orgId, null, bill), through);
     count += 1;
   }
   if (count === 0) throw new ServiceError("Those bills already have that waiver.");
@@ -431,7 +437,8 @@ export function billsCsv(actor: Actor): string | null {
         .map(csvCell)
         .join(",");
     });
-  return [header.join(","), ...lines].join("\n");
+  const credits = accountingCreditRows(actor.orgId).map((row) => row.map(csvCell).join(","));
+  return [header.join(","), ...lines, ...credits].join("\n");
 }
 
 function csvCell(value: string) {

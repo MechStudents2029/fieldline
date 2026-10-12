@@ -2,6 +2,20 @@
 
 ## 2026-10-12
 
+### Vendor credits and backcharges
+
+- A vendor credit or backcharge belongs to a vendor and a job. It can point at a purchase-order line, a receipt, a punch item, or a bill. It stores a reason, an amount in cents, a cost code, and a photo. Status is Draft, Issued, Acknowledged, Disputed, Partially applied, Applied, or Void.
+- Office starts one from a short or damaged receipt, a punch item assigned to a vendor, or a purchase-order line. The same receipt or punch item is not credited again unless Another credit is checked. Field can propose a draft from a receipt or a punch item and does not see the amount. Office issues it.
+- An issued credit reduces job cost on its cost code. Voiding puts that cost back. Paid bills are left as they were. The purchase order shows committed and billed after the credit. Budget, WIP, job profit, and the cash forecast follow it.
+- Pay on an approved bill lists that vendor’s open credits. Apply all or part. The cash recorded is the net after retainage and the credit. More than that net, or more than the credit left, is refused. A lien waiver with a blank amount uses the same net.
+- The vendor portal lists credits with the reason and photo. The vendor can acknowledge or dispute with a note. A dispute shows in Inbox. Nothing is emailed or texted.
+- Work > Vendor credits filters, counts the rows, and downloads CSV. A vendor record shows the open credit balance. A job overview shows the open amount. Today lists disputed credits and unapplied credits older than Credit age days in Settings (7 by default). An automation can run when a vendor credit is issued. The bills CSV adds vendor credits as negative rows.
+- Seed: BC-1044 is the short pallet on PO-1044. BC-1045 is the escutcheon punch item. BC-1046 is disputed on Brooks. BC-1047 is partly applied to HP-441.
+
+### Purchase order detail
+
+- The order header uses one status pill. Zero retainage, retained, and released rows stay off the money stack. A plan already on the order is not repeated beside the plan menu. Void sits on that receipt. Comments sit in a narrow column under History.
+
 ### Deliveries and three-way match
 
 - An issued purchase order line can carry an expected date. The order shows Not received, Partially received, or Received from its lines. A work order tracks percent complete.

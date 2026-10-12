@@ -18,7 +18,7 @@ test("purchase order detail, edit, and a bill from the order", async ({ page, re
   await expect(page.getByLabel("Scope")).toHaveCount(0);
   const shower = page.getByRole("row", { name: /PLB-SHOWER/ });
   await expect(shower.locator("[data-kind='billed']")).toHaveText("$3,000.00");
-  await expect(shower.locator("[data-kind='remaining']")).toHaveText("$2,000.00");
+  await expect(shower.locator("[data-kind='remaining']")).toContainText("$2,000.00");
   await expect(page.getByRole("table", { name: "Bills" })).toContainText("HP-510");
   await expect(page.getByRole("table", { name: "Bills" })).toContainText("HP-511");
   await shot(page, "po-detail-light");

@@ -12,6 +12,9 @@ import { formatMoney } from "@/lib/money";
 import { canManageMoney, canSeeMoney } from "@/lib/permissions";
 import { billDetail } from "@/lib/services/bills";
 import { billWaiverPanel } from "@/lib/services/waivers";
+import { billCreditApplied, creditsForVendor } from "@/lib/services/vendor-credits";
+import { CreditPaySheet } from "@/components/credit-pay-sheet";
+import { companyToday } from "@/lib/services/receiving";
 import { WAIVER_TYPES, waiverTypeLabel } from "@/lib/waivers/format";
 
 export default async function BillPage({ params }: { params: Promise<{ id: string }> }) {
@@ -24,6 +27,7 @@ export default async function BillPage({ params }: { params: Promise<{ id: strin
   if (!detail) return <MissingRecord orgName={session.orgName} kind="bill" />;
   const { bill, lines, events } = detail;
   const office = canManageMoney(session.role);
+  const appliedCredits = billCreditApplied(session.orgId, bill.id);
   const waivers = billWaiverPanel(session, bill.id);
   return (
     <div className="flex flex-col gap-4">
@@ -74,6 +78,9 @@ export default async function BillPage({ params }: { params: Promise<{ id: strin
           },
           ...(bill.status === "paid"
             ? [{ label: "Paid", value: <span>{detail.paidAt ? formatCalendarDay(detail.paidAt) : ""} · {detail.payMethod} · {detail.payReference}</span> }]
+            : []),
+          ...(appliedCredits
+            ? [{ label: "Credits", value: <span className="num">{formatMoney(appliedCredits)}</span> }, { label: "Cash", value: <span className="num">{formatMoney(Math.max(0, bill.netCents - appliedCredits))}</span> }]
             : []),
           ...(detail.memo ? [{ label: "Memo", value: detail.memo }] : []),
           ...(detail.voidReason ? [{ label: "Void", value: detail.voidReason }] : []),
@@ -136,7 +143,7 @@ export default async function BillPage({ params }: { params: Promise<{ id: strin
               </label>
               <label className="text-sm">
                 Amount
-                <input name="amount" aria-label="Waiver amount" defaultValue={(bill.amountCents / 100).toFixed(2)} className="field mt-1" />
+                <input name="amount" aria-label="Waiver amount" defaultValue={(Math.max(0, bill.netCents - appliedCredits) / 100).toFixed(2)} className="field mt-1" />
               </label>
               <label className="text-sm">
                 Through
@@ -182,6 +189,15 @@ export default async function BillPage({ params }: { params: Promise<{ id: strin
       </section>
       {office && bill.status === "approved" ? (
         <div className="grid gap-4 px-4">
+          {bill.vendorContactId ? (
+            <CreditPaySheet
+              billId={bill.id}
+              projectId={bill.projectId}
+              netCents={bill.netCents}
+              credits={creditsForVendor(session.orgId, bill.vendorContactId)}
+              today={companyToday(session.orgId)}
+            />
+          ) : null}
           <ActionForm action={payBillAction.bind(null, bill.id)} className="grid gap-2 sm:grid-cols-3">
             <input type="hidden" name="projectId" value={bill.projectId} />
             <label className="text-sm">
