@@ -67,7 +67,7 @@ test.describe("job-site geofence", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto("/time");
     const row = page.getByRole("row").filter({ hasText: "Yard run" });
-    await expect(row.getByText(/Outside/)).toBeVisible();
+    await expect(row.locator(".fl-pill", { hasText: /^Outside/ })).toBeVisible();
     await row.getByLabel("Override reason").fill("Yard pickup approved");
     await row.getByRole("button", { name: "Override" }).click();
     await expect(row.getByText("Overridden")).toBeVisible();
