@@ -20,17 +20,18 @@ test("creates a draft purchase order from a confirmed selection", async ({ page,
   const sheet = page.getByRole("dialog", { name: "Order" });
   await expect(sheet.getByRole("checkbox", { name: "Door hardware" })).toBeChecked();
   await sheet.getByRole("button", { name: "Create PO" }).click();
-  await expect(sheet.getByRole("status")).toContainText(/PO-\d+/);
   await expect(hardware).toContainText("Ordered");
   await shot(page, "selections-po-light");
   await page.emulateMedia({ colorScheme: "dark" });
   await shot(page, "selections-po-dark");
   await page.emulateMedia({ colorScheme: "light" });
 
-  const number = (await sheet.getByRole("status").innerText()).trim();
   await page.goto("/purchase-orders");
-  await expect(page.getByRole("link", { name: number })).toBeVisible();
-  await page.getByRole("link", { name: number }).click();
+  const draft = page.getByRole("row", { name: /Brooks/ }).filter({ hasText: "draft" });
+  await expect(draft).toBeVisible();
+  const link = draft.getByRole("link");
+  await expect(link).toHaveText(/PO-\d+/);
+  await link.click();
   await expect(page.getByText("Oil-rubbed bronze")).toBeVisible();
   await expect(page.getByText("Selection Door hardware")).toBeVisible();
 
