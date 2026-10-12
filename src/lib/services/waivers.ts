@@ -23,6 +23,7 @@ import { formatMoney, parseMoneyToCents } from "@/lib/money";
 import { canManageMoney, canManageSettings, canSeeMoney, type Role } from "@/lib/permissions";
 import { attachmentExtension, attachmentUploadError } from "@/lib/security";
 import { ServiceError } from "@/lib/services/errors";
+import { accountingInventoryRows } from "@/lib/services/inventory";
 import { accountingCreditRows, appliedCentsForBill } from "@/lib/services/vendor-credits";
 import type { Actor } from "@/lib/services/read";
 import { localDay } from "@/lib/time/calendar";
@@ -438,7 +439,8 @@ export function billsCsv(actor: Actor): string | null {
         .join(",");
     });
   const credits = accountingCreditRows(actor.orgId).map((row) => row.map(csvCell).join(","));
-  return [header.join(","), ...lines, ...credits].join("\n");
+  const stock = accountingInventoryRows(actor.orgId).map((row) => row.map(csvCell).join(","));
+  return [header.join(","), ...lines, ...credits, ...stock].join("\n");
 }
 
 function csvCell(value: string) {

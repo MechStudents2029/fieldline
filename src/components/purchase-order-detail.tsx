@@ -93,6 +93,7 @@ export function PurchaseOrderDetail({
     choices: ReceiveChoice[];
     today: string;
     canBill: boolean;
+    places: { id: string; name: string }[];
   };
   facts: { committedCents: number; billedCents: number; openCents: number; creditCents: number };
   creditableReceipts: string[];
@@ -129,7 +130,7 @@ export function PurchaseOrderDetail({
               ) : null}
               {receiving.choices.length ? (
                 <SheetButton label="Receive">
-                  <ReceiveSheet orders={receiving.choices} fixedId={po.id} today={receiving.today} />
+                  <ReceiveSheet orders={receiving.choices} fixedId={po.id} today={receiving.today} places={receiving.places} />
                 </SheetButton>
               ) : null}
               {receiving.canBill ? (

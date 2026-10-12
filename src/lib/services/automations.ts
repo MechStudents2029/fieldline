@@ -24,7 +24,9 @@ import {
   safetyCheckItems,
   safetyChecks,
   safetyTopics,
+  priceBookItems,
   scheduleItems,
+  stockItems,
   scheduleLinks,
   selections,
   taskAssignees,
@@ -75,7 +77,8 @@ export type Trigger =
   | { kind: "selection_confirmed" }
   | { kind: "delivery_late" }
   | { kind: "delivery_received" }
-  | { kind: "vendor_credit_issued" };
+  | { kind: "vendor_credit_issued" }
+  | { kind: "stock_low" };
 
 export type Condition =
   | { kind: "job_type"; value: string }
@@ -180,6 +183,7 @@ export function parseTrigger(raw: string): Trigger | null {
   if (row.kind === "delivery_late") return { kind: "delivery_late" };
   if (row.kind === "delivery_received") return { kind: "delivery_received" };
   if (row.kind === "vendor_credit_issued") return { kind: "vendor_credit_issued" };
+  if (row.kind === "stock_low") return { kind: "stock_low" };
   return null;
 }
 
@@ -257,6 +261,7 @@ export function triggerLabel(trigger: Trigger): string {
   if (trigger.kind === "delivery_late") return "Delivery late";
   if (trigger.kind === "delivery_received") return "Delivery received";
   if (trigger.kind === "vendor_credit_issued") return "Vendor credit issued";
+  if (trigger.kind === "stock_low") return "Low stock";
   return "Equipment overdue";
 }
 
@@ -390,6 +395,7 @@ function hrefFor(event: AutomationEvent) {
   if (event.kind === "selection_confirmed" && event.projectId) return `/projects/${event.projectId}/selections`;
   if (event.kind === "delivery_late" || event.kind === "delivery_received") return `/purchase-orders/${event.recordId}`;
   if (event.kind === "vendor_credit_issued") return `/vendor-credits/${event.recordId}`;
+  if (event.kind === "stock_low") return `/inventory/${event.recordId}`;
   if (event.kind === "equipment_overdue") return "/equipment";
   if ((event.kind === "incident_logged" || event.kind === "checklist_failed") && event.projectId) return `/projects/${event.projectId}/safety`;
   if (event.kind === "vendor_expiring") return "/contacts";
@@ -1039,6 +1045,7 @@ export function previewRecordLabel(trigger: Trigger) {
   if (trigger.kind === "selection_confirmed") return "Selection";
   if (trigger.kind === "delivery_late" || trigger.kind === "delivery_received") return "Purchase order";
   if (trigger.kind === "vendor_credit_issued") return "Vendor credit";
+  if (trigger.kind === "stock_low") return "Stock item";
   return "Checklist item";
 }
 
@@ -1100,6 +1107,15 @@ export function previewChoices(orgId: string, trigger: Trigger) {
   }
   if (trigger.kind === "vendor_credit_issued") {
     return db.select().from(vendorCredits).where(eq(vendorCredits.orgId, orgId)).all().map((row) => ({ id: row.id, label: row.number }));
+  }
+  if (trigger.kind === "stock_low") {
+    const books = new Map(db.select().from(priceBookItems).where(eq(priceBookItems.orgId, orgId)).all().map((row) => [row.id, row.name]));
+    return db
+      .select()
+      .from(stockItems)
+      .where(eq(stockItems.orgId, orgId))
+      .all()
+      .map((row) => ({ id: row.id, label: books.get(row.priceBookItemId) || "Stock" }));
   }
   return db.select().from(equipment).where(eq(equipment.orgId, orgId)).all().map((row) => ({ id: row.id, label: row.name }));
 }
@@ -1294,6 +1310,20 @@ function eventFromRecord(orgId: string, trigger: Trigger, recordId: string): Aut
       name: order.number,
     };
   }
+  if (trigger.kind === "stock_low") {
+    const item = db.select().from(stockItems).where(and(eq(stockItems.orgId, orgId), eq(stockItems.id, recordId))).get();
+    if (!item) return null;
+    const book = db.select().from(priceBookItems).where(and(eq(priceBookItems.id, item.priceBookItemId), eq(priceBookItems.orgId, orgId))).get();
+    return {
+      orgId,
+      kind: "stock_low",
+      recordType: "stock_item",
+      recordId: item.id,
+      recordLabel: book?.name || "Stock",
+      projectId: null,
+      name: book?.name || "Stock",
+    };
+  }
   const item = db.select().from(equipment).where(and(eq(equipment.orgId, orgId), eq(equipment.id, recordId))).get();
   if (!item) return null;
   const open = db
@@ -1388,6 +1418,7 @@ export function ruleFromForm(formData: FormData): RuleDraft {
   else if (kind === "delivery_late") trigger = { kind: "delivery_late" };
   else if (kind === "delivery_received") trigger = { kind: "delivery_received" };
   else if (kind === "vendor_credit_issued") trigger = { kind: "vendor_credit_issued" };
+  else if (kind === "stock_low") trigger = { kind: "stock_low" };
   if (!trigger) throw new ServiceError("Pick a trigger.");
   const conditions: Condition[] = [];
   const conditionSlots = formSlots(formData, "c");

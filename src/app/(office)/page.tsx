@@ -40,6 +40,7 @@ import { staleClientUpdates } from "@/lib/services/client-updates";
 import { overdueSelections } from "@/lib/services/selections";
 import { selectionsNeedingPo } from "@/lib/services/order-from";
 import { deliveryAttention } from "@/lib/services/receiving";
+import { lowStockCount } from "@/lib/services/inventory";
 import { creditAttention } from "@/lib/services/vendor-credits";
 import { timeBoard, weeklyOtWatch } from "@/lib/services/time";
 import { addCalendarDays, localDay } from "@/lib/time/calendar";
@@ -243,6 +244,8 @@ export default async function TodayPage() {
   push("deliveries-late", deliveries.late.count, deliveries.late.href, "Late deliveries", String(deliveries.late.count));
   const credits = creditAttention(session.orgId, session.role);
   push("credits", credits.count, credits.href, "Vendor credits", money ? formatWhole(credits.cents) : String(credits.count), money);
+  const stock = lowStockCount(session.orgId);
+  push("stock", stock, stock > 0 ? "/inventory?low=1" : null, "Low stock", String(stock));
   for (const watch of weeklyOtWatch(session)) {
     attention.push({ key: `ot-${watch.userId}`, href: "/time", title: `${watch.name} · weekly OT`, count: 1, trailing: watch.trailing, money: false });
   }

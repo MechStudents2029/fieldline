@@ -22,7 +22,17 @@ export type ReceiveChoice = {
   schedule: { id: string; title: string }[];
 };
 
-export function ReceiveSheet({ orders, fixedId, today }: { orders: ReceiveChoice[]; fixedId?: string; today: string }) {
+export function ReceiveSheet({
+  orders,
+  fixedId,
+  today,
+  places = [],
+}: {
+  orders: ReceiveChoice[];
+  fixedId?: string;
+  today: string;
+  places?: { id: string; name: string }[];
+}) {
   const [poId, setPoId] = useState(fixedId || orders[0]?.id || "");
   const order = orders.find((row) => row.id === poId) ?? orders[0];
   if (!order) return <p className="mac-t13">No open lines</p>;
@@ -45,6 +55,21 @@ export function ReceiveSheet({ orders, fixedId, today }: { orders: ReceiveChoice
         Date
         <input name="receivedOn" type="date" aria-label="Delivery date" defaultValue={today} className="field mt-1" required />
       </label>
+      {order.kind === "work" ? (
+        <input type="hidden" name="stockTo" value="job" />
+      ) : (
+        <label className="text-sm">
+          Put stock
+          <select name="stockTo" aria-label="Stock location" className="field mt-1" defaultValue="job">
+            <option value="job">This job</option>
+            {places.map((place) => (
+              <option key={place.id} value={place.id}>
+                {place.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
       {order.lines.map((line) => (
         <fieldset key={line.id} className="grid gap-2">
           <legend className="mac-t13">

@@ -135,6 +135,7 @@ export function ensureReady(holder: Holder) {
   ensurePurchasing(holder);
   ensureReceiving(holder);
   ensureVendorCredits(holder);
+  ensureInventory(holder);
   const version = holder.sqlite.prepare("select value from app_meta where key = ?").get("seed_version") as
     | { value: string }
     | undefined;
@@ -2703,6 +2704,74 @@ function ensureVendorCredits(holder: Holder) {
     )`);
   }
   holder.sqlite.exec("create index if not exists vendor_credit_applications_credit on vendor_credit_applications (org_id, credit_id)");
+}
+
+function ensureInventory(holder: Holder) {
+  const pk = holder.dialect === "postgres" ? "text primary key" : "text primary key not null";
+  if (!tableExists(holder.sqlite, "stock_items", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists stock_items (
+      id ${pk},
+      org_id text not null,
+      price_book_item_id text not null,
+      sku text,
+      reorder_point_milli integer not null,
+      preferred_vendor_contact_id text,
+      created_at text not null,
+      updated_at text not null
+    )`);
+  }
+  holder.sqlite.exec("create unique index if not exists stock_items_book on stock_items (org_id, price_book_item_id)");
+  holder.sqlite.exec("create index if not exists stock_items_org on stock_items (org_id)");
+  if (!tableExists(holder.sqlite, "stock_locations", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists stock_locations (
+      id ${pk},
+      org_id text not null,
+      name text not null,
+      kind text not null,
+      project_id text,
+      created_at text not null
+    )`);
+  }
+  holder.sqlite.exec("create index if not exists stock_locations_org on stock_locations (org_id, kind)");
+  if (!tableExists(holder.sqlite, "stock_balances", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists stock_balances (
+      id ${pk},
+      org_id text not null,
+      stock_item_id text not null,
+      location_id text not null,
+      on_hand_milli integer not null,
+      allocated_milli integer not null,
+      value_cents integer not null
+    )`);
+  }
+  holder.sqlite.exec("create unique index if not exists stock_balances_place on stock_balances (org_id, stock_item_id, location_id)");
+  if (!tableExists(holder.sqlite, "stock_movements", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists stock_movements (
+      id ${pk},
+      org_id text not null,
+      number text not null,
+      stock_item_id text not null,
+      type text not null,
+      status text not null,
+      qty_milli integer not null,
+      cost_cents integer not null,
+      from_location_id text,
+      to_location_id text,
+      project_id text,
+      from_project_id text,
+      cost_item_id text,
+      counter_cost_item_id text,
+      source_key text,
+      receipt_id text,
+      reason text,
+      void_reason text,
+      created_at text not null,
+      created_by text,
+      voided_at text
+    )`);
+  }
+  holder.sqlite.exec("create index if not exists stock_movements_item on stock_movements (org_id, stock_item_id, created_at)");
+  holder.sqlite.exec("create index if not exists stock_movements_key on stock_movements (org_id, source_key)");
 }
 
 function ensureOvertime(holder: Holder) {

@@ -24,6 +24,7 @@ const TRIGGERS = [
   ["delivery_late", "Delivery late"],
   ["delivery_received", "Delivery received"],
   ["vendor_credit_issued", "Vendor credit issued"],
+  ["stock_low", "Low stock"],
 ] as const;
 
 const ACTION_KINDS = [

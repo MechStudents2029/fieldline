@@ -138,6 +138,10 @@ import {
   timeEntryEvents,
   users,
   vendorCertificates,
+  stockBalances,
+  stockItems,
+  stockLocations,
+  stockMovements,
   vendorCreditApplications,
   vendorCredits,
   vendorPortals,
@@ -178,7 +182,7 @@ import {
   WEBSITE_FORM_SOURCE,
 } from "@/lib/lead-form/rules";
 
-export const SEED_VERSION = "49";
+export const SEED_VERSION = "50";
 
 const ORG = "org_rivera";
 const NORTH = "org_northline";
@@ -1892,6 +1896,46 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
       { id: "audit_vc_punch", orgId: ORG, actorId: "user_sam", action: "credit.issue", entityType: "vendor_credit", entityId: "vc_punch", payloadJson: JSON.stringify({ number: "BC-1045" }), ip: null, createdAt: daysAgo(12) },
       { id: "audit_vc_dispute", orgId: ORG, actorId: null, action: "credit.dispute", entityType: "vendor_credit", entityId: "vc_dispute", payloadJson: JSON.stringify({ number: "BC-1046", note: "We left the site clean." }), ip: null, createdAt: daysAgo(2) },
       { id: "audit_vc_partial", orgId: ORG, actorId: "user_sam", action: "credit.apply", entityType: "vendor_credit", entityId: "vc_partial", payloadJson: JSON.stringify({ billId: "bill_ok_harbor", amountCents: 40000 }), ip: null, createdAt: daysAgo(4) },
+    ])
+    .run();
+  const stockAt = daysAgo(6);
+  db.insert(stockLocations)
+    .values([
+      { id: "loc_yard", orgId: ORG, name: "Yard", kind: "yard", projectId: null, createdAt: stockAt },
+      { id: "loc_truck", orgId: ORG, name: "Truck 1", kind: "truck", projectId: null, createdAt: stockAt },
+      { id: "loc_job_ok", orgId: ORG, name: "Okonkwo primary bath", kind: "job", projectId: "proj_okonkwo", createdAt: stockAt },
+      { id: "loc_job_br", orgId: ORG, name: "Brooks family room addition", kind: "job", projectId: "proj_brooks", createdAt: stockAt },
+    ])
+    .run();
+  db.insert(stockItems)
+    .values([
+      { id: "stk_valve", orgId: ORG, priceBookItemId: "pb_plb-shower", sku: "VALVE-1", reorderPointMilli: 4000, preferredVendorContactId: "c_harbor", createdAt: stockAt, updatedAt: stockAt },
+      { id: "stk_tile", orgId: ORG, priceBookItemId: "pb_tile-flr", sku: "TILE-FLR", reorderPointMilli: 40000, preferredVendorContactId: "c_casa", createdAt: stockAt, updatedAt: stockAt },
+    ])
+    .run();
+  db.insert(stockBalances)
+    .values([
+      { id: "bal_valve_yard", orgId: ORG, stockItemId: "stk_valve", locationId: "loc_yard", onHandMilli: 2000, allocatedMilli: 0, valueCents: 290000 },
+      { id: "bal_tile_yard", orgId: ORG, stockItemId: "stk_tile", locationId: "loc_yard", onHandMilli: 100000, allocatedMilli: 0, valueCents: 185000 },
+      { id: "bal_tile_truck", orgId: ORG, stockItemId: "stk_tile", locationId: "loc_truck", onHandMilli: 15000, allocatedMilli: 0, valueCents: 27750 },
+      { id: "bal_tile_ok", orgId: ORG, stockItemId: "stk_tile", locationId: "loc_job_ok", onHandMilli: 12000, allocatedMilli: 12000, valueCents: 22200 },
+      { id: "bal_tile_br", orgId: ORG, stockItemId: "stk_tile", locationId: "loc_job_br", onHandMilli: 8000, allocatedMilli: 8000, valueCents: 14800 },
+    ])
+    .run();
+  db.insert(costItems)
+    .values([
+      { id: "cost_stk_issue", orgId: ORG, projectId: "proj_okonkwo", budgetLineId: null, costCode: "TILE-FLR", amountCents: 37000, vendorName: "Stock", memo: "MV-1046", source: "inventory", aiExtracted: 0, documentId: null, createdAt: daysAgo(4), updatedAt: daysAgo(4), createdBy: "user_sam" },
+      { id: "cost_stk_out", orgId: ORG, projectId: "proj_okonkwo", budgetLineId: null, costCode: "TILE-FLR", amountCents: -14800, vendorName: "Stock", memo: "MV-1047", source: "inventory", aiExtracted: 0, documentId: null, createdAt: daysAgo(2), updatedAt: daysAgo(2), createdBy: "user_maya" },
+      { id: "cost_stk_in", orgId: ORG, projectId: "proj_brooks", budgetLineId: null, costCode: "TILE-FLR", amountCents: 14800, vendorName: "Stock", memo: "MV-1047", source: "inventory", aiExtracted: 0, documentId: null, createdAt: daysAgo(2), updatedAt: daysAgo(2), createdBy: "user_maya" },
+    ])
+    .run();
+  db.insert(stockMovements)
+    .values([
+      { id: "mov_valve", orgId: ORG, number: "MV-1044", stockItemId: "stk_valve", type: "receive", status: "posted", qtyMilli: 2000, costCents: 290000, fromLocationId: null, toLocationId: "loc_yard", projectId: null, fromProjectId: null, costItemId: null, counterCostItemId: null, sourceKey: "seed:valve", receiptId: null, reason: null, voidReason: null, createdAt: daysAgo(8), createdBy: "user_sam", voidedAt: null },
+      { id: "mov_tile_in", orgId: ORG, number: "MV-1045", stockItemId: "stk_tile", type: "receive", status: "posted", qtyMilli: 135000, costCents: 249750, fromLocationId: null, toLocationId: "loc_yard", projectId: null, fromProjectId: null, costItemId: null, counterCostItemId: null, sourceKey: "seed:tile", receiptId: null, reason: null, voidReason: null, createdAt: daysAgo(7), createdBy: "user_sam", voidedAt: null },
+      { id: "mov_tile_truck", orgId: ORG, number: "MV-1048", stockItemId: "stk_tile", type: "transfer", status: "posted", qtyMilli: 15000, costCents: 27750, fromLocationId: "loc_yard", toLocationId: "loc_truck", projectId: null, fromProjectId: null, costItemId: null, counterCostItemId: null, sourceKey: "seed:truck", receiptId: null, reason: null, voidReason: null, createdAt: daysAgo(5), createdBy: "user_sam", voidedAt: null },
+      { id: "mov_tile_issue", orgId: ORG, number: "MV-1046", stockItemId: "stk_tile", type: "issue", status: "posted", qtyMilli: 20000, costCents: 37000, fromLocationId: "loc_yard", toLocationId: "loc_job_ok", projectId: "proj_okonkwo", fromProjectId: null, costItemId: "cost_stk_issue", counterCostItemId: null, sourceKey: "seed:issue", receiptId: null, reason: null, voidReason: null, createdAt: daysAgo(4), createdBy: "user_sam", voidedAt: null },
+      { id: "mov_tile_job", orgId: ORG, number: "MV-1047", stockItemId: "stk_tile", type: "job_transfer", status: "posted", qtyMilli: 8000, costCents: 14800, fromLocationId: "loc_job_ok", toLocationId: "loc_job_br", projectId: "proj_brooks", fromProjectId: "proj_okonkwo", costItemId: "cost_stk_out", counterCostItemId: "cost_stk_in", sourceKey: "seed:move", receiptId: null, reason: null, voidReason: null, createdAt: daysAgo(2), createdBy: "user_maya", voidedAt: null },
     ])
     .run();
   db.insert(auditLogs)

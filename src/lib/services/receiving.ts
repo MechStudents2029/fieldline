@@ -21,6 +21,7 @@ import { createBill } from "@/lib/services/bills";
 import { ServiceError } from "@/lib/services/errors";
 import type { Actor } from "@/lib/services/read";
 import { emitAutomation } from "@/lib/services/automations";
+import { stockPostedReceipt, voidReceiptStock } from "@/lib/services/inventory";
 
 type Writer = AppDatabase;
 
@@ -63,7 +64,7 @@ export type ReceiveLineInput = {
 
 export function receiveDelivery(
   actor: Actor,
-  input: { purchaseOrderId: string; receivedOn: string; note: string | null; documentId: string | null; lines: ReceiveLineInput[] },
+  input: { purchaseOrderId: string; receivedOn: string; note: string | null; documentId: string | null; lines: ReceiveLineInput[]; stockTo?: string | null },
 ) {
   assertReceiveRole(actor);
   const db = dbFor(actor);
@@ -150,6 +151,7 @@ export function receiveDelivery(
           createdAt: now,
         })
         .run();
+      stockPostedReceipt(tx as Writer, actor, receiptId, input.stockTo ?? "job");
     });
   });
   notifyDelivery(actor.orgId, {
@@ -183,6 +185,7 @@ export function voidReceipt(actor: Actor, receiptId: string, reason: string) {
   if (head.status === "void") throw new ServiceError("That receipt is already void.");
   const now = nowIso();
   db.transaction((tx) => {
+    voidReceiptStock(tx as Writer, actor, head.id, why);
     tx.update(receipts)
       .set({ status: "void", voidReason: why, voidedAt: now })
       .where(and(eq(receipts.id, head.id), eq(receipts.orgId, actor.orgId)))
