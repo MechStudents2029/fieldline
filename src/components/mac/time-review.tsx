@@ -334,9 +334,9 @@ export function TimeReview({ review }: { review: TimeReview }) {
                     </span>
                   </td>
                   {row.hours.map((cell) => (
-                    <td key={cell.day} data-fit="amount" className={`fit px-2 text-right num ${toneClass(cell.tone)}`}>
-                      <span className="block">{hours(cell.hours)}</span>
-                      {cell.site ? <span className="fl-pill mt-1">{cell.site}</span> : null}
+                    <td key={cell.day} className={`px-2 text-right num ${toneClass(cell.tone)}`}>
+                      <span data-fit="amount" className="fit block">{hours(cell.hours)}</span>
+                      {cell.site ? <span className="fl-pill fl-pill-sm mt-1">{cell.site}</span> : null}
                     </td>
                   ))}
                   <td data-fit="amount" className={`fit px-2 text-right num ${toneClass(row.totalTone)}`}>{row.total.toFixed(1)}</td>
@@ -503,9 +503,11 @@ function EntryRow({
       <td className="px-2"><span className="num">{entry.outLabel}</span></td>
       <td className="px-2 text-right num">{entry.breakMinutes}m</td>
       <td data-fit="amount" className={`fit px-2 text-right num ${entry.flags.includes("overlap") || entry.flags.includes("open_long") ? "font-semibold text-[var(--mac-danger)]" : ""}`}>{entry.hoursLabel}</td>
-      <td data-fit="status" className="fit px-2">
+      <td className="px-2">
         <span className="inline-flex flex-wrap items-center gap-1">
-          {entry.status === "pending" ? <span className="fl-pill">Submitted</span> : entry.status === "approved" ? "Approved" : "On site"}
+          <span data-fit="status" className="fit">
+            {entry.status === "pending" ? <span className="fl-pill">Submitted</span> : entry.status === "approved" ? "Approved" : "On site"}
+          </span>
           {entry.site ? <span className="fl-pill">{entry.site}</span> : null}
           {entry.siteOverridden ? <span className="fl-pill">Overridden</span> : null}
         </span>

@@ -27,7 +27,7 @@ test.describe("overtime, burden, and non-job time", () => {
     await shot(page, "settings-time-dark");
     await page.emulateMedia({ colorScheme: "light" });
     await page.getByLabel("Double time hours").fill("12");
-    await page.getByRole("button", { name: "Save" }).click();
+    await page.getByRole("button", { name: "Save", exact: true }).click();
     await expect(page.getByRole("status")).toHaveText("Time settings saved.");
     await page.reload();
     await expect(page.getByLabel("Double time hours")).toHaveValue("12");
@@ -81,7 +81,7 @@ test.describe("overtime, burden, and non-job time", () => {
     const [download] = await Promise.all([page.waitForEvent("download"), page.getByRole("dialog", { name: "CSV" }).getByRole("button", { name: "Download CSV" }).click()]);
     expect(download.suggestedFilename()).toBe("fieldline-time.csv");
     const csv = fs.readFileSync(await download.path(), "utf8");
-    expect(csv.split("\n")[0]).toBe("date,name,email,job,cost_code,shift,regular_hours,ot_hours,dt_hours,pto_hours");
+    expect(csv.split("\n")[0]).toBe("date,name,email,job,cost_code,shift,regular_hours,ot_hours,dt_hours,pto_hours,site");
     expect(csv).toContain("Luis Ortega");
     expect(csv).toMatch(/Luis Ortega,[^,]+,[^,]+,FRM-LABOR,regular,8\.00,36\.00,0\.00,0\.00/);
     expect(csv).toMatch(/Sam Patel,[^,]+,General,PTO,pto,0\.00,0\.00,0\.00,8\.00/);
