@@ -28,7 +28,7 @@ import {
   zonedTimeToUtc,
   type WorkCalendar,
 } from "@/lib/time/calendar";
-import { aggregateWeek, dayHeading, rangeLabel, reviewDays, reviewView, shiftAnchor, type ReviewView } from "@/lib/time/grid";
+import { aggregateWeek, dayHeading, rangeLabel, reviewDays, reviewView, shiftAnchor, sumOvertimeHours, type ReviewView } from "@/lib/time/grid";
 import { isShiftType, projectedWeeklyOt, splitWeek, type PunchSplit, type ShiftType } from "@/lib/time/overtime";
 import { otRulesFor, syncApprovedWeek } from "@/lib/time/post";
 import { canAddFieldNotes, canManageMoney, canManageSettings, type Role } from "@/lib/permissions";
@@ -884,7 +884,16 @@ export function weekGrid(actor: Actor, now = Date.now()): WeekGrid {
       };
     }),
     totalHours: grid.totalHours,
-    overtimeHours: grid.overtimeHours,
+    overtimeHours: sumOvertimeHours(
+      grid.rows.map((row) => {
+        const parts = sumSplits(
+          entries
+            .filter((entry) => entry.userId === row.userId && entry.status !== "void" && days.includes(localDay(Date.parse(entry.clockInAt), calendar.timeZone)))
+            .map((entry) => splits.get(entry.id)),
+        );
+        return { ot: parts.otMinutes / 60, dt: parts.dtMinutes / 60 };
+      }),
+    ),
     laborCents,
     pendingCount: new Set(grid.pendingIds).size,
   };
@@ -1078,7 +1087,7 @@ export function timeReview(actor: Actor, input: { view?: string | null; on?: str
     rows,
     people,
     totalHours: grid.totalHours,
-    overtimeHours: grid.overtimeHours,
+    overtimeHours: sumOvertimeHours(rows),
     laborCents: approvedLaborCents(db, actor.orgId, entries, days, calendar.timeZone),
     pendingCount: new Set(grid.pendingIds).size,
     pendingIds: [...new Set(grid.pendingIds)],

@@ -30,6 +30,7 @@ test("job gantt, critical path, drag, zoom, print, and the Today polish", async 
   await page.goto("/projects/proj_brooks?view=gantt&critical=1#schedule");
   const board = page.locator("[data-gantt=job]");
   await expect(board).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Brooks family room addition" })).toBeVisible();
   await expect(board).toHaveAttribute("data-critical-on", "1");
   await expect(board).toHaveAttribute("data-zoom", "week");
   await expect(page.locator("[data-group=Framing]")).toBeVisible();

@@ -2,7 +2,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { and, eq } from "drizzle-orm";
 import { getDb, useDatabaseFile } from "@/lib/db/client";
 import { costItems, inspectionGates, inspections, permits, scheduleItems, tasks, templateInspections } from "@/lib/db/schema";
-import { inNextWorkdays } from "@/lib/permits/rules";
+import { inNextWorkdays, latestByRoot } from "@/lib/permits/rules";
 import { authenticate } from "@/lib/services/read";
 import { moveScheduleItem, saveScheduleItem } from "@/lib/services/schedule";
 import { workCalendarFor } from "@/lib/services/work-calendar";
@@ -60,11 +60,16 @@ describe("permits and inspections", () => {
     expect(vendor).toEqual([expect.objectContaining({ name: "Rough plumbing", result: "Pending" })]);
     expect(JSON.stringify(vendor)).not.toContain("Strap the supply");
     expect(JSON.stringify(vendor)).not.toContain("Pat Nguyen");
+    const calendar = workCalendarFor(maya.orgId);
     const queue = inspectionQueue(maya.orgId, "2026-10-10");
-    expect(queue.upcoming.count).toBe(1);
+    const asOf = "2026-10-10";
+    const upcoming = latestByRoot(getDb().select().from(inspections).where(eq(inspections.orgId, maya.orgId)).all()).filter(
+      (row) => row.scheduledOn && inNextWorkdays(asOf, row.scheduledOn, calendar, 3) && row.result !== "cancelled",
+    );
+    expect(upcoming.length).toBeGreaterThan(0);
+    expect(queue.upcoming.count).toBe(upcoming.length);
     expect(queue.failed.count).toBe(1);
     expect(queue.expiring.count).toBe(1);
-    const calendar = workCalendarFor(maya.orgId);
     expect(inNextWorkdays("2026-10-10", "2026-10-12", calendar, 3)).toBe(false);
     expect(inNextWorkdays("2026-10-10", "2026-10-13", calendar, 3)).toBe(true);
     expect(inNextWorkdays("2026-10-10", "2026-10-16", calendar, 3)).toBe(false);

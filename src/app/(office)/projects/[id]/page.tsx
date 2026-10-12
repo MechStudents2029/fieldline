@@ -14,7 +14,9 @@ import { formatCalendarDay, formatDateTime, formatWarrantyDay } from "@/lib/form
 import { formatWorkdayVariance } from "@/lib/schedule/delays";
 import { overBudgetPercent } from "@/lib/margin/category";
 import { formatMoney, formatPercent, formatWhole } from "@/lib/money";
-import { canEditCrm, canEditSchedule } from "@/lib/permissions";
+import { canEditCrm, canEditSchedule, canManageMoney } from "@/lib/permissions";
+import { OrderPicker } from "@/components/order-picker";
+import { budgetCandidates, orderDesk } from "@/lib/services/order-from";
 import { projectBills } from "@/lib/services/bills";
 import { projectPurchaseOrders } from "@/lib/services/purchase-orders";
 import { captionFromMetadata, listPriceBook, listProjects, pipelineBoard, projectDetail } from "@/lib/services/read";
@@ -243,7 +245,20 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
           </GroupedList>
           </div>
           <div id="codes" className="mt-4 overflow-x-auto md:mt-0">
-            <p className="mb-2 hidden mac-t11 font-semibold text-[var(--mac-secondary)] md:block">Budget by cost code</p>
+            <div className="mb-2 hidden items-center justify-between gap-2 md:flex">
+              <p className="mac-t11 font-semibold text-[var(--mac-secondary)]">Budget by cost code</p>
+              {canManageMoney(session.role) ? (
+                <SheetButton label="Order">
+                  <OrderPicker
+                    sourceKind="budget_line"
+                    projectId={detail.project.id}
+                    rows={budgetCandidates(session.orgId, detail.project.id)}
+                    vendors={orderDesk(session.orgId, detail.project.id).vendors}
+                    drafts={orderDesk(session.orgId, detail.project.id).drafts}
+                  />
+                </SheetButton>
+              ) : null}
+            </div>
             <table className="mac-table mac-budget w-full text-left">
               <thead>
                 <tr>
@@ -511,7 +526,13 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
       <section id="schedule" className={full ? "flex min-h-0 flex-1 flex-col gap-2" : "flex flex-col gap-2 md:px-6 md:pb-8"}>
         <div className="flex items-center justify-between gap-2">
           <span className="flex items-baseline gap-2">
-            <h2 className="fl-section">Schedule</h2>
+            {full ? (
+              <h1 className="fl-title">
+                <Link href={`/projects/${detail.project.id}`}>{detail.project.name}</Link>
+              </h1>
+            ) : (
+              <h2 className="fl-section">Schedule</h2>
+            )}
             {gantt ? <span className="num mac-t11 text-[var(--mac-secondary)]" data-finish>{gantt.finishLabel}</span> : null}
           </span>
           <span className="flex items-center gap-2">
@@ -537,7 +558,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
           </span>
         </div>
         {gantt ? (
-          <div className="flex flex-col gap-2">
+          <div className="order-2 flex flex-col gap-2">
             <Segmented
               items={[
                 { href: `/projects/${detail.project.id}?view=gantt&zoom=week#schedule`, label: "Week", current: zoom === "week" },
@@ -548,6 +569,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
             <GanttBoard model={gantt} critical={query.critical === "1"} printHref={`/projects/${detail.project.id}/schedule/print`} />
           </div>
         ) : null}
+        <div className="order-1 flex flex-wrap items-center gap-2">
         {marks.length > 0 ? (
           <SheetButton label="Inspections">
             <ul className="fl-group" aria-label="Inspections">
@@ -568,31 +590,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
             </ul>
           </SheetButton>
         ) : null}
-        {gantt ? null : <ul className="fl-group">
-          {schedule.length === 0 ? <li className="fl-cell">No items</li> : null}
-          {schedule.map((item) => {
-            const late = (rfiBoard?.items ?? []).some((rfi) => rfi.relatedType === "schedule" && rfi.relatedId === item.id && rfi.overdue);
-            const base = compareById.get(item.id);
-            return (
-            <li key={item.id} className="fl-cell">
-              <span className="min-w-0 flex-1">
-                <span className="fl-body block truncate">{item.title}</span>
-                <span className="fl-footnote block truncate text-[var(--fl-secondary)]">
-                  {formatCalendarDay(item.startDate)}
-                  {item.endDate !== item.startDate ? ` – ${formatCalendarDay(item.endDate)}` : ""} · {item.who}
-                  {base?.baselineEnd ? ` · Baseline ${formatCalendarDay(base.baselineStart || base.baselineEnd)}${base.baselineEnd !== base.baselineStart ? ` – ${formatCalendarDay(base.baselineEnd)}` : ""}` : ""}
-                  {base?.variance != null && base.variance !== 0 ? ` · ${formatWorkdayVariance(base.variance)}` : ""}
-                  {gates.get(item.id) ? ` · ${gates.get(item.id)}` : ""}
-                </span>
-                <LinkedRfis rows={(rfiBoard?.items ?? []).filter((rfi) => rfi.relatedType === "schedule" && rfi.relatedId === item.id && rfi.status !== "void")} />
-              </span>
-              {late ? <span className="text-[11px] text-[var(--mac-secondary)]">RFI</span> : null}
-              {confirmPill(item.confirmStatus) ? <span className="fl-pill fl-pill-sm">{confirmPill(item.confirmStatus)}</span> : null}
-              <span className="fl-pill">{item.status === "planned" ? "Planned" : item.status === "confirmed" ? "Confirmed" : item.status === "done" ? "Done" : item.status}</span>
-            </li>
-            );
-          })}
-        </ul>}
+
         {canEditSchedule(session.role) ? (
           <SheetButton label="Confirm">
             <ActionForm action={requestRangeAction} className="flex flex-wrap items-center gap-2">
@@ -641,6 +639,33 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
           </div>
           </SheetButton>
         ) : null}
+
+        </div>
+        {gantt ? null : <ul className="order-2 fl-group">
+          {schedule.length === 0 ? <li className="fl-cell">No items</li> : null}
+          {schedule.map((item) => {
+            const late = (rfiBoard?.items ?? []).some((rfi) => rfi.relatedType === "schedule" && rfi.relatedId === item.id && rfi.overdue);
+            const base = compareById.get(item.id);
+            return (
+            <li key={item.id} className="fl-cell">
+              <span className="min-w-0 flex-1">
+                <span className="fl-body block truncate">{item.title}</span>
+                <span className="fl-footnote block truncate text-[var(--fl-secondary)]">
+                  {formatCalendarDay(item.startDate)}
+                  {item.endDate !== item.startDate ? ` – ${formatCalendarDay(item.endDate)}` : ""} · {item.who}
+                  {base?.baselineEnd ? ` · Baseline ${formatCalendarDay(base.baselineStart || base.baselineEnd)}${base.baselineEnd !== base.baselineStart ? ` – ${formatCalendarDay(base.baselineEnd)}` : ""}` : ""}
+                  {base?.variance != null && base.variance !== 0 ? ` · ${formatWorkdayVariance(base.variance)}` : ""}
+                  {gates.get(item.id) ? ` · ${gates.get(item.id)}` : ""}
+                </span>
+                <LinkedRfis rows={(rfiBoard?.items ?? []).filter((rfi) => rfi.relatedType === "schedule" && rfi.relatedId === item.id && rfi.status !== "void")} />
+              </span>
+              {late ? <span className="text-[11px] text-[var(--mac-secondary)]">RFI</span> : null}
+              {confirmPill(item.confirmStatus) ? <span className="fl-pill fl-pill-sm">{confirmPill(item.confirmStatus)}</span> : null}
+              <span className="fl-pill">{item.status === "planned" ? "Planned" : item.status === "confirmed" ? "Confirmed" : item.status === "done" ? "Done" : item.status}</span>
+            </li>
+            );
+          })}
+        </ul>}
       </section>
       <section id="photos" className={full ? "hidden" : "mac-docs flex flex-col gap-3 md:px-6"}>
         <h2 className="fl-section">Photos</h2>

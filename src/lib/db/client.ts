@@ -132,6 +132,7 @@ export function ensureReady(holder: Holder) {
   ensureConfirmations(holder);
   ensureTm(holder);
   ensureOvertime(holder);
+  ensurePurchasing(holder);
   const version = holder.sqlite.prepare("select value from app_meta where key = ?").get("seed_version") as
     | { value: string }
     | undefined;
@@ -2607,6 +2608,15 @@ function ensureConfirmations(holder: Holder) {
     )`);
   }
   holder.sqlite.exec("create index if not exists schedule_confirmations_item on schedule_confirmations (org_id, item_id, created_at)");
+}
+
+function ensurePurchasing(holder: Holder) {
+  ensureColumn(holder, "purchase_orders", "kind", "text not null default 'purchase'");
+  ensureColumn(holder, "purchase_order_lines", "qty_milli", "integer");
+  ensureColumn(holder, "purchase_order_lines", "unit_cost_cents", "integer");
+  ensureColumn(holder, "purchase_order_lines", "source_kind", "text not null default ''");
+  ensureColumn(holder, "purchase_order_lines", "source_id", "text not null default ''");
+  ensureColumn(holder, "purchase_order_lines", "note", "text");
 }
 
 function ensureOvertime(holder: Holder) {

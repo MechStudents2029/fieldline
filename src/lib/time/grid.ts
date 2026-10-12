@@ -102,6 +102,10 @@ export function entryMinutes(entry: GridEntry, now = Date.now()): number {
   return Math.max(0, Math.round((end - start - breakMs) / 60_000));
 }
 
+export function sumOvertimeHours(rows: { ot: number; dt: number }[]) {
+  return rows.reduce((sum, row) => sum + row.ot + row.dt, 0);
+}
+
 export function aggregateWeek(
   entries: GridEntry[],
   people: GridPerson[],

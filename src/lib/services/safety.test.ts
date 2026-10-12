@@ -25,12 +25,13 @@ import {
   talkStatus,
 } from "@/lib/services/safety";
 import { applyOfflineBatch } from "@/lib/services/sync";
+import { calendarForOrg } from "@/lib/services/time";
 import { workCalendarFor } from "@/lib/services/work-calendar";
 import { vendorPortal } from "@/lib/services/vendor-portal";
 import { renderUpdateBody } from "@/lib/updates/draft";
 import { gatherClientUpdateFacts } from "@/lib/updates/gather";
 import { defaultRange } from "@/lib/updates/range";
-import { localDay } from "@/lib/time/calendar";
+import { localDay, localWeek } from "@/lib/time/calendar";
 
 const SIGN = "data:image/png;base64,iVBORw0KGgo=";
 
@@ -58,7 +59,9 @@ describe("jobsite safety", () => {
     expect(missed).toBeTruthy();
     expect(talkStatus(missed!, today())).toBe("missed");
     expect(listSafety(maya, { type: "talk", status: "missed" }).some((row) => row.id === "talk_br_missed")).toBe(true);
-    expect(safetyQueue("org_rivera", today()).missed.count).toBeGreaterThan(0);
+    const week = localWeek(Date.now(), calendarForOrg("org_rivera"));
+    const missedInWeek = missed!.scheduledOn >= week.startDay && missed!.scheduledOn < today();
+    expect(safetyQueue("org_rivera", today()).missed.count).toBe(missedInWeek ? 1 : 0);
     const talkId = scheduleTalk(maya, {
       projectId: "proj_chen",
       topicId: "topic_ppe",

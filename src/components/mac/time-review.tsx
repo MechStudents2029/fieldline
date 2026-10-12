@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { addPtoAction, approveEntriesAction, editTimeAction, officeClockOutAction, saveAndApproveAction, undoTimeAction } from "@/app/actions";
 import { Segmented, Toolbar } from "@/components/mac/toolbar";
+import { SheetButton } from "@/components/sheet-button";
 import { formatMoney } from "@/lib/money";
 import type { ReviewEntry, TimeReview, TimeUndo } from "@/lib/services/time";
 
@@ -148,70 +149,76 @@ export function TimeReview({ review }: { review: TimeReview }) {
         primary={`Approve ${review.pendingCount}`}
         primaryDisabled={review.pendingCount === 0 || busy}
         onPrimary={() => void approve(review.pendingIds)}
+        trailing={
+          <span className="flex items-center gap-2">
+            <SheetButton label="Add PTO">
+              <form
+                className="flex flex-wrap items-end gap-2"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  if (busy) return;
+                  const data = new FormData(event.currentTarget);
+                  setBusy(true);
+                  void addPtoAction(null, data).then((result) => {
+                    setBusy(false);
+                    if (!result || result.error) setNotice(result?.error ?? "Could not add PTO.");
+                    else {
+                      setNotice(result.ok ?? "PTO added.");
+                      router.refresh();
+                    }
+                  });
+                }}
+              >
+                <label className="text-[13px]">
+                  Person
+                  <select name="userId" aria-label="PTO person" defaultValue={selectedId ?? review.people[0]?.userId ?? ""} className="ctl mt-1 max-w-40">
+                    {review.people.map((member) => (
+                      <option key={member.userId} value={member.userId}>
+                        {member.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="text-[13px]">
+                  Day
+                  <input type="date" name="day" aria-label="PTO day" required defaultValue={review.dayHeaders[0]?.key ?? ""} className="ctl mt-1" />
+                </label>
+                <label className="text-[13px]">
+                  Hours
+                  <input name="hours" aria-label="PTO hours" defaultValue="8" inputMode="decimal" className="ctl mt-1 w-16" />
+                </label>
+                <label className="text-[13px]">
+                  Shift
+                  <select name="shiftType" aria-label="Shift type" defaultValue="pto" className="ctl mt-1">
+                    <option value="pto">PTO</option>
+                    <option value="holiday">Holiday</option>
+                    <option value="sick">Sick</option>
+                    <option value="training">Training</option>
+                  </select>
+                </label>
+                <button type="submit" className="ctl" disabled={busy}>
+                  Save
+                </button>
+              </form>
+            </SheetButton>
+            <SheetButton label="CSV">
+              <form action="/api/export/time" className="flex flex-wrap items-end gap-2">
+                <label className="text-[13px]">
+                  From
+                  <input type="date" name="from" aria-label="Payroll from" required defaultValue={review.dayHeaders[0]?.key ?? ""} className="ctl mt-1" />
+                </label>
+                <label className="text-[13px]">
+                  To
+                  <input type="date" name="to" aria-label="Payroll to" required defaultValue={review.dayHeaders.at(-1)?.key ?? ""} className="ctl mt-1" />
+                </label>
+                <button type="submit" className="ctl">
+                  Download CSV
+                </button>
+              </form>
+            </SheetButton>
+          </span>
+        }
       />
-      <div className="flex flex-wrap items-end gap-3 px-4 pb-2">
-        <form
-          className="flex flex-wrap items-end gap-2"
-          onSubmit={(event) => {
-            event.preventDefault();
-            if (busy) return;
-            const data = new FormData(event.currentTarget);
-            setBusy(true);
-            void addPtoAction(null, data).then((result) => {
-              setBusy(false);
-              if (!result || result.error) setNotice(result?.error ?? "Could not add PTO.");
-              else {
-                setNotice(result.ok ?? "PTO added.");
-                router.refresh();
-              }
-            });
-          }}
-        >
-          <label className="text-[13px]">
-            Person
-            <select name="userId" aria-label="PTO person" defaultValue={selectedId ?? review.people[0]?.userId ?? ""} className="ctl mt-1 max-w-40">
-              {review.people.map((member) => (
-                <option key={member.userId} value={member.userId}>
-                  {member.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="text-[13px]">
-            Day
-            <input type="date" name="day" aria-label="PTO day" required defaultValue={review.dayHeaders[0]?.key ?? ""} className="ctl mt-1" />
-          </label>
-          <label className="text-[13px]">
-            Hours
-            <input name="hours" aria-label="PTO hours" defaultValue="8" inputMode="decimal" className="ctl mt-1 w-16" />
-          </label>
-          <label className="text-[13px]">
-            Shift
-            <select name="shiftType" aria-label="Shift type" defaultValue="pto" className="ctl mt-1">
-              <option value="pto">PTO</option>
-              <option value="holiday">Holiday</option>
-              <option value="sick">Sick</option>
-              <option value="training">Training</option>
-            </select>
-          </label>
-          <button type="submit" className="ctl" disabled={busy}>
-            Add PTO
-          </button>
-        </form>
-        <form action="/api/export/time" className="flex flex-wrap items-end gap-2">
-          <label className="text-[13px]">
-            From
-            <input type="date" name="from" aria-label="Payroll from" required defaultValue={review.dayHeaders[0]?.key ?? ""} className="ctl mt-1" />
-          </label>
-          <label className="text-[13px]">
-            To
-            <input type="date" name="to" aria-label="Payroll to" required defaultValue={review.dayHeaders.at(-1)?.key ?? ""} className="ctl mt-1" />
-          </label>
-          <button type="submit" className="ctl">
-            Download CSV
-          </button>
-        </form>
-      </div>
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-auto px-4 pb-2">
         <div className="mac-strip">
           <div>
@@ -219,7 +226,7 @@ export function TimeReview({ review }: { review: TimeReview }) {
             <p className="mac-t11 text-[var(--mac-secondary)]">Hours</p>
           </div>
           <div>
-            <p className={`mac-t22 num ${review.overtimeHours > 0 ? "text-[var(--mac-warning)]" : ""}`}>{review.overtimeHours.toFixed(1)}</p>
+            <p data-stat="overtime" className={`mac-t22 num ${review.overtimeHours > 0 ? "text-[var(--mac-warning)]" : ""}`}>{review.overtimeHours.toFixed(1)}</p>
             <p className="mac-t11 text-[var(--mac-secondary)]">Overtime</p>
           </div>
           <div>
@@ -432,6 +439,7 @@ function EntryRow({
   onDone: (undoStep: TimeUndo | null, message: string) => void;
   onError: (message: string) => void;
 }) {
+  const [editing, setEditing] = useState(false);
   const formId = `time-${entry.id}`;
   const label = entry.note || `${entry.costCode} ${entry.dayLabel}`;
   async function read(approve: boolean) {
@@ -480,75 +488,55 @@ function EntryRow({
         <input type="checkbox" aria-label={`Select ${label}`} disabled={entry.status !== "pending" || busy} checked={checked} onChange={onToggle} />
       </td>
       <td className="fit num px-2" data-fit="date">{entry.dayLabel}</td>
-      <td className="px-2">
-        {entry.locked ? (
-          entry.projectName
-        ) : (
-          <select form={formId} name="projectId" aria-label="Job" defaultValue={entry.projectId} className="h-6 max-w-[180px] bg-transparent text-[13px]">
-            {review.jobs.map((job) => (
-              <option key={job.id} value={job.id}>
-                {job.name}
-              </option>
-            ))}
-          </select>
-        )}
-      </td>
-      <td className="px-2">
-        {entry.locked ? (
-          entry.costCode
-        ) : (
-          <select form={formId} name="costCode" aria-label="Cost code" defaultValue={entry.costCode} className="h-6 bg-transparent text-[13px]">
-            {review.codes.includes(entry.costCode) ? null : <option value={entry.costCode}>{entry.costCode}</option>}
-            {review.codes.map((code) => (
-              <option key={code} value={code}>
-                {code}
-              </option>
-            ))}
-          </select>
-        )}
-      </td>
-      <td className="px-2">
-        {entry.locked ? (
-          <span className="num">{entry.inLabel}</span>
-        ) : (
-          <input form={formId} type="datetime-local" name="clockInAt" aria-label="Clock in" defaultValue={entry.clockInLocal} required className="h-6 bg-transparent text-[13px] num" />
-        )}
-      </td>
-      <td className="px-2">
-        {entry.locked ? (
-          <span className="num">{entry.outLabel}</span>
-        ) : (
-          <input form={formId} type="datetime-local" name="clockOutAt" aria-label="Clock out" defaultValue={entry.clockOutLocal} required className="h-6 bg-transparent text-[13px] num" />
-        )}
-      </td>
-      <td className="px-2 text-right num">
-        {entry.locked ? (
-          `${entry.breakMinutes}m`
-        ) : (
-          <input form={formId} name="breakMinutes" aria-label="Break minutes" type="number" min={0} defaultValue={entry.breakMinutes} className="h-6 w-14 bg-transparent text-right text-[13px] num" />
-        )}
-      </td>
+      <td className="px-2">{entry.projectName}</td>
+      <td className="px-2">{entry.costCode}</td>
+      <td className="px-2"><span className="num">{entry.inLabel}</span></td>
+      <td className="px-2"><span className="num">{entry.outLabel}</span></td>
+      <td className="px-2 text-right num">{entry.breakMinutes}m</td>
       <td data-fit="amount" className={`fit px-2 text-right num ${entry.flags.includes("overlap") || entry.flags.includes("open_long") ? "font-semibold text-[var(--mac-danger)]" : ""}`}>{entry.hoursLabel}</td>
       <td data-fit="status" className="fit px-2">{entry.status === "pending" ? <span className="fl-pill">Submitted</span> : entry.status === "approved" ? "Approved" : "On site"}</td>
-      <td className="px-2">
-        {entry.note ? <span>{entry.note}</span> : null}
-        {entry.locked ? null : <input form={formId} name="note" aria-label="Note" defaultValue={entry.note ?? ""} className="sr-only" />}
-      </td>
-      <td className="px-2">
-        {entry.locked ? null : <input form={formId} name="reason" aria-label="Reason" required minLength={3} placeholder="Reason" className="h-6 w-36 bg-transparent text-[13px]" />}
-      </td>
+      <td className="px-2">{entry.note ? <span>{entry.note}</span> : null}</td>
+      <td className="px-2" />
       <td className="px-2">
         {entry.locked ? null : (
-          <span className="flex gap-1">
-            <form id={formId} onSubmit={(event) => event.preventDefault()} />
-            <button type="button" className="mac-glass-btn" disabled={busy} onClick={() => void read(false)}>
-              Save time
-            </button>
-            <button type="button" className="mac-glass-btn" disabled={busy} onClick={() => void read(true)}>
-              Save and approve
-            </button>
-          </span>
+          <button type="button" className="mac-glass-btn" onClick={() => setEditing(true)}>
+            Edit
+          </button>
         )}
+        {editing ? (
+          <div role="dialog" aria-label={`Edit ${label}`} className="mt-2 flex flex-col gap-2">
+            <form id={formId} onSubmit={(event) => event.preventDefault()} className="grid gap-2">
+              <select name="projectId" aria-label="Job" defaultValue={entry.projectId} className="ctl">
+                {review.jobs.map((job) => (
+                  <option key={job.id} value={job.id}>
+                    {job.name}
+                  </option>
+                ))}
+              </select>
+              <select name="costCode" aria-label="Cost code" defaultValue={entry.costCode} className="ctl">
+                {review.codes.includes(entry.costCode) ? null : <option value={entry.costCode}>{entry.costCode}</option>}
+                {review.codes.map((code) => (
+                  <option key={code} value={code}>
+                    {code}
+                  </option>
+                ))}
+              </select>
+              <input type="datetime-local" name="clockInAt" aria-label="Clock in" defaultValue={entry.clockInLocal} required className="ctl num" />
+              <input type="datetime-local" name="clockOutAt" aria-label="Clock out" defaultValue={entry.clockOutLocal} required className="ctl num" />
+              <input name="breakMinutes" aria-label="Break minutes" type="number" min={0} defaultValue={entry.breakMinutes} className="ctl num" />
+              <input name="note" aria-label="Note" defaultValue={entry.note ?? ""} className="ctl" />
+              <input name="reason" aria-label="Reason" required minLength={3} placeholder="Reason" className="ctl" />
+            </form>
+            <span className="flex gap-1">
+              <button type="button" className="mac-glass-btn" disabled={busy} onClick={() => void read(false)}>
+                Save time
+              </button>
+              <button type="button" className="mac-glass-btn" disabled={busy} onClick={() => void read(true)}>
+                Save and approve
+              </button>
+            </span>
+          </div>
+        ) : null}
       </td>
     </tr>
   );

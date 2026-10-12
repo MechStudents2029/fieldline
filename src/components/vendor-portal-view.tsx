@@ -211,8 +211,8 @@ export function VendorPortalView({
             ))}
           </ul>
         </section>
-        <section aria-label="Purchase orders">
-          <h2>Purchase orders</h2>
+        <section aria-label="Orders">
+          <h2>Orders</h2>
           {home.orders.length === 0 ? <p className="home-sub">No open orders</p> : null}
           <ul className="home-stack">
             {home.orders.map((order) => (
@@ -221,7 +221,7 @@ export function VendorPortalView({
                   <div>
                     <p className="home-copy">{order.number}</p>
                     <p className="home-sub">
-                      {order.job} · {formatMoney(order.amountCents)}
+                      {order.kind === "work" ? "Work order" : "Purchase order"} · {order.job} · {formatMoney(order.amountCents)}
                     </p>
                   </div>
                   <span className="home-pill">{order.response === "issued" ? "Issued" : order.response === "accepted" ? "Accepted" : "Declined"}</span>

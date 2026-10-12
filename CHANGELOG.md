@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-10-12
+
+### Purchase orders from selections
+
+- An approved selection, an approved change-order line, or an open budget line that is not already committed can become a draft purchase order or be added to an existing draft. The line keeps the cost code, description, quantity, and unit cost, and a second open line is not created for the same choice.
+- A purchase order can be a work order. The commitment is the same. The list, print title, and vendor Orders list show the type. Older orders stay purchase orders.
+- Today lists approved selections with no open or issued order after 3 days. A portal confirmation that still needs an order leaves an inbox notice. An automation can create the draft when a selection is confirmed.
+- The week overtime total is the sum of the OT and DT columns. An open punch on a fresh demo is recent, and clocking out stays on that row. Add PTO and the payroll CSV sit behind buttons. Time entries show the punch and open an edit sheet.
+- The full-width job Gantt keeps the job title and a link back to the job. Inspections, confirmations, and exception days sit in the schedule toolbar.
+- T&M ticket numbers are one company sequence, shown as TM-001. Convert sits in the selection bar. The list counts the tickets.
+
 ## 2026-10-11
 
 ### Overtime and labor burden

@@ -1,12 +1,15 @@
 import Link from "next/link";
 import { voidTmChangeOrderAction } from "@/app/actions";
 import { ActionForm } from "@/components/action-form";
+import { OrderPicker } from "@/components/order-picker";
+import { SheetButton } from "@/components/sheet-button";
 import { CommentThread } from "@/components/comment-thread";
 import { DetailFacts, DetailHeader } from "@/components/detail-header";
 import { MissingRecord } from "@/components/missing-record";
 import { requireSession } from "@/lib/auth/session";
 import { formatMoney, formatQty } from "@/lib/money";
 import { canManageMoney, canSeeMoney } from "@/lib/permissions";
+import { changeOrderCandidates, orderDesk } from "@/lib/services/order-from";
 import { changeOrderRecord } from "@/lib/services/purchase-orders";
 
 export default async function ChangeOrderPage({ params }: { params: Promise<{ id: string; orderId: string }> }) {
@@ -15,6 +18,9 @@ export default async function ChangeOrderPage({ params }: { params: Promise<{ id
   if (!canSeeMoney(session.role)) return <h1 className="fl-large-title">Change order</h1>;
   const order = changeOrderRecord(session.orgId, orderId, session.role);
   if (!order || order.projectId !== id) return <MissingRecord orgName={session.orgName} kind="change order" />;
+  const ordering = canManageMoney(session.role) ? changeOrderCandidates(session.orgId, order.id) : { projectId: order.projectId, rows: [] };
+  const desk = canManageMoney(session.role) ? orderDesk(session.orgId, order.projectId) : { vendors: [], drafts: [] };
+  const ordered = new Set(ordering.rows.filter((row) => row.ordered).map((row) => row.id));
   return (
     <div className="flex flex-col gap-4 pb-6">
       <DetailHeader
@@ -51,7 +57,10 @@ export default async function ChangeOrderPage({ params }: { params: Promise<{ id
               {order.lines.map((line) => (
                 <tr key={line.id}>
                   <td>{line.costCode}</td>
-                  <td>{line.name}</td>
+                  <td>
+                    {line.name}
+                    {ordered.has(line.id) ? <span className="fl-pill fl-pill-sm">Ordered</span> : null}
+                  </td>
                   <td className="fit num text-right" data-fit="amount">{formatQty(line.qtyMilli)} {line.unit}</td>
                   <td className="fit num text-right" data-fit="amount">{formatMoney(line.priceCents)}</td>
                 </tr>
@@ -60,6 +69,13 @@ export default async function ChangeOrderPage({ params }: { params: Promise<{ id
           </table>
           </div>
         </section>
+      ) : null}
+      {canManageMoney(session.role) && ordering.rows.some((row) => !row.ordered) ? (
+        <div className="px-4">
+          <SheetButton label="Order">
+            <OrderPicker sourceKind="change_order_line" projectId={order.projectId} rows={ordering.rows} vendors={desk.vendors} drafts={desk.drafts} />
+          </SheetButton>
+        </div>
       ) : null}
       {canManageMoney(session.role) && (order.status === "draft" || order.status === "sent") ? (
         <div className="px-4">

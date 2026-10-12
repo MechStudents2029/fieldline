@@ -13,7 +13,19 @@ import { formatCalendarDay, formatDateTime } from "@/lib/format";
 import { formatMoney, parseMoneyToCents } from "@/lib/money";
 
 type Choice = { id: string; label: string };
-type Line = { id: string; costCode: string; description: string | null; amountCents: number; billedCents: number; remainingCents: number };
+type Line = {
+  id: string;
+  costCode: string;
+  description: string | null;
+  amountCents: number;
+  billedCents: number;
+  remainingCents: number;
+  qtyMilli?: number | null;
+  unitCostCents?: number | null;
+  sourceKind?: string;
+  sourceId?: string;
+  note?: string | null;
+};
 type Bill = { id: string; billNumber: string; billDate: string | null; status: string; amountCents: number; retainageCents: number; netCents: number };
 type EventRow = { id: string; type: string; reason: string | null; createdAt: string };
 type Plan = { documentId: string; name: string; revision: number };
@@ -47,6 +59,7 @@ export function PurchaseOrderDetail({
     vendorContactId: string;
     vendorName: string;
     status: string;
+    kind: string;
     amountCents: number;
     openCents: number;
     retainageBps: number;
@@ -82,7 +95,7 @@ export function PurchaseOrderDetail({
         status={po.status}
         meta={
           <>
-            {po.vendorName} · <Link href={`/projects/${po.projectId}`}>{po.projectName}</Link>
+            {po.kind === "work" ? "Work order" : "Purchase order"} · {po.vendorName} · <Link href={`/projects/${po.projectId}`}>{po.projectName}</Link>
           </>
         }
         actions={
@@ -277,6 +290,7 @@ export function PurchaseOrderDetail({
                 vendorContactId: po.vendorContactId,
                 scope,
                 changeOrderId,
+                kind: po.kind,
                 lines,
               }}
             />

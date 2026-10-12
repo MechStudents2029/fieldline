@@ -30,6 +30,7 @@ import {
 import { id, nowIso } from "@/lib/ids";
 import { canAddFieldNotes, canSeeMoney, type Role } from "@/lib/permissions";
 import { rfiLabel } from "@/lib/rfis/format";
+import { ticketLabel } from "@/lib/tm/number";
 import { sweepTodoReminders } from "@/lib/services/todos";
 import { photoExtension, photoUploadError, rasterImageType } from "@/lib/security";
 import { ServiceError } from "@/lib/services/errors";
@@ -233,7 +234,7 @@ function resolveEntity(db: AppDatabase, orgId: string, type: string, entityId: s
     const row = db.select().from(tmTickets).where(and(eq(tmTickets.orgId, orgId), eq(tmTickets.id, entityId))).get();
     if (!row) return null;
     const job = jobName(db, orgId, row.projectId);
-    return { type: kind, id: row.id, projectId: row.projectId, job, record: `TM-${row.number}`, href: `/tm/${row.id}` };
+    return { type: kind, id: row.id, projectId: row.projectId, job, record: ticketLabel(row.number), href: `/tm/${row.id}` };
   }
   if (kind === "daily_log") {
     const row = db.select().from(dailyLogs).where(and(eq(dailyLogs.orgId, orgId), eq(dailyLogs.id, entityId))).get();

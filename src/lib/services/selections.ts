@@ -26,8 +26,11 @@ import {
   publicSnapshot,
 } from "@/lib/selections/money";
 import { ServiceError } from "@/lib/services/errors";
+import { emitAutomation } from "@/lib/services/automations";
+import { notifySelectionNeedsPo, orderDesk, orderedSourceIds } from "@/lib/services/order-from";
 import type { Actor } from "@/lib/services/read";
 import { createChangeOrder } from "@/lib/services/write";
+import { selectionSourceId } from "@/lib/purchasing/cover";
 
 const choiceSchema = z.object({
   id: z.string().min(1).max(80).optional(),
@@ -91,6 +94,7 @@ export type SelectionView = {
   changeOrderStatus: string | null;
   qty: number;
   choices: SelectionChoiceView[];
+  orderLabel: string | null;
 };
 
 export type SelectionBoard = {
@@ -104,6 +108,8 @@ export type SelectionBoard = {
   differenceCents: number | null;
   allowances: { id: string; name: string; priceCents: number | null }[];
   rows: SelectionView[];
+  vendors: { id: string; name: string }[];
+  drafts: { id: string; number: string; label: string }[];
 };
 
 const STATUS_LABEL: Record<string, string> = {
@@ -291,6 +297,7 @@ function viewOf(
     changeOrderId: showMoney ? selection.changeOrderId : null,
     changeOrderStatus: showMoney ? (order?.status ?? null) : null,
     qty: selection.qtyMilli / 1000,
+    orderLabel: null,
     choices: mine.map((choice) => {
       const amounts = amountsFor(selection, choice, allowance);
       return {
@@ -340,6 +347,8 @@ function present(bundle: NonNullable<ReturnType<typeof loadBundle>>, role: Role,
       ? bundle.lines.map((line) => ({ id: line.id, name: line.name, priceCents: line.budgetPriceCents }))
       : [],
     rows,
+    vendors: [],
+    drafts: [],
   };
 }
 
@@ -348,7 +357,23 @@ export function selectionBoard(actor: Actor, projectId: string, today: string): 
   if (!db) return null;
   const bundle = loadBundle(db, actor.orgId, projectId);
   if (!bundle) return null;
-  return present(bundle, actor.role, today);
+  const board = present(bundle, actor.role, today);
+  const ordered = orderedSourceIds(actor.orgId, "selection");
+  const desk = canManageMoney(actor.role as Role) ? orderDesk(actor.orgId, projectId) : { vendors: [], drafts: [] };
+  return {
+    ...board,
+    vendors: desk.vendors,
+    drafts: desk.drafts,
+    rows: board.rows.map((row) => ({
+      ...row,
+      orderLabel:
+        row.chosenChoiceId && (row.status === "chosen" || row.status === "locked")
+          ? ordered.has(selectionSourceId(row.id, row.chosenChoiceId))
+            ? "Ordered"
+            : "Needs PO"
+          : null,
+    })),
+  };
 }
 
 export function overdueSelections(orgId: string, today: string) {
@@ -628,6 +653,15 @@ export function approveSelection(actor: Actor, selectionId: string, choiceId: st
       consent: false,
     });
   });
+  emitAutomation({
+    orgId: actor.orgId,
+    kind: "selection_confirmed",
+    recordType: "selection",
+    recordId: selection.id,
+    recordLabel: selection.title,
+    projectId: selection.projectId,
+    name: selection.title,
+  });
   return { id: selection.id, duplicate: false };
 }
 
@@ -892,5 +926,15 @@ export function chooseSelection(input: {
       consent: true,
     });
   });
+  emitAutomation({
+    orgId: project.orgId,
+    kind: "selection_confirmed",
+    recordType: "selection",
+    recordId: selection.id,
+    recordLabel: selection.title,
+    projectId: project.id,
+    name: selection.title,
+  });
+  notifySelectionNeedsPo(project.orgId, selection.id, input.typedName.trim());
   return { duplicate: false, projectId: project.id };
 }
