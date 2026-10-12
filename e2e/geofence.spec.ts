@@ -72,11 +72,14 @@ test.describe("job-site geofence", () => {
     await row.getByRole("button", { name: "Override" }).click();
     await expect(row.getByText("Overridden")).toBeVisible();
     await expect(row.getByText("Yard pickup approved")).toBeVisible();
+    await row.scrollIntoViewIfNeeded();
     await page.screenshot({ path: "/opt/cursor/artifacts/geofence-time.png", fullPage: false });
     await page.emulateMedia({ colorScheme: "dark" });
     await page.screenshot({ path: "/opt/cursor/artifacts/geofence-time-dark.png", fullPage: false });
     await page.goto("/projects/proj_okonkwo");
-    await expect(page.getByLabel("Latitude")).toBeVisible();
+    const lat = page.getByLabel("Latitude");
+    await lat.scrollIntoViewIfNeeded();
+    await expect(lat).toBeInViewport();
     await page.screenshot({ path: "/opt/cursor/artifacts/geofence-pin.png", fullPage: false });
   });
 });
