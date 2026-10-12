@@ -31,6 +31,11 @@ export type PoLineInput = {
   costCode: string;
   amountCents: number;
   description?: string;
+  qtyMilli?: number | null;
+  unitCostCents?: number | null;
+  sourceKind?: string;
+  sourceId?: string;
+  note?: string | null;
 };
 
 export type PoInput = {
@@ -38,6 +43,7 @@ export type PoInput = {
   vendorContactId: string;
   scope?: string;
   changeOrderId?: string | null;
+  kind?: "purchase" | "work";
   lines: PoLineInput[];
 };
 
@@ -59,6 +65,7 @@ export type PurchaseOrderRow = {
   openCents: number;
   issuedAt: string | null;
   retainageBps: number;
+  kind: string;
 };
 
 type PoRecord = typeof purchaseOrders.$inferSelect;
@@ -103,6 +110,11 @@ function cleanLines(lines: PoLineInput[]) {
       costCode: line.costCode.trim().toUpperCase(),
       amountCents: line.amountCents,
       description: line.description?.trim() || null,
+      qtyMilli: line.qtyMilli ?? null,
+      unitCostCents: line.unitCostCents ?? null,
+      sourceKind: line.sourceKind?.trim() || "",
+      sourceId: line.sourceId?.trim() || "",
+      note: line.note?.trim() || null,
     }))
     .filter((line) => line.costCode || line.amountCents || line.description);
   if (cleaned.length === 0) throw new ServiceError("Add at least one line with a cost code and an amount.");
@@ -144,14 +156,15 @@ function loadLines(db: Writer, orgId: string, poId: string) {
     .sort((a, b) => a.sortOrder - b.sortOrder);
 }
 
-function nextPoNumber(db: Writer, orgId: string) {
+function nextDocNumber(db: Writer, orgId: string, prefix: "PO" | "WO") {
   const rows = db.select({ number: purchaseOrders.number }).from(purchaseOrders).where(eq(purchaseOrders.orgId, orgId)).all();
   let max = 1000;
+  const pattern = new RegExp(`^${prefix}-(\\d+)$`);
   for (const row of rows) {
-    const match = /^PO-(\d+)$/.exec(row.number);
+    const match = pattern.exec(row.number);
     if (match) max = Math.max(max, Number(match[1]));
   }
-  return `PO-${max + 1}`;
+  return `${prefix}-${max + 1}`;
 }
 
 function lineSnapshot(lines: { costCode: string; amountCents: number; description: string | null }[]) {
@@ -211,16 +224,39 @@ function insertLines(db: Writer, orgId: string, purchaseOrderId: string, lines: 
         description: line.description,
         amountCents: line.amountCents,
         sortOrder: index,
+        qtyMilli: line.qtyMilli,
+        unitCostCents: line.unitCostCents,
+        sourceKind: line.sourceKind,
+        sourceId: line.sourceId,
+        note: line.note,
       })
       .run();
   });
 }
 
 function replaceLines(db: Writer, orgId: string, purchaseOrderId: string, lines: ReturnType<typeof cleanLines>) {
+  const existing = loadLines(db, orgId, purchaseOrderId);
+  const used = new Set<string>();
+  const merged = lines.map((line) => {
+    if (line.sourceId) return line;
+    const match = existing.find(
+      (row) => !used.has(row.id) && row.costCode === line.costCode && row.amountCents === line.amountCents && (row.description ?? null) === line.description,
+    );
+    if (!match?.sourceId) return line;
+    used.add(match.id);
+    return {
+      ...line,
+      qtyMilli: line.qtyMilli ?? match.qtyMilli,
+      unitCostCents: line.unitCostCents ?? match.unitCostCents,
+      sourceKind: match.sourceKind,
+      sourceId: match.sourceId,
+      note: line.note ?? match.note,
+    };
+  });
   db.delete(purchaseOrderLines)
     .where(and(eq(purchaseOrderLines.purchaseOrderId, purchaseOrderId), eq(purchaseOrderLines.orgId, orgId)))
     .run();
-  insertLines(db, orgId, purchaseOrderId, lines);
+  insertLines(db, orgId, purchaseOrderId, merged);
 }
 
 function relievingLines(db: Writer, orgId: string, purchaseOrderIds: string[]) {
@@ -277,9 +313,10 @@ export function createPurchaseOrder(actor: Actor, input: PoInput) {
   const retainageBps = resolveRetainageBps(vendor.retainageBps, org?.vendorRetainageBps);
   const poId = id("po");
   const now = nowIso();
+  const kind = input.kind === "work" ? "work" : "purchase";
   let number = "";
   db.transaction((tx) => {
-    number = nextPoNumber(tx, actor.orgId);
+    number = nextDocNumber(tx, actor.orgId, kind === "work" ? "WO" : "PO");
     tx.insert(purchaseOrders)
       .values({
         id: poId,
@@ -290,6 +327,7 @@ export function createPurchaseOrder(actor: Actor, input: PoInput) {
         number,
         scope,
         status: "draft",
+        kind,
         voidReason: null,
         issuedAt: null,
         closedAt: null,
@@ -331,6 +369,7 @@ function updateDraft(actor: Actor, po: PoRecord, input: PoInput) {
         vendorContactId: vendor.id,
         changeOrderId,
         scope,
+        kind: input.kind === "work" ? "work" : input.kind === "purchase" ? "purchase" : po.kind,
         updatedAt: now,
       })
       .where(and(eq(purchaseOrders.id, po.id), eq(purchaseOrders.orgId, actor.orgId)))
@@ -481,6 +520,7 @@ function toRow(
     openCents: openFor(po, lines, relieved),
     issuedAt: po.issuedAt,
     retainageBps: po.retainageBps,
+    kind: po.kind === "work" ? "work" : "purchase",
   };
 }
 

@@ -11,6 +11,8 @@ import {
   type ActionState,
 } from "@/app/actions";
 import { GroupedList, GroupedRow, StatusPill } from "@/components/ios";
+import { OrderPicker } from "@/components/order-picker";
+import { SheetButton } from "@/components/sheet-button";
 import { Toolbar } from "@/components/mac/toolbar";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { formatCalendarDay } from "@/lib/format";
@@ -133,6 +135,19 @@ export function SelectionsBoard({ board }: { board: SelectionBoard }) {
         search={false}
         onPrimary={board.canEdit ? showNew : undefined}
         primary={board.canEdit ? "Add" : undefined}
+        trailing={
+          board.canEdit ? (
+            <SheetButton label="Order">
+              <OrderPicker
+                sourceKind="selection"
+                projectId={board.projectId}
+                rows={board.rows.filter((row) => row.orderLabel).map((row) => ({ id: row.id, label: row.title, ordered: row.orderLabel === "Ordered" }))}
+                vendors={board.vendors}
+                drafts={board.drafts}
+              />
+            </SheetButton>
+          ) : null
+        }
       />
       {board.showMoney ? (
         <div className="mac-strip mx-4 mb-4 hidden md:flex">
@@ -175,7 +190,12 @@ export function SelectionsBoard({ board }: { board: SelectionBoard }) {
               key={row.id}
               title={row.title}
               subtitle={row.area || undefined}
-              trailing={<span className={row.overdue ? "fl-late" : undefined}>{row.chosenName || row.statusLabel}</span>}
+              trailing={
+                <span className="inline-flex items-center gap-2">
+                  {row.orderLabel ? <span className="fl-pill fl-pill-sm">{row.orderLabel}</span> : null}
+                  <span className={row.overdue ? "fl-late" : undefined}>{row.chosenName || row.statusLabel}</span>
+                </span>
+              }
               chevron={false}
             />
           ))}
@@ -203,6 +223,7 @@ export function SelectionsBoard({ board }: { board: SelectionBoard }) {
                 {board.showMoney ? <th className="px-2 text-right">Allowance</th> : null}
                 <th className="px-2">Chosen</th>
                 {board.showMoney ? <th className="px-2 text-right">Difference</th> : null}
+                <th className="px-2">Order</th>
                 <th className="px-2">Status</th>
                 {board.canEdit ? <th className="px-2" /> : null}
               </tr>
@@ -218,6 +239,7 @@ export function SelectionsBoard({ board }: { board: SelectionBoard }) {
                   {board.showMoney ? <td className="px-2 text-right num">{row.allowanceLabel ?? "—"}</td> : null}
                   <td className="px-2">{row.chosenName ?? "—"}</td>
                   {board.showMoney ? <td className="px-2 text-right num">{row.differenceLabel ?? "—"}</td> : null}
+                  <td className="px-2">{row.orderLabel ? <span className="fl-pill fl-pill-sm">{row.orderLabel}</span> : "—"}</td>
                   <td className="px-2">
                     <span className="inline-flex items-center gap-2">
                       <Status row={row} />
@@ -359,6 +381,17 @@ export function SelectionsBoard({ board }: { board: SelectionBoard }) {
                   </button>
                 </DoneForm>
               ) : null}
+            </div>
+          ) : null}
+          {current && board.canEdit && current.orderLabel ? (
+            <div className="flex flex-col gap-2 px-4 pb-4">
+              <OrderPicker
+                sourceKind="selection"
+                projectId={board.projectId}
+                rows={[{ id: current.id, label: current.title, ordered: current.orderLabel === "Ordered" }]}
+                vendors={board.vendors}
+                drafts={board.drafts}
+              />
             </div>
           ) : null}
           {current && board.canEdit && (current.status === "chosen" || current.status === "locked") ? (

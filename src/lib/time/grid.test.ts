@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { zonedTimeToUtc } from "@/lib/time/calendar";
-import { aggregateWeek, hoursOver40, reviewDays, type GridEntry } from "@/lib/time/grid";
+import { aggregateWeek, hoursOver40, reviewDays, sumOvertimeHours, type GridEntry } from "@/lib/time/grid";
 
 function at(year: number, month: number, day: number, hour: number, minute: number, timeZone: string) {
   return new Date(zonedTimeToUtc(year, month, day, hour, minute, 0, timeZone)).toISOString();
@@ -88,6 +88,7 @@ describe("time week grid", () => {
     expect(grid.rows.find((row) => row.userId === "u1")?.overtimeMinutes).toBe(4 * 60);
     expect(grid.rows.find((row) => row.userId === "u2")?.overtimeMinutes).toBe(0);
     expect(grid.overtimeHours).toBe(4);
+    expect(sumOvertimeHours([{ ot: 36, dt: 0 }, { ot: 4, dt: 1.5 }, { ot: 0, dt: 0 }])).toBe(41.5);
     const pending = entry("p", "u1", at(2026, 6, 2, 8, 0, zone), at(2026, 6, 2, 12, 0, zone), "pending");
     const withPending = aggregateWeek([pending], [{ userId: "u1", name: "Luis Ortega" }], days, { timeZone: zone, weekStartsOn: 1 });
     expect(withPending.pendingIds).toEqual(["p"]);

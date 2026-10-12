@@ -67,6 +67,7 @@ export type VendorOrder = {
   id: string;
   number: string;
   job: string;
+  kind: string;
   response: "issued" | "accepted" | "declined";
   amountCents: number;
   lines: { costCode: string; description: string; amountCents: number }[];
@@ -556,6 +557,7 @@ export function vendorPortal(token: string): VendorPortalHome | null {
         id: order.id,
         number: order.number,
         job: jobs.get(order.projectId)?.name ?? "Job",
+        kind: order.kind === "work" ? "work" : "purchase",
         response: responseOf(order),
         amountCents: poLines.filter((line) => line.purchaseOrderId === order.id).reduce((sum, line) => sum + line.amountCents, 0),
         lines: poLines

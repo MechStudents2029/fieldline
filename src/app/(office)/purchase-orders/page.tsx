@@ -68,6 +68,7 @@ export default async function PurchaseOrdersPage({
           <thead>
             <tr>
               <th>Number</th>
+              <th>Type</th>
               <th>Vendor</th>
               <th>Job</th>
               <th>Status</th>
@@ -77,7 +78,7 @@ export default async function PurchaseOrdersPage({
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={5}>No purchase orders</td>
+                <td colSpan={6}>No purchase orders</td>
               </tr>
             ) : null}
             {rows.map((order) => (
@@ -85,6 +86,7 @@ export default async function PurchaseOrdersPage({
                 <td className="num">
                   <Link href={`/purchase-orders/${order.id}`}>{order.number}</Link>
                 </td>
+                <td>{order.kind === "work" ? "Work order" : "Purchase order"}</td>
                 <td>{order.vendorName}</td>
                 <td className="clip" title={order.projectName}>{order.projectName}</td>
                 <td className="fit" data-fit="status">

@@ -89,6 +89,7 @@ import {
 import { supabaseAuthConfigured } from "@/lib/supabase/env";
 import { supabasePasswordAuth } from "@/lib/supabase/password";
 import { ServiceError } from "@/lib/services/errors";
+import { createOrdersFrom } from "@/lib/services/order-from";
 import { regenerateLeadFormKey, saveLeadForm, submitLeadForm } from "@/lib/services/lead-form";
 import {
   addPunchItem,
@@ -1525,19 +1526,37 @@ function poInput(formData: FormData) {
   const codes = formData.getAll("costCode").map((value) => String(value));
   const amounts = formData.getAll("amount").map((value) => String(value));
   const descriptions = formData.getAll("description").map((value) => String(value));
+  const sourceKinds = formData.getAll("sourceKind").map((value) => String(value));
+  const sourceIds = formData.getAll("sourceId").map((value) => String(value));
+  const notes = formData.getAll("lineNote").map((value) => String(value));
+  const qty = formData.getAll("qtyMilli").map((value) => String(value));
+  const unit = formData.getAll("unitCostCents").map((value) => String(value));
+  const kind = String(formData.get("kind") || "");
   const lines = codes
     .map((costCode, index) => {
       const raw = amounts[index] ?? "";
       const description = descriptions[index] ?? "";
       if (!costCode.trim() && !raw.trim() && !description.trim()) return null;
-      return { costCode, amountCents: parseMoneyToCents(raw) ?? 0, description };
+      const qtyMilli = qty[index] ? Number(qty[index]) : null;
+      const unitCostCents = unit[index] ? Number(unit[index]) : null;
+      return {
+        costCode,
+        amountCents: parseMoneyToCents(raw) ?? 0,
+        description,
+        sourceKind: sourceKinds[index] || "",
+        sourceId: sourceIds[index] || "",
+        note: notes[index] || null,
+        qtyMilli: Number.isInteger(qtyMilli) ? qtyMilli : null,
+        unitCostCents: Number.isInteger(unitCostCents) ? unitCostCents : null,
+      };
     })
-    .filter((line): line is { costCode: string; amountCents: number; description: string } => line != null);
+    .filter((line): line is NonNullable<typeof line> => line != null);
   return {
     projectId: String(formData.get("projectId") || ""),
     vendorContactId: String(formData.get("vendorContactId") || ""),
     scope: String(formData.get("scope") || ""),
     changeOrderId: String(formData.get("changeOrderId") || "") || null,
+    kind: kind === "work" ? ("work" as const) : kind === "purchase" ? ("purchase" as const) : undefined,
     lines,
   };
 }
@@ -4234,6 +4253,38 @@ export async function portalSignTmAction(portalToken: string, ticketId: string, 
     portalSignTicket(portalToken, ticketId, { name: String(formData.get("signer") || ""), drawn: String(formData.get("drawn") || "") });
     revalidatePath(`/portal/${portalToken}`);
     return { ok: "Signed" };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function createOrderFromAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const mode = String(formData.get("mode") || "create");
+    const purchaseOrderId = String(formData.get("purchaseOrderId") || "");
+    if (mode === "add" && !purchaseOrderId) return { error: "Pick a draft." };
+    const kind = String(formData.get("kind") || "purchase");
+    const sourceKind = String(formData.get("sourceKind") || "");
+    if (sourceKind !== "selection" && sourceKind !== "change_order_line" && sourceKind !== "budget_line") return { error: "Select a line." };
+    const result = createOrdersFrom(user, {
+      sourceKind,
+      sourceIds: formData.getAll("sourceId").map((value) => String(value)),
+      vendorContactId: String(formData.get("vendorContactId") || ""),
+      purchaseOrderId: mode === "add" ? purchaseOrderId : "",
+      kind: kind === "work" ? "work" : "purchase",
+    });
+    const projectId = String(formData.get("projectId") || "");
+    revalidatePath("/purchase-orders");
+    revalidatePath("/");
+    if (projectId) {
+      revalidatePath(`/projects/${projectId}`);
+      revalidatePath(`/projects/${projectId}/selections`);
+      revalidatePath(`/projects/${projectId}/orders`);
+    }
+    for (const order of result.orders) revalidatePath(`/purchase-orders/${order.id}`);
+    const label = result.orders.map((order) => (order.added > 0 ? order.number : `Already on ${order.number}`)).join(", ");
+    return { ok: label || "Already ordered." };
   } catch (error) {
     return failure(error);
   }

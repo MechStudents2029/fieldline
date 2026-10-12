@@ -29,6 +29,7 @@ import { canAddFieldNotes, canManageMoney, canSeeMoney, type Role } from "@/lib/
 import { photoExtension, photoUploadError, rasterImageType } from "@/lib/security";
 import { emitAutomation } from "@/lib/services/automations";
 import { ServiceError } from "@/lib/services/errors";
+import { nextTicketNumber, ticketLabel } from "@/lib/tm/number";
 import type { Actor } from "@/lib/services/read";
 import { localDay } from "@/lib/time/calendar";
 import { lineCharge, linesLocked, nextTicketStatus, ticketPill, ticketTotals, unitPriceFromMarkup, type TicketStatus } from "@/lib/tm/ticket";
@@ -179,7 +180,7 @@ function notifyOffice(tx: Writer, orgId: string, ticket: { id: string; projectId
         projectId: ticket.projectId,
         actorId: null,
         actorName,
-        snippet: `Field verified TM-${ticket.number}`,
+        snippet: `Field verified ${ticketLabel(ticket.number)}`,
         readAt: null,
         createdAt: now,
       })
@@ -247,7 +248,7 @@ function presentTicket(db: Writer, actor: Actor | null, ticket: typeof tmTickets
   return {
     id: ticket.id,
     number: ticket.number,
-    title: `TM-${ticket.number}`,
+    title: ticketLabel(ticket.number),
     projectId: ticket.projectId,
     job: project?.name ?? "",
     billingMode: project?.billingMode ?? "draws",
@@ -308,7 +309,7 @@ export function listTickets(actor: Actor, filters: { status?: string; projectId?
       return {
         id: row.id,
         number: row.number,
-        title: `TM-${row.number}`,
+        title: ticketLabel(row.number),
         projectId: row.projectId,
         job: project?.name ?? "",
         billingMode: project?.billingMode ?? "draws",
@@ -392,7 +393,7 @@ export function fieldOpenTickets(actor: Actor) {
     .slice(0, 8)
     .map((row) => ({
       id: row.id,
-      title: `TM-${row.number}`,
+      title: ticketLabel(row.number),
       job: names.get(row.projectId) ?? "",
       pill: ticketPill(row.status as TicketStatus),
       href: `/tm/${row.id}`,
@@ -453,7 +454,7 @@ export function createTicket(
   const now = nowIso();
   const ticketId = id("tm");
   db.transaction((tx) => {
-    const number = tx.select().from(tmTickets).where(and(eq(tmTickets.orgId, actor.orgId), eq(tmTickets.projectId, project.id))).all().length + 1;
+    const number = nextTicketNumber(tx.select({ number: tmTickets.number }).from(tmTickets).where(eq(tmTickets.orgId, actor.orgId)).all().map((row) => row.number));
     tx.insert(tmTickets)
       .values({
         id: ticketId,
@@ -698,9 +699,9 @@ function applySignature(
       kind: "tm_verified",
       recordType: "tm_ticket",
       recordId: ticket.id,
-      recordLabel: `TM-${ticket.number}`,
+      recordLabel: ticketLabel(ticket.number),
       projectId: ticket.projectId,
-      name: `TM-${ticket.number}`,
+      name: ticketLabel(ticket.number),
       amountCents: ticketTotals(lines, project.taxBps).totalCents,
     });
   }
@@ -725,7 +726,7 @@ export function requestTicketSignature(actor: Actor, ticketId: string) {
         type: "tm_request",
         actorType: "user",
         actorId: actor.userId,
-        summary: `T&M TM-${ticket.number} is in the portal to sign.`,
+        summary: `T&M ${ticketLabel(ticket.number)} is in the portal to sign.`,
         payloadJson: JSON.stringify({ ticketId: ticket.id }),
         createdAt: now,
       })
@@ -807,7 +808,7 @@ export function convertTicketsToChangeOrder(actor: Actor, ticketIds: string[]) {
   const publicToken = token();
   db.transaction((tx) => {
     const number = tx.select().from(changeOrders).where(and(eq(changeOrders.orgId, actor.orgId), eq(changeOrders.projectId, project.id))).all().length + 1;
-    const title = groups.length === 1 ? `T&M TM-${groups[0].ticket.number}` : `T&M ${groups.map((group) => `TM-${group.ticket.number}`).join(", ")}`;
+    const title = groups.length === 1 ? `T&M ${ticketLabel(groups[0].ticket.number)}` : `T&M ${groups.map((group) => ticketLabel(group.ticket.number)).join(", ")}`;
     tx.insert(changeOrders)
       .values({
         id: changeOrderId,
@@ -836,7 +837,7 @@ export function convertTicketsToChangeOrder(actor: Actor, ticketIds: string[]) {
             id: id("col"),
             orgId: actor.orgId,
             changeOrderId,
-            name: `${group.ticket.number > 0 ? `TM-${group.ticket.number} · ` : ""}${line.label}`,
+            name: `${group.ticket.number > 0 ? `${ticketLabel(group.ticket.number)} · ` : ""}${line.label}`,
             qtyMilli: line.qtyMilli,
             unit: line.unit,
             unitCostCents: line.unitPriceCents,
@@ -902,7 +903,7 @@ export function addTicketsToCostPlus(actor: Actor, ticketIds: string[]) {
               id: id("invl"),
               orgId: actor.orgId,
               invoiceId: draft.id,
-              description: `TM-${group.ticket.number} · ${line.label}`,
+              description: `${ticketLabel(group.ticket.number)} · ${line.label}`,
               amountCents: lineCharge(line).priceCents,
               sortOrder: sort,
             })
@@ -956,7 +957,7 @@ export function addTicketsToCostPlus(actor: Actor, ticketIds: string[]) {
               id: id("invl"),
               orgId: actor.orgId,
               invoiceId,
-              description: `TM-${group.ticket.number} · ${line.label}`,
+              description: `${ticketLabel(group.ticket.number)} · ${line.label}`,
               amountCents: lineCharge(line).priceCents,
               sortOrder: sort,
             })

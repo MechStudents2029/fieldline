@@ -147,7 +147,7 @@ describe("team invites", () => {
     expect(setupFacts(owner.orgId)?.teamInvited).toBe(false);
     expect(() => removeMember(owner, owner.userId)).toThrow(/at least one owner/);
     expect(() => changeMemberRole(owner, owner.userId, "field")).toThrow(/at least one owner/);
-    const invite = createInvite(owner, { email: "second.owner@cole.example", role: "field" }, NOW);
+    const invite = createInvite(owner, { email: "second.owner@cole.example", role: "field" });
     expect(setupFacts(owner.orgId)?.teamInvited).toBe(true);
     const joined = acceptNewAccount(tokenFrom(invite.url), { name: "Second Owner", password: "fieldline-test" }, { now: NOW });
     expect(joined.ok).toBe(true);

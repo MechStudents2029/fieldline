@@ -97,7 +97,7 @@ test("the office converts verified tickets to a change order and a cost-plus inv
   await shot(page, "tm-office-list-dark");
   await page.emulateMedia({ colorScheme: "light" });
 
-  await page.getByLabel("Select Ellis kitchen TM-1").check();
+  await page.getByLabel("Select Ellis kitchen TM-003").check();
   await page.getByRole("button", { name: "Convert" }).click();
   await expect(page.getByRole("dialog", { name: "Convert" })).toBeVisible();
   await shot(page, "tm-convert-light");
@@ -119,19 +119,19 @@ test("the office converts verified tickets to a change order and a cost-plus inv
   await expect(page.getByText("Field verified")).toBeVisible();
 
   await page.goto("/tm");
-  await page.getByLabel("Select Okonkwo primary bath TM-2").check();
+  await page.getByLabel("Select Okonkwo primary bath TM-004").check();
   await page.getByRole("button", { name: "Convert" }).click();
   await page.getByRole("dialog", { name: "Convert" }).getByRole("button", { name: "Change order" }).click();
   await expect(page.getByRole("heading", { name: /CO / })).toBeVisible();
   await expect(page.getByText("Dana Cho")).toBeVisible();
   await page.goto("/tm?status=billed");
-  await expect(page.getByRole("link", { name: "TM-2" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "TM-004" })).toBeVisible();
 
   await page.goto("/tm?status=verified");
-  await page.getByLabel("Select Ellis kitchen TM-1").check();
+  await page.getByLabel("Select Ellis kitchen TM-003").check();
   await page.getByRole("button", { name: "Convert" }).click();
   await page.getByRole("dialog", { name: "Convert" }).getByRole("button", { name: "Cost-plus invoice" }).click();
-  await expect(page.getByText("TM-1 · Cabinet filler")).toBeVisible();
+  await expect(page.getByText("TM-003 · Cabinet filler")).toBeVisible();
   await page.goto("/tm/tm_el_verified");
   await expect(page.getByText("Billed")).toBeVisible();
   await expect(page.getByRole("link", { name: "RR-1070" })).toBeVisible();

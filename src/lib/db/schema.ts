@@ -682,6 +682,7 @@ export const purchaseOrders = sqliteTable(
     updatedAt: text("updated_at").notNull(),
     createdBy: text("created_by"),
     retainageBps: integer("retainage_bps").notNull().default(0),
+    kind: text("kind").notNull().default("purchase"),
   },
   (t) => [uniqueIndex("purchase_orders_number").on(t.orgId, t.number), index("purchase_orders_org").on(t.orgId)],
 );
@@ -696,6 +697,11 @@ export const purchaseOrderLines = sqliteTable(
     description: text("description"),
     amountCents: integer("amount_cents").notNull(),
     sortOrder: integer("sort_order").notNull().default(0),
+    qtyMilli: integer("qty_milli"),
+    unitCostCents: integer("unit_cost_cents"),
+    sourceKind: text("source_kind").notNull().default(""),
+    sourceId: text("source_id").notNull().default(""),
+    note: text("note"),
   },
   (t) => [index("purchase_order_lines_po").on(t.orgId, t.purchaseOrderId)],
 );

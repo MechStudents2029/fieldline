@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { convertTmAction, costPlusTmAction } from "@/app/actions";
 import { ActionForm } from "@/components/action-form";
+import { SelectionBar } from "@/components/selection-bar";
 import { formatCalendarDay } from "@/lib/format";
 import { formatWhole } from "@/lib/money";
 
@@ -20,7 +21,19 @@ type Row = {
   priceCents: number | null;
 };
 
-export function TmBoard({ rows, canBill }: { rows: Row[]; canBill: boolean }) {
+export function TmBoard({
+  rows,
+  canBill,
+  jobs,
+  status,
+  projectId,
+}: {
+  rows: Row[];
+  canBill: boolean;
+  jobs: { id: string; name: string }[];
+  status: string;
+  projectId: string;
+}) {
   const [selected, setSelected] = useState<string[]>([]);
   const [open, setOpen] = useState(false);
   const picked = rows.filter((row) => selected.includes(row.id));
@@ -28,10 +41,30 @@ export function TmBoard({ rows, canBill }: { rows: Row[]; canBill: boolean }) {
   const costPlus = sameJob && picked[0]?.billingMode === "cost_plus";
   return (
     <div className="flex flex-col gap-3">
+      <form className="flex flex-wrap items-center gap-2" method="get" onChange={(event) => event.currentTarget.requestSubmit()}>
+        <select name="status" aria-label="Status" className="ctl" defaultValue={status}>
+          <option value="">Status</option>
+          <option value="draft">Draft</option>
+          <option value="ready">Ready for review</option>
+          <option value="verified">Field verified</option>
+          <option value="billed">Billed</option>
+          <option value="void">Void</option>
+        </select>
+        <select name="job" aria-label="Job" className="ctl" defaultValue={projectId}>
+          <option value="">Job</option>
+          {jobs.map((job) => (
+            <option key={job.id} value={job.id}>
+              {job.name}
+            </option>
+          ))}
+        </select>
+      </form>
       {canBill ? (
-        <button type="button" className="mac-glass-btn w-fit" disabled={picked.length === 0} onClick={() => setOpen(true)}>
-          Convert
-        </button>
+        <SelectionBar label="Tickets" count={picked.length} onClear={() => { setSelected([]); setOpen(false); }}>
+          <button type="button" className="ctl" onClick={() => setOpen(true)}>
+            Convert
+          </button>
+        </SelectionBar>
       ) : null}
       {open ? (
         <div role="dialog" aria-label="Convert" className="flex flex-col gap-3 rounded-lg border border-[var(--mac-separator)] p-3">

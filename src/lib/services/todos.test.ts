@@ -4,6 +4,7 @@ import { getDb, useDatabaseFile } from "@/lib/db/client";
 import { auditLogs, notifications, scheduleItems, taskChecks, taskFiles, tasks } from "@/lib/db/schema";
 import { addCalendarDays } from "@/lib/time/calendar";
 import { linkedDeadline } from "@/lib/todos/deadline";
+import { workCalendarFor } from "@/lib/services/work-calendar";
 import { listInbox, openNotification } from "@/lib/services/comments";
 import { authenticate } from "@/lib/services/read";
 import { removeScheduleItem, saveScheduleItem } from "@/lib/services/schedule";
@@ -46,7 +47,7 @@ describe("to-dos", () => {
       deadlineEdge: "finish",
       deadlineOffset: -1,
     });
-    expect(todoDetail(maya, taskId)?.dueAt).toBe(linkedDeadline(tile.endDate, -1));
+    expect(todoDetail(maya, taskId)?.dueAt).toBe(linkedDeadline(tile.endDate, -1, workCalendarFor(maya.orgId, "proj_okonkwo")));
   });
 
   it("recomputes the deadline when a schedule item moves, including the cascade count", () => {

@@ -35,13 +35,15 @@ test("field clock-in becomes labor on the job after office approval", async ({ p
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/time");
   const row = page.getByRole("row").filter({ hasText: "Set the niche" });
-  const clockIn = await row.getByLabel("Clock in").inputValue();
+  await row.getByRole("button", { name: "Edit" }).click();
+  const dialog = page.getByRole("dialog", { name: /Edit/ });
+  const clockIn = await dialog.getByLabel("Clock in").inputValue();
   const date = clockIn.slice(0, 10);
-  await row.getByLabel("Clock in").fill(`${date}T14:00`);
-  await row.getByLabel("Clock out").fill(`${date}T16:00`);
-  await row.getByLabel("Break minutes").fill("0");
-  await row.getByRole("textbox", { name: "Reason", exact: true }).fill("Corrected the niche set");
-  await row.getByRole("button", { name: "Save and approve" }).click();
+  await dialog.getByLabel("Clock in").fill(`${date}T14:00`);
+  await dialog.getByLabel("Clock out").fill(`${date}T16:00`);
+  await dialog.getByLabel("Break minutes").fill("0");
+  await dialog.getByRole("textbox", { name: "Reason", exact: true }).fill("Corrected the niche set");
+  await dialog.getByRole("button", { name: "Save and approve" }).click();
   await expect(row.getByText("Approved")).toBeVisible();
 
   await page.goto("/projects/proj_okonkwo");

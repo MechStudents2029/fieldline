@@ -25,6 +25,7 @@ export default async function PurchaseOrderPrintPage({ params }: { params: Promi
       </div>
       <header>
         <p className="text-xs uppercase tracking-wide text-muted-foreground">{session.orgName}</p>
+        <p className="text-sm">{po.kind === "work" ? "Work order" : "Purchase order"}</p>
         <h1 className="font-heading text-3xl">{po.number}</h1>
         <p className="text-sm capitalize">{po.status}</p>
       </header>

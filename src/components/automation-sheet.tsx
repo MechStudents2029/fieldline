@@ -20,6 +20,7 @@ const TRIGGERS = [
   ["incident_logged", "Incident logged"],
   ["checklist_failed", "Checklist item failed"],
   ["tm_verified", "T&M ticket verified"],
+  ["selection_confirmed", "Selection confirmed"],
 ] as const;
 
 const ACTION_KINDS = [
@@ -33,6 +34,7 @@ const ACTION_KINDS = [
   ["release", "Release schedule"],
   ["schedule_talk", "Schedule toolbox talk"],
   ["set_field", "Set field"],
+  ["create_draft_po", "Create draft PO from selection"],
 ] as const;
 
 const CONDITION_KINDS = [

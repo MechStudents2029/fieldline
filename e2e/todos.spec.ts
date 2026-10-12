@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import { devices, expect, test, type Page } from "@playwright/test";
-import { resetDemo, signIn } from "./helpers";
+import { resetDemo, revealToday, signIn } from "./helpers";
 
 function shot(page: Page, name: string) {
   const dir = "/opt/cursor/artifacts";
@@ -21,6 +21,7 @@ test.describe("to-dos on a laptop", () => {
   test("creates a checklist, shifts a linked to-do, and keeps WIP red readable", async ({ page, request }) => {
     await resetDemo(request);
     await signIn(page);
+    await revealToday(page, "Overdue to-dos");
     await expect(page.getByRole("link", { name: "Overdue to-dos" })).toBeVisible();
     await page.goto("/todos");
     await expect(page.getByRole("heading", { name: "To-dos" })).toBeVisible();

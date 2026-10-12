@@ -50,6 +50,18 @@ test.describe("overtime, burden, and non-job time", () => {
     await expect(luis.locator("td").nth(13)).toContainText("3,292.20");
     await expect(sam.locator("td").nth(10)).toHaveText("4.0");
     await expect(sam.locator("td").nth(12)).toHaveText("8.0");
+    const otSum = await grid.locator("tbody tr").evaluateAll((rows) =>
+      rows.reduce((sum, row) => {
+        const cells = [...row.querySelectorAll("td")];
+        const read = (index: number) => {
+          const text = cells[index]?.textContent?.trim() ?? "";
+          return text === "—" || text === "" ? 0 : Number(text);
+        };
+        return sum + read(10) + read(11);
+      }, 0),
+    );
+    await expect(page.locator("[data-stat=overtime]")).toHaveText(otSum.toFixed(1));
+    await expect(page.getByText(/Open \d+h/)).toHaveCount(0);
     await sam.click();
     await expect(page.getByRole("cell", { name: "General" })).toBeVisible();
     await shot(page, "time-week-light");
@@ -57,13 +69,16 @@ test.describe("overtime, burden, and non-job time", () => {
     await shot(page, "time-week-dark");
     await page.emulateMedia({ colorScheme: "light" });
 
-    await page.getByLabel("PTO person").selectOption({ label: "Luis Ortega" });
     await page.getByRole("button", { name: "Add PTO" }).click();
+    const pto = page.getByRole("dialog", { name: "Add PTO" });
+    await pto.getByLabel("PTO person").selectOption({ label: "Luis Ortega" });
+    await pto.getByRole("button", { name: "Save" }).click();
     await expect(page.getByRole("status")).toHaveText("PTO added.");
     await expect(luis.locator("td").nth(12)).toHaveText("8.0");
     await expect(luis.locator("td").nth(10)).toHaveText("36.0");
 
-    const [download] = await Promise.all([page.waitForEvent("download"), page.getByRole("button", { name: "Download CSV" }).click()]);
+    await page.getByRole("button", { name: "CSV" }).click();
+    const [download] = await Promise.all([page.waitForEvent("download"), page.getByRole("dialog", { name: "CSV" }).getByRole("button", { name: "Download CSV" }).click()]);
     expect(download.suggestedFilename()).toBe("fieldline-time.csv");
     const csv = fs.readFileSync(await download.path(), "utf8");
     expect(csv.split("\n")[0]).toBe("date,name,email,job,cost_code,shift,regular_hours,ot_hours,dt_hours,pto_hours");

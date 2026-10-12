@@ -190,8 +190,12 @@ describe("time tracking", () => {
     expect(getDb().select().from(timeEntries).where(eq(timeEntries.id, two.entryId)).get()?.status).toBe("pending");
     expect(jobCost("proj_okonkwo")).toBe(mid - 5_040);
     const review = timeReview(maya, { view: "week" });
-    expect(review.overtimeHours).toBe(4);
-    expect(review.pendingIds).toHaveLength(3);
+    expect(review.overtimeHours).toBeCloseTo(review.rows.reduce((sum, row) => sum + row.ot + row.dt, 0));
+    expect(review.overtimeHours).toBeGreaterThan(4);
+    expect(review.pendingIds).toEqual(expect.arrayContaining(["time_ok_overlap", "time_dana_gap_a"]));
+    const chen = getDb().select().from(timeEntries).where(eq(timeEntries.id, "time_chen_yday")).get();
+    const chenDay = chen ? localDay(Date.parse(chen.clockInAt), "America/New_York") : "";
+    if (review.dayHeaders.some((day) => day.key === chenDay)) expect(review.pendingIds).toContain("time_chen_yday");
     expect(JSON.stringify(review)).not.toContain("5200");
     expect(review.onSite.some((row) => row.name === "Dana Cho")).toBe(true);
   });

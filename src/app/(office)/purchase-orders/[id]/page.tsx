@@ -37,14 +37,28 @@ export default async function PurchaseOrderPage({ params }: { params: Promise<{ 
         declineReason={detail.declineReason}
         changeOrderId={detail.changeOrderId}
         changeOrderLabel={detail.changeOrderLabel}
-        lines={detail.lines.map((line) => ({
-          id: line.id ?? line.costCode,
-          costCode: line.costCode,
-          description: line.description,
-          amountCents: line.amountCents,
-          billedCents: line.billedCents,
-          remainingCents: line.remainingCents,
-        }))}
+        lines={detail.lines.map((line) => {
+          const extra = line as typeof line & {
+            qtyMilli?: number | null;
+            unitCostCents?: number | null;
+            sourceKind?: string;
+            sourceId?: string;
+            note?: string | null;
+          };
+          return {
+            id: extra.id ?? extra.costCode,
+            costCode: extra.costCode,
+            description: extra.description,
+            amountCents: extra.amountCents,
+            billedCents: extra.billedCents,
+            remainingCents: extra.remainingCents,
+            qtyMilli: extra.qtyMilli ?? null,
+            unitCostCents: extra.unitCostCents ?? null,
+            sourceKind: extra.sourceKind ?? "",
+            sourceId: extra.sourceId ?? "",
+            note: extra.note ?? null,
+          };
+        })}
         bills={detail.bills}
         events={detail.events.map((event) => ({ id: event.id, type: event.type, reason: event.reason, createdAt: event.createdAt }))}
         retainage={retainage}

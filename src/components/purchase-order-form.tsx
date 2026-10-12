@@ -25,7 +25,8 @@ export function PurchaseOrderForm({
     vendorContactId?: string;
     scope?: string | null;
     changeOrderId?: string | null;
-    lines?: { description: string | null; costCode: string; amountCents: number }[];
+    kind?: string;
+    lines?: { description: string | null; costCode: string; amountCents: number; qtyMilli?: number | null; unitCostCents?: number | null; sourceKind?: string; sourceId?: string; note?: string | null }[];
   };
 }) {
   const lines = [...(defaults?.lines ?? []), { description: "", costCode: "", amountCents: 0 }, { description: "", costCode: "", amountCents: 0 }, { description: "", costCode: "", amountCents: 0 }].slice(0, 4);
@@ -56,6 +57,13 @@ export function PurchaseOrderForm({
         </select>
       </label>
       {lockJob ? <input type="hidden" name="vendorContactId" value={defaults?.vendorContactId ?? ""} /> : null}
+      <label className="text-sm">
+        Type
+        <select name="kind" aria-label="Type" className="field mt-1" defaultValue={defaults?.kind === "work" ? "work" : "purchase"}>
+          <option value="purchase">Purchase order</option>
+          <option value="work">Work order</option>
+        </select>
+      </label>
       <label className="text-sm sm:col-span-2">
         Scope
         <textarea name="scope" aria-label="Scope" rows={3} defaultValue={defaults?.scope ?? ""} placeholder="What this order covers" className="mt-1 w-full rounded-lg border border-input bg-background p-3" />
@@ -91,6 +99,11 @@ export function PurchaseOrderForm({
                 placeholder="Amount"
                 className="field"
               />
+              <input type="hidden" name="sourceKind" value={line.sourceKind ?? ""} />
+              <input type="hidden" name="sourceId" value={line.sourceId ?? ""} />
+              <input type="hidden" name="lineNote" value={line.note ?? ""} />
+              <input type="hidden" name="qtyMilli" value={line.qtyMilli ?? ""} />
+              <input type="hidden" name="unitCostCents" value={line.unitCostCents ?? ""} />
             </div>
           ))}
         </div>

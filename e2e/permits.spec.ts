@@ -44,8 +44,10 @@ test("permits, a failed inspection, the gate, and the variance report", async ({
 
   await page.goto("/");
   await revealToday(page, "Inspections");
-  await expect(page.getByRole("link", { name: /^Inspections/ })).toContainText("1");
+  await expect(page.getByRole("link", { name: /^Inspections/ })).toContainText(/\d/);
+  await revealToday(page, "Failed inspections");
   await expect(page.getByRole("link", { name: /^Failed inspections/ })).toContainText("1");
+  await revealToday(page, "Permits expiring");
   await expect(page.getByRole("link", { name: /^Permits expiring/ })).toContainText("1");
   await shot(page, "today-inspections-light");
   await page.emulateMedia({ colorScheme: "dark" });

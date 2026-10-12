@@ -174,7 +174,7 @@ import {
   WEBSITE_FORM_SOURCE,
 } from "@/lib/lead-form/rules";
 
-export const SEED_VERSION = "46";
+export const SEED_VERSION = "47";
 
 const ORG = "org_rivera";
 const NORTH = "org_northline";
@@ -1237,6 +1237,20 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
       createdAt: daysAgo(20),
     })
     .run();
+  db.insert(budgetLines)
+    .values({
+      id: "bud_br_hardware",
+      orgId: ORG,
+      projectId: "proj_brooks",
+      changeOrderId: null,
+      name: "Door hardware",
+      costCode: "HDW-DOOR",
+      budgetCostCents: 42000,
+      budgetPriceCents: 42000,
+      sourceLineId: null,
+      createdAt: daysAgo(6),
+    })
+    .run();
 
   const okonkwo = jobs.find((job) => job.id === "proj_okonkwo")!;
   db.update(projects)
@@ -1741,6 +1755,54 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
       { id: "poe_ok_ret_issued", orgId: ORG, purchaseOrderId: "po_ok_retain", actorId: "user_sam", type: "issued", reason: null, beforeJson: null, afterJson: JSON.stringify({ status: "issued" }), createdAt: daysAgo(4) },
     ])
     .run();
+  db.insert(purchaseOrders)
+    .values({
+      id: "po_ok_vanity",
+      orgId: ORG,
+      projectId: "proj_okonkwo",
+      vendorContactId: "c_casa",
+      changeOrderId: null,
+      number: "PO-1056",
+      scope: "Selection Vanity",
+      status: "draft",
+      voidReason: null,
+      issuedAt: null,
+      closedAt: null,
+      createdAt: daysAgo(4),
+      updatedAt: daysAgo(4),
+      createdBy: "user_maya",
+      kind: "purchase",
+    })
+    .run();
+  db.insert(purchaseOrderLines)
+    .values({
+      id: "pol_ok_vanity",
+      orgId: ORG,
+      purchaseOrderId: "po_ok_vanity",
+      costCode: "BATH-VANITY",
+      description: "Quartz vanity",
+      amountCents: 280000,
+      sortOrder: 0,
+      qtyMilli: 1000,
+      unitCostCents: 280000,
+      sourceKind: "selection",
+      sourceId: "sel_ok_vanity:choc_ok_quartz",
+      note: "Selection Vanity",
+    })
+    .run();
+  db.insert(auditLogs)
+    .values({
+      id: "audit_po_vanity",
+      orgId: ORG,
+      actorId: "user_maya",
+      action: "po.create",
+      entityType: "purchase_order",
+      entityId: "po_ok_vanity",
+      payloadJson: JSON.stringify({ number: "PO-1056" }),
+      ip: null,
+      createdAt: daysAgo(4),
+    })
+    .run();
 
   const hoursAgo = (hours: number) => new Date(Date.now() - hours * 3_600_000).toISOString();
   const riveraZone = "America/New_York";
@@ -1752,8 +1814,32 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
     return new Date(zonedTimeToUtc(year, month, date, hour, 0, 0, riveraZone)).toISOString();
   };
   const luisIn = riveraAt(weekStart, 7);
-  const approvedIn = hoursAgo(30);
-  const approvedOut = hoursAgo(22);
+  // Wednesday of the Oct 6 approval week. Not Sunday, and not the rolling Ellis labor day.
+  const tileDay = addCalendarDays(today, -2) === "2026-10-07" ? "2026-10-08" : "2026-10-07";
+  const approvedIn = riveraAt(tileDay, 8);
+  const approvedOut = riveraAt(tileDay, 16);
+  const openAt = Date.now() - 1.5 * 3_600_000;
+  const weekStartMs = Date.parse(riveraAt(weekStart, 0));
+  const naturalSpan = (startBack: number, endBack: number): [string, string] | null => {
+    const start = Date.now() - startBack * 3_600_000;
+    const end = Date.now() - endBack * 3_600_000;
+    if (start >= weekStartMs && end > start && end <= openAt) return [new Date(start).toISOString(), new Date(end).toISOString()];
+    return null;
+  };
+  const stackedOverlapEnd = openAt - 15 * 60_000;
+  const stackedOverlapStart = stackedOverlapEnd - 3_600_000;
+  const stackedGapEnd = stackedOverlapStart - 15 * 60_000;
+  const stackedGapStart = stackedGapEnd - 2 * 3_600_000;
+  const [overlapIn, overlapOut] = naturalSpan(12, 11) ?? [
+    new Date(Math.max(weekStartMs, stackedOverlapStart)).toISOString(),
+    new Date(stackedOverlapEnd).toISOString(),
+  ];
+  const [gapIn, gapOut] = naturalSpan(21.5, 19.5) ?? [
+    new Date(Math.max(weekStartMs, stackedGapStart)).toISOString(),
+    new Date(stackedGapEnd).toISOString(),
+  ];
+  const chenIn = riveraAt(yesterday, 10);
+  const chenOut = riveraAt(yesterday, 12);
   db.insert(laborRates)
     .values([
       { id: "rate_rivera", orgId: ORG, userId: "", hourlyCostCents: 4500, updatedAt: created, updatedBy: "user_maya" },
@@ -1792,7 +1878,7 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
         projectId: "proj_okonkwo",
         costCode: "GC-SUPER",
         status: "open",
-        clockInAt: hoursAgo(17),
+        clockInAt: hoursAgo(1.5),
         clockOutAt: null,
         breakMinutes: 0,
         breakStartedAt: null,
@@ -1802,8 +1888,8 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
         clockOutLatE6: null,
         clockOutLngE6: null,
         source: "clock",
-        createdAt: hoursAgo(17),
-        updatedAt: hoursAgo(17),
+        createdAt: hoursAgo(1.5),
+        updatedAt: hoursAgo(1.5),
         createdBy: "user_dana",
       },
       {
@@ -1813,8 +1899,8 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
         projectId: "proj_okonkwo",
         costCode: "PLB-SHOWER",
         status: "pending",
-        clockInAt: hoursAgo(12),
-        clockOutAt: hoursAgo(11),
+        clockInAt: overlapIn,
+        clockOutAt: overlapOut,
         breakMinutes: 0,
         breakStartedAt: null,
         note: "Ran to the supplier",
@@ -1823,8 +1909,8 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
         clockOutLatE6: null,
         clockOutLngE6: null,
         source: "clock",
-        createdAt: hoursAgo(12),
-        updatedAt: hoursAgo(11),
+        createdAt: overlapIn,
+        updatedAt: overlapOut,
         createdBy: "user_dana",
       },
       {
@@ -1834,8 +1920,8 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
         projectId: "proj_chen",
         costCode: "GC-SUPER",
         status: "pending",
-        clockInAt: riveraAt(yesterday, 10),
-        clockOutAt: riveraAt(yesterday, 12),
+        clockInAt: chenIn,
+        clockOutAt: chenOut,
         breakMinutes: 0,
         breakStartedAt: null,
         note: "Walked the powder room",
@@ -1855,8 +1941,8 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
         projectId: "proj_okonkwo",
         costCode: "TILE-SHOWER",
         status: "pending",
-        clockInAt: hoursAgo(21.5),
-        clockOutAt: hoursAgo(19.5),
+        clockInAt: gapIn,
+        clockOutAt: gapOut,
         breakMinutes: 0,
         breakStartedAt: null,
         note: "Set the curb",
@@ -1865,8 +1951,8 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
         clockOutLatE6: null,
         clockOutLngE6: null,
         source: "clock",
-        createdAt: hoursAgo(21.5),
-        updatedAt: hoursAgo(19.5),
+        createdAt: gapIn,
+        updatedAt: gapOut,
         createdBy: "user_dana",
       },
       {
@@ -1907,6 +1993,33 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
       createdBy: "user_maya",
     })
     .run();
+  if (yesterday < weekStart) {
+    const end = Math.min(Date.now() - 5 * 60_000, Date.parse(riveraAt(today, 12)));
+    const start = Math.max(weekStartMs + 30 * 60_000, end - 2 * 3_600_000);
+    db.insert(timeEntries)
+      .values({
+        id: "time_chen_week",
+        orgId: ORG,
+        userId: "user_sam",
+        projectId: "proj_chen",
+        costCode: "GC-SUPER",
+        status: "pending",
+        clockInAt: new Date(start).toISOString(),
+        clockOutAt: new Date(Math.max(start + 30 * 60_000, end)).toISOString(),
+        breakMinutes: 0,
+        breakStartedAt: null,
+        note: "Walked the powder room",
+        clockInLatE6: null,
+        clockInLngE6: null,
+        clockOutLatE6: null,
+        clockOutLngE6: null,
+        source: "manual",
+        createdAt: new Date(start).toISOString(),
+        updatedAt: new Date(end).toISOString(),
+        createdBy: "user_maya",
+      })
+      .run();
+  }
   const otRules: OtRules = {
     enabled: true,
     dailyOtMinutes: 8 * 60,
@@ -2091,7 +2204,7 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
         reason: null,
         beforeJson: null,
         afterJson: JSON.stringify({ status: "open", costCode: "GC-SUPER" }),
-        createdAt: hoursAgo(17),
+        createdAt: hoursAgo(1.5),
       },
     ])
     .run();
@@ -2377,7 +2490,7 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
     { id: "sch_ok_trim", projectId: "proj_okonkwo", title: "Trim out", start: addCalendarDays(today, 2), end: addCalendarDays(today, 2), time: null, status: "planned", note: null, assignees: [], vendorContactId: "c_harbor", phase: "Finish", confirmStatus: "declined", confirmReason: "Need the valve spec", confirmProposed: addCalendarDays(today, 5), confirmRequestedBy: "user_maya" },
     { id: "sch_chen_conflict", projectId: "proj_chen", title: "Vanity set", start: today, end: today, time: null, status: "planned", note: null, assignees: ["user_dana"] },
     { id: "sch_br_frame", projectId: "proj_brooks", title: "Framing walk", start: scheduleDay(0), end: scheduleDay(1), time: "08:00", status: "confirmed", note: null, assignees: ["user_luis"], phase: "Framing", progressBps: 6000 },
-    { id: "sch_ok_walk", projectId: "proj_okonkwo", title: "Client walk", start: scheduleDay(4), end: scheduleDay(4), time: null, status: "planned", note: null, assignees: ["user_maya"], phase: "Finish" },
+    { id: "sch_ok_walk", projectId: "proj_okonkwo", title: "Client walk", start: yesterday, end: yesterday, time: null, status: "planned", note: null, assignees: ["user_maya"], phase: "Finish" },
     { id: "sch_dz_punch", projectId: "proj_diaz", title: "Punch list", start: scheduleDay(2), end: scheduleDay(2), time: null, status: "done", note: null, assignees: [] },
     { id: "sch_chen_measure", projectId: "proj_chen", title: "Measure", start: scheduleDay(8), end: scheduleDay(8), time: "09:00", status: "planned", note: null, assignees: ["user_sam"] },
     { id: "sch_br_delivery", projectId: "proj_brooks", title: "Window delivery", start: scheduleDay(10), end: scheduleDay(10), time: null, status: "confirmed", note: null, assignees: ["user_dana"], phase: "Close-in" },
@@ -2850,6 +2963,23 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
         createdAt: daysAgo(1),
         updatedAt: daysAgo(1),
       },
+      {
+        id: "sel_br_hardware",
+        orgId: ORG,
+        projectId: "proj_brooks",
+        title: "Door hardware",
+        area: "Entry",
+        dueDate: addCalendarDays(today, 14),
+        status: "chosen",
+        allowanceBudgetLineId: "bud_br_hardware",
+        qtyMilli: 1000,
+        chosenChoiceId: "choc_br_bronze",
+        costItemId: null,
+        changeOrderId: null,
+        createdBy: "user_maya",
+        createdAt: daysAgo(8),
+        updatedAt: daysAgo(5),
+      },
     ])
     .run();
   db.insert(selectionChoices)
@@ -2861,6 +2991,8 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
       { id: "choc_ok_maple", orgId: ORG, selectionId: "sel_ok_vanity", name: "Painted maple", vendor: "Bathworks", sku: "VAN-MP", link: null, photoDocumentId: null, unitPriceCents: 480000, unitCostCents: 220000, note: null, sortOrder: 1 },
       { id: "choc_chen_chrome", orgId: ORG, selectionId: "sel_chen_faucet", name: "Chrome faucet", vendor: "Kohler", sku: "FAU-CH", link: null, photoDocumentId: null, unitPriceCents: 18000, unitCostCents: 9000, note: null, sortOrder: 0 },
       { id: "choc_chen_matte", orgId: ORG, selectionId: "sel_chen_faucet", name: "Matte black faucet", vendor: "Kohler", sku: "FAU-MB", link: null, photoDocumentId: null, unitPriceCents: 24000, unitCostCents: 12000, note: null, sortOrder: 1 },
+      { id: "choc_br_bronze", orgId: ORG, selectionId: "sel_br_hardware", name: "Oil-rubbed bronze", vendor: "Casa Tile", sku: "HDW-ORB", link: null, photoDocumentId: null, unitPriceCents: 42000, unitCostCents: 42000, note: null, sortOrder: 0 },
+      { id: "choc_br_nickel", orgId: ORG, selectionId: "sel_br_hardware", name: "Satin nickel", vendor: "Casa Tile", sku: "HDW-SN", link: null, photoDocumentId: null, unitPriceCents: 38000, unitCostCents: 36000, note: null, sortOrder: 1 },
     ])
     .run();
   db.insert(costItems)
@@ -4791,7 +4923,7 @@ function seedTemplates(db: AppDatabase, now: string) {
         id: "tm_br_ready",
         orgId: ORG,
         projectId: "proj_brooks",
-        number: 1,
+        number: 2,
         performedOn: tmDay,
         location: "Addition pad",
         orderedById: "c_brooks",
@@ -4814,7 +4946,7 @@ function seedTemplates(db: AppDatabase, now: string) {
         id: "tm_el_verified",
         orgId: ORG,
         projectId: "proj_ellis",
-        number: 1,
+        number: 3,
         performedOn: tmDay,
         location: "Kitchen",
         orderedById: "c_ellis",
@@ -4854,7 +4986,7 @@ function seedTemplates(db: AppDatabase, now: string) {
       type: "tm_request",
       actorType: "user",
       actorId: "user_dana",
-      summary: "T&M TM-1 is in the portal to sign.",
+      summary: "T&M TM-002 is in the portal to sign.",
       payloadJson: JSON.stringify({ ticketId: "tm_br_ready" }),
       createdAt: daysAgo(1),
     })
@@ -4871,7 +5003,7 @@ function seedTemplates(db: AppDatabase, now: string) {
       projectId: "proj_ellis",
       actorId: null,
       actorName: "Nora Ellis",
-      snippet: "Field verified TM-1",
+      snippet: "Field verified TM-003",
       readAt: null,
       createdAt: now,
     })
