@@ -12,7 +12,8 @@ export async function GET(request: Request) {
   if (!canManageSettings(session.role)) return new NextResponse("Payroll hours are limited to an owner or admin.", { status: 403 });
   const url = new URL(request.url);
   try {
-    const csv = approvedHoursCsv(session, url.searchParams.get("from") || "", url.searchParams.get("to") || "");
+    const site = url.searchParams.get("site") === "outside" ? "outside" : "all";
+    const csv = approvedHoursCsv(session, url.searchParams.get("from") || "", url.searchParams.get("to") || "", site);
     return new NextResponse(csv, {
       headers: {
         "Content-Type": "text/csv; charset=utf-8",

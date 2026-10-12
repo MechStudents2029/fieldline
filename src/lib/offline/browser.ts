@@ -143,6 +143,7 @@ export async function enqueuePunch(
     note?: string | null;
     lat?: string | null;
     lng?: string | null;
+    accuracy?: string | null;
     log?: OfflineEvent["log"];
     talk?: OfflineEvent["talk"];
     capturedAt?: string;
@@ -162,6 +163,7 @@ export async function enqueuePunch(
     note: input.note ?? null,
     lat: input.lat ?? null,
     lng: input.lng ?? null,
+    accuracy: input.accuracy ?? null,
     log: input.log ?? null,
     talk: input.talk ?? null,
     scope: scopeKey(scope),

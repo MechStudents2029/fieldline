@@ -24,6 +24,7 @@ import {
   rfis,
   scheduleItems,
   tasks,
+  timeEntries,
   tmTickets,
   users,
   vendorCredits,
@@ -180,6 +181,13 @@ function jobName(db: AppDatabase, orgId: string, projectId: string | null): stri
     .where(and(eq(projects.orgId, orgId), eq(projects.id, projectId)))
     .get();
   return row?.name ?? "";
+}
+
+function timeNotice(db: AppDatabase, orgId: string, entityId: string): { record: string; href: string } | null {
+  const row = db.select().from(timeEntries).where(and(eq(timeEntries.orgId, orgId), eq(timeEntries.id, entityId))).get();
+  if (!row) return null;
+  const job = row.projectId ? jobName(db, orgId, row.projectId) : "General";
+  return { record: job || "Time", href: "/time" };
 }
 
 function taskNotice(db: AppDatabase, orgId: string, entityId: string): { record: string; href: string } | null {
@@ -717,6 +725,7 @@ export function listInbox(actor: Actor, filter: "unread" | "mentions" | "all"): 
       if (filter === "unread" && row.readAt) return false;
       if (filter === "mentions" && row.kind !== "mention") return false;
       if (row.entityType === "task") return Boolean(taskNotice(db, actor.orgId, row.entityId));
+      if (row.entityType === "time_entry") return Boolean(timeNotice(db, actor.orgId, row.entityId));
       const entity = resolveEntity(db, actor.orgId, row.entityType, row.entityId);
       if (!entity) return false;
       if (financial(entity.type) && !canSeeMoney(roleOf(actor))) return false;
@@ -725,12 +734,13 @@ export function listInbox(actor: Actor, filter: "unread" | "mentions" | "all"): 
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   return rows.map((row) => {
     const task = row.entityType === "task" ? taskNotice(db, actor.orgId, row.entityId) : null;
-    const entity = task ? null : resolveEntity(db, actor.orgId, row.entityType, row.entityId);
+    const punch = row.entityType === "time_entry" ? timeNotice(db, actor.orgId, row.entityId) : null;
+    const entity = task || punch ? null : resolveEntity(db, actor.orgId, row.entityType, row.entityId);
     return {
       id: row.id,
       kind: row.kind,
       who: (row.actorId && names.get(row.actorId)) || row.actorName,
-      record: task?.record ?? (entity ? recordLine(entity) : row.entityType),
+      record: task?.record ?? punch?.record ?? (entity ? recordLine(entity) : row.entityType),
       snippet: row.snippet,
       age: shortAge(row.createdAt),
       unread: !row.readAt,
@@ -755,6 +765,17 @@ export function openNotification(actor: Actor, noticeId: string): string | null 
     .where(and(eq(notifications.orgId, actor.orgId), eq(notifications.userId, actor.userId), eq(notifications.id, noticeId)))
     .get();
   if (!row) return null;
+  if (row.entityType === "time_entry") {
+    const punch = timeNotice(db, actor.orgId, row.entityId);
+    if (!punch) return null;
+    if (!row.readAt) {
+      db.update(notifications)
+        .set({ readAt: nowIso() })
+        .where(and(eq(notifications.orgId, actor.orgId), eq(notifications.id, row.id)))
+        .run();
+    }
+    return punch.href;
+  }
   if (row.entityType === "task") {
     const task = taskNotice(db, actor.orgId, row.entityId);
     if (!task) return null;

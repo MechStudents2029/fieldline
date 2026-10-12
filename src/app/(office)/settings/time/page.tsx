@@ -1,9 +1,10 @@
 import Link from "next/link";
-import { overtimeSettingsAction } from "@/app/actions";
+import { geoSettingsAction, overtimeSettingsAction } from "@/app/actions";
 import { ActionForm } from "@/components/action-form";
 import { Toolbar } from "@/components/mac/toolbar";
 import { requireSession } from "@/lib/auth/session";
 import { canManageSettings } from "@/lib/permissions";
+import { geoBoard } from "@/lib/services/geo";
 import { overtimeBoard } from "@/lib/time/post";
 import { WEEKDAY_NAMES } from "@/lib/time/calendar";
 
@@ -30,7 +31,8 @@ export default async function TimeSettingsPage() {
     );
   }
   const board = overtimeBoard(session);
-  if (!board) return null;
+  const geo = geoBoard(session);
+  if (!board || !geo) return null;
   const { rules, people } = board;
   return (
     <div className="md:flex md:min-h-0 md:flex-1 md:flex-col">
@@ -106,6 +108,45 @@ export default async function TimeSettingsPage() {
           </fieldset>
           <button type="submit" className="ctl w-fit">
             Save
+          </button>
+        </ActionForm>
+        <ActionForm action={geoSettingsAction} className="flex max-w-md flex-col gap-3">
+          <label className="text-sm">
+            Geofence
+            <select name="mode" aria-label="Geofence" defaultValue={geo.mode} className="ctl mt-1">
+              <option value="off">Off</option>
+              <option value="warn">Warn</option>
+              <option value="require">Require location</option>
+            </select>
+          </label>
+          <div className="grid grid-cols-2 gap-2">
+            <label className="text-sm">
+              Radius
+              <input name="radius" aria-label="Radius" inputMode="decimal" required defaultValue={geo.radius} className="ctl mt-1 w-24 num" />
+            </label>
+            <label className="text-sm">
+              Unit
+              <select name="unit" aria-label="Unit" defaultValue={geo.unit} className="ctl mt-1">
+                <option value="ft">ft</option>
+                <option value="m">m</option>
+              </select>
+            </label>
+          </div>
+          <fieldset>
+            <legend className="text-sm">Require location</legend>
+            <ul className="mt-1 flex flex-col gap-1">
+              {geo.people.map((person) => (
+                <li key={person.userId}>
+                  <label className="flex items-center gap-2 text-sm">
+                    <input type="checkbox" name="requireUser" value={person.userId} defaultChecked={person.requireLocation === 1} />
+                    {person.name}
+                  </label>
+                </li>
+              ))}
+            </ul>
+          </fieldset>
+          <button type="submit" className="ctl w-fit">
+            Save geofence
           </button>
         </ActionForm>
       </div>

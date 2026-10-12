@@ -250,7 +250,8 @@ Feedback: file a GitHub issue with steps, expected, actual, screenshot, and devi
 - Client portal, follow-up drafts that require approval, copilot v0 with four read-only answers
 - QuickBooks Online Import Data CSVs for customers and invoices (one row per invoice line). Not a live Intuit connection.
 - Role checks and a second org
-- Crew time on a job and cost code. Approved hours post labor cost from the rate snapshot. Field logins never see that rate. No geofence and no payroll provider.
+- Crew time on a job and cost code. Approved hours post labor cost from the rate snapshot. Field logins never see that rate. No payroll provider.
+- Job-site geofence on clock in, switch, and clock out. The company sets Off, Warn, or Require location, plus a default radius in feet or meters. A job can carry a pin and its own radius. An outside or missing punch is still saved, with the distance on the time review. An approver can override it with a reason. Location is stored only on the punch. No map tiles and no geocoding service.
 - Daily logs on a job, and a My day screen for field crew. A published log can be shown on the client portal without hours, delays, or safety notes. No weather API and no message when it is shared.
 - A company time zone and workweek start. Days, logs, and week totals follow that clock. Approved labor is not rewritten.
 - Sub and vendor bills. Approve to post job cost by cost code. Void or unapprove reverses it. Paid is a note, not a payment.

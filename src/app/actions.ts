@@ -89,6 +89,7 @@ import {
 import { supabaseAuthConfigured } from "@/lib/supabase/env";
 import { supabasePasswordAuth } from "@/lib/supabase/password";
 import { ServiceError } from "@/lib/services/errors";
+import { adoptSitePin, overrideSite, saveGeoSettings, setSitePin } from "@/lib/services/geo";
 import { createOrdersFrom } from "@/lib/services/order-from";
 import { regenerateLeadFormKey, saveLeadForm, submitLeadForm } from "@/lib/services/lead-form";
 import {
@@ -1245,6 +1246,7 @@ export async function clockInAction(_prev: ActionState, formData: FormData): Pro
       costCode: String(formData.get("costCode") || ""),
       lat: String(formData.get("lat") || ""),
       lng: String(formData.get("lng") || ""),
+      accuracy: String(formData.get("accuracy") || ""),
     });
     timeRefresh(String(formData.get("projectId") || ""));
     return { ok: "Clocked in." };
@@ -1256,7 +1258,13 @@ export async function clockInAction(_prev: ActionState, formData: FormData): Pro
 export async function switchJobAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
   try {
     const user = await actor();
-    switchJob(user, { projectId: String(formData.get("projectId") || ""), costCode: String(formData.get("costCode") || "") });
+    switchJob(user, {
+      projectId: String(formData.get("projectId") || ""),
+      costCode: String(formData.get("costCode") || ""),
+      lat: String(formData.get("lat") || ""),
+      lng: String(formData.get("lng") || ""),
+      accuracy: String(formData.get("accuracy") || ""),
+    });
     timeRefresh();
     return { ok: "Switched jobs. The earlier punch is waiting for the office." };
   } catch (error) {
@@ -1283,6 +1291,7 @@ export async function clockOutAction(_prev: ActionState, formData: FormData): Pr
       note: String(formData.get("note") || ""),
       lat: String(formData.get("lat") || ""),
       lng: String(formData.get("lng") || ""),
+      accuracy: String(formData.get("accuracy") || ""),
     });
     timeRefresh();
     return { ok: "Clocked out. The office still has to approve it." };
@@ -1313,9 +1322,9 @@ export async function editTimeAction(entryId: string, _prev: ActionState, formDa
 export async function approveTimeAction(entryId: string, _prev: ActionState, _formData: FormData): Promise<ActionState> {
   try {
     const user = await actor();
-    approveTime(user, entryId);
+    const result = approveTime(user, entryId);
     timeRefresh();
-    return { ok: "Approved. Labor is on the job budget." };
+    return { ok: result.siteWarning ? `Approved. Labor is on the job budget. ${result.siteWarning}` : "Approved. Labor is on the job budget." };
   } catch (error) {
     return failure(error);
   }
@@ -1326,7 +1335,8 @@ export async function approveEntriesAction(entryIds: string[]): Promise<ActionSt
     const user = await actor();
     const result = approveEntries(user, entryIds);
     timeRefresh();
-    return { ok: result.posted.length ? "Approved. Labor is on the job budget." : "Already approved." };
+    const base = result.posted.length ? "Approved. Labor is on the job budget." : "Already approved.";
+    return { ok: result.siteWarning ? `${base} ${result.siteWarning}` : base };
   } catch (error) {
     return failure(error);
   }
@@ -1335,9 +1345,9 @@ export async function approveEntriesAction(entryIds: string[]): Promise<ActionSt
 export async function saveAndApproveAction(entryId: string, input: { projectId: string; costCode: string; clockInAt: string; clockOutAt: string; breakMinutes: number; note: string; reason: string }): Promise<ActionState> {
   try {
     const user = await actor();
-    saveAndApprove(user, entryId, input);
+    const result = saveAndApprove(user, entryId, input);
     timeRefresh(input.projectId);
-    return { ok: "Approved. Labor is on the job budget." };
+    return { ok: result.siteWarning ? `Approved. Labor is on the job budget. ${result.siteWarning}` : "Approved. Labor is on the job budget." };
   } catch (error) {
     return failure(error);
   }
@@ -2504,6 +2514,60 @@ export async function overtimeSettingsAction(_prev: ActionState, formData: FormD
     revalidatePath("/settings/time");
     revalidatePath("/time");
     return { ok: "Time settings saved." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function geoSettingsAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    saveGeoSettings(user, {
+      mode: String(formData.get("mode") || ""),
+      radius: Number(formData.get("radius") || 0),
+      unit: String(formData.get("unit") || ""),
+      requireUserIds: formData.getAll("requireUser").map((value) => String(value)),
+    });
+    revalidatePath("/settings/time");
+    revalidatePath("/time");
+    return { ok: "Geofence saved." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function sitePinAction(projectId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    setSitePin(user, projectId, {
+      lat: String(formData.get("lat") || ""),
+      lng: String(formData.get("lng") || ""),
+      radius: String(formData.get("radius") || ""),
+    });
+    revalidatePath(`/projects/${projectId}`);
+    return { ok: "Pin saved." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function adoptSitePinAction(projectId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    adoptSitePin(user, projectId, String(formData.get("entryId") || ""));
+    revalidatePath(`/projects/${projectId}`);
+    return { ok: "Pin saved." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function overrideSiteAction(entryId: string, reason: string): Promise<ActionState> {
+  try {
+    const user = await actor();
+    overrideSite(user, entryId, reason);
+    timeRefresh();
+    return { ok: "Overridden." };
   } catch (error) {
     return failure(error);
   }

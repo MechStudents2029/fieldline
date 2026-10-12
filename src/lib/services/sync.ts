@@ -200,13 +200,13 @@ function runPunch(actor: Actor, event: OfflineEvent, capturedMs: number): string
   if (event.kind === "clock_in") {
     const created = clockIn(
       actor,
-      { projectId: event.projectId ?? "", costCode: event.costCode ?? "", lat: event.lat, lng: event.lng },
+      { projectId: event.projectId ?? "", costCode: event.costCode ?? "", lat: event.lat, lng: event.lng, accuracy: event.accuracy },
       capturedMs,
     );
     return created.entryId;
   }
   if (event.kind === "switch") {
-    const created = switchJob(actor, { projectId: event.projectId ?? "", costCode: event.costCode ?? "" }, capturedMs);
+    const created = switchJob(actor, { projectId: event.projectId ?? "", costCode: event.costCode ?? "", lat: event.lat, lng: event.lng, accuracy: event.accuracy }, capturedMs);
     return created.entryId;
   }
   if (event.kind === "break_start") {
@@ -217,7 +217,7 @@ function runPunch(actor: Actor, event: OfflineEvent, capturedMs: number): string
     endBreak(actor, capturedMs);
     return openId(actor);
   }
-  clockOut(actor, { note: event.note, lat: event.lat, lng: event.lng }, capturedMs);
+  clockOut(actor, { note: event.note, lat: event.lat, lng: event.lng, accuracy: event.accuracy }, capturedMs);
   const db = officeDb(actor.orgId);
   if (!db) return null;
   const closed = db

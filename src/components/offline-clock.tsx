@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { formatDateTime } from "@/lib/format";
+import { fillLocation } from "@/lib/geo/locate";
 import { enqueuePunch, flushActive, loadLastScope, outboxSnapshot, subscribeOutbox, type Bootstrap } from "@/lib/offline/browser";
 import { projectShift } from "@/lib/offline/replay";
 import { Button } from "@/components/ui/button";
@@ -61,6 +62,7 @@ function ClockPanel({ boot }: { boot: Bootstrap }) {
   const scope = { orgId: boot.orgId, userId: boot.userId };
 
   async function punch(form: HTMLFormElement, kind: "clock_in" | "clock_out" | "break_start" | "break_end" | "switch") {
+    if (kind === "clock_in" || kind === "clock_out" || kind === "switch") await fillLocation(form);
     const data = new FormData(form);
     const capturedAt = new Date().toISOString();
     await enqueuePunch(scope, {
@@ -71,6 +73,7 @@ function ClockPanel({ boot }: { boot: Bootstrap }) {
       note: String(data.get("note") || ""),
       lat: String(data.get("lat") || ""),
       lng: String(data.get("lng") || ""),
+      accuracy: String(data.get("accuracy") || ""),
     });
     setMessage(`Saved on this phone, will sync · ${formatDateTime(capturedAt, boot.timeZone)}`);
   }
@@ -93,6 +96,9 @@ function ClockPanel({ boot }: { boot: Bootstrap }) {
                 void punch(event.currentTarget, "clock_out");
               }}
             >
+              <input type="hidden" name="lat" />
+              <input type="hidden" name="lng" />
+              <input type="hidden" name="accuracy" />
               <label className="text-sm">
                 Clock-out note
                 <textarea name="note" rows={2} className="field mt-1" placeholder="Optional" />
@@ -120,6 +126,9 @@ function ClockPanel({ boot }: { boot: Bootstrap }) {
                 void punch(event.currentTarget, "switch");
               }}
             >
+              <input type="hidden" name="lat" />
+              <input type="hidden" name="lng" />
+              <input type="hidden" name="accuracy" />
               <label className="text-sm">
                 Switch to job
                 <select name="projectId" className="field mt-1" defaultValue={shift.projectId}>
@@ -153,6 +162,9 @@ function ClockPanel({ boot }: { boot: Bootstrap }) {
               void punch(event.currentTarget, "clock_in");
             }}
           >
+            <input type="hidden" name="lat" />
+            <input type="hidden" name="lng" />
+            <input type="hidden" name="accuracy" />
             <label className="text-sm">
               Job
               <select name="projectId" required className="field mt-1" defaultValue={boot.jobs[0]?.id ?? ""}>

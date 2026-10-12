@@ -113,6 +113,7 @@ export const CATALOG: Record<SourceId, CatalogColumn[]> = {
     { key: "burden", label: "Burden", kind: "money", money: true },
     { key: "cost", label: "Cost", kind: "money", money: true },
     { key: "share", label: "OT share", kind: "percent", money: true },
+    { key: "site", label: "Site", kind: "text" },
   ],
   change_orders: [
     { key: "title", label: "Change order", kind: "text" },
@@ -225,7 +226,7 @@ export const BUILTINS: BuiltinReport[] = [
     source: "time",
     field: false,
     query: query({
-      columns: ["job", "code", "person", "day", "hours", "ot", "premium", "burden", "cost", "share"],
+      columns: ["job", "code", "person", "day", "hours", "ot", "premium", "burden", "cost", "share", "site"],
       dateColumn: "day",
       sort: "job",
       groupBy: "job",

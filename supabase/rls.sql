@@ -697,6 +697,13 @@ create policy stock_movements_scope on public.stock_movements
   using (org_id in (select public.current_org_ids()))
   with check (org_id in (select public.current_org_ids()));
 
+alter table public.time_geo_overrides enable row level security;
+drop policy if exists time_geo_overrides_scope on public.time_geo_overrides;
+create policy time_geo_overrides_scope on public.time_geo_overrides
+  for all to authenticated
+  using (org_id in (select public.current_org_ids()))
+  with check (org_id in (select public.current_org_ids()));
+
 alter table public.wip_attempts enable row level security;
 drop policy if exists wip_attempts_scope on public.wip_attempts;
 create policy wip_attempts_scope on public.wip_attempts
