@@ -125,7 +125,7 @@ describe("time tracking", () => {
     expect(seeded?.status).toBe("approved");
     const day = localDay(Date.parse(seeded!.clockInAt), "America/New_York");
     const csv = approvedHoursCsv(maya, day, day);
-    expect(csv.split("\n")[0]).toBe("date,name,email,job,cost_code,shift,regular_hours,ot_hours,dt_hours,pto_hours");
+    expect(csv.split("\n")[0]).toBe("date,name,email,job,cost_code,shift,regular_hours,ot_hours,dt_hours,pto_hours,site");
     expect(csv).toContain("Dana Cho,dana@rivera.demo");
     expect(csv).toContain("7.50");
     expect(csv).toContain("summary,");

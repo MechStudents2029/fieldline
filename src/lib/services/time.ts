@@ -32,8 +32,10 @@ import { aggregateWeek, dayHeading, rangeLabel, reviewDays, reviewView, shiftAnc
 import { isShiftType, projectedWeeklyOt, splitWeek, type PunchSplit, type ShiftType } from "@/lib/time/overtime";
 import { otRulesFor, syncApprovedWeek } from "@/lib/time/post";
 import { canAddFieldNotes, canManageMoney, canManageSettings, type Role } from "@/lib/permissions";
+import { preferSiteLabel } from "@/lib/geo/fence";
 import { assertCostFree } from "@/lib/services/cost-plus";
 import { ServiceError } from "@/lib/services/errors";
+import { flushSiteEvents, geoUnitFor, overriddenIds, overrideReason, punchSite, punchSiteColumn, siteGate, siteWarningText, stampEdge } from "@/lib/services/geo";
 import type { Actor } from "@/lib/services/read";
 
 export const OPEN_SHIFT_MS = 12 * 60 * 60 * 1000;
@@ -64,6 +66,7 @@ export type PublicEntry = {
   note: string | null;
   minutes: number;
   flags: string[];
+  site: string | null;
 };
 
 export function laborCostCents(minutes: number, hourlyCostCents: number): number {
@@ -182,7 +185,7 @@ export function formatHours(minutes: number): string {
 
 export function clockIn(
   actor: Actor,
-  input: { projectId: string; costCode: string; lat?: string | null; lng?: string | null },
+  input: { projectId: string; costCode: string; lat?: string | null; lng?: string | null; accuracy?: string | null },
   now = Date.now(),
 ) {
   assertClock(actor);
@@ -193,7 +196,7 @@ export function clockIn(
   const stamp = new Date(now).toISOString();
   const entryId = id("time");
   const coords = pair(input.lat, input.lng);
-  db.transaction((tx) => {
+  const site = db.transaction((tx) => {
     tx.insert(timeEntries)
       .values({
         id: entryId,
@@ -218,13 +221,15 @@ export function clockIn(
       })
       .run();
     record(tx, actor, entryId, "created", null, { status: "open", projectId, costCode, clockInAt: stamp }, null, stamp);
+    return stampEdge(tx, actor, entryId, "in", { projectId, shiftType: "regular", ...input });
   });
+  flushSiteEvents([site]);
   return { entryId };
 }
 
 export function switchJob(
   actor: Actor,
-  input: { projectId: string; costCode: string },
+  input: { projectId: string; costCode: string; lat?: string | null; lng?: string | null; accuracy?: string | null },
   now = Date.now(),
 ) {
   assertClock(actor);
@@ -238,13 +243,15 @@ export function switchJob(
   }
   const stamp = new Date(now).toISOString();
   const nextId = id("time");
-  db.transaction((tx) => {
+  const coords = pair(input.lat, input.lng);
+  const sites = db.transaction((tx) => {
     const closed = finishOpen(current, stamp, now);
     tx.update(timeEntries)
-      .set({ ...closed, updatedAt: stamp })
+      .set({ ...closed, clockOutLatE6: coords.lat, clockOutLngE6: coords.lng, updatedAt: stamp })
       .where(and(eq(timeEntries.id, current.id), eq(timeEntries.orgId, actor.orgId)))
       .run();
     record(tx, actor, current.id, "switched", snapshot(current), snapshot({ ...current, ...closed }), null, stamp);
+    const outSite = stampEdge(tx, actor, current.id, "out", { projectId: current.projectId, shiftType: current.shiftType, ...input });
     tx.insert(timeEntries)
       .values({
         id: nextId,
@@ -258,8 +265,8 @@ export function switchJob(
         breakMinutes: 0,
         breakStartedAt: null,
         note: null,
-        clockInLatE6: null,
-        clockInLngE6: null,
+        clockInLatE6: coords.lat,
+        clockInLngE6: coords.lng,
         clockOutLatE6: null,
         clockOutLngE6: null,
         source: "clock",
@@ -269,7 +276,10 @@ export function switchJob(
       })
       .run();
     record(tx, actor, nextId, "created", null, { status: "open", projectId, costCode, clockInAt: stamp }, null, stamp);
+    const inSite = stampEdge(tx, actor, nextId, "in", { projectId, shiftType: "regular", ...input });
+    return [outSite, inSite];
   });
+  flushSiteEvents(sites);
   return { entryId: nextId };
 }
 
@@ -307,7 +317,7 @@ export function endBreak(actor: Actor, now = Date.now()) {
 
 export function clockOut(
   actor: Actor,
-  input: { note?: string | null; lat?: string | null; lng?: string | null },
+  input: { note?: string | null; lat?: string | null; lng?: string | null; accuracy?: string | null },
   now = Date.now(),
 ) {
   assertClock(actor);
@@ -318,13 +328,15 @@ export function clockOut(
   const closed = finishOpen(current, stamp, now);
   const note = cleanNote(input.note);
   const coords = pair(input.lat, input.lng);
-  db.transaction((tx) => {
+  const site = db.transaction((tx) => {
     tx.update(timeEntries)
       .set({ ...closed, note, clockOutLatE6: coords.lat, clockOutLngE6: coords.lng, updatedAt: stamp })
       .where(and(eq(timeEntries.id, current.id), eq(timeEntries.orgId, actor.orgId)))
       .run();
     record(tx, actor, current.id, "clocked_out", snapshot(current), { ...snapshot({ ...current, ...closed }), note }, null, stamp);
+    return stampEdge(tx, actor, current.id, "out", { projectId: current.projectId, shiftType: current.shiftType, ...input });
   });
+  flushSiteEvents([site]);
 }
 
 export function officeClockOut(actor: Actor, entryId: string, reason: string, now = Date.now()) {
@@ -425,6 +437,8 @@ export function approveTime(actor: Actor, entryId: string, now = Date.now()) {
   const db = officeOrThrow(actor);
   const entry = requireEntry(db, actor.orgId, entryId);
   if (entry.status !== "pending") throw new ServiceError("Only a finished entry can be approved.");
+  const gate = siteGate(db, actor, entry);
+  if (gate === "block") throw new ServiceError("Override the site flag before approving.");
   const minutes = workedMinutes(entry, now);
   if (minutes <= 0) throw new ServiceError("This entry has no time. Edit it before approving.");
   const rate = hourlyCostFor(db, actor.orgId, entry.userId);
@@ -466,6 +480,7 @@ export function approveTime(actor: Actor, entryId: string, now = Date.now()) {
     baseCents: posted.baseCents,
     premiumCents: posted.premiumCents,
     burdenCents: posted.burdenCents,
+    siteWarning: gate === "warn" ? siteWarningText(1) : null,
   };
 }
 
@@ -473,16 +488,24 @@ export function approveEntries(actor: Actor, entryIds: string[], now = Date.now(
   assertOffice(actor);
   const posted: string[] = [];
   const seen = new Set<string>();
+  const db = officeOrThrow(actor);
+  const pending: Entry[] = [];
   for (const entryId of entryIds) {
     if (!entryId || seen.has(entryId)) continue;
     seen.add(entryId);
-    const entry = requireEntry(officeOrThrow(actor), actor.orgId, entryId);
+    const entry = requireEntry(db, actor.orgId, entryId);
     if (entry.status === "approved") continue;
     if (entry.status !== "pending") throw new ServiceError("Only a finished entry can be approved.");
-    approveTime(actor, entryId, now);
-    posted.push(entryId);
+    if (siteGate(db, actor, entry) === "block") throw new ServiceError("Override the site flag before approving.");
+    pending.push(entry);
   }
-  return { posted };
+  let warnings = 0;
+  for (const entry of pending) {
+    const result = approveTime(actor, entry.id, now);
+    if (result.siteWarning) warnings += 1;
+    posted.push(entry.id);
+  }
+  return { posted, siteWarning: siteWarningText(warnings) };
 }
 
 export type TimeEditInput = {
@@ -653,13 +676,15 @@ export function defaultHourlyCost(orgId: string): number | null {
   return db.select().from(laborRates).where(and(eq(laborRates.orgId, orgId), eq(laborRates.userId, DEFAULT_RATE_USER))).get()?.hourlyCostCents ?? null;
 }
 
-export function approvedHoursCsv(actor: Actor, from: string, to: string): string {
+export function approvedHoursCsv(actor: Actor, from: string, to: string, site: "all" | "outside" = "all"): string {
   if (!canManageSettings(actor.role as Role)) throw new ServiceError("Only an owner or admin can export payroll hours.");
   const start = dateStart(from);
   const end = dateStart(to);
   if (start == null || end == null || from > to) throw new ServiceError("Pick a start and end date.");
   const db = officeOrThrow(actor);
   const zone = calendarForOrg(actor.orgId).timeZone;
+  const unit = geoUnitFor(actor.orgId);
+  const overrides = overriddenIds(db, actor.orgId);
   const rows = db
     .select({ entry: timeEntries, name: users.name, email: users.email })
     .from(timeEntries)
@@ -672,12 +697,13 @@ export function approvedHoursCsv(actor: Actor, from: string, to: string): string
     });
   const jobs = new Map(db.select({ id: projects.id, name: projects.name }).from(projects).where(eq(projects.orgId, actor.orgId)).all().map((job) => [job.id, job.name]));
   const splits = splitsById(db, actor.orgId, rows.map((row) => row.entry), Date.now());
-  const grouped = new Map<string, { date: string; name: string; email: string; userId: string; job: string; code: string; shift: string; regular: number; ot: number; dt: number; pto: number }>();
+  const grouped = new Map<string, { date: string; name: string; email: string; userId: string; job: string; code: string; shift: string; regular: number; ot: number; dt: number; pto: number; site: string }>();
   for (const row of rows) {
     const date = localDay(Date.parse(row.entry.clockInAt), zone);
     const shift = isShiftType(row.entry.shiftType) ? row.entry.shiftType : "regular";
     const split = splits.get(row.entry.id);
     const key = `${date}|${row.entry.userId}|${row.entry.projectId}|${row.entry.costCode}|${shift}`;
+    const siteText = punchSiteColumn(row.entry, unit, overrides.has(row.entry.id));
     const current = grouped.get(key) ?? {
       date,
       name: row.name,
@@ -690,18 +716,21 @@ export function approvedHoursCsv(actor: Actor, from: string, to: string): string
       ot: 0,
       dt: 0,
       pto: 0,
+      site: "",
     };
     current.regular += split?.regularMinutes ?? 0;
     current.ot += split?.otMinutes ?? 0;
     current.dt += split?.dtMinutes ?? 0;
     current.pto += split?.nonjobMinutes ?? 0;
+    if (siteText.startsWith("Outside") || (!current.site && siteText)) current.site = siteText;
     grouped.set(key, current);
   }
-  const detail = [...grouped.values()]
+  const visible = [...grouped.values()].filter((row) => site !== "outside" || row.site.startsWith("Outside"));
+  const detail = visible
     .sort((a, b) => a.date.localeCompare(b.date) || a.name.localeCompare(b.name) || a.job.localeCompare(b.job) || a.code.localeCompare(b.code))
-    .map((row) => [row.date, csv(row.name), csv(row.email), csv(row.job), csv(row.code), row.shift, hours(row.regular), hours(row.ot), hours(row.dt), hours(row.pto)].join(","));
+    .map((row) => [row.date, csv(row.name), csv(row.email), csv(row.job), csv(row.code), row.shift, hours(row.regular), hours(row.ot), hours(row.dt), hours(row.pto), csv(row.site)].join(","));
   const people = new Map<string, { name: string; email: string; regular: number; ot: number; dt: number; pto: number }>();
-  for (const row of grouped.values()) {
+  for (const row of visible) {
     const current = people.get(row.userId) ?? { name: row.name, email: row.email, regular: 0, ot: 0, dt: 0, pto: 0 };
     current.regular += row.regular;
     current.ot += row.ot;
@@ -711,8 +740,8 @@ export function approvedHoursCsv(actor: Actor, from: string, to: string): string
   }
   const summary = [...people.values()]
     .sort((a, b) => a.name.localeCompare(b.name))
-    .map((row) => ["summary", csv(row.name), csv(row.email), "", "", "", hours(row.regular), hours(row.ot), hours(row.dt), hours(row.pto)].join(","));
-  return ["date,name,email,job,cost_code,shift,regular_hours,ot_hours,dt_hours,pto_hours", ...detail, ...summary].join("\n");
+    .map((row) => ["summary", csv(row.name), csv(row.email), "", "", "", hours(row.regular), hours(row.ot), hours(row.dt), hours(row.pto), ""].join(","));
+  return ["date,name,email,job,cost_code,shift,regular_hours,ot_hours,dt_hours,pto_hours,site", ...detail, ...summary].join("\n");
 }
 
 export function timeBoard(actor: Actor, now = Date.now()) {
@@ -734,6 +763,8 @@ export function timeBoard(actor: Actor, now = Date.now()) {
     ),
   ].sort();
   const calendar = calendarForOrg(actor.orgId);
+  const unit = geoUnitFor(actor.orgId);
+  const overrides = overriddenIds(db, actor.orgId);
   const mine = db.select().from(timeEntries).where(and(eq(timeEntries.orgId, actor.orgId), eq(timeEntries.userId, actor.userId))).all();
   const names = new Map(jobs.map((job) => [job.id, job.name]));
   const selfFlags = detectTimeFlags(mine, now, calendar);
@@ -763,7 +794,7 @@ export function timeBoard(actor: Actor, now = Date.now()) {
       .slice()
       .sort((a, b) => b.clockInAt.localeCompare(a.clockInAt))
       .slice(0, 20)
-      .map((entry) => toPublic(entry, names, selfFlags)),
+      .map((entry) => toPublic(entry, names, selfFlags, punchSite(entry, unit, overrides.has(entry.id)).pill)),
     flags: selfFlags,
   };
   if (!canManageMoney(actor.role as Role)) return { ...base, office: null };
@@ -796,7 +827,7 @@ export function timeBoard(actor: Actor, now = Date.now()) {
       pending: all
         .filter((entry) => entry.status === "pending")
         .sort((a, b) => b.clockInAt.localeCompare(a.clockInAt))
-        .map((entry) => ({ ...toPublic(entry, names, flags), name: personName.get(entry.userId) || "Teammate" })),
+        .map((entry) => ({ ...toPublic(entry, names, flags, punchSite(entry, unit, overrides.has(entry.id)).pill), name: personName.get(entry.userId) || "Teammate" })),
       approved: all
         .filter((entry) => entry.status === "approved")
         .sort((a, b) => b.clockInAt.localeCompare(a.clockInAt))
@@ -808,7 +839,7 @@ export function timeBoard(actor: Actor, now = Date.now()) {
             .where(and(eq(timeApprovals.entryId, entry.id), eq(timeApprovals.status, "active")))
             .get();
           return {
-            ...toPublic(entry, names, flags),
+            ...toPublic(entry, names, flags, punchSite(entry, unit, overrides.has(entry.id)).pill),
             name: personName.get(entry.userId) || "Teammate",
             amountCents: approval?.amountCents ?? null,
             rateCents: approval?.rateCents ?? null,
@@ -931,6 +962,13 @@ export type ReviewEntry = {
   outLabel: string;
   flags: string[];
   locked: boolean;
+  site: string | null;
+  siteOverridden: boolean;
+  siteReason: string | null;
+  siteLine: string | null;
+  sitePin: { lat: number; lng: number; radiusM: number } | null;
+  siteIn: { lat: number; lng: number } | null;
+  siteOut: { lat: number; lng: number } | null;
 };
 
 export type TimeReview = {
@@ -947,7 +985,7 @@ export type TimeReview = {
     userId: string;
     name: string;
     initials: string;
-    hours: { day: string; hours: number; tone: "danger" | null }[];
+    hours: { day: string; hours: number; tone: "danger" | null; site: string | null }[];
     total: number;
     totalTone: "warning" | null;
     status: "Submitted" | "Approved" | "—";
@@ -1006,6 +1044,17 @@ export function timeReview(actor: Actor, input: { view?: string | null; on?: str
         .map((row) => row.code),
     ),
   ].sort();
+  const unit = geoUnitFor(actor.orgId);
+  const overrides = overriddenIds(db, actor.orgId);
+  const pins = new Map(
+    db
+      .select({ id: projects.id, siteLatE6: projects.siteLatE6, siteLngE6: projects.siteLngE6, siteRadiusM: projects.siteRadiusM })
+      .from(projects)
+      .where(eq(projects.orgId, actor.orgId))
+      .all()
+      .map((row) => [row.id, row]),
+  );
+  const orgRadius = db.select({ geoRadiusM: organizations.geoRadiusM }).from(organizations).where(eq(organizations.id, actor.orgId)).get()?.geoRadiusM ?? 300;
   const flags = detectTimeFlags(entries, now, calendar);
   const danger = new Set(flags.filter((flag) => flag.kind === "overlap" || flag.kind === "open_long").flatMap((flag) => flag.entryIds));
   const grid = aggregateWeek(entries, people, days, calendar, now);
@@ -1026,6 +1075,7 @@ export function timeReview(actor: Actor, input: { view?: string | null; on?: str
         tone: visible.some((entry) => entry.userId === row.userId && danger.has(entry.id) && localDay(Date.parse(entry.clockInAt), calendar.timeZone) === day.day)
           ? ("danger" as const)
           : null,
+        site: daySite(visible, row.userId, day.day, calendar.timeZone, unit, overrides),
       })),
       total: row.totalHours,
       totalTone: row.overtimeMinutes > 0 ? ("warning" as const) : null,
@@ -1072,6 +1122,7 @@ export function timeReview(actor: Actor, input: { view?: string | null; on?: str
         outLabel: entry.clockOutAt ? clock(entry.clockOutAt) : "—",
         flags: flags.filter((flag) => flag.entryIds.includes(entry.id)).map((flag) => flag.kind),
         locked: entry.status === "approved" || entry.status === "open" || entry.status === "break",
+        ...siteFields(entry, unit, overrides.has(entry.id), overrideReason(db, actor.orgId, entry.id), pins.get(entry.projectId), orgRadius),
       };
     });
   return {
@@ -1121,7 +1172,7 @@ function initials(name: string) {
   return `${parts[0]?.[0] ?? ""}${parts[1]?.[0] ?? ""}`.toUpperCase();
 }
 
-function toPublic(entry: Entry, names: Map<string, string>, flags: TimeFlag[]): PublicEntry {
+function toPublic(entry: Entry, names: Map<string, string>, flags: TimeFlag[], site: string | null): PublicEntry {
   return {
     id: entry.id,
     userId: entry.userId,
@@ -1135,7 +1186,51 @@ function toPublic(entry: Entry, names: Map<string, string>, flags: TimeFlag[]): 
     note: entry.note,
     minutes: workedMinutes(entry),
     flags: flags.filter((flag) => flag.entryIds.includes(entry.id)).map((flag) => flag.kind),
+    site,
   };
+}
+
+function daySite(entries: Entry[], userId: string, day: string, timeZone: string, unit: ReturnType<typeof geoUnitFor>, overrides: Set<string>) {
+  let label = "";
+  for (const entry of entries) {
+    if (entry.userId !== userId || localDay(Date.parse(entry.clockInAt), timeZone) !== day) continue;
+    const pill = punchSite(entry, unit, overrides.has(entry.id)).pill;
+    if (pill) label = preferSiteLabel(label, pill);
+  }
+  return label || null;
+}
+
+function siteFields(
+  entry: Entry,
+  unit: ReturnType<typeof geoUnitFor>,
+  overridden: boolean,
+  reason: string | null,
+  pin: { siteLatE6: number | null; siteLngE6: number | null; siteRadiusM: number | null } | undefined,
+  orgRadius: number,
+) {
+  const described = punchSite(entry, unit, overridden);
+  const siteIn = pointOf(entry.clockInLatE6, entry.clockInLngE6);
+  const siteOut = pointOf(entry.clockOutLatE6, entry.clockOutLngE6);
+  const sitePin = pin?.siteLatE6 != null && pin.siteLngE6 != null ? { lat: pin.siteLatE6 / 1_000_000, lng: pin.siteLngE6 / 1_000_000, radiusM: pin.siteRadiusM ?? orgRadius } : null;
+  const bits = [
+    siteIn ? `In ${siteIn.lat.toFixed(5)}, ${siteIn.lng.toFixed(5)}` : "",
+    siteOut ? `Out ${siteOut.lat.toFixed(5)}, ${siteOut.lng.toFixed(5)}` : "",
+    described.pill ?? "",
+  ].filter(Boolean);
+  return {
+    site: described.pill,
+    siteOverridden: described.overridden,
+    siteReason: reason,
+    siteLine: bits.length > 0 ? bits.join(" · ") : null,
+    sitePin,
+    siteIn,
+    siteOut,
+  };
+}
+
+function pointOf(latE6: number | null, lngE6: number | null) {
+  if (latE6 == null || lngE6 == null) return null;
+  return { lat: latE6 / 1_000_000, lng: lngE6 / 1_000_000 };
 }
 
 function hours(minutes: number) {

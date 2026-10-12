@@ -7,6 +7,7 @@ import {
   contacts,
   invoices,
   leads,
+  organizations,
   payments,
   pipelineStages,
   projects,
@@ -16,6 +17,7 @@ import {
   tasks,
   timeApprovals,
   timeEntries,
+  timeGeoOverrides,
   users,
   vendorCertificates,
 } from "@/lib/db/schema";
@@ -23,6 +25,8 @@ import { formatPercent, formatWhole } from "@/lib/money";
 import { canEditCrm, canSeeMoney, type Role } from "@/lib/permissions";
 import { CATALOG, customRecord, type CatalogColumn, type SourceId } from "@/lib/reports/catalog";
 import type { EngineCell, EngineColumn, EngineRow } from "@/lib/reports/engine";
+import { isGeoUnit } from "@/lib/geo/fence";
+import { punchSiteColumn } from "@/lib/services/geo";
 import { customCell, customColumns } from "@/lib/services/custom-fields";
 import { ServiceError } from "@/lib/services/errors";
 import type { Actor } from "@/lib/services/read";
@@ -344,6 +348,11 @@ function loadTime(actor: Actor, db: AppDatabase, today: string): EngineRow[] {
   const people = new Map(db.select().from(users).all().map((user) => [user.id, user.name]));
   const rules = otRulesFor(db, orgId);
   const now = Date.parse(today + "T18:00:00Z") || Date.now();
+  const org = db.select({ geoUnit: organizations.geoUnit }).from(organizations).where(eq(organizations.id, orgId)).get();
+  const unit = org && isGeoUnit(org.geoUnit) ? org.geoUnit : "ft";
+  const overrides = new Set(
+    db.select({ entryId: timeGeoOverrides.entryId }).from(timeGeoOverrides).where(eq(timeGeoOverrides.orgId, orgId)).all().map((row) => row.entryId),
+  );
   const field = actor.role === "field";
   const entries = db
     .select()
@@ -391,6 +400,7 @@ function loadTime(actor: Actor, db: AppDatabase, today: string): EngineRow[] {
         burden: money(isNonJob(shift) ? 0 : burden),
         cost: money(isNonJob(shift) ? 0 : cost),
         share: { text: formatPercent(share), sort: share, value: share },
+        site: text(punchSiteColumn(entry, unit, overrides.has(entry.id))),
       },
     };
   });

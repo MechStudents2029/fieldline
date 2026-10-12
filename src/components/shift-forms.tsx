@@ -3,6 +3,7 @@
 import { useActionState, useRef, useState } from "react";
 import { breakAction, switchJobAction, type ActionState } from "@/app/actions";
 import { Button } from "@/components/ui/button";
+import { fillLocation } from "@/lib/geo/locate";
 import { enqueuePunch, probeOrigin, type Scope } from "@/lib/offline/browser";
 
 export function BreakControl({ scope, onBreak }: { scope: Scope; onBreak: boolean }) {
@@ -82,17 +83,27 @@ function SwitchForm({
   const [state, formAction, pending] = useActionState(switchJobAction, null);
   const [local, setLocal] = useState("");
   const bypass = useRef(false);
+  const located = useRef(false);
   return (
     <form
       action={formAction}
       className="flex flex-col gap-2"
       onSubmit={(event) => {
+        const form = event.currentTarget;
+        if (!located.current) {
+          event.preventDefault();
+          void fillLocation(form).then(() => {
+            located.current = true;
+            form.requestSubmit();
+          });
+          return;
+        }
+        located.current = false;
         if (bypass.current) {
           bypass.current = false;
           return;
         }
         event.preventDefault();
-        const form = event.currentTarget;
         void probeOrigin().then(async (online) => {
           if (online) {
             bypass.current = true;
@@ -104,11 +115,17 @@ function SwitchForm({
             kind: "switch",
             projectId: String(data.get("projectId") || ""),
             costCode: String(data.get("costCode") || ""),
+            lat: String(data.get("lat") || ""),
+            lng: String(data.get("lng") || ""),
+            accuracy: String(data.get("accuracy") || ""),
           });
           setLocal("Saved on this phone, will sync");
         });
       }}
     >
+      <input type="hidden" name="lat" />
+      <input type="hidden" name="lng" />
+      <input type="hidden" name="accuracy" />
       <label className="text-sm">
         Switch to job
         <select name="projectId" className="field mt-1" defaultValue={projectId}>

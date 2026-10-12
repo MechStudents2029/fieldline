@@ -127,6 +127,7 @@ export default async function TimePage({ searchParams }: { searchParams: Promise
                 {entry.clockOutAt ? ` – ${formatDateTime(entry.clockOutAt, board.timeZone)}` : " · open"} · {formatHours(entry.minutes)} · {entry.status}
               </p>
               {entry.note ? <p>{entry.note}</p> : null}
+              {entry.site ? <p className="mt-1"><span className="fl-pill">{entry.site}</span></p> : null}
             </li>
           ))}
         </ul>
@@ -157,6 +158,7 @@ export default async function TimePage({ searchParams }: { searchParams: Promise
                   {formatHours(entry.minutes)}
                   {entry.note ? ` · ${entry.note}` : ""}
                   {entry.flags.length > 0 ? ` · ${entry.flags.join(", ")}` : ""}
+                  {entry.site ? ` · ${entry.site}` : ""}
                 </p>
                 <ActionForm action={editTimeAction.bind(null, entry.id)} className="mt-3 grid gap-2">
                   <label className="text-sm">
@@ -342,6 +344,13 @@ export default async function TimePage({ searchParams }: { searchParams: Promise
                 <label>
                   To
                   <input type="date" name="to" required className="field mt-1" />
+                </label>
+                <label>
+                  Site
+                  <select name="site" aria-label="Site" defaultValue="all" className="field mt-1">
+                    <option value="all">All</option>
+                    <option value="outside">Outside</option>
+                  </select>
                 </label>
                 <Button type="submit" variant="outline" className="h-11">
                   Download CSV

@@ -2,6 +2,15 @@
 
 ## 2026-10-12
 
+### Job-site geofence
+
+- Each job can store a site pin and an optional radius. The office sets the pin from coordinates, from the browser location, or from a clock-in that already has a point. Address lookup stays behind a stub and is off.
+- Company time settings are Off, Warn, or Require location. Warn is the seeded mode. The default radius is 300 m, shown in feet or meters. A person can be set to require a location even when the company warns.
+- Clock in, switch job, and clock out read the device once. A denial still saves the punch. The same reading is stored on an offline punch and checked when it syncs. Nothing is stored between punches.
+- Distance is haversine. A job with no pin shows No pin and is not a flag. General time is not a flag. A point with no reading is No location. Accuracy wider than the radius is Weak GPS, not Outside. A point past the radius shows the distance, such as Outside 0.4 mi.
+- The punch is still saved. The pill shows on the week grid, the shift row, time review, and My day. Field sees only their own pill. An approver adds a reason; a later reason is a new row, and the earlier row stays. Approving in Warn names the open flags. Require location waits for an override.
+- Today and Inbox show a new outside punch to owners, admins, and the job’s PM. An automation can run on Clock punch outside job site. Payroll CSV and the Labor cost report include a Site column, and the CSV can be limited to Outside. The shift row shows the coordinates and a radius sketch. No tile server.
+
 ### Material inventory
 
 - A stock item is a price-book row: name, unit, cost code, and default unit cost stay on the catalog. The stock row adds an optional SKU, a reorder point, and a preferred vendor.

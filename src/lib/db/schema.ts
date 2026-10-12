@@ -43,6 +43,9 @@ export const organizations = sqliteTable("organizations", {
   dtMultiplierBps: integer("dt_multiplier_bps").notNull().default(20000),
   burdenBps: integer("burden_bps").notNull().default(0),
   nonjobCountsOt: integer("nonjob_counts_ot").notNull().default(0),
+  geoMode: text("geo_mode").notNull().default("off"),
+  geoRadiusM: integer("geo_radius_m").notNull().default(300),
+  geoUnit: text("geo_unit").notNull().default("ft"),
   defaultDrawsJson: text("default_draws_json"),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
@@ -75,6 +78,7 @@ export const memberships = sqliteTable(
       .notNull()
       .references(() => users.id),
     role: text("role").notNull(),
+    requireLocation: integer("require_location").notNull().default(0),
     createdAt: text("created_at").notNull(),
   },
   (t) => [uniqueIndex("memberships_org_user").on(t.orgId, t.userId)],
@@ -449,6 +453,9 @@ export const projects = sqliteTable(
     templateName: text("template_name"),
     pmUserId: text("pm_user_id"),
     billLaborBurden: integer("bill_labor_burden").notNull().default(0),
+    siteLatE6: integer("site_lat_e6"),
+    siteLngE6: integer("site_lng_e6"),
+    siteRadiusM: integer("site_radius_m"),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
     createdBy: text("created_by"),
@@ -929,6 +936,12 @@ export const timeEntries = sqliteTable(
     clientEventId: text("client_event_id"),
     syncedAt: text("synced_at"),
     anomaly: text("anomaly"),
+    geoInVerdict: text("geo_in_verdict"),
+    geoInDistanceM: integer("geo_in_distance_m"),
+    geoInAccuracyM: integer("geo_in_accuracy_m"),
+    geoOutVerdict: text("geo_out_verdict"),
+    geoOutDistanceM: integer("geo_out_distance_m"),
+    geoOutAccuracyM: integer("geo_out_accuracy_m"),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
     createdBy: text("created_by"),
@@ -993,6 +1006,20 @@ export const timeEntryEvents = sqliteTable(
     createdAt: text("created_at").notNull(),
   },
   (t) => [index("time_entry_events_entry").on(t.orgId, t.entryId)],
+);
+
+/** Append-only. A later row supersedes the reason. Nothing deletes a row. */
+export const timeGeoOverrides = sqliteTable(
+  "time_geo_overrides",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    entryId: text("entry_id").notNull(),
+    reason: text("reason").notNull(),
+    createdAt: text("created_at").notNull(),
+    createdBy: text("created_by"),
+  },
+  (t) => [index("time_geo_overrides_entry").on(t.orgId, t.entryId)],
 );
 
 export const timeApprovals = sqliteTable(

@@ -7,6 +7,7 @@ import type { AppDatabase } from "@/lib/db/client";
 import { addMonths } from "@/lib/closeout/check";
 import { usFederalHolidays } from "@/lib/schedule/holidays";
 import { addCalendarDays, localDay, localWeek, zonedTimeToUtc } from "@/lib/time/calendar";
+import { evaluateSite, sitePill } from "@/lib/geo/fence";
 import { laborMoney, splitWeek, type OtRules } from "@/lib/time/overtime";
 import { CATALOG_FORMULAS, northlineCatalog, riveraCatalog } from "@/lib/db/catalog";
 import {
@@ -136,6 +137,7 @@ import {
   timeApprovals,
   timeEntries,
   timeEntryEvents,
+  timeGeoOverrides,
   users,
   vendorCertificates,
   stockBalances,
@@ -182,7 +184,7 @@ import {
   WEBSITE_FORM_SOURCE,
 } from "@/lib/lead-form/rules";
 
-export const SEED_VERSION = "50";
+export const SEED_VERSION = "51";
 
 const ORG = "org_rivera";
 const NORTH = "org_northline";
@@ -255,6 +257,9 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
         dtMultiplierBps: 20_000,
         burdenBps: 1_200,
         nonjobCountsOt: 0,
+        geoMode: "warn",
+        geoRadiusM: 300,
+        geoUnit: "ft",
         warrantyMonths: 12,
         vendorComplianceMode: "warn",
         vendorRequiredTypes: "general_liability,workers_comp",
@@ -2097,6 +2102,19 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
       { id: "rate_north", orgId: NORTH, userId: "", hourlyCostCents: 4800, updatedAt: created, updatedBy: "user_jordan" },
     ])
     .run();
+  const outsideFence = evaluateSite({
+    mode: "warn",
+    userRequiresLocation: false,
+    projectId: "proj_okonkwo",
+    shiftType: "regular",
+    pinLatE6: 37_799_400,
+    pinLngE6: -122_247_000,
+    radiusM: null,
+    defaultRadiusM: 300,
+    latE6: 37_805_180,
+    lngE6: -122_247_000,
+    accuracyM: 8,
+  });
   db.insert(timeEntries)
     .values([
       {
@@ -2115,6 +2133,12 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
         clockInLngE6: -122247000,
         clockOutLatE6: 37799400,
         clockOutLngE6: -122247000,
+        geoInVerdict: "inside",
+        geoInDistanceM: 0,
+        geoInAccuracyM: 8,
+        geoOutVerdict: "inside",
+        geoOutDistanceM: 0,
+        geoOutAccuracyM: 8,
         source: "clock",
         createdAt: approvedIn,
         updatedAt: approvedOut,
@@ -2136,6 +2160,7 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
         clockInLngE6: null,
         clockOutLatE6: null,
         clockOutLngE6: null,
+        geoInVerdict: "missing",
         source: "clock",
         createdAt: hoursAgo(1.5),
         updatedAt: hoursAgo(1.5),
@@ -2157,6 +2182,8 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
         clockInLngE6: null,
         clockOutLatE6: null,
         clockOutLngE6: null,
+        geoInVerdict: "missing",
+        geoOutVerdict: "missing",
         source: "clock",
         createdAt: overlapIn,
         updatedAt: overlapOut,
@@ -2195,10 +2222,16 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
         breakMinutes: 0,
         breakStartedAt: null,
         note: "Set the curb",
-        clockInLatE6: null,
-        clockInLngE6: null,
-        clockOutLatE6: null,
-        clockOutLngE6: null,
+        clockInLatE6: 37805180,
+        clockInLngE6: -122247000,
+        clockOutLatE6: 37805180,
+        clockOutLngE6: -122247000,
+        geoInVerdict: "outside",
+        geoInDistanceM: outsideFence.distanceM,
+        geoInAccuracyM: 8,
+        geoOutVerdict: "outside",
+        geoOutDistanceM: outsideFence.distanceM,
+        geoOutAccuracyM: 8,
         source: "clock",
         createdAt: gapIn,
         updatedAt: gapOut,
@@ -2445,6 +2478,28 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
         createdAt: approvedOut,
       },
       {
+        id: "tev_site_overlap_1",
+        orgId: ORG,
+        entryId: "time_ok_overlap",
+        actorId: "user_sam",
+        type: "site_override",
+        reason: "Supplier run",
+        beforeJson: null,
+        afterJson: JSON.stringify({ reason: "Supplier run" }),
+        createdAt: overlapOut,
+      },
+      {
+        id: "tev_site_overlap_2",
+        orgId: ORG,
+        entryId: "time_ok_overlap",
+        actorId: "user_maya",
+        type: "site_override",
+        reason: "Supplier run confirmed",
+        beforeJson: null,
+        afterJson: JSON.stringify({ reason: "Supplier run confirmed" }),
+        createdAt: daysAgo(0),
+      },
+      {
         id: "tev_ok_open",
         orgId: ORG,
         entryId: "time_ok_open",
@@ -2456,6 +2511,30 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
         createdAt: hoursAgo(1.5),
       },
     ])
+    .run();
+  db.insert(timeGeoOverrides)
+    .values([
+      { id: "tgeo_overlap_1", orgId: ORG, entryId: "time_ok_overlap", reason: "Supplier run", createdAt: overlapOut, createdBy: "user_sam" },
+      { id: "tgeo_overlap_2", orgId: ORG, entryId: "time_ok_overlap", reason: "Supplier run confirmed", createdAt: daysAgo(0), createdBy: "user_maya" },
+    ])
+    .run();
+  const outsidePill = sitePill("outside", outsideFence.distanceM, "ft") ?? "Outside";
+  db.insert(notifications)
+    .values(["user_maya", "user_sam", "user_luis"].map((userId) => ({
+      id: `note_site_${userId}`,
+      orgId: ORG,
+      userId,
+      kind: "site",
+      commentId: null,
+      entityType: "time_entry",
+      entityId: "time_dana_gap_a",
+      projectId: "proj_okonkwo",
+      actorId: "user_dana",
+      actorName: "Dana Cho",
+      snippet: `Clock in · ${outsidePill}`,
+      readAt: null,
+      createdAt: gapOut,
+    })))
     .run();
 
   db.insert(dailyLogs)
@@ -3855,7 +3934,9 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
     ])
     .run();
 
-  db.update(projects).set({ pmUserId: "user_luis" }).where(eq(projects.id, "proj_okonkwo")).run();
+  db.update(projects).set({ pmUserId: "user_luis", siteLatE6: 37_799_400, siteLngE6: -122_247_000 }).where(eq(projects.id, "proj_okonkwo")).run();
+  db.update(projects).set({ siteLatE6: 37_780_000, siteLngE6: -122_260_000 }).where(eq(projects.id, "proj_chen")).run();
+  db.update(projects).set({ siteLatE6: 37_770_000, siteLngE6: -122_230_000 }).where(eq(projects.id, "proj_brooks")).run();
   db.update(projects).set({ pmUserId: "user_maya" }).where(eq(projects.id, "proj_brooks")).run();
   db.update(projects).set({ pmUserId: "user_maya" }).where(eq(projects.id, "proj_chen")).run();
   db.update(projects).set({ pmUserId: "user_luis" }).where(eq(projects.id, "proj_diaz")).run();

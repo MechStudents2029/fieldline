@@ -46,6 +46,7 @@ export const offlineEventSchema = z.object({
   note: z.string().max(500).nullable().optional(),
   lat: z.string().max(40).nullable().optional(),
   lng: z.string().max(40).nullable().optional(),
+  accuracy: z.string().max(40).nullable().optional(),
   log: offlineLogSchema.nullable().optional(),
   talk: offlineTalkSchema.nullable().optional(),
   syncStatus: z.enum(["pending", "needs_review", "wrong_user"]).optional(),

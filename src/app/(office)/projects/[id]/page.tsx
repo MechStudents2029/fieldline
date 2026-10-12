@@ -22,6 +22,8 @@ import { projectPurchaseOrders } from "@/lib/services/purchase-orders";
 import { captionFromMetadata, listPriceBook, listProjects, pipelineBoard, projectDetail } from "@/lib/services/read";
 import { deliveryHolds } from "@/lib/receiving/facts";
 import { openDeliveries } from "@/lib/services/receiving";
+import { SitePinForm } from "@/components/site-pin-form";
+import { sitePinView } from "@/lib/services/geo";
 import { jobStockSummary } from "@/lib/services/inventory";
 import { jobCreditSummary } from "@/lib/services/vendor-credits";
 import { jobInspectionMarks, scheduleGateLabels } from "@/lib/services/permits";
@@ -77,6 +79,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
   const jobBills = detail.money ? projectBills(session.orgId, detail.project.id, session.role) : [];
   const jobOrders = detail.money ? projectPurchaseOrders(session.orgId, detail.project.id, session.role) : [];
   const money = detail.financials;
+  const pin = canManageMoney(session.role) ? sitePinView(session, detail.project.id) : null;
   const unbilledTm = jobUnbilledTm(session, detail.project.id);
   const board = timeBoard(session);
   const crew = board.office?.clockedIn.filter((row) => row.projectName === detail.project.name) ?? [];
@@ -766,6 +769,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
           {detail.contact.email ? <div><dt>Email</dt><dd className="truncate">{detail.contact.email}</dd></div> : null}
           {detail.project.address ? <div><dt>Address</dt><dd>{detail.project.address}</dd></div> : null}
         </dl>
+        {pin ? <SitePinForm projectId={detail.project.id} lat={pin.lat} lng={pin.lng} radius={pin.radius} unit={pin.unit} punches={pin.punches} /> : null}
         {money ? (
           <>
             <p className="mac-t11 font-semibold text-[var(--mac-secondary)]">Contract</p>

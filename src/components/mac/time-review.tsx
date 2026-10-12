@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { addPtoAction, approveEntriesAction, editTimeAction, officeClockOutAction, saveAndApproveAction, undoTimeAction } from "@/app/actions";
+import { addPtoAction, approveEntriesAction, editTimeAction, officeClockOutAction, overrideSiteAction, saveAndApproveAction, undoTimeAction } from "@/app/actions";
+import { sketchLayout } from "@/lib/geo/fence";
 import { Segmented, Toolbar } from "@/components/mac/toolbar";
 import { SheetButton } from "@/components/sheet-button";
 import { formatMoney } from "@/lib/money";
@@ -211,6 +212,13 @@ export function TimeReview({ review }: { review: TimeReview }) {
                   To
                   <input type="date" name="to" aria-label="Payroll to" required defaultValue={review.dayHeaders.at(-1)?.key ?? ""} className="ctl mt-1" />
                 </label>
+                <label className="text-[13px]">
+                  Site
+                  <select name="site" aria-label="Site" defaultValue="all" className="ctl mt-1">
+                    <option value="all">All</option>
+                    <option value="outside">Outside</option>
+                  </select>
+                </label>
                 <button type="submit" className="ctl">
                   Download CSV
                 </button>
@@ -327,7 +335,8 @@ export function TimeReview({ review }: { review: TimeReview }) {
                   </td>
                   {row.hours.map((cell) => (
                     <td key={cell.day} data-fit="amount" className={`fit px-2 text-right num ${toneClass(cell.tone)}`}>
-                      {hours(cell.hours)}
+                      <span className="block">{hours(cell.hours)}</span>
+                      {cell.site ? <span className="fl-pill mt-1">{cell.site}</span> : null}
                     </td>
                   ))}
                   <td data-fit="amount" className={`fit px-2 text-right num ${toneClass(row.totalTone)}`}>{row.total.toFixed(1)}</td>
@@ -494,7 +503,16 @@ function EntryRow({
       <td className="px-2"><span className="num">{entry.outLabel}</span></td>
       <td className="px-2 text-right num">{entry.breakMinutes}m</td>
       <td data-fit="amount" className={`fit px-2 text-right num ${entry.flags.includes("overlap") || entry.flags.includes("open_long") ? "font-semibold text-[var(--mac-danger)]" : ""}`}>{entry.hoursLabel}</td>
-      <td data-fit="status" className="fit px-2">{entry.status === "pending" ? <span className="fl-pill">Submitted</span> : entry.status === "approved" ? "Approved" : "On site"}</td>
+      <td data-fit="status" className="fit px-2">
+        <span className="inline-flex flex-wrap items-center gap-1">
+          {entry.status === "pending" ? <span className="fl-pill">Submitted</span> : entry.status === "approved" ? "Approved" : "On site"}
+          {entry.site ? <span className="fl-pill">{entry.site}</span> : null}
+          {entry.siteOverridden ? <span className="fl-pill">Overridden</span> : null}
+        </span>
+        {entry.siteReason ? <span className="mt-1 block mac-t11 text-[var(--mac-secondary)]">{entry.siteReason}</span> : null}
+        <SiteSketch entry={entry} />
+        {entry.site && entry.site !== "No pin" ? <OverrideForm entryId={entry.id} overridden={entry.siteOverridden} busy={busy} onDone={onDone} onError={onError} /> : null}
+      </td>
       <td className="px-2">{entry.note ? <span>{entry.note}</span> : null}</td>
       <td className="px-2" />
       <td className="px-2">
@@ -539,5 +557,62 @@ function EntryRow({
         ) : null}
       </td>
     </tr>
+  );
+}
+
+function OverrideForm({
+  entryId,
+  overridden,
+  busy,
+  onDone,
+  onError,
+}: {
+  entryId: string;
+  overridden: boolean;
+  busy: boolean;
+  onDone: (undoStep: TimeUndo | null, message: string) => void;
+  onError: (message: string) => void;
+}) {
+  return (
+    <form
+      className="mt-1 flex gap-1"
+      onSubmit={(event) => {
+        event.preventDefault();
+        const data = new FormData(event.currentTarget);
+        void overrideSiteAction(entryId, String(data.get("reason") || "")).then((result) => {
+          if (!result || result.error) onError(result?.error ?? "Could not override.");
+          else onDone(null, result.ok ?? "Overridden.");
+        });
+      }}
+    >
+      <input name="reason" aria-label="Override reason" required minLength={3} placeholder="Reason" className="ctl" />
+      <button type="submit" className="mac-glass-btn" disabled={busy}>
+        {overridden ? "Add reason" : "Override"}
+      </button>
+    </form>
+  );
+}
+
+function SiteSketch({ entry }: { entry: ReviewEntry }) {
+  if (!entry.siteLine) return null;
+  const points = [
+    entry.siteIn ? { ...entry.siteIn, kind: "in" as const } : null,
+    entry.siteOut ? { ...entry.siteOut, kind: "out" as const } : null,
+  ].filter((point) => point != null);
+  const layout = entry.sitePin ? sketchLayout(entry.sitePin, entry.sitePin.radiusM, points) : null;
+  return (
+    <details className="mt-1">
+      <summary className="mac-t11">Site</summary>
+      {layout ? (
+        <svg viewBox="0 0 160 112" width="160" height="112" role="img" aria-label="Site">
+          <circle cx={layout.cx} cy={layout.cy} r={layout.r} fill="none" stroke="currentColor" strokeWidth="1" />
+          <circle cx={layout.cx} cy={layout.cy} r="3" fill="currentColor" />
+          {layout.dots.map((dot, index) => (
+            <circle key={`${dot.kind}-${index}`} cx={dot.x} cy={dot.y} r="3.5" fill="none" stroke="currentColor" strokeWidth="1.5" />
+          ))}
+        </svg>
+      ) : null}
+      <p className="num mac-t11">{entry.siteLine}</p>
+    </details>
   );
 }

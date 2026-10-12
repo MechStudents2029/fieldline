@@ -136,6 +136,7 @@ export function ensureReady(holder: Holder) {
   ensureReceiving(holder);
   ensureVendorCredits(holder);
   ensureInventory(holder);
+  ensureGeofence(holder);
   const version = holder.sqlite.prepare("select value from app_meta where key = ?").get("seed_version") as
     | { value: string }
     | undefined;
@@ -2772,6 +2773,34 @@ function ensureInventory(holder: Holder) {
   }
   holder.sqlite.exec("create index if not exists stock_movements_item on stock_movements (org_id, stock_item_id, created_at)");
   holder.sqlite.exec("create index if not exists stock_movements_key on stock_movements (org_id, source_key)");
+}
+
+function ensureGeofence(holder: Holder) {
+  const pk = holder.dialect === "postgres" ? "text primary key" : "text primary key not null";
+  ensureColumn(holder, "organizations", "geo_mode", "text not null default 'off'");
+  ensureColumn(holder, "organizations", "geo_radius_m", "integer not null default 300");
+  ensureColumn(holder, "organizations", "geo_unit", "text not null default 'ft'");
+  ensureColumn(holder, "memberships", "require_location", "integer not null default 0");
+  ensureColumn(holder, "projects", "site_lat_e6", "integer");
+  ensureColumn(holder, "projects", "site_lng_e6", "integer");
+  ensureColumn(holder, "projects", "site_radius_m", "integer");
+  ensureColumn(holder, "time_entries", "geo_in_verdict", "text");
+  ensureColumn(holder, "time_entries", "geo_in_distance_m", "integer");
+  ensureColumn(holder, "time_entries", "geo_in_accuracy_m", "integer");
+  ensureColumn(holder, "time_entries", "geo_out_verdict", "text");
+  ensureColumn(holder, "time_entries", "geo_out_distance_m", "integer");
+  ensureColumn(holder, "time_entries", "geo_out_accuracy_m", "integer");
+  if (!tableExists(holder.sqlite, "time_geo_overrides", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists time_geo_overrides (
+      id ${pk},
+      org_id text not null,
+      entry_id text not null,
+      reason text not null,
+      created_at text not null,
+      created_by text
+    )`);
+  }
+  holder.sqlite.exec("create index if not exists time_geo_overrides_entry on time_geo_overrides (org_id, entry_id)");
 }
 
 function ensureOvertime(holder: Holder) {
