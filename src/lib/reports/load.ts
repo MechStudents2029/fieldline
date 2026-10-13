@@ -27,6 +27,7 @@ import { CATALOG, customRecord, type CatalogColumn, type SourceId } from "@/lib/
 import type { EngineCell, EngineColumn, EngineRow } from "@/lib/reports/engine";
 import { isGeoUnit } from "@/lib/geo/fence";
 import { punchSiteColumn } from "@/lib/services/geo";
+import { reviewMonth } from "@/lib/services/reviews";
 import { customCell, customColumns } from "@/lib/services/custom-fields";
 import { ServiceError } from "@/lib/services/errors";
 import type { Actor } from "@/lib/services/read";
@@ -122,7 +123,17 @@ export function loadSource(actor: Actor, source: SourceId, today: string): Engin
   if (source === "confirmations") return loadConfirmations(db, actor.orgId);
   if (source === "agreements") return loadAgreements(actor.orgId, today);
   if (source === "options") return loadOptions(db, actor.orgId);
+  if (source === "reviews") return loadReviews(actor.orgId);
   return loadPunch(db, actor.orgId);
+}
+
+function loadReviews(orgId: string): EngineRow[] {
+  const month = reviewMonth(orgId);
+  return [
+    { id: "created", href: "/reviews", cells: { metric: text("Created"), count: num(month.created) } },
+    { id: "sent", href: "/reviews?status=sent", cells: { metric: text("Marked sent"), count: num(month.sent) } },
+    { id: "skipped", href: "/reviews?status=skipped", cells: { metric: text("Skipped"), count: num(month.skipped) } },
+  ];
 }
 
 function loadOptions(db: AppDatabase, orgId: string): EngineRow[] {

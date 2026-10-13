@@ -31,6 +31,7 @@ import { equipmentOnJob } from "@/lib/services/equipment";
 import { closeoutPermitFacts } from "@/lib/services/permits";
 import { safetyCounts } from "@/lib/services/safety";
 import { emitAutomation } from "@/lib/services/automations";
+import { considerReview } from "@/lib/services/reviews";
 import { id, nowIso } from "@/lib/ids";
 import { MAX_MONEY_CENTS } from "@/lib/money";
 import { canAddFieldNotes, canEditCrm, canManageMoney, canManageSettings, canSeeMoney, type Role } from "@/lib/permissions";
@@ -655,6 +656,11 @@ export function closeJob(actor: Actor, projectId: string, input: { months: numbe
     name: project.name,
     amountCents: project.contractValueCents,
   });
+  try {
+    considerReview(actor.orgId, project.id, "complete");
+  } catch {
+    // Closing the job still stands.
+  }
 }
 
 export function reopenJob(actor: Actor, projectId: string) {

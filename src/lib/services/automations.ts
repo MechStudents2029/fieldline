@@ -27,6 +27,7 @@ import {
   safetyTopics,
   bookings,
   priceBookItems,
+  reviewRequests,
   scheduleItems,
   serviceAgreements,
   stockItems,
@@ -57,6 +58,7 @@ import { ticketLabel } from "@/lib/tm/number";
 import type { Actor } from "@/lib/services/read";
 import { deliveryRows } from "@/lib/receiving/facts";
 import { notifyDelivery } from "@/lib/receiving/notify";
+import { bindReviewEmit, considerReview } from "@/lib/services/reviews";
 import { workCalendarFor } from "@/lib/services/work-calendar";
 import { addCalendarDays, localDay } from "@/lib/time/calendar";
 
@@ -87,7 +89,9 @@ export type Trigger =
   | { kind: "visit_due" }
   | { kind: "agreement_expiring" }
   | { kind: "unassigned_today" }
-  | { kind: "booking_created" };
+  | { kind: "booking_created" }
+  | { kind: "review_request_created" }
+  | { kind: "review_request_marked_sent" };
 
 export type Condition =
   | { kind: "job_type"; value: string }
@@ -198,6 +202,8 @@ export function parseTrigger(raw: string): Trigger | null {
   if (row.kind === "agreement_expiring") return { kind: "agreement_expiring" };
   if (row.kind === "unassigned_today") return { kind: "unassigned_today" };
   if (row.kind === "booking_created") return { kind: "booking_created" };
+  if (row.kind === "review_request_created") return { kind: "review_request_created" };
+  if (row.kind === "review_request_marked_sent") return { kind: "review_request_marked_sent" };
   return null;
 }
 
@@ -281,6 +287,8 @@ export function triggerLabel(trigger: Trigger): string {
   if (trigger.kind === "agreement_expiring") return "Agreement expiring";
   if (trigger.kind === "unassigned_today") return "Unassigned visit today";
   if (trigger.kind === "booking_created") return "Online booking created";
+  if (trigger.kind === "review_request_created") return "Review request created";
+  if (trigger.kind === "review_request_marked_sent") return "Review marked sent";
   return "Equipment overdue";
 }
 
@@ -423,6 +431,7 @@ function hrefFor(event: AutomationEvent) {
   if (event.kind === "agreement_expiring") return `/agreements/${event.recordId}`;
   if (event.kind === "unassigned_today") return "/dispatch";
   if (event.kind === "booking_created") return "/dispatch";
+  if (event.kind === "review_request_created" || event.kind === "review_request_marked_sent") return `/reviews/${event.recordId}`;
   if (event.kind === "equipment_overdue") return "/equipment";
   if ((event.kind === "incident_logged" || event.kind === "checklist_failed") && event.projectId) return `/projects/${event.projectId}/safety`;
   if (event.kind === "vendor_expiring") return "/contacts";
@@ -670,6 +679,13 @@ function runAction(rule: { id: string; name: string }, action: Action, event: Au
       },
       depth + 1,
     );
+    if (action.status === "complete") {
+      try {
+        considerReview(event.orgId, project.id, "complete");
+      } catch {
+        // Status already saved.
+      }
+    }
     return line;
   }
   if (action.kind === "punch") {
@@ -1092,6 +1108,7 @@ export function previewRecordLabel(trigger: Trigger) {
   if (trigger.kind === "agreement_expiring") return "Agreement";
   if (trigger.kind === "unassigned_today") return "Visit";
   if (trigger.kind === "booking_created") return "Booking";
+  if (trigger.kind === "review_request_created" || trigger.kind === "review_request_marked_sent") return "Review";
   return "Checklist item";
 }
 
@@ -1188,6 +1205,10 @@ export function previewChoices(orgId: string, trigger: Trigger) {
   if (trigger.kind === "booking_created") {
     const names = new Map(db.select({ id: contacts.id, name: contacts.name }).from(contacts).where(eq(contacts.orgId, orgId)).all().map((row) => [row.id, row.name]));
     return db.select().from(bookings).where(eq(bookings.orgId, orgId)).all().map((row) => ({ id: row.id, label: names.get(row.contactId) || "Booking" }));
+  }
+  if (trigger.kind === "review_request_created" || trigger.kind === "review_request_marked_sent") {
+    const names = new Map(db.select().from(projects).where(eq(projects.orgId, orgId)).all().map((row) => [row.id, row.name]));
+    return db.select().from(reviewRequests).where(eq(reviewRequests.orgId, orgId)).all().map((row) => ({ id: row.id, label: names.get(row.projectId) || "Review" }));
   }
   if (trigger.kind === "clock_outside") {
     const names = new Map(db.select({ id: users.id, name: users.name }).from(users).all().map((row) => [row.id, row.name]));
@@ -1477,6 +1498,20 @@ function eventFromRecord(orgId: string, trigger: Trigger, recordId: string): Aut
       name: contact?.name || "Booking",
     };
   }
+  if (trigger.kind === "review_request_created" || trigger.kind === "review_request_marked_sent") {
+    const row = db.select().from(reviewRequests).where(and(eq(reviewRequests.orgId, orgId), eq(reviewRequests.id, recordId))).get();
+    if (!row) return null;
+    const project = db.select().from(projects).where(and(eq(projects.orgId, orgId), eq(projects.id, row.projectId))).get();
+    return {
+      orgId,
+      kind: trigger.kind,
+      recordType: "review_request",
+      recordId: row.id,
+      recordLabel: project?.name || "Review",
+      projectId: row.projectId,
+      name: project?.name || "Review",
+    };
+  }
   const item = db.select().from(equipment).where(and(eq(equipment.orgId, orgId), eq(equipment.id, recordId))).get();
   if (!item) return null;
   const open = db
@@ -1577,6 +1612,8 @@ export function ruleFromForm(formData: FormData): RuleDraft {
   else if (kind === "agreement_expiring") trigger = { kind: "agreement_expiring" };
   else if (kind === "unassigned_today") trigger = { kind: "unassigned_today" };
   else if (kind === "booking_created") trigger = { kind: "booking_created" };
+  else if (kind === "review_request_created") trigger = { kind: "review_request_created" };
+  else if (kind === "review_request_marked_sent") trigger = { kind: "review_request_marked_sent" };
   if (!trigger) throw new ServiceError("Pick a trigger.");
   const conditions: Condition[] = [];
   const conditionSlots = formSlots(formData, "c");
@@ -1688,3 +1725,5 @@ export function toggleAutomation(actor: Actor, ruleId: string, enabled: boolean)
     .where(and(eq(automationRules.orgId, actor.orgId), eq(automationRules.id, ruleId)))
     .run();
 }
+
+bindReviewEmit(emitAutomation);

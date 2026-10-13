@@ -140,6 +140,7 @@ export function ensureReady(holder: Holder) {
   ensureAgreements(holder);
   ensureOptions(holder);
   ensureBooking(holder);
+  ensureReviews(holder);
   const version = holder.sqlite.prepare("select value from app_meta where key = ?").get("seed_version") as
     | { value: string }
     | undefined;
@@ -1362,6 +1363,37 @@ function ensureBooking(holder: Holder) {
   }
   holder.sqlite.exec("create index if not exists booking_offs_user on booking_offs (org_id, user_id, start_date)");
   holder.sqlite.exec("create unique index if not exists organizations_booking_token on organizations (booking_token)");
+}
+
+function ensureReviews(holder: Holder) {
+  const pk = holder.dialect === "postgres" ? "text primary key" : "text primary key not null";
+  ensureColumn(holder, "organizations", "review_enabled", "integer not null default 0");
+  ensureColumn(holder, "organizations", "review_timing", "text not null default 'complete'");
+  ensureColumn(holder, "organizations", "review_google_url", "text");
+  ensureColumn(holder, "organizations", "review_facebook_url", "text");
+  ensureColumn(holder, "organizations", "review_website_url", "text");
+  ensureColumn(holder, "organizations", "review_exclude_tags", "text not null default ''");
+  ensureColumn(holder, "organizations", "review_template", "text not null default ''");
+  ensureColumn(holder, "projects", "tags", "text not null default ''");
+  if (!tableExists(holder.sqlite, "review_requests", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists review_requests (
+      id ${pk},
+      org_id text not null,
+      project_id text not null,
+      contact_id text not null,
+      status text not null,
+      platform text not null default '',
+      url text not null default '',
+      message text not null default '',
+      skip_reason text not null default '',
+      created_at text not null,
+      updated_at text not null,
+      copied_at text,
+      sent_at text
+    )`);
+  }
+  holder.sqlite.exec("create unique index if not exists review_requests_job on review_requests (org_id, project_id)");
+  holder.sqlite.exec("create index if not exists review_requests_org on review_requests (org_id, status)");
 }
 
 function ensureOptions(holder: Holder) {

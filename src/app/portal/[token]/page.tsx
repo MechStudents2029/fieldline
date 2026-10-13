@@ -35,6 +35,7 @@ import { clientPortalFiles } from "@/lib/services/files";
 import { clientPortalMarkups, clientPortalPins } from "@/lib/services/markup";
 import { portalPassedInspections } from "@/lib/services/permits";
 import { portalTmTickets } from "@/lib/services/tm";
+import { portalReview } from "@/lib/services/reviews";
 
 export const dynamic = "force-dynamic";
 
@@ -97,6 +98,7 @@ export default async function PortalPage({ params }: { params: Promise<{ token: 
   const payInvoice = action?.kind === "invoice" ? data.invoices.find((invoice) => invoice.id === action.id) : null;
   const listed = orders.filter((order) => order.id !== featuredId);
   const approved = orders.filter((order) => order.status === "approved");
+  const reviewLink = portalReview(token);
 
   return (
     <main className="home mx-auto min-h-screen w-full max-w-5xl px-4 py-8 lg:px-8">
@@ -120,6 +122,13 @@ export default async function PortalPage({ params }: { params: Promise<{ token: 
           </Link>
         </p>
       </header>
+      {reviewLink ? (
+        <section className="home-card mt-4" data-testid="leave-review">
+          <a className="home-btn" href={reviewLink.url} target="_blank" rel="noopener noreferrer">
+            Leave a review
+          </a>
+        </section>
+      ) : null}
 
       <section className="home-strip" aria-label="Money">
         <div>

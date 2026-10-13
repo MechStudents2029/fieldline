@@ -3,7 +3,9 @@ import { getDb } from "@/lib/db/client";
 import { activities, auditLogs, invoices, payments } from "@/lib/db/schema";
 import { id, nowIso } from "@/lib/ids";
 import { achFeeCents, cardFeeCents } from "@/lib/money";
+import { emitAutomation } from "@/lib/services/automations";
 import { ServiceError } from "@/lib/services/errors";
+import { bindReviewEmit, considerReview } from "@/lib/services/reviews";
 
 export type StripePaymentEvent = {
   eventId: string;
@@ -56,7 +58,7 @@ function remember(tx: ReturnType<typeof getDb>, orgId: string, event: StripePaym
 export function applyStripePaymentEvent(event: StripePaymentEvent): ApplyResult {
   if (!event.eventId || !event.paymentIntentId) throw new ServiceError("Stripe event is missing an id.");
   const db = getDb();
-  return db.transaction((tx) => {
+  const result = db.transaction((tx) => {
     const seen = tx
       .select()
       .from(auditLogs)
@@ -179,4 +181,17 @@ export function applyStripePaymentEvent(event: StripePaymentEvent): ApplyResult 
     remember(tx, invoice.orgId, event, next);
     return { applied: next === "succeeded", duplicate: false, status: next };
   });
+  if (result.applied && result.status === "succeeded") {
+    try {
+      bindReviewEmit(emitAutomation);
+      const payment = db.select().from(payments).where(eq(payments.stripePaymentIntent, event.paymentIntentId)).get();
+      if (payment) {
+        const paid = db.select().from(invoices).where(and(eq(invoices.id, payment.invoiceId), eq(invoices.orgId, payment.orgId))).get();
+        if (paid) considerReview(paid.orgId, paid.projectId, "paid");
+      }
+    } catch {
+      // A review miss does not undo the payment.
+    }
+  }
+  return result;
 }
