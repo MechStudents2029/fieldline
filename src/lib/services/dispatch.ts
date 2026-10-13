@@ -2,7 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { addDays } from "@/lib/agreements/cadence";
 import { getDb, type AppDatabase } from "@/lib/db/client";
 import { officeDb } from "@/lib/db/office";
-import { agreementVisits, auditLogs, memberships, projects, scheduleAssignees, scheduleItems, serviceAgreements, users } from "@/lib/db/schema";
+import { agreementVisits, auditLogs, bookings, contacts, memberships, priceBookItems, projects, scheduleAssignees, scheduleItems, serviceAgreements, users } from "@/lib/db/schema";
 import { formatClock, lookbackStart, overlappingIds, parseClock, planAssign, windowOf, type DispatchCard } from "@/lib/dispatch/assign";
 import { openTray } from "@/lib/dispatch/board";
 import { id, nowIso } from "@/lib/ids";
@@ -20,7 +20,7 @@ export type DispatchPerson = { id: string; name: string; role: string };
 
 export type BoardCard = {
   id: string;
-  kind: "visit" | "item";
+  kind: "visit" | "item" | "book";
   title: string;
   site: string;
   status: string;
@@ -145,6 +145,34 @@ function loadRaw(db: Writer, orgId: string, day: string): { cards: Raw[]; people
       href: `/schedule/items/${item.id}`,
     });
   }
+  const serviceNames = new Map(db.select({ id: priceBookItems.id, name: priceBookItems.name }).from(priceBookItems).where(eq(priceBookItems.orgId, orgId)).all().map((row) => [row.id, row.name]));
+  const contactNames = new Map(db.select({ id: contacts.id, name: contacts.name }).from(contacts).where(eq(contacts.orgId, orgId)).all().map((row) => [row.id, row.name]));
+  for (const booking of db.select().from(bookings).where(eq(bookings.orgId, orgId)).all()) {
+    if (booking.status !== "scheduled") continue;
+    const onDay = booking.dueOn === day;
+    const overdue = !booking.assigneeUserId && booking.dueOn < day && booking.dueOn >= startBack;
+    if (!onDay && !overdue) continue;
+    const startMin = parseClock(booking.startTime);
+    const endMin = parseClock(booking.endTime);
+    cards.push({
+      id: `book:${booking.id}`,
+      kind: "book",
+      source: `book:${booking.id}`,
+      title: serviceNames.get(booking.itemId) || "Booking",
+      site: contactNames.get(booking.contactId) || "Booking",
+      status: "Scheduled",
+      held: false,
+      assigneeId: booking.assigneeUserId,
+      start: startMin == null ? null : formatClock(startMin),
+      end: endMin == null ? null : formatClock(endMin),
+      startMin,
+      endMin,
+      dueOn: booking.dueOn,
+      overdue,
+      closed: false,
+      href: `/dispatch?on=${booking.dueOn}`,
+    });
+  }
   return { cards, people };
 }
 
@@ -215,9 +243,10 @@ export function dispatchNotice(db: Writer, orgId: string, entityId: string) {
   return { record: "Visit", href: `/dispatch?on=${visit.dueOn}` };
 }
 
-function parseCard(cardId: string): { kind: "visit" | "item"; rawId: string } | null {
+function parseCard(cardId: string): { kind: "visit" | "item" | "book"; rawId: string } | null {
   if (cardId.startsWith("visit:")) return { kind: "visit", rawId: cardId.slice(6) };
   if (cardId.startsWith("item:")) return { kind: "item", rawId: cardId.slice(5) };
+  if (cardId.startsWith("book:")) return { kind: "book", rawId: cardId.slice(5) };
   return null;
 }
 
@@ -257,14 +286,46 @@ export function assignDispatch(actor: Actor, input: { cardId: string; assigneeId
     throw new ServiceError(`Overlaps ${titles.join(", ")}`);
   }
   if (!plan.ok) throw new ServiceError("That card is not on this day.");
-  const visit = parsed.kind === "visit" ? db.select().from(agreementVisits).where(and(eq(agreementVisits.orgId, actor.orgId), eq(agreementVisits.id, parsed.rawId))).get() : null;
-  const itemId = parsed.kind === "item" ? parsed.rawId : visit?.scheduleItemId ?? null;
-  if ((startMin != null || endMin != null) && !itemId) throw new ServiceError("That visit is not on the schedule.");
   const previous = current.assigneeId;
   const sameClock = current.startMin === startMin && current.endMin === endMin;
   if (previous === assigneeId && sameClock) return { id: input.cardId };
   const now = nowIso();
   const action = !assigneeId ? "dispatch.unassign" : previous && previous !== assigneeId ? "dispatch.reassign" : "dispatch.assign";
+  if (parsed.kind === "book") {
+    db.transaction((tx) => {
+      tx.update(bookings)
+        .set({
+          assigneeUserId: assigneeId,
+          startTime: startMin == null ? current.start || "00:00" : formatClock(startMin),
+          endTime: endMin == null ? current.end || "00:00" : formatClock(endMin),
+        })
+        .where(and(eq(bookings.orgId, actor.orgId), eq(bookings.id, parsed.rawId)))
+        .run();
+      tx.insert(auditLogs)
+        .values({
+          id: id("audit"),
+          orgId: actor.orgId,
+          actorId: actor.userId,
+          action,
+          entityType: "booking",
+          entityId: parsed.rawId,
+          payloadJson: JSON.stringify({
+            from: previous,
+            to: assigneeId,
+            start: startMin == null ? null : formatClock(startMin),
+            end: endMin == null ? null : formatClock(endMin),
+            day,
+          }),
+          ip: null,
+          createdAt: now,
+        })
+        .run();
+    });
+    return { id: input.cardId };
+  }
+  const visit = parsed.kind === "visit" ? db.select().from(agreementVisits).where(and(eq(agreementVisits.orgId, actor.orgId), eq(agreementVisits.id, parsed.rawId))).get() : null;
+  const itemId = parsed.kind === "item" ? parsed.rawId : visit?.scheduleItemId ?? null;
+  if ((startMin != null || endMin != null) && !itemId) throw new ServiceError("That visit is not on the schedule.");
   db.transaction((tx) => {
     if (visit) {
       tx.update(agreementVisits)

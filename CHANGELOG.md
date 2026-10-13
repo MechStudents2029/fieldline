@@ -2,6 +2,15 @@
 
 ## 2026-10-13
 
+### Online booking
+
+- Settings, Bookings turns the public page on, sets the days and hours, the earliest lead time, the interval, and the buffer. The link is on that page to copy. Field cannot change it.
+- A price-book service can be bookable, with a duration from 15 minutes to 12 hours and an optional price. A field tech can be bookable, with hours that replace the company window, or time off that closes those days.
+- The public page lists the services, then the open days and times. A slot appears only when a bookable tech is free for the whole duration. Existing dispatch cards, schedule items, and agreement visits block that tech. A buffer widens those cards. A shared edge stays free.
+- The client enters a name, phone, email, and the questions. That writes or updates the contact and places the visit on the day board. One free tech is assigned. Several free techs resolve to the first user id in ascending order. A taken time is refused. No invoice is written.
+- Today lists Online booking for an owner or admin. Inbox has the same note. An automation can run on Online booking created.
+- Seed: Service call is bookable at $189 for 1 hour. Dana is bookable weekdays 8:00–16:00. Nora Ellis is an unassigned Service call today at 16:00, in Open.
+
 ### Proposal options
 
 - An estimate can carry Good, Better, and Best, up to four. Each option has its own lines, cost, price, and margin. Scope, terms, and the deposit rule stay on the estimate. An estimate with no options prices the same way it did.

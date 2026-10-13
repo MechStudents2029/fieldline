@@ -29,6 +29,7 @@ const TRIGGERS = [
   ["visit_due", "Visit due"],
   ["agreement_expiring", "Agreement expiring"],
   ["unassigned_today", "Unassigned visit today"],
+  ["booking_created", "Online booking created"],
 ] as const;
 
 const ACTION_KINDS = [

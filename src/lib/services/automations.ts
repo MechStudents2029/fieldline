@@ -25,6 +25,7 @@ import {
   safetyCheckItems,
   safetyChecks,
   safetyTopics,
+  bookings,
   priceBookItems,
   scheduleItems,
   serviceAgreements,
@@ -85,7 +86,8 @@ export type Trigger =
   | { kind: "clock_outside" }
   | { kind: "visit_due" }
   | { kind: "agreement_expiring" }
-  | { kind: "unassigned_today" };
+  | { kind: "unassigned_today" }
+  | { kind: "booking_created" };
 
 export type Condition =
   | { kind: "job_type"; value: string }
@@ -195,6 +197,7 @@ export function parseTrigger(raw: string): Trigger | null {
   if (row.kind === "visit_due") return { kind: "visit_due" };
   if (row.kind === "agreement_expiring") return { kind: "agreement_expiring" };
   if (row.kind === "unassigned_today") return { kind: "unassigned_today" };
+  if (row.kind === "booking_created") return { kind: "booking_created" };
   return null;
 }
 
@@ -277,6 +280,7 @@ export function triggerLabel(trigger: Trigger): string {
   if (trigger.kind === "visit_due") return "Visit due";
   if (trigger.kind === "agreement_expiring") return "Agreement expiring";
   if (trigger.kind === "unassigned_today") return "Unassigned visit today";
+  if (trigger.kind === "booking_created") return "Online booking created";
   return "Equipment overdue";
 }
 
@@ -418,6 +422,7 @@ function hrefFor(event: AutomationEvent) {
   }
   if (event.kind === "agreement_expiring") return `/agreements/${event.recordId}`;
   if (event.kind === "unassigned_today") return "/dispatch";
+  if (event.kind === "booking_created") return "/dispatch";
   if (event.kind === "equipment_overdue") return "/equipment";
   if ((event.kind === "incident_logged" || event.kind === "checklist_failed") && event.projectId) return `/projects/${event.projectId}/safety`;
   if (event.kind === "vendor_expiring") return "/contacts";
@@ -1086,6 +1091,7 @@ export function previewRecordLabel(trigger: Trigger) {
   if (trigger.kind === "visit_due") return "Visit";
   if (trigger.kind === "agreement_expiring") return "Agreement";
   if (trigger.kind === "unassigned_today") return "Visit";
+  if (trigger.kind === "booking_created") return "Booking";
   return "Checklist item";
 }
 
@@ -1178,6 +1184,10 @@ export function previewChoices(orgId: string, trigger: Trigger) {
       .all()
       .filter((row) => row.status === "scheduled" && !row.assigneeUserId)
       .map((row) => ({ id: row.id, label: names.get(row.agreementId) || "Visit" }));
+  }
+  if (trigger.kind === "booking_created") {
+    const names = new Map(db.select({ id: contacts.id, name: contacts.name }).from(contacts).where(eq(contacts.orgId, orgId)).all().map((row) => [row.id, row.name]));
+    return db.select().from(bookings).where(eq(bookings.orgId, orgId)).all().map((row) => ({ id: row.id, label: names.get(row.contactId) || "Booking" }));
   }
   if (trigger.kind === "clock_outside") {
     const names = new Map(db.select({ id: users.id, name: users.name }).from(users).all().map((row) => [row.id, row.name]));
@@ -1452,6 +1462,21 @@ function eventFromRecord(orgId: string, trigger: Trigger, recordId: string): Aut
       name: book?.name || "Stock",
     };
   }
+  if (trigger.kind === "booking_created") {
+    const row = db.select().from(bookings).where(and(eq(bookings.orgId, orgId), eq(bookings.id, recordId))).get();
+    if (!row) return null;
+    const contact = db.select().from(contacts).where(and(eq(contacts.orgId, orgId), eq(contacts.id, row.contactId))).get();
+    const service = db.select().from(priceBookItems).where(and(eq(priceBookItems.orgId, orgId), eq(priceBookItems.id, row.itemId))).get();
+    return {
+      orgId,
+      kind: "booking_created",
+      recordType: "booking",
+      recordId: row.id,
+      recordLabel: service?.name || "Booking",
+      projectId: null,
+      name: contact?.name || "Booking",
+    };
+  }
   const item = db.select().from(equipment).where(and(eq(equipment.orgId, orgId), eq(equipment.id, recordId))).get();
   if (!item) return null;
   const open = db
@@ -1551,6 +1576,7 @@ export function ruleFromForm(formData: FormData): RuleDraft {
   else if (kind === "visit_due") trigger = { kind: "visit_due" };
   else if (kind === "agreement_expiring") trigger = { kind: "agreement_expiring" };
   else if (kind === "unassigned_today") trigger = { kind: "unassigned_today" };
+  else if (kind === "booking_created") trigger = { kind: "booking_created" };
   if (!trigger) throw new ServiceError("Pick a trigger.");
   const conditions: Condition[] = [];
   const conditionSlots = formSlots(formData, "c");

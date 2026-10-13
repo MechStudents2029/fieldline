@@ -139,6 +139,7 @@ export function ensureReady(holder: Holder) {
   ensureGeofence(holder);
   ensureAgreements(holder);
   ensureOptions(holder);
+  ensureBooking(holder);
   const version = holder.sqlite.prepare("select value from app_meta where key = ?").get("seed_version") as
     | { value: string }
     | undefined;
@@ -1301,6 +1302,66 @@ function ensureRetainage(holder: Holder) {
   ensureColumn(holder, "purchase_orders", "retainage_bps", "integer not null default 0");
   ensureColumn(holder, "bills", "retainage_cents", "integer not null default 0");
   ensureColumn(holder, "bills", "kind", "text not null default 'standard'");
+}
+
+function ensureBooking(holder: Holder) {
+  const pk = holder.dialect === "postgres" ? "text primary key" : "text primary key not null";
+  ensureColumn(holder, "organizations", "booking_enabled", "integer not null default 0");
+  ensureColumn(holder, "organizations", "booking_token", "text");
+  ensureColumn(holder, "organizations", "booking_interval_min", "integer not null default 30");
+  ensureColumn(holder, "organizations", "booking_buffer_min", "integer not null default 0");
+  ensureColumn(holder, "organizations", "booking_earliest_hours", "integer not null default 24");
+  ensureColumn(holder, "organizations", "booking_days_mask", "integer not null default 62");
+  ensureColumn(holder, "organizations", "booking_start_min", "integer not null default 480");
+  ensureColumn(holder, "organizations", "booking_end_min", "integer not null default 1020");
+  ensureColumn(holder, "organizations", "booking_questions_json", "text not null default '[]'");
+  ensureColumn(holder, "memberships", "bookable", "integer not null default 0");
+  ensureColumn(holder, "price_book_items", "bookable", "integer not null default 0");
+  ensureColumn(holder, "price_book_items", "book_duration_min", "integer");
+  ensureColumn(holder, "price_book_items", "book_price_cents", "integer");
+  ensureColumn(holder, "price_book_items", "book_staff_json", "text");
+  if (!tableExists(holder.sqlite, "bookings", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists bookings (
+      id ${pk},
+      org_id text not null,
+      item_id text not null,
+      contact_id text not null,
+      due_on text not null,
+      start_time text not null,
+      end_time text not null,
+      assignee_user_id text,
+      status text not null,
+      duration_min integer not null,
+      price_cents integer,
+      answers_json text not null default '{}',
+      created_at text not null
+    )`);
+  }
+  holder.sqlite.exec("create index if not exists bookings_org_day on bookings (org_id, due_on)");
+  if (!tableExists(holder.sqlite, "booking_hours", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists booking_hours (
+      id ${pk},
+      org_id text not null,
+      user_id text not null,
+      weekday integer not null,
+      open integer not null default 1,
+      start_min integer,
+      end_min integer
+    )`);
+  }
+  holder.sqlite.exec("create unique index if not exists booking_hours_user_day on booking_hours (org_id, user_id, weekday)");
+  if (!tableExists(holder.sqlite, "booking_offs", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists booking_offs (
+      id ${pk},
+      org_id text not null,
+      user_id text not null,
+      start_date text not null,
+      end_date text not null,
+      created_at text not null
+    )`);
+  }
+  holder.sqlite.exec("create index if not exists booking_offs_user on booking_offs (org_id, user_id, start_date)");
+  holder.sqlite.exec("create unique index if not exists organizations_booking_token on organizations (booking_token)");
 }
 
 function ensureOptions(holder: Holder) {
