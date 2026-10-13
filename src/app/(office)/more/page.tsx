@@ -25,6 +25,7 @@ const links = [
   ["/purchase-orders", "Purchase orders"],
   ["/deliveries", "Deliveries"],
   ["/agreements", "Agreements"],
+  ["/dispatch", "Dispatch"],
   ["/price-book", "Price book"],
   ["/copilot", "Copilot"],
   ["/settings", "Settings"],

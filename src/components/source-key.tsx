@@ -15,16 +15,19 @@ export function SourceKey({ scope }: { scope: string }) {
     const stored = sessionStorage.getItem(scope);
     const next = stored || freshKey();
     if (!stored) sessionStorage.setItem(scope, next);
-    setValue(next);
+    const frame = requestAnimationFrame(() => setValue(next));
     const qty = ref.current?.form?.querySelector<HTMLInputElement>('input[name="qty"]');
-    if (!qty) return;
+    if (!qty) return () => cancelAnimationFrame(frame);
     const rotate = () => {
       const key = freshKey();
       sessionStorage.setItem(scope, key);
       setValue(key);
     };
     qty.addEventListener("input", rotate);
-    return () => qty.removeEventListener("input", rotate);
+    return () => {
+      cancelAnimationFrame(frame);
+      qty.removeEventListener("input", rotate);
+    };
   }, [scope]);
   return <input ref={ref} type="hidden" name="sourceKey" value={value} />;
 }

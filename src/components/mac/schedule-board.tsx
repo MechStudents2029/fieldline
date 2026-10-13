@@ -296,6 +296,9 @@ export function ScheduleBoard({ board, openJobId }: { board: Board; openJobId: s
             <a href="/schedule?view=gantt" className="mac-glass-btn">
               Gantt
             </a>
+            <a href="/dispatch" className="mac-glass-btn">
+              Day
+            </a>
           </span>
         }
       />
@@ -306,7 +309,7 @@ export function ScheduleBoard({ board, openJobId }: { board: Board; openJobId: s
               <th className="person-col px-2 text-left">Person</th>
               {board.days.map((day) => (
                 <th key={day.date} className={`px-1 text-left ${day.off ? "is-off" : ""} ${day.isToday ? "text-[var(--mac-accent)]" : ""}`}>
-                  <span className="block">{day.label}</span>
+                  <a href={`/dispatch?on=${day.date}`} className="block">{day.label}</a>
                   {day.offLabel ? <span className="off-label">{day.offLabel}</span> : null}
                 </th>
               ))}

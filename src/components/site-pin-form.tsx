@@ -39,7 +39,7 @@ export function SitePinForm({
           <input name="radius" aria-label="Radius" inputMode="decimal" defaultValue={radius} placeholder="Company" className="ctl mt-1 num" />
         </label>
         <span className="flex gap-2">
-          <button type="button" className="mac-glass-btn" onClick={(event) => useHere(event.currentTarget.form)}>
+          <button type="button" className="mac-glass-btn" onClick={(event) => fillHere(event.currentTarget.form)}>
             Use my location
           </button>
           <button type="submit" className="mac-glass-btn" disabled={saving}>
@@ -70,7 +70,7 @@ export function SitePinForm({
   );
 }
 
-function useHere(form: HTMLFormElement | null) {
+function fillHere(form: HTMLFormElement | null) {
   if (!form || !navigator.geolocation) return;
   navigator.geolocation.getCurrentPosition(
     (position) => {

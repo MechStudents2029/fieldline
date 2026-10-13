@@ -28,6 +28,7 @@ const TRIGGERS = [
   ["clock_outside", "Clock punch outside job site"],
   ["visit_due", "Visit due"],
   ["agreement_expiring", "Agreement expiring"],
+  ["unassigned_today", "Unassigned visit today"],
 ] as const;
 
 const ACTION_KINDS = [
