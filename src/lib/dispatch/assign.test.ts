@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatClock, lookbackStart, overlappingIds, parseClock, planAssign, windowOf, type DispatchCard } from "@/lib/dispatch/assign";
+import { formatClock, lookbackStart, minuteFromRatio, overlappingIds, parseClock, planAssign, snapMinute, windowOf, type DispatchCard } from "@/lib/dispatch/assign";
 
 function card(partial: Partial<DispatchCard> & Pick<DispatchCard, "id">): DispatchCard {
   return {
@@ -20,6 +20,12 @@ describe("dispatch assignment", () => {
     expect(parseClock("08:30")).toBe(510);
     expect(formatClock(510)).toBe("08:30");
     expect(parseClock("24:00")).toBeNull();
+    expect(snapMinute(7 * 60 + 7)).toBe(7 * 60);
+    expect(snapMinute(7 * 60 + 8)).toBe(7 * 60 + 15);
+    expect(minuteFromRatio(0)).toBe(7 * 60);
+    expect(minuteFromRatio(30 / 660)).toBe(7 * 60 + 30);
+    expect(minuteFromRatio(480 / 660)).toBe(15 * 60);
+    expect(minuteFromRatio(1)).toBe(17 * 60 + 45);
   });
 
   it("treats a missing end as 60 minutes and a shared edge as free", () => {

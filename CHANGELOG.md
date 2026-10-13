@@ -4,8 +4,9 @@
 
 ### Day dispatch board
 
-- Work > Dispatch is one day. Field techs and anyone already booked that day each have a column. Unassigned is its own column. Agreement visits and schedule items for the day show the clock, the job, and a status pill.
-- A card with no clock, and an unassigned visit from the last 7 days, sits in Open. Drag a card to a column, or use Assign and Unassign. The same person cannot take two cards whose times overlap. A shared edge is free. A missing end is 60 minutes. The other card stays put, and the page says which job it overlaps.
+- Work > Dispatch is one day from 7a to 6p. Prev, Today, and Next sit with the date. Day and Week switch views. Each field tech, and anyone already booked, has a column and the hours on it.
+- A card shows the title, the job, and the clock, sized to its duration. An overlap is a red edge. Open is a narrow list: title, job, date. Drop a row on a column to place it on a 15-minute mark. A card opens start, end, tech, and Unassign.
+- The same person cannot take two cards whose times overlap. A shared edge is free. A missing end is 60 minutes. The other card stays put, and the page says which job it overlaps.
 - Each move writes an audit row. Unassign adds a row and leaves the earlier assign in the log.
 - Field sees only their column and cannot move anyone else. Today counts unassigned work. Inbox has the unassigned note. An automation can run on Unassigned visit today.
 - Seed: Coil visit is unassigned at 08:30 on Chen. Tile shower is Dana at 07:30. Framing walk is Luis at 08:00 when that day is in the current week.

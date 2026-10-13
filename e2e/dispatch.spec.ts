@@ -1,43 +1,81 @@
 import fs from "node:fs";
-import { expect, test } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import { resetDemo, revealToday, signIn } from "./helpers";
 
-function shot(page: import("@playwright/test").Page, name: string) {
+const SPAN = 11 * 60;
+
+async function shot(page: Page, name: string) {
+  const buffer = await page.screenshot();
   fs.mkdirSync("/opt/cursor/artifacts", { recursive: true });
-  return page.screenshot({ path: `/opt/cursor/artifacts/${name}.png` });
+  const path = `/opt/cursor/artifacts/${name}.png`;
+  let last: unknown;
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    try {
+      fs.writeFileSync(path, buffer);
+      return;
+    } catch (error) {
+      last = error;
+      if (!String(error).includes("EIO")) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 200 * (attempt + 1)));
+    }
+  }
+  throw last;
 }
 
-test("assign from unassigned, block the overlap, then move the card", async ({ page, request }) => {
+async function dragToMinute(page: Page, card: Locator, slot: Locator, minutesFromSeven: number) {
+  const from = await card.boundingBox();
+  const box = await slot.boundingBox();
+  if (!from || !box) throw new Error("missing slot");
+  const y = (box.height * minutesFromSeven) / SPAN;
+  await page.mouse.move(from.x + from.width / 2, from.y + Math.min(12, from.height / 2));
+  await page.mouse.down();
+  await page.mouse.move(box.x + Math.min(40, box.width / 2), box.y + y, { steps: 12 });
+  await page.mouse.up();
+}
+
+test("assign from open, block the overlap, then move the card", async ({ page, request }) => {
   await resetDemo(request);
-  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.setViewportSize({ width: 1280, height: 900 });
   await signIn(page);
   await page.goto("/dispatch");
-  await expect(page.getByRole("heading", { name: "Dispatch" })).toBeVisible();
-  const unassigned = page.getByRole("region", { name: "Unassigned" });
-  const coil = unassigned.getByRole("article", { name: "Coil visit" });
+  const main = page.locator("#main");
+  await expect(main.getByRole("heading", { name: "Dispatch" })).toBeVisible();
+  await expect(main.getByRole("link", { name: "Prev" })).toBeVisible();
+  await expect(main.getByRole("link", { name: "Today" })).toBeVisible();
+  await expect(main.getByRole("link", { name: "Next" })).toBeVisible();
+  await expect(main.getByRole("link", { name: "Day", exact: true })).toHaveAttribute("aria-current", "page");
+  await expect(page.locator("input[type=date]")).toHaveCount(0);
+  await expect(page.locator("input[type=time]")).toHaveCount(0);
+  const open = page.getByRole("complementary", { name: "Open" });
+  const coil = open.getByRole("button", { name: "Coil visit" });
+  const dana = page.getByRole("region", { name: "Dana Cho" });
   await expect(coil).toBeVisible();
-  await expect(page.getByRole("region", { name: "Dana Cho" }).getByRole("article", { name: "Tile shower" })).toBeVisible();
-  await coil.getByLabel("Start").fill("07:30");
-  await coil.getByLabel("End").fill("08:30");
-  await coil.getByLabel("Crew").selectOption({ label: "Dana Cho" });
-  await coil.getByRole("button", { name: "Assign", exact: true }).click();
-  await expect(coil.getByRole("alert")).toHaveText(/Overlaps Tile shower/);
-  await expect(unassigned.getByRole("article", { name: "Coil visit" })).toBeVisible();
+  await expect(dana.getByRole("button", { name: "Tile shower" })).toBeVisible();
+  await expect(dana.getByText("1h")).toBeVisible();
+  await expect(page.getByRole("region", { name: "Luis Ortega" }).getByRole("button", { name: "Framing walk" })).toBeVisible();
   await shot(page, "dispatch-light");
   await page.emulateMedia({ colorScheme: "dark" });
   await shot(page, "dispatch-dark");
   await page.emulateMedia({ colorScheme: "light" });
-  await coil.getByLabel("Start").fill("08:30");
-  await coil.getByLabel("End").fill("09:30");
-  await coil.getByLabel("Crew").selectOption({ label: "Maya Rivera" });
-  await coil.getByRole("button", { name: "Assign", exact: true }).click();
-  const maya = page.getByRole("region", { name: "Maya Rivera" }).getByRole("article", { name: "Coil visit" });
-  await expect(maya).toBeVisible();
-  await maya.getByLabel("Start").fill("15:00");
-  await maya.getByLabel("End").fill("16:00");
-  await maya.getByLabel("Crew").selectOption({ label: "Luis Ortega" });
-  await maya.getByRole("button", { name: "Assign", exact: true }).click();
-  await expect(page.getByRole("region", { name: "Luis Ortega" }).getByRole("article", { name: "Coil visit" })).toBeVisible();
+
+  const slot = dana.locator("[data-slot]");
+  await dragToMinute(page, coil, slot, 30);
+  await expect(main.getByRole("alert")).toHaveText(/Overlaps Tile shower/);
+  await expect(open.getByRole("button", { name: "Coil visit" })).toBeVisible();
+
+  await dragToMinute(page, open.getByRole("button", { name: "Coil visit" }), slot, 180);
+  const placed = dana.getByRole("button", { name: "Coil visit" });
+  await expect(placed).toBeVisible();
+  await expect(open.getByRole("button", { name: "Coil visit" })).toHaveCount(0);
+
+  await placed.click();
+  const dialog = page.getByRole("dialog", { name: "Coil visit" });
+  await expect(dialog).toBeVisible();
+  await dialog.getByLabel("Start").fill("15:00");
+  await dialog.getByLabel("End").fill("16:00");
+  await dialog.getByLabel("Tech").selectOption({ label: "Luis Ortega" });
+  await dialog.getByRole("button", { name: "Assign", exact: true }).click();
+  await expect(page.getByRole("region", { name: "Luis Ortega" }).getByRole("button", { name: "Coil visit" })).toBeVisible();
   await page.goto("/");
   await revealToday(page, "Unassigned today");
   await expect(page.locator("a:visible", { hasText: "Unassigned today" })).toBeVisible();

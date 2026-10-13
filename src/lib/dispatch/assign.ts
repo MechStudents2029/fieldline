@@ -5,6 +5,7 @@ export const DEFAULT_SPAN = 60;
 export const LOOKBACK_DAYS = 7;
 export const DAY_START = 7 * 60;
 export const DAY_END = 18 * 60;
+export const SNAP_MIN = 15;
 
 export type DispatchCard = {
   id: string;
@@ -35,6 +36,17 @@ export function formatClock(min: number): string {
 
 export function lookbackStart(day: string, days = LOOKBACK_DAYS): string {
   return addDays(day, -days);
+}
+
+/** Nearest 15 minutes, kept inside the 7a–6p axis. */
+export function snapMinute(min: number): number {
+  const snapped = Math.round(min / SNAP_MIN) * SNAP_MIN;
+  return Math.max(DAY_START, Math.min(DAY_END - SNAP_MIN, snapped));
+}
+
+export function minuteFromRatio(ratio: number): number {
+  const clamped = Math.min(1, Math.max(0, ratio));
+  return snapMinute(DAY_START + clamped * (DAY_END - DAY_START));
 }
 
 /** A start with no end uses DEFAULT_SPAN. An end that is not after the start is not a window. */

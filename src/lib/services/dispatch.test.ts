@@ -24,7 +24,8 @@ describe("day dispatch", () => {
     const maya = actor("maya@rivera.demo");
     const day = todayKey(getDb(), maya.orgId);
     const board = dispatchBoard(maya, day);
-    expect(board.columns.map((column) => column.name)).toContain("Unassigned");
+    expect(board.columns.map((column) => column.name)).not.toContain("Unassigned");
+    expect(board.columns.every((column) => column.id)).toBe(true);
     expect(board.columns.map((column) => column.name)).toContain("Dana Cho");
     expect(board.cards.some((card) => card.title === "Coil visit" && !card.assigneeId)).toBe(true);
     expect(() => assignDispatch(maya, { cardId: "item:sch_disp_coil", assigneeId: "user_dana", start: "07:30", end: "08:30", day })).toThrow(/Overlaps Tile shower/);
