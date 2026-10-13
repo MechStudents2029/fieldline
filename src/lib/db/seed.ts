@@ -40,6 +40,7 @@ import {
   documents,
   estimateGroups,
   estimateMeasurements,
+  estimateOptions,
   estimateSections,
   estimates,
   followUpDrafts,
@@ -190,7 +191,7 @@ import {
   WEBSITE_FORM_SOURCE,
 } from "@/lib/lead-form/rules";
 
-export const SEED_VERSION = "53";
+export const SEED_VERSION = "54";
 
 const ORG = "org_rivera";
 const NORTH = "org_northline";
@@ -862,6 +863,149 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
       expiresAt: daysFromNow(26),
       createdAt: daysAgo(4),
       updatedAt: daysAgo(3),
+      createdBy: "user_luis",
+    })
+    .run();
+
+  const choLines = {
+    good: { name: "Acrylic base", qtyMilli: 1000, unit: "ea", unitCostCents: 400_000, markupBps: 5000, costCode: "BATH-BASE", billing: "included" as const },
+    better: { name: "Tile shower", qtyMilli: 1000, unit: "ea", unitCostCents: 800_000, markupBps: 5000, costCode: "TILE-WALL", billing: "included" as const },
+    allow: { name: "Fixture allowance", qtyMilli: 1000, unit: "ea", unitCostCents: 100_000, markupBps: 5000, costCode: "PLB-FIX", billing: "allowance" as const },
+    best: { name: "Tile shower and glass", qtyMilli: 1000, unit: "ea", unitCostCents: 1_400_000, markupBps: 5000, costCode: "TILE-WALL", billing: "included" as const },
+    heat: { name: "Heated floor", qtyMilli: 1000, unit: "ea", unitCostCents: 300_000, markupBps: 5000, costCode: "ELEC-HEAT", billing: "optional" as const },
+  };
+  function choSnapshot(lines: (typeof choLines)[keyof typeof choLines][], client: { title: string; name: string; address: string }) {
+    return assembleSnapshot({
+      title: client.title,
+      company: "Rivera Remodeling & Trade",
+      clientName: client.name,
+      address: client.address,
+      sections: [{ name: "Bath", lines }],
+      taxBps: 0,
+      scheduleParts: schedule,
+    });
+  }
+  const choClient = { title: "Bath options", name: "Mei Chen", address: "18 Orchard Ave, Oakland" };
+  const choGood = choSnapshot([choLines.good], choClient);
+  const choBetter = choSnapshot([choLines.better, choLines.allow], choClient);
+  const choBest = choSnapshot([choLines.best, choLines.heat], choClient);
+  const choOptions = [
+    { id: "opt_won_good", name: "Good", recommended: false, status: "declined" as const, ...choGood },
+    { id: "opt_won_better", name: "Better", recommended: true, status: "chosen" as const, ...choBetter },
+    { id: "opt_won_best", name: "Best", recommended: false, status: "declined" as const, ...choBest },
+  ];
+  const choSigned: StoredSnapshot = { public: choBetter.public, lines: choBetter.lines, options: choOptions };
+  db.insert(estimates)
+    .values([
+      {
+        id: "est_cho",
+        orgId: ORG,
+        leadId: "lead_cho",
+        version: 2,
+        status: "draft",
+        title: "Cho primary bath",
+        markupBps: 5000,
+        taxBps: 0,
+        marginTargetBps: 3000,
+        notes: null,
+        createdAt: daysAgo(1),
+        updatedAt: now,
+        createdBy: "user_luis",
+      },
+      {
+        id: "est_cho_won",
+        orgId: ORG,
+        leadId: "lead_chen",
+        version: 1,
+        status: "sent",
+        title: "Bath options",
+        markupBps: 5000,
+        taxBps: 0,
+        marginTargetBps: 3000,
+        notes: null,
+        createdAt: daysAgo(6),
+        updatedAt: daysAgo(2),
+        createdBy: "user_luis",
+      },
+    ])
+    .run();
+  db.insert(estimateSections)
+    .values([
+      { id: "sec_cho", orgId: ORG, estimateId: "est_cho", name: "Bath", sortOrder: 0 },
+      { id: "sec_cho_won", orgId: ORG, estimateId: "est_cho_won", name: "Bath", sortOrder: 0 },
+    ])
+    .run();
+  db.insert(estimateOptions)
+    .values([
+      { id: "opt_cho_good", orgId: ORG, estimateId: "est_cho", name: "Good", sortOrder: 0, recommended: 0, createdAt: daysAgo(1) },
+      { id: "opt_cho_better", orgId: ORG, estimateId: "est_cho", name: "Better", sortOrder: 1, recommended: 1, createdAt: daysAgo(1) },
+      { id: "opt_cho_best", orgId: ORG, estimateId: "est_cho", name: "Best", sortOrder: 2, recommended: 0, createdAt: daysAgo(1) },
+      { id: "opt_won_good", orgId: ORG, estimateId: "est_cho_won", name: "Good", sortOrder: 0, recommended: 0, createdAt: daysAgo(6) },
+      { id: "opt_won_better", orgId: ORG, estimateId: "est_cho_won", name: "Better", sortOrder: 1, recommended: 1, createdAt: daysAgo(6) },
+      { id: "opt_won_best", orgId: ORG, estimateId: "est_cho_won", name: "Best", sortOrder: 2, recommended: 0, createdAt: daysAgo(6) },
+    ])
+    .run();
+  const choRow = (
+    id: string,
+    estimateId: string,
+    sectionId: string,
+    optionId: string,
+    line: (typeof choLines)[keyof typeof choLines],
+    sortOrder: number,
+  ) => ({
+    id,
+    orgId: ORG,
+    sectionId,
+    estimateId,
+    priceBookItemId: null,
+    name: line.name,
+    description: null,
+    qtyMilli: line.qtyMilli,
+    unit: line.unit,
+    unitCostCents: line.unitCostCents,
+    markupBps: line.markupBps,
+    costCode: line.costCode,
+    source: "manual",
+    aiConfidenceMilli: null,
+    sourceNote: null,
+    sortOrder,
+    billing: line.billing,
+    optionId,
+  });
+  db.insert(lineItems)
+    .values([
+      choRow("li_cho_good", "est_cho", "sec_cho", "opt_cho_good", choLines.good, 0),
+      choRow("li_cho_better", "est_cho", "sec_cho", "opt_cho_better", choLines.better, 0),
+      choRow("li_cho_allow", "est_cho", "sec_cho", "opt_cho_better", choLines.allow, 1),
+      choRow("li_cho_best", "est_cho", "sec_cho", "opt_cho_best", choLines.best, 0),
+      choRow("li_cho_heat", "est_cho", "sec_cho", "opt_cho_best", choLines.heat, 1),
+      choRow("li_won_good", "est_cho_won", "sec_cho_won", "opt_won_good", choLines.good, 0),
+      choRow("li_won_better", "est_cho_won", "sec_cho_won", "opt_won_better", choLines.better, 0),
+      choRow("li_won_allow", "est_cho_won", "sec_cho_won", "opt_won_better", choLines.allow, 1),
+      choRow("li_won_best", "est_cho_won", "sec_cho_won", "opt_won_best", choLines.best, 0),
+      choRow("li_won_heat", "est_cho_won", "sec_cho_won", "opt_won_best", choLines.heat, 1),
+    ])
+    .run();
+  db.insert(proposals)
+    .values({
+      id: "prop_cho_won",
+      orgId: ORG,
+      estimateId: "est_cho_won",
+      leadId: "lead_chen",
+      projectId: null,
+      status: "signed",
+      publicToken: "demo_proposal_cho",
+      snapshotJson: JSON.stringify(choSigned),
+      paymentScheduleJson: JSON.stringify(choBetter.public.schedule),
+      termsVersion: "2026-09-01",
+      totalCents: choBetter.public.totalCents,
+      sentAt: "2026-10-01T15:00:00.000Z",
+      viewedAt: "2026-10-02T15:00:00.000Z",
+      signedAt: "2026-10-02T16:00:00.000Z",
+      declinedAt: null,
+      expiresAt: daysFromNow(20),
+      createdAt: "2026-10-01T15:00:00.000Z",
+      updatedAt: "2026-10-02T16:00:00.000Z",
       createdBy: "user_luis",
     })
     .run();

@@ -36,6 +36,7 @@ import { calendarForOrg, formatHours, splitsById, workedMinutes } from "@/lib/se
 import { burdenBpsFor, hourlyCostFor, otRulesFor } from "@/lib/time/post";
 import { isNonJob, isShiftType, laborMoney } from "@/lib/time/overtime";
 import { localDay } from "@/lib/time/calendar";
+import { optionFigures, type OptionProposalRow } from "@/lib/estimate/options";
 import { agreementReport } from "@/lib/services/agreements";
 import { cashForecast } from "@/lib/services/cash";
 import { wipReport } from "@/lib/services/wip";
@@ -120,7 +121,46 @@ export function loadSource(actor: Actor, source: SourceId, today: string): Engin
   if (source === "cash") return loadCash(actor);
   if (source === "confirmations") return loadConfirmations(db, actor.orgId);
   if (source === "agreements") return loadAgreements(actor.orgId, today);
+  if (source === "options") return loadOptions(db, actor.orgId);
   return loadPunch(db, actor.orgId);
+}
+
+function loadOptions(db: AppDatabase, orgId: string): EngineRow[] {
+  const rows: OptionProposalRow[] = db
+    .select()
+    .from(proposals)
+    .where(eq(proposals.orgId, orgId))
+    .all()
+    .map((proposal) => {
+      let options: OptionProposalRow["options"] = null;
+      try {
+        const parsed = JSON.parse(proposal.snapshotJson) as { options?: { name?: string; status?: string }[] };
+        if (parsed.options && parsed.options.length >= 2) {
+          options = parsed.options
+            .filter((option) => option.name && option.status)
+            .map((option) => ({ name: String(option.name), status: String(option.status) }));
+        }
+      } catch {
+        options = null;
+      }
+      return {
+        id: proposal.id,
+        status: proposal.status,
+        totalCents: proposal.totalCents,
+        href: proposal.projectId ? `/projects/${proposal.projectId}` : `/leads/${proposal.leadId}`,
+        options,
+      };
+    });
+  return optionFigures(rows).map((row) => ({
+    id: row.id,
+    href: row.href || undefined,
+    cells: {
+      set: text(row.set),
+      wins: { text: row.wins == null ? "—" : String(row.wins), sort: row.wins ?? -1, value: row.winsInTotal ? row.wins : null },
+      share: { text: row.shareBps == null ? "—" : formatPercent(row.shareBps), sort: row.shareBps ?? -1, value: row.shareBps },
+      amount: { text: row.amountCents == null ? "—" : formatWhole(row.amountCents), sort: row.amountCents ?? -1, value: row.amountInTotal ? row.amountCents : null },
+    },
+  }));
 }
 
 function loadAgreements(orgId: string, today: string): EngineRow[] {

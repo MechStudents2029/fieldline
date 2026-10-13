@@ -147,6 +147,7 @@ function fieldOf(col: Col): keyof WorkspaceLine {
 export function EstimateWorkspace({
   userId,
   estimateId,
+  optionId,
   locked,
   sections,
   lines: initialLines,
@@ -168,6 +169,7 @@ export function EstimateWorkspace({
 }: {
   userId: string;
   estimateId: string;
+  optionId?: string;
   locked: boolean;
   sections: WorkspaceSection[];
   lines: WorkspaceLine[];
@@ -277,6 +279,7 @@ export function EstimateWorkspace({
           qtyOverridden: row.qtyOverridden,
         })),
         deletedIds,
+        ...(optionId ? { optionId } : {}),
         ...(nextTarget != null ? { marginTargetBps: nextTarget } : {}),
       }).then((result) => {
         if (ticket !== ticketRef.current) return;
@@ -292,7 +295,7 @@ export function EstimateWorkspace({
       });
     }, 400);
     return () => window.clearTimeout(handle);
-  }, [lines, locked, estimateId]);
+  }, [lines, locked, estimateId, optionId]);
 
   const flat = useMemo(() => flatten(lines, sectionRows), [lines, sectionRows]);
   const totals = useMemo(() => sumCounting(lines), [lines]);
@@ -793,7 +796,7 @@ export function EstimateWorkspace({
               <button type="button" className="est-add" onClick={() => addBelow(flat.at(-1)?.id ?? null)}>
                 + Add line
               </button>
-              <AddAssembly estimateId={estimateId} locked={locked} assemblies={assemblies} measurements={measurements} />
+              <AddAssembly estimateId={estimateId} optionId={optionId} locked={locked} assemblies={assemblies} measurements={measurements} />
             </div>
           )}
         </div>

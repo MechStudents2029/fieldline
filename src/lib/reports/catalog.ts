@@ -16,7 +16,7 @@ export const BUILDER_SOURCES = [
 
 export type BuilderSource = (typeof BUILDER_SOURCES)[number]["id"];
 
-export type SourceId = BuilderSource | "certificates" | "punch" | "cash" | "confirmations" | "agreements";
+export type SourceId = BuilderSource | "certificates" | "punch" | "cash" | "confirmations" | "agreements" | "options";
 
 export type CatalogColumn = {
   key: string;
@@ -171,6 +171,12 @@ export const CATALOG: Record<SourceId, CatalogColumn[]> = {
     { key: "scheduled", label: "Scheduled", kind: "number" },
     { key: "completed", label: "Completed", kind: "number" },
     { key: "rate", label: "Renewal rate", kind: "percent", money: true },
+  ],
+  options: [
+    { key: "set", label: "Set", kind: "text" },
+    { key: "wins", label: "Wins", kind: "number" },
+    { key: "share", label: "Share", kind: "percent", money: true },
+    { key: "amount", label: "Amount", kind: "money", money: true },
   ],
 };
 
@@ -389,6 +395,17 @@ export const BUILTINS: BuiltinReport[] = [
       sort: "week",
     }),
   },
+  {
+    id: "option_tiers",
+    name: "Option tiers",
+    source: "options",
+    field: false,
+    query: query({
+      columns: ["set", "wins", "share", "amount"],
+      sort: "set",
+      dir: "asc",
+    }),
+  },
 ];
 
 export const PAGE_REPORTS = [
@@ -402,7 +419,7 @@ export function builtinById(id: string): BuiltinReport | undefined {
 }
 
 export function sourceLabel(source: string): string {
-  return BUILDER_SOURCES.find((item) => item.id === source)?.label ?? (source === "certificates" ? "Vendor COIs" : source === "punch" ? "Punch items" : source === "cash" ? "Cash" : source === "confirmations" ? "Confirmations" : source === "agreements" ? "Agreements" : source);
+  return BUILDER_SOURCES.find((item) => item.id === source)?.label ?? (source === "certificates" ? "Vendor COIs" : source === "punch" ? "Punch items" : source === "cash" ? "Cash" : source === "confirmations" ? "Confirmations" : source === "agreements" ? "Agreements" : source === "options" ? "Options" : source);
 }
 
 export function customRecord(source: string): string {

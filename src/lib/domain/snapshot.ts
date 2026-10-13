@@ -51,9 +51,19 @@ export type PublicSnapshot = {
   disclaimer: string;
 };
 
+export type SnapshotOption = {
+  id: string;
+  name: string;
+  recommended: boolean;
+  status: "open" | "chosen" | "declined";
+  public: PublicSnapshot;
+  lines: InternalLine[];
+};
+
 export type StoredSnapshot = {
   public: PublicSnapshot;
   lines: InternalLine[];
+  options?: SnapshotOption[];
 };
 
 export function assembleSnapshot(input: {

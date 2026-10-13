@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import { emitAutomation } from "@/lib/services/automations";
 import { applyDefaults } from "@/lib/services/custom-fields";
 import { dataDir, getDb } from "@/lib/db/client";
@@ -20,6 +20,8 @@ import {
   documents,
   estimateGroups,
   estimateMeasurements,
+  draws,
+  estimateOptions,
   estimateSections,
   estimates,
   followUpDrafts,
@@ -55,8 +57,9 @@ import { extractReceiptText, readReceiptMeta, type StoredReceipt } from "@/lib/a
 import { bindFormula, driveUnit, partQtyMilli } from "@/lib/estimate/assembly";
 import { applyCatalogQuantity, evaluateFormula, FormulaError, measurementName, measurementUnit, measuresFromValues, referencedNames } from "@/lib/estimate/formula";
 import { parseGridSync } from "@/lib/estimate/grid";
+import { assignOption, chooseOption, gateOption, nextOptionName } from "@/lib/estimate/options";
 import { countsTowardTotal, type Billing } from "@/lib/estimate/pricing";
-import { assembleSnapshot, defaultSchedule, type StoredSnapshot } from "@/lib/domain/snapshot";
+import { assembleSnapshot, defaultSchedule, type SnapshotOption, type StoredSnapshot } from "@/lib/domain/snapshot";
 import { canonicalJson, sha256 } from "@/lib/esign/hash";
 import { daysFromNow, id, nowIso, token } from "@/lib/ids";
 import { deliverMessage } from "@/lib/messages/outbox";
@@ -131,7 +134,7 @@ function log(
     .run();
 }
 
-function audit(tx: Writer, orgId: string, actorId: string | null, action: string, entityType: string, entityId: string, ip?: string) {
+function audit(tx: Writer, orgId: string, actorId: string | null, action: string, entityType: string, entityId: string, ip?: string, payload?: unknown) {
   tx.insert(auditLogs)
     .values({
       id: id("audit"),
@@ -140,7 +143,7 @@ function audit(tx: Writer, orgId: string, actorId: string | null, action: string
       action,
       entityType,
       entityId,
-      payloadJson: null,
+      payloadJson: payload == null ? null : JSON.stringify(payload),
       ip: ip ?? null,
       createdAt: nowIso(),
     })
@@ -490,11 +493,12 @@ export function updateLine(
 export function addManualLine(
   actor: Actor,
   estimateId: string,
-  input: { name: string; qty: number; unit: string; unitCostCents: number; markupBps: number; costCode?: string },
+  input: { name: string; qty: number; unit: string; unitCostCents: number; markupBps: number; costCode?: string; optionId?: string },
 ) {
   assertMoney(actor);
   loadEditableEstimate(actor, estimateId);
   const db = staffDb(actor);
+  const optionId = optionStamp(db, actor.orgId, estimateId, input.optionId);
   const sections = db.select().from(estimateSections).where(eq(estimateSections.estimateId, estimateId)).all();
   let sectionId = sections[0]?.id;
   if (!sectionId) {
@@ -539,6 +543,7 @@ export function addManualLine(
       qtyFormula: applied?.formula ?? null,
       wasteBps: applied?.wasteBps ?? 0,
       roundToMilli: applied?.roundToMilli ?? null,
+      optionId,
     })
     .run();
 }
@@ -888,6 +893,7 @@ export function insertAssembly(
     measurementId?: string | null;
     measurementName?: string;
     measurementValue?: number;
+    optionId?: string | null;
   },
 ) {
   assertMoney(actor);
@@ -920,6 +926,7 @@ export function insertAssembly(
     }
     createdValue = qtyToMilli(input.measurementValue!);
   }
+  const optionId = optionStamp(db, actor.orgId, estimate.id, input.optionId ?? undefined);
   const sections = db.select().from(estimateSections).where(eq(estimateSections.estimateId, estimate.id)).all();
   const section = sections.sort((a, b) => a.sortOrder - b.sortOrder).at(-1);
   const sectionId = section?.id ?? id("sec");
@@ -997,6 +1004,7 @@ export function insertAssembly(
           roundToMilli: part.roundToMilli,
           groupId,
           qtyOverridden: 0,
+          optionId,
         })
         .run();
     });
@@ -1063,6 +1071,7 @@ export function syncEstimateGrid(actor: Actor, input: unknown) {
       if (other) throw new ServiceError("Line not found.");
     }
   }
+  const optionId = optionStamp(db, actor.orgId, estimate.id, parsed.optionId);
   const now = nowIso();
   db.transaction((tx) => {
     for (const line of parsed.lines) {
@@ -1101,6 +1110,7 @@ export function syncEstimateGrid(actor: Actor, input: unknown) {
             sourceNote: null,
             sortOrder: line.sortOrder,
             billing: line.billing,
+            optionId,
             ...formulaFields,
           })
           .run();
@@ -1170,6 +1180,7 @@ export function reviseEstimate(actor: Actor, estimateId: string) {
     .from(estimateGroups)
     .where(and(eq(estimateGroups.orgId, actor.orgId), eq(estimateGroups.estimateId, estimateId)))
     .all();
+  const optionRows = db.select().from(estimateOptions).where(and(eq(estimateOptions.orgId, actor.orgId), eq(estimateOptions.estimateId, estimateId))).all();
   const previous = db.select().from(estimates).where(eq(estimates.leadId, estimate.leadId)).all();
   const nextId = id("est");
   const now = nowIso();
@@ -1202,6 +1213,14 @@ export function reviseEstimate(actor: Actor, estimateId: string) {
         .values({ ...row, id: measureId, estimateId: nextId })
         .run();
     }
+    const optionIds = new Map<string, string>();
+    for (const option of optionRows) {
+      const optionId = id("opt");
+      optionIds.set(option.id, optionId);
+      tx.insert(estimateOptions)
+        .values({ ...option, id: optionId, estimateId: nextId })
+        .run();
+    }
     const groupIds = new Map<string, string>();
     for (const group of groups) {
       const sectionId = sectionIds.get(group.sectionId);
@@ -1223,12 +1242,250 @@ export function reviseEstimate(actor: Actor, estimateId: string) {
           sectionId,
           estimateId: nextId,
           groupId: line.groupId ? (groupIds.get(line.groupId) ?? null) : null,
+          optionId: line.optionId ? (optionIds.get(line.optionId) ?? null) : null,
         })
         .run();
     }
     log(tx, actor.orgId, "lead", estimate.leadId, "estimate", `Revised estimate into v${version}.`, "user", actor.userId);
   });
   return { estimateId: nextId };
+}
+
+function optionStamp(db: Writer, orgId: string, estimateId: string, optionId: string | undefined): string | null {
+  const options = db.select().from(estimateOptions).where(and(eq(estimateOptions.orgId, orgId), eq(estimateOptions.estimateId, estimateId))).all();
+  if (options.length === 0) {
+    if (optionId) throw new ServiceError("This estimate has no options.");
+    return null;
+  }
+  if (!optionId || !options.some((option) => option.id === optionId)) throw new ServiceError("Pick an option.");
+  return optionId;
+}
+
+function depositPaidCents(db: Writer, orgId: string, projectId: string | null): number {
+  if (!projectId) return 0;
+  return db
+    .select()
+    .from(invoices)
+    .where(and(eq(invoices.orgId, orgId), eq(invoices.projectId, projectId)))
+    .all()
+    .reduce((sum, row) => sum + row.amountPaidCents, 0);
+}
+
+type SnapshotLine = {
+  sectionId: string;
+  name: string;
+  qtyMilli: number;
+  unit: string;
+  unitCostCents: number;
+  markupBps: number;
+  costCode: string | null;
+  billing: string | null;
+  groupId: string | null;
+};
+
+function snapshotForLines(input: {
+  title: string;
+  company: string;
+  clientName: string;
+  address: string;
+  taxBps: number;
+  termsVersion: string;
+  scheduleParts: { type: string; label: string; bps: number }[];
+  sections: { id: string; name: string }[];
+  lines: SnapshotLine[];
+  groups: { id: string; name: string; measurementId: string; presentAs: string }[];
+  measures: { id: string; valueMilli: number; unit: string }[];
+}): StoredSnapshot {
+  const groupById = new Map(input.groups.map((group) => [group.id, group]));
+  return assembleSnapshot({
+    title: input.title,
+    company: input.company,
+    clientName: input.clientName,
+    address: input.address,
+    taxBps: input.taxBps,
+    scheduleParts: input.scheduleParts,
+    termsVersion: input.termsVersion,
+    sections: input.sections.map((section) => ({
+      name: section.name,
+      lines: input.lines
+        .filter((line) => line.sectionId === section.id)
+        .map((line) => {
+          const group = line.groupId ? groupById.get(line.groupId) : undefined;
+          const measure = group ? input.measures.find((row) => row.id === group.measurementId) : undefined;
+          return {
+            name: line.name,
+            qtyMilli: line.qtyMilli,
+            unit: line.unit,
+            unitCostCents: line.unitCostCents,
+            markupBps: line.markupBps,
+            costCode: line.costCode,
+            billing: (line.billing || "included") as Billing,
+            groupId: group?.id ?? null,
+            groupName: group?.name ?? null,
+            presentAs: group ? (group.presentAs === "parts" ? "parts" : "one") : null,
+            groupQtyMilli: measure?.valueMilli ?? null,
+            groupUnit: measure?.unit ?? null,
+          };
+        }),
+    })),
+  });
+}
+
+function applyOptionChoice(
+  tx: Writer,
+  proposal: { id: string; orgId: string; projectId: string | null; snapshotJson: string },
+  options: SnapshotOption[],
+  actorId: string | null,
+  action: string,
+  payload: unknown,
+  ip?: string,
+) {
+  const chosen = options.find((option) => option.status === "chosen");
+  if (!chosen) throw new ServiceError("Choose an option.");
+  const stored = JSON.parse(proposal.snapshotJson) as StoredSnapshot;
+  const next: StoredSnapshot = { ...stored, options, public: chosen.public, lines: chosen.lines };
+  const now = nowIso();
+  tx.update(proposals)
+    .set({
+      snapshotJson: JSON.stringify(next),
+      paymentScheduleJson: JSON.stringify(chosen.public.schedule),
+      totalCents: chosen.public.totalCents,
+      updatedAt: now,
+    })
+    .where(and(eq(proposals.id, proposal.id), eq(proposals.orgId, proposal.orgId)))
+    .run();
+  if (proposal.projectId) {
+    tx.update(projects)
+      .set({ contractValueCents: chosen.public.totalCents, originalContractCents: chosen.public.totalCents, updatedAt: now })
+      .where(and(eq(projects.id, proposal.projectId), eq(projects.orgId, proposal.orgId)))
+      .run();
+    tx.delete(budgetLines)
+      .where(and(eq(budgetLines.orgId, proposal.orgId), eq(budgetLines.projectId, proposal.projectId), isNull(budgetLines.changeOrderId)))
+      .run();
+    for (const line of chosen.lines) {
+      tx.insert(budgetLines)
+        .values({
+          id: id("bud"),
+          orgId: proposal.orgId,
+          projectId: proposal.projectId,
+          changeOrderId: null,
+          name: line.name,
+          costCode: line.costCode,
+          budgetCostCents: line.costCents,
+          budgetPriceCents: line.priceCents,
+          sourceLineId: null,
+          createdAt: now,
+        })
+        .run();
+    }
+    const drawRows = tx
+      .select()
+      .from(draws)
+      .where(and(eq(draws.orgId, proposal.orgId), eq(draws.projectId, proposal.projectId), isNull(draws.changeOrderId)))
+      .all()
+      .sort((a, b) => a.sortOrder - b.sortOrder);
+    drawRows.forEach((draw, index) => {
+      const part = chosen.public.schedule[index];
+      if (!part) return;
+      tx.update(draws)
+        .set({ amountCents: part.amountCents, bps: part.bps, updatedAt: now })
+        .where(and(eq(draws.id, draw.id), eq(draws.orgId, proposal.orgId)))
+        .run();
+    });
+    const deposit = chosen.public.schedule.find((part) => part.type === "deposit");
+    const invoice = tx
+      .select()
+      .from(invoices)
+      .where(and(eq(invoices.orgId, proposal.orgId), eq(invoices.projectId, proposal.projectId), eq(invoices.type, "deposit")))
+      .get();
+    if (invoice && invoice.amountPaidCents === 0 && deposit) {
+      tx.update(invoices)
+        .set({ subtotalCents: deposit.amountCents, totalCents: deposit.amountCents, updatedAt: now })
+        .where(and(eq(invoices.id, invoice.id), eq(invoices.orgId, proposal.orgId)))
+        .run();
+      tx.update(invoiceLines)
+        .set({ amountCents: deposit.amountCents, description: deposit.label })
+        .where(and(eq(invoiceLines.invoiceId, invoice.id), eq(invoiceLines.orgId, proposal.orgId)))
+        .run();
+    }
+  }
+  audit(tx, proposal.orgId, actorId, action, "proposal", proposal.id, ip, payload);
+}
+
+export function enableOptions(actor: Actor, estimateId: string) {
+  assertMoney(actor);
+  loadEditableEstimate(actor, estimateId);
+  const db = staffDb(actor);
+  const existing = db.select().from(estimateOptions).where(and(eq(estimateOptions.orgId, actor.orgId), eq(estimateOptions.estimateId, estimateId))).all();
+  if (existing.length > 0) throw new ServiceError("Options are already on this estimate.");
+  const lines = db.select().from(lineItems).where(and(eq(lineItems.orgId, actor.orgId), eq(lineItems.estimateId, estimateId))).all();
+  const good = id("opt");
+  const better = id("opt");
+  const now = nowIso();
+  db.transaction((tx) => {
+    tx.insert(estimateOptions)
+      .values([
+        { id: good, orgId: actor.orgId, estimateId, name: "Good", sortOrder: 0, recommended: 0, createdAt: now },
+        { id: better, orgId: actor.orgId, estimateId, name: "Better", sortOrder: 1, recommended: 0, createdAt: now },
+      ])
+      .run();
+    for (const line of lines) {
+      tx.update(lineItems).set({ optionId: good }).where(and(eq(lineItems.id, line.id), eq(lineItems.orgId, actor.orgId))).run();
+      tx.insert(lineItems)
+        .values({ ...line, id: id("li"), optionId: better })
+        .run();
+    }
+  });
+}
+
+export function duplicateOption(actor: Actor, optionId: string) {
+  assertMoney(actor);
+  const db = staffDb(actor);
+  const option = db.select().from(estimateOptions).where(and(eq(estimateOptions.id, optionId), eq(estimateOptions.orgId, actor.orgId))).get();
+  if (!option) throw new ServiceError("That option is not on this estimate.");
+  loadEditableEstimate(actor, option.estimateId);
+  const rows = db.select().from(estimateOptions).where(and(eq(estimateOptions.orgId, actor.orgId), eq(estimateOptions.estimateId, option.estimateId))).all();
+  if (rows.length >= 4) throw new ServiceError("An estimate can have 2 to 4 options.");
+  const lines = db.select().from(lineItems).where(and(eq(lineItems.orgId, actor.orgId), eq(lineItems.estimateId, option.estimateId), eq(lineItems.optionId, option.id))).all();
+  const copyId = id("opt");
+  const now = nowIso();
+  db.transaction((tx) => {
+    tx.insert(estimateOptions)
+      .values({
+        id: copyId,
+        orgId: actor.orgId,
+        estimateId: option.estimateId,
+        name: nextOptionName(rows.map((row) => row.name)),
+        sortOrder: rows.reduce((max, row) => Math.max(max, row.sortOrder), 0) + 1,
+        recommended: 0,
+        createdAt: now,
+      })
+      .run();
+    for (const line of lines) {
+      tx.insert(lineItems)
+        .values({ ...line, id: id("li"), optionId: copyId })
+        .run();
+    }
+  });
+  return copyId;
+}
+
+export function recommendOption(actor: Actor, optionId: string) {
+  assertMoney(actor);
+  const db = staffDb(actor);
+  const option = db.select().from(estimateOptions).where(and(eq(estimateOptions.id, optionId), eq(estimateOptions.orgId, actor.orgId))).get();
+  if (!option) throw new ServiceError("That option is not on this estimate.");
+  loadEditableEstimate(actor, option.estimateId);
+  db.transaction((tx) => {
+    tx.update(estimateOptions)
+      .set({ recommended: 0 })
+      .where(and(eq(estimateOptions.orgId, actor.orgId), eq(estimateOptions.estimateId, option.estimateId)))
+      .run();
+    tx.update(estimateOptions)
+      .set({ recommended: 1 })
+      .where(and(eq(estimateOptions.id, option.id), eq(estimateOptions.orgId, actor.orgId)))
+      .run();
+  });
 }
 
 export async function sendProposal(actor: Actor, estimateId: string, overrideMargin = false) {
@@ -1248,8 +1505,16 @@ export async function sendProposal(actor: Actor, estimateId: string, overrideMar
     .where(and(eq(estimateGroups.orgId, actor.orgId), eq(estimateGroups.estimateId, estimateId)))
     .all();
   const measures = measurementRows(db, actor.orgId, estimateId);
-  const groupById = new Map(groups.map((group) => [group.id, group]));
-  const counting = lines.filter((line) => countsTowardTotal((line.billing || "included") as Billing));
+  const optionRows = db
+    .select()
+    .from(estimateOptions)
+    .where(and(eq(estimateOptions.orgId, actor.orgId), eq(estimateOptions.estimateId, estimateId)))
+    .all()
+    .sort((a, b) => a.sortOrder - b.sortOrder);
+  if (optionRows.length > 0 && (optionRows.length < 2 || optionRows.length > 4)) throw new ServiceError("An estimate can have 2 to 4 options.");
+  const gate = optionRows.length === 0 ? null : gateOption(optionRows.map((option) => ({ id: option.id, recommended: option.recommended === 1 })));
+  const scoped = gate ? lines.filter((line) => line.optionId === gate.id) : lines;
+  const counting = scoped.filter((line) => countsTowardTotal((line.billing || "included") as Billing));
   if (counting.length === 0) throw new ServiceError("Add at least one line before sending.");
   let cost = 0;
   let price = 0;
@@ -1262,38 +1527,36 @@ export async function sendProposal(actor: Actor, estimateId: string, overrideMar
   if (margin != null && margin < estimate.marginTargetBps && !overrideMargin) {
     throw new ServiceError(`Margin is under the ${(estimate.marginTargetBps / 100).toFixed(1)}% target. Edit the lines or send with an override.`);
   }
-  const stored = assembleSnapshot({
+  const snapInput = {
     title: estimate.title,
     company: org.name,
     clientName: contact.name,
     address: [contact.address, contact.city, contact.state].filter(Boolean).join(", "),
-    sections: sections.map((section) => ({
-      name: section.name,
-      lines: lines
-        .filter((line) => line.sectionId === section.id)
-        .map((line) => {
-          const group = line.groupId ? groupById.get(line.groupId) : undefined;
-          const measure = group ? measures.find((row) => row.id === group.measurementId) : undefined;
-          return {
-            name: line.name,
-            qtyMilli: line.qtyMilli,
-            unit: line.unit,
-            unitCostCents: line.unitCostCents,
-            markupBps: line.markupBps,
-            costCode: line.costCode,
-            billing: (line.billing || "included") as Billing,
-            groupId: group?.id ?? null,
-            groupName: group?.name ?? null,
-            presentAs: group ? (group.presentAs === "parts" ? "parts" : "one") : null,
-            groupQtyMilli: measure?.valueMilli ?? null,
-            groupUnit: measure?.unit ?? null,
-          };
-        }),
-    })),
     taxBps: estimate.taxBps,
-    scheduleParts: defaultSchedule(org),
     termsVersion: org.termsVersion,
-  });
+    scheduleParts: defaultSchedule(org),
+    sections,
+    groups,
+    measures,
+  };
+  const stored: StoredSnapshot =
+    optionRows.length === 0
+      ? snapshotForLines({ ...snapInput, lines })
+      : (() => {
+          const options: SnapshotOption[] = optionRows.map((option) => {
+            const packed = snapshotForLines({ ...snapInput, lines: lines.filter((line) => line.optionId === option.id) });
+            return {
+              id: option.id,
+              name: option.name,
+              recommended: option.recommended === 1,
+              status: "open",
+              public: packed.public,
+              lines: packed.lines,
+            };
+          });
+          const picked = options.find((option) => option.id === gate?.id) ?? options[0];
+          return { public: picked.public, lines: picked.lines, options };
+        })();
   const proposalId = id("prop");
   const publicToken = token();
   const now = nowIso();
@@ -1416,6 +1679,9 @@ export function signProposal(input: {
       throw new ServiceError("This link has expired. Ask the contractor for a new one.");
     }
     const stored = JSON.parse(proposal.snapshotJson) as StoredSnapshot;
+    if (stored.options && stored.options.length >= 2 && !stored.options.some((option) => option.status === "chosen")) {
+      throw new ServiceError("Choose an option.");
+    }
     const hash = sha256(canonicalJson(stored.public));
     const now = nowIso();
     const projectId = id("proj");
@@ -1557,6 +1823,41 @@ export function signProposal(input: {
     amountCents: project?.contractValueCents ?? signed.totalCents,
   });
   return signed;
+}
+
+export function chooseProposalOption(tokenValue: string, optionId: string, ip?: string) {
+  const db = getDb();
+  db.transaction((tx) => {
+    const proposal = tx.select().from(proposals).where(eq(proposals.publicToken, tokenValue)).get();
+    if (!proposal) throw new ServiceError("This link does not match a proposal.");
+    if (proposal.status !== "sent" && proposal.status !== "viewed") throw new ServiceError("This proposal is not open.");
+    const stored = JSON.parse(proposal.snapshotJson) as StoredSnapshot;
+    let options: SnapshotOption[];
+    try {
+      options = chooseOption(stored.options ?? [], optionId);
+    } catch (error) {
+      throw new ServiceError(error instanceof Error ? error.message : "Choose an option.");
+    }
+    applyOptionChoice(tx, proposal, options, null, "proposal.choose", { optionId }, ip);
+  });
+}
+
+export function switchProposalOption(actor: Actor, proposalId: string, optionId: string, reason: string) {
+  assertMoney(actor);
+  const db = staffDb(actor);
+  db.transaction((tx) => {
+    const proposal = tx.select().from(proposals).where(and(eq(proposals.id, proposalId), eq(proposals.orgId, actor.orgId))).get();
+    if (!proposal) throw new ServiceError("Proposal not found.");
+    if (proposal.status !== "sent" && proposal.status !== "viewed" && proposal.status !== "signed") throw new ServiceError("This proposal is not open.");
+    const stored = JSON.parse(proposal.snapshotJson) as StoredSnapshot;
+    let options: SnapshotOption[];
+    try {
+      options = assignOption(stored.options ?? [], optionId, { depositPaidCents: depositPaidCents(tx, actor.orgId, proposal.projectId), reason });
+    } catch (error) {
+      throw new ServiceError(error instanceof Error ? error.message : "Check the option.");
+    }
+    applyOptionChoice(tx, proposal, options, actor.userId, "proposal.option", { optionId, reason: reason.trim() });
+  });
 }
 
 export function declineProposal(tokenValue: string, reason: string) {

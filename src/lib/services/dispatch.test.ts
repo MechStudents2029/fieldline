@@ -2,6 +2,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { and, eq } from "drizzle-orm";
 import { getDb, useDatabaseFile } from "@/lib/db/client";
 import { auditLogs, scheduleAssignees, scheduleItems } from "@/lib/db/schema";
+import { openTray, shortDay } from "@/lib/dispatch/board";
 import { assignDispatch, dispatchBoard } from "@/lib/services/dispatch";
 import { authenticate } from "@/lib/services/read";
 import { todayKey } from "@/lib/receiving/facts";
@@ -27,6 +28,9 @@ describe("day dispatch", () => {
     expect(board.columns.map((column) => column.name)).not.toContain("Unassigned");
     expect(board.columns.every((column) => column.id)).toBe(true);
     expect(board.columns.map((column) => column.name)).toContain("Dana Cho");
+    expect(shortDay("2026-10-12")).toBe("Oct 12");
+    expect(board.open).toBe(openTray(board.cards, board.columns, board.day).length);
+    expect(board.open).toBeGreaterThan(board.cards.filter((card) => !card.closed && !card.assigneeId).length);
     expect(board.cards.some((card) => card.title === "Coil visit" && !card.assigneeId)).toBe(true);
     expect(() => assignDispatch(maya, { cardId: "item:sch_disp_coil", assigneeId: "user_dana", start: "07:30", end: "08:30", day })).toThrow(/Overlaps Tile shower/);
     expect(getDb().select().from(scheduleAssignees).where(eq(scheduleAssignees.itemId, "sch_disp_coil")).all()).toEqual([]);

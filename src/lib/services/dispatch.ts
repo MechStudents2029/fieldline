@@ -4,6 +4,7 @@ import { getDb, type AppDatabase } from "@/lib/db/client";
 import { officeDb } from "@/lib/db/office";
 import { agreementVisits, auditLogs, memberships, projects, scheduleAssignees, scheduleItems, serviceAgreements, users } from "@/lib/db/schema";
 import { formatClock, lookbackStart, overlappingIds, parseClock, planAssign, windowOf, type DispatchCard } from "@/lib/dispatch/assign";
+import { openTray } from "@/lib/dispatch/board";
 import { id, nowIso } from "@/lib/ids";
 import { canEditSchedule, type Role } from "@/lib/permissions";
 import { todayKey } from "@/lib/receiving/facts";
@@ -192,7 +193,7 @@ export function dispatchBoard(actor: Actor, on?: string): DispatchBoard {
     next: addDays(day, 1),
     label: dayLabel(day),
     canEdit: canEditSchedule(actor.role as Role),
-    open: unassignedCount(cards),
+    open: openTray(cards, columns, day).length,
     people: loaded.people.map((person) => ({ id: person.id, name: person.name })),
     columns,
     cards,

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { headers } from "next/headers";
-import { declineAction, signAction } from "@/app/actions";
+import { chooseOptionAction, declineAction, signAction } from "@/app/actions";
 import { ActionForm } from "@/components/action-form";
 import { SignaturePad } from "@/components/signature-pad";
 import { CONSENT_TEXT } from "@/lib/product";
@@ -19,11 +19,14 @@ export default async function ProposalPage({ params }: { params: Promise<{ token
   const data = proposalByToken(token);
   if (!data?.org) notFound();
   const snapshot = data.snapshot.public;
+  const options = data.snapshot.options ?? [];
+  const hasOptions = options.length >= 2;
+  const chosen = options.find((option) => option.status === "chosen");
   const closed = ["signed", "declined", "superseded"].includes(data.proposal.status) || data.expired;
   const deposit = snapshot.schedule.find((part) => part.type === "deposit");
   const docs = data.proposal.projectId ? documentFields(data.proposal.orgId, data.proposal.projectId) : [];
   return (
-    <main className="home home-proposal">
+    <main className={hasOptions ? "home home-proposal home-options" : "home home-proposal"}>
       <p className="home-company">{data.org.name}</p>
       <p className="home-kicker">Proposal</p>
       <div className="home-hero" aria-hidden="true" />
@@ -42,12 +45,56 @@ export default async function ProposalPage({ params }: { params: Promise<{ token
           </Link>
         </p>
       ) : null}
-      <p className="home-kicker">Total</p>
-      <p className="home-price">{formatMoney(snapshot.totalCents)}</p>
-      {deposit ? (
-        <p className="home-sub home-center">
-          {closed ? "Deposit" : "Deposit due on sign"} · {formatMoney(deposit.amountCents)}
-        </p>
+      {hasOptions && !chosen ? null : (
+        <>
+          <p className="home-kicker">Total</p>
+          <p className="home-price">{formatMoney(snapshot.totalCents)}</p>
+          {deposit ? (
+            <p className="home-sub home-center">
+              {closed ? "Deposit" : "Deposit due on sign"} · {formatMoney(deposit.amountCents)}
+            </p>
+          ) : null}
+        </>
+      )}
+      {hasOptions ? (
+        <div className="option-grid" data-testid="proposal-options">
+          {options.map((option) => {
+            const optionDeposit = option.public.schedule.find((part) => part.type === "deposit");
+            return (
+              <article key={option.id} className="option-card" data-option-name={option.name} data-state={option.status} data-total={option.public.totalCents}>
+                <h2>{option.name}</h2>
+                <p className="home-price">{formatMoney(option.public.totalCents)}</p>
+                {optionDeposit ? <p className="home-sub">Deposit {formatMoney(optionDeposit.amountCents)}</p> : null}
+                {option.status === "declined" ? <p className="home-sub">Declined</p> : null}
+                <div className="home-scope">
+                  {option.public.sections.map((section) => (
+                    <section key={section.name}>
+                      <h3>{section.name}</h3>
+                      <ul>
+                        {section.lines.map((line) => (
+                          <li key={`${option.id}-${section.name}-${line.name}`}>
+                            <span>
+                              {line.name}
+                              {line.kind === "optional" ? <span className="home-sub">Optional</span> : null}
+                              {line.kind === "allowance" ? <span className="home-sub">Allowance</span> : null}
+                            </span>
+                            <span className="home-money">{formatMoney(line.priceCents)}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </section>
+                  ))}
+                </div>
+                {!closed && !chosen ? (
+                  <ActionForm action={chooseOptionAction.bind(null, token)}>
+                    <input type="hidden" name="optionId" value={option.id} />
+                    <button type="submit" className="home-btn">Choose</button>
+                  </ActionForm>
+                ) : null}
+              </article>
+            );
+          })}
+        </div>
       ) : null}
       {docs.length > 0 ? (
         <dl className="home-sub" aria-label="Job fields">
@@ -59,7 +106,7 @@ export default async function ProposalPage({ params }: { params: Promise<{ token
           ))}
         </dl>
       ) : null}
-      <div className="home-scope">
+      {hasOptions ? null : <div className="home-scope">
         {snapshot.sections.map((section) => (
           <section key={section.name}>
             <h2>{section.name}</h2>
@@ -82,8 +129,8 @@ export default async function ProposalPage({ params }: { params: Promise<{ token
             </ul>
           </section>
         ))}
-      </div>
-      {!closed ? (
+      </div>}
+      {!closed && (!hasOptions || chosen) ? (
         <>
           <section className="home-steps" aria-label="Next steps">
             <h2>Next steps</h2>

@@ -27,6 +27,7 @@ export const gridSyncSchema = z.object({
   lines: z.array(lineSchema).max(200),
   deletedIds: z.array(z.string().regex(/^li_[A-Za-z0-9_-]{1,80}$/)).max(200),
   marginTargetBps: z.number().int().min(0).max(9000).optional(),
+  optionId: z.string().regex(/^opt_[A-Za-z0-9_-]{1,80}$/).optional(),
 });
 
 export type GridSync = z.infer<typeof gridSyncSchema>;

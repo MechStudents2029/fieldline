@@ -5,6 +5,7 @@ import { useEffect, useState, type CSSProperties, type PointerEvent as ReactPoin
 import { assignDispatchAction } from "@/app/(office)/dispatch/actions";
 import type { ActionState } from "@/app/actions";
 import { DAY_END, DAY_START, DEFAULT_SPAN, formatClock, minuteFromRatio, windowOf } from "@/lib/dispatch/assign";
+import { openTray, shortDay } from "@/lib/dispatch/board";
 import type { BoardCard, DispatchBoard as Board } from "@/lib/services/dispatch";
 
 const HOUR = 64;
@@ -24,8 +25,8 @@ function bookedLabel(cards: BoardCard[]): string {
     if (window) mins += window.endMin - window.startMin;
   }
   const hours = mins / 60;
-  if (hours === 0) return "0h";
-  return Number.isInteger(hours) ? `${hours}h` : `${hours.toFixed(1)}h`;
+  const label = hours === 0 ? "0h" : Number.isInteger(hours) ? `${hours}h` : `${hours.toFixed(1)}h`;
+  return `${label} booked`;
 }
 
 function spanOf(card: BoardCard): number {
@@ -148,8 +149,7 @@ export function DispatchBoard({ board }: { board: Board }) {
   const [picked, setPicked] = useState<{ id: string; x: number; y: number } | null>(null);
   const [who, setWho] = useState(board.columns[0]?.id ?? "");
   const columnCards = (columnId: string) => board.cards.filter((card) => card.dueOn === board.day && card.assigneeId === columnId && card.start).sort((a, b) => (a.startMin ?? 0) - (b.startMin ?? 0) || a.title.localeCompare(b.title));
-  const placed = new Set(board.columns.flatMap((column) => columnCards(column.id).map((card) => card.id)));
-  const tray = board.cards.filter((card) => !placed.has(card.id)).sort((a, b) => a.dueOn.localeCompare(b.dueOn) || a.title.localeCompare(b.title));
+  const tray = openTray(board.cards, board.columns, board.day);
   const pickedCard = picked ? board.cards.find((card) => card.id === picked.id) : null;
 
   function finish() {
@@ -350,7 +350,7 @@ function OpenRow({ card, onPointerDown, onOpen }: { card: BoardCard; onPointerDo
     >
       <span className="block truncate text-[13px] leading-4">{card.title}</span>
       <span className="block truncate text-[11px] leading-4 text-[var(--mac-secondary)]">{card.site}</span>
-      <span className="num block text-[11px] leading-4 text-[var(--mac-secondary)]">{card.dueOn.slice(5)}</span>
+      <span className="num block text-[11px] leading-4 text-[var(--mac-secondary)]">{shortDay(card.dueOn)}</span>
     </div>
   );
 }

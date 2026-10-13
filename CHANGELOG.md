@@ -2,6 +2,14 @@
 
 ## 2026-10-13
 
+### Proposal options
+
+- An estimate can carry Good, Better, and Best, up to four. Each option has its own lines, cost, price, and margin. Scope, terms, and the deposit rule stay on the estimate. An estimate with no options prices the same way it did.
+- The estimate page shows the options as pills. The open one is teal. The totals bar follows that option, and a strip lists each option’s price and margin. Duplicate copies a tier. One option can be recommended.
+- The client proposal shows the options side by side, with the price, the deposit, and the lines. Choosing one marks the others Declined, then the signature is the same as before. The office can switch the choice before any deposit is paid, and the reason is stored on the audit row. A sent proposal keeps each option’s lines as they were.
+- The signed contract, budget, draws, and later job cost use only the chosen option. Reports list how often each tier was picked, and the average signed amount with options and without.
+- Seed: Cho primary bath is a draft with Good, Better, and Best. Bath options is signed on Better.
+
 ### Day dispatch board
 
 - Work > Dispatch is one day from 7a to 6p. Prev, Today, and Next sit with the date. Day and Week switch views. Each field tech, and anyone already booked, has a column and the hours on it.
@@ -10,6 +18,7 @@
 - Each move writes an audit row. Unassign adds a row and leaves the earlier assign in the log.
 - Field sees only their column and cannot move anyone else. Today counts unassigned work. Inbox has the unassigned note. An automation can run on Unassigned visit today.
 - Seed: Coil visit is unassigned at 08:30 on Chen. Tile shower is Dana at 07:30. Framing walk is Luis at 08:00 when that day is in the current week.
+- The open count in the toolbar is the Open list. Dates read Oct 13. A column shows hours as 1h booked.
 
 ### Service agreements
 

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { addLineAction, leadPhotoAction, removeLineAction, reviseAction, sendProposalAction, updateLineAction } from "@/app/actions";
+import { addLineAction, duplicateOptionAction, enableOptionsAction, leadPhotoAction, recommendOptionAction, removeLineAction, reviseAction, sendProposalAction, switchOptionAction, updateLineAction } from "@/app/actions";
 import { ActionForm } from "@/components/action-form";
 import { GroupedList, StatusPill } from "@/components/ios";
 import { CommentThread } from "@/components/comment-thread";
@@ -8,14 +8,16 @@ import { MissingRecord } from "@/components/missing-record";
 import { PhotoCapture } from "@/components/photo-capture";
 import { Button } from "@/components/ui/button";
 import { requireSession } from "@/lib/auth/session";
+import { optionTotals } from "@/lib/estimate/options";
 import type { Billing } from "@/lib/estimate/pricing";
-import { formatQty, formatWhole, milliToQty } from "@/lib/money";
+import { formatPercent, formatQty, formatWhole, milliToQty } from "@/lib/money";
 import { canSeeMoney } from "@/lib/permissions";
 import { captionFromMetadata, estimateDetail, listAssemblies } from "@/lib/services/read";
 import { estimatePlanHref } from "@/lib/services/takeoff";
 
-export default async function EstimatePage({ params }: { params: Promise<{ id: string }> }) {
+export default async function EstimatePage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ opt?: string }> }) {
   const { id } = await params;
+  const query = await searchParams;
   const session = await requireSession();
   if (!canSeeMoney(session.role)) {
     return <h1 className="fl-large-title">Estimate</h1>;
@@ -23,7 +25,18 @@ export default async function EstimatePage({ params }: { params: Promise<{ id: s
   const detail = estimateDetail(session.orgId, id);
   if (!detail) return <MissingRecord orgName={session.orgName} kind="estimate" />;
   const client = detail.lead?.title ?? "Estimate";
-  const lines: WorkspaceLine[] = detail.lines.map((line) => ({
+  const optionRows = detail.options;
+  const active = optionRows.find((option) => option.id === query.opt) ?? optionRows.find((option) => option.recommended === 1) ?? optionRows[0] ?? null;
+  const scoped = active ? detail.lines.filter((line) => line.optionId === active.id) : detail.lines;
+  const compared = optionRows.map((option) => {
+    const totals = optionTotals(
+      detail.lines.filter((line) => line.optionId === option.id),
+      detail.estimate.taxBps,
+      detail.depositBps,
+    );
+    return { ...option, ...totals };
+  });
+  const lines: WorkspaceLine[] = scoped.map((line) => ({
     id: line.id,
     sectionId: line.sectionId,
     name: line.name,
@@ -87,9 +100,54 @@ export default async function EstimatePage({ params }: { params: Promise<{ id: s
         )}
         </div>
       </div>
+      {optionRows.length >= 2 ? (
+        <div className="flex flex-col gap-3 px-4 pb-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <nav aria-label="Options" data-testid="option-tabs" className="flex flex-wrap gap-2">
+              {optionRows.map((option) => (
+                <a key={option.id} href={`/estimates/${detail.estimate.id}?opt=${option.id}`} className={option.id === active?.id ? "mac-primary" : "mac-glass-btn"} aria-current={option.id === active?.id ? "page" : undefined} data-recommended={option.recommended === 1 ? "1" : "0"}>
+                  {option.name}
+                </a>
+              ))}
+            </nav>
+            {detail.locked ? null : (
+              <>
+                {optionRows.length < 4 ? (
+                  <ActionForm action={duplicateOptionAction.bind(null, detail.estimate.id)}>
+                    <input type="hidden" name="optionId" value={active?.id ?? ""} />
+                    <button type="submit" className="mac-glass-btn">Duplicate</button>
+                  </ActionForm>
+                ) : null}
+                <ActionForm action={recommendOptionAction.bind(null, detail.estimate.id)}>
+                  <input type="hidden" name="optionId" value={active?.id ?? ""} />
+                  <button type="submit" className="mac-glass-btn">Recommend</button>
+                </ActionForm>
+              </>
+            )}
+          </div>
+          <div data-testid="option-compare" className="option-compare">
+            {compared.map((option) => (
+              <a key={option.id} href={`/estimates/${detail.estimate.id}?opt=${option.id}`} data-option={option.id} className="option-stat">
+                <span>{option.name}</span>
+                <span className="num">{formatWhole(option.totalCents)}</span>
+                <span className="num">{option.marginBps == null ? "—" : formatPercent(option.marginBps)}</span>
+              </a>
+            ))}
+          </div>
+          <OptionSwitch estimateId={detail.estimate.id} proposals={detail.proposals} />
+        </div>
+      ) : detail.locked ? null : (
+        <div className="px-4 pb-3">
+          <ActionForm action={enableOptionsAction.bind(null, detail.estimate.id)}>
+            <button type="submit" className="mac-glass-btn">Options</button>
+          </ActionForm>
+        </div>
+      )}
       <EstimateWorkspace
+        key={active?.id ?? "all"}
         userId={session.userId}
         estimateId={detail.estimate.id}
+        optionId={active?.id}
         locked={detail.locked}
         sections={detail.sections.map((section) => ({ id: section.id, name: section.name, sortOrder: section.sortOrder }))}
         lines={lines}
@@ -125,9 +183,9 @@ export default async function EstimatePage({ params }: { params: Promise<{ id: s
       >
         <div className="estimate-phone">
           <PhotoCapture action={leadPhotoAction.bind(null, detail.estimate.leadId)} label="Take an estimate photo" submitLabel="Save site photo" />
-          {detail.lines.length === 0 ? <p className="fl-secondary-text text-[var(--fl-secondary)]">No lines yet</p> : null}
-          <GroupedList label="Lines" meta={String(detail.lines.length)}>
-            {detail.lines.map((line) => {
+          {scoped.length === 0 ? <p className="fl-secondary-text text-[var(--fl-secondary)]">No lines yet</p> : null}
+          <GroupedList label="Lines" meta={String(scoped.length)}>
+            {scoped.map((line) => {
               const measure = /site measure/i.test(line.sourceNote ?? "");
               const billing = line.billing === "optional" ? " · Optional" : line.billing === "allowance" ? " · Allowance" : line.billing === "excluded" ? " · Excluded" : "";
               return (
@@ -174,6 +232,7 @@ export default async function EstimatePage({ params }: { params: Promise<{ id: s
                   <input name="unitCost" placeholder="Unit cost" className="field" />
                   <input name="markup" defaultValue="35" className="field" aria-label="Markup percent" />
                   <input name="costCode" placeholder="Cost code" className="field" />
+                  {active ? <input type="hidden" name="optionId" value={active.id} /> : null}
                   <Button type="submit" variant="outline" className="h-11">
                     Add line
                   </Button>
@@ -184,6 +243,34 @@ export default async function EstimatePage({ params }: { params: Promise<{ id: s
         </div>
       </EstimateWorkspace>
     </div>
+  );
+}
+
+function OptionSwitch({ estimateId, proposals }: { estimateId: string; proposals: { id: string; status: string; snapshotJson: string; projectId: string | null }[] }) {
+  const proposal = [...proposals]
+    .reverse()
+    .find((row) => {
+      if (row.status !== "sent" && row.status !== "viewed" && row.status !== "signed") return false;
+      try {
+        const parsed = JSON.parse(row.snapshotJson) as { options?: { id: string; name: string }[] };
+        return (parsed.options?.length ?? 0) >= 2;
+      } catch {
+        return false;
+      }
+    });
+  if (!proposal) return null;
+  const options = (JSON.parse(proposal.snapshotJson) as { options: { id: string; name: string; status: string }[] }).options;
+  const chosen = options.find((option) => option.status === "chosen");
+  return (
+    <ActionForm action={switchOptionAction.bind(null, estimateId, proposal.id)} className="flex flex-wrap items-center gap-2">
+      <select name="optionId" aria-label="Option" defaultValue={chosen?.id ?? options[0]?.id} className="field h-[26px] w-auto">
+        {options.map((option) => (
+          <option key={option.id} value={option.id}>{option.name}</option>
+        ))}
+      </select>
+      <input name="reason" aria-label="Reason" className="field h-[26px] w-40" />
+      <button type="submit" className="mac-glass-btn">Switch</button>
+    </ActionForm>
   );
 }
 

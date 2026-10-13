@@ -312,7 +312,22 @@ export const lineItems = sqliteTable("line_items", {
   roundToMilli: integer("round_to_milli"),
   groupId: text("group_id"),
   qtyOverridden: integer("qty_overridden").notNull().default(0),
+  optionId: text("option_id"),
 });
+
+export const estimateOptions = sqliteTable(
+  "estimate_options",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    estimateId: text("estimate_id").notNull(),
+    name: text("name").notNull(),
+    sortOrder: integer("sort_order").notNull(),
+    recommended: integer("recommended").notNull().default(0),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [index("estimate_options_estimate").on(t.orgId, t.estimateId)],
+);
 
 export const assemblies = sqliteTable(
   "assemblies",
