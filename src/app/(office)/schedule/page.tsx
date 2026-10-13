@@ -31,6 +31,7 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
                 items={[
                   { href: "/schedule?view=grid", label: "Grid", current: false },
                   { href: "/schedule?view=gantt", label: "Gantt", current: true },
+                  { href: "/dispatch", label: "Day", current: false },
                 ]}
               />
               <Segmented
@@ -60,6 +61,9 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
         <p className="fl-footnote text-[var(--fl-secondary)]">{board.label}</p>
         <Link href="/schedule?view=gantt" className="fl-footnote text-[var(--fl-accent)]">
           Gantt
+        </Link>
+        <Link href="/dispatch" className="fl-footnote text-[var(--fl-accent)]">
+          Day
         </Link>
         <ul className="fl-group">
           {board.phone.length === 0 ? <li className="fl-cell">No items this week</li> : null}

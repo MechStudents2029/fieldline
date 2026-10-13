@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, Boxes, Briefcase, Calendar, ClipboardList, Clock, Copy, FileText, HardHat, Inbox, ListTodo, MessageSquare, Package, Receipt, Repeat, Sun, Ticket, Undo2, Users, Wallet, Wrench } from "lucide-react";
+import { BarChart3, Boxes, Briefcase, Calendar, ClipboardList, Clock, Columns2, Copy, FileText, HardHat, Inbox, ListTodo, MessageSquare, Package, Receipt, Repeat, Sun, Ticket, Undo2, Users, Wallet, Wrench } from "lucide-react";
 import { SignOutButton } from "@/components/sign-out-button";
 import type { OfficeChrome } from "@/lib/services/read";
 
@@ -91,6 +91,7 @@ export function Sidebar({
           </div>
           {field ? null : item("/estimates", "Estimates", <FileText size={16} strokeWidth={1.6} />, chrome.estimateCount)}
           {item("/schedule", "Schedule", <Calendar size={16} strokeWidth={1.6} />)}
+          {item("/dispatch", "Dispatch", <Columns2 size={16} strokeWidth={1.6} />)}
           {item("/deliveries", "Deliveries", <Package size={16} strokeWidth={1.6} />)}
           {item("/agreements", "Agreements", <Repeat size={16} strokeWidth={1.6} />)}
           {item("/inventory", "Inventory", <Boxes size={16} strokeWidth={1.6} />)}

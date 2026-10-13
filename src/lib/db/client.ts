@@ -2925,6 +2925,7 @@ function ensureGantt(holder: Holder) {
   const pk = holder.dialect === "postgres" ? "text primary key" : "text primary key not null";
   ensureColumn(holder, "schedule_items", "phase", "text");
   ensureColumn(holder, "schedule_items", "progress_bps", "integer not null default 0");
+  ensureColumn(holder, "schedule_items", "end_time", "text");
   if (!tableExists(holder.sqlite, "user_prefs", holder.dialect)) {
     holder.sqlite.exec(`create table if not exists user_prefs (
       id ${pk},

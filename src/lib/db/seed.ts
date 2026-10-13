@@ -190,7 +190,7 @@ import {
   WEBSITE_FORM_SOURCE,
 } from "@/lib/lead-form/rules";
 
-export const SEED_VERSION = "52";
+export const SEED_VERSION = "53";
 
 const ORG = "org_rivera";
 const NORTH = "org_northline";
@@ -2806,6 +2806,7 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
     start: string;
     end: string;
     time: string | null;
+    endTime?: string | null;
     status: string;
     note: string | null;
     assignees: string[];
@@ -2823,6 +2824,7 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
     { id: "sch_ok_rough", projectId: "proj_okonkwo", title: "Rough-in", start: addCalendarDays(today, 6), end: addCalendarDays(today, 7), time: null, status: "planned", note: null, assignees: [], vendorContactId: "c_harbor", phase: "Rough", confirmStatus: "confirmed", confirmRequestedBy: "user_maya" },
     { id: "sch_ok_trim", projectId: "proj_okonkwo", title: "Trim out", start: addCalendarDays(today, 2), end: addCalendarDays(today, 2), time: null, status: "planned", note: null, assignees: [], vendorContactId: "c_harbor", phase: "Finish", confirmStatus: "declined", confirmReason: "Need the valve spec", confirmProposed: addCalendarDays(today, 5), confirmRequestedBy: "user_maya" },
     { id: "sch_chen_conflict", projectId: "proj_chen", title: "Vanity set", start: today, end: today, time: null, status: "planned", note: null, assignees: ["user_dana"] },
+    { id: "sch_disp_coil", projectId: "proj_chen", title: "Coil visit", start: today, end: today, time: "08:30", endTime: "09:30", status: "planned", note: null, assignees: [] },
     { id: "sch_br_frame", projectId: "proj_brooks", title: "Framing walk", start: scheduleDay(0), end: scheduleDay(1), time: "08:00", status: "confirmed", note: null, assignees: ["user_luis"], phase: "Framing", progressBps: 6000 },
     { id: "sch_ok_walk", projectId: "proj_okonkwo", title: "Client walk", start: yesterday, end: yesterday, time: null, status: "planned", note: null, assignees: ["user_maya"], phase: "Finish" },
     { id: "sch_dz_punch", projectId: "proj_diaz", title: "Punch list", start: scheduleDay(2), end: scheduleDay(2), time: null, status: "done", note: null, assignees: [] },
@@ -2840,6 +2842,7 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
         startDate: item.start,
         endDate: item.end,
         startTime: item.time,
+        endTime: item.endTime ?? null,
         status: item.status,
         note: item.note,
         vendorContactId: item.vendorContactId ?? null,
@@ -5502,6 +5505,7 @@ function seedTemplates(db: AppDatabase, now: string) {
         { id: `note_agr_open_${userId}`, orgId: ORG, userId, kind: "agreement", commentId: null, entityType: "agreement_visit", entityId: "agv_hvac_due", projectId: "proj_okonkwo", actorId: null, actorName: "Fieldline", snippet: "Unscheduled · Filter plan", readAt: null, createdAt: now },
         { id: `note_agr_over_${userId}`, orgId: ORG, userId, kind: "agreement", commentId: null, entityType: "agreement_visit", entityId: "agv_mow", projectId: "proj_brooks", actorId: null, actorName: "Fieldline", snippet: "Overdue · Seasonal cut", readAt: null, createdAt: now },
         { id: `note_agr_exp_${userId}`, orgId: ORG, userId, kind: "agreement", commentId: null, entityType: "agreement", entityId: "agr_mow", projectId: "proj_brooks", actorId: null, actorName: "Fieldline", snippet: "Expiring · Seasonal cut", readAt: null, createdAt: now },
+        { id: `note_disp_${userId}`, orgId: ORG, userId, kind: "dispatch", commentId: null, entityType: "dispatch", entityId: "sch_disp_coil", projectId: "proj_chen", actorId: null, actorName: "Fieldline", snippet: "Unassigned · Coil visit", readAt: null, createdAt: now },
       ]),
     )
     .run();

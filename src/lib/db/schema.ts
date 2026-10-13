@@ -1153,6 +1153,7 @@ export const scheduleItems = sqliteTable(
     startDate: text("start_date").notNull(),
     endDate: text("end_date").notNull(),
     startTime: text("start_time"),
+    endTime: text("end_time"),
     status: text("status").notNull(),
     held: integer("held").notNull().default(0),
     phase: text("phase"),
