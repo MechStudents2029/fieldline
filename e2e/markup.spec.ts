@@ -29,10 +29,14 @@ test("photo markup, a plan pin, and the inspection edit sheet", async ({ page })
   await page.emulateMedia({ colorScheme: "dark" });
   await shot(page, "markup-photo-dark");
   await page.emulateMedia({ colorScheme: "light" });
+  const stamp = page.locator("p", { hasText: "Maya Rivera" });
+  const before = (await stamp.textContent()) ?? "";
   await page.getByRole("button", { name: "Save" }).click();
-  await expect(page.getByText("Marked up").first()).toBeVisible();
-  await page.getByRole("button", { name: "Original" }).click();
-  await expect(page.getByRole("button", { name: "Marked up" })).toBeVisible();
+  await expect(stamp).not.toHaveText(before);
+  await expect(async () => {
+    await page.getByRole("button", { name: "Original" }).click();
+    await expect(page.getByRole("button", { name: "Marked up" })).toBeVisible({ timeout: 2_000 });
+  }).toPass();
 
   await page.goto("/projects/proj_okonkwo/plans/jf_ok_a101_r2");
   await expect(page.getByRole("link", { name: /Pin 1 Caulk the curb/ })).toBeVisible();
