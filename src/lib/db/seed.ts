@@ -26,6 +26,8 @@ import {
   billEvents,
   billLines,
   bills,
+  bookingHours,
+  bookings,
   budgetLines,
   changeOrderLines,
   changeOrders,
@@ -191,7 +193,7 @@ import {
   WEBSITE_FORM_SOURCE,
 } from "@/lib/lead-form/rules";
 
-export const SEED_VERSION = "54";
+export const SEED_VERSION = "55";
 
 const ORG = "org_rivera";
 const NORTH = "org_northline";
@@ -267,6 +269,15 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
         geoMode: "warn",
         geoRadiusM: 300,
         geoUnit: "ft",
+        bookingEnabled: 1,
+        bookingToken: "demo_booking_rivera",
+        bookingIntervalMin: 30,
+        bookingBufferMin: 0,
+        bookingEarliestHours: 24,
+        bookingDaysMask: 62,
+        bookingStartMin: 8 * 60,
+        bookingEndMin: 17 * 60,
+        bookingQuestionsJson: JSON.stringify([{ id: "q1", label: "Gate code" }]),
         warrantyMonths: 12,
         vendorComplianceMode: "warn",
         vendorRequiredTypes: "general_liability,workers_comp",
@@ -317,7 +328,7 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
     .values([
       { id: "mem_maya", orgId: ORG, userId: "user_maya", role: "owner", createdAt: created },
       { id: "mem_luis", orgId: ORG, userId: "user_luis", role: "estimator", createdAt: created },
-      { id: "mem_dana", orgId: ORG, userId: "user_dana", role: "field", createdAt: created },
+      { id: "mem_dana", orgId: ORG, userId: "user_dana", role: "field", bookable: 1, createdAt: created },
       { id: "mem_sam", orgId: ORG, userId: "user_sam", role: "admin", createdAt: created },
       { id: "mem_riley", orgId: ORG, userId: "user_riley", role: "viewer", createdAt: created },
       { id: "mem_jordan", orgId: NORTH, userId: "user_jordan", role: "owner", createdAt: created },
@@ -509,6 +520,28 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
         createdBy: "user_luis",
       })),
     )
+    .run();
+  db.insert(priceBookItems)
+    .values({
+      id: "pb_svc_call",
+      orgId: ORG,
+      code: "SVC-CALL",
+      name: "Service call",
+      category: "Service",
+      unit: "ea",
+      unitCostCents: 0,
+      defaultMarkupBps: 0,
+      vendor: null,
+      keywords: "",
+      bookable: 1,
+      bookDurationMin: 60,
+      bookPriceCents: 18900,
+      bookStaffJson: null,
+      lastUsedAt: null,
+      createdAt: created,
+      updatedAt: now,
+      createdBy: "user_luis",
+    })
     .run();
 
   db.insert(priceBookItems)
@@ -5643,6 +5676,36 @@ function seedTemplates(db: AppDatabase, now: string) {
       { id: "scha_agr_hvac_next", orgId: ORG, itemId: "sch_agr_hvac_next", userId: "user_dana" },
     ])
     .run();
+  db.insert(bookingHours)
+    .values(
+      [1, 2, 3, 4, 5].map((weekday) => ({
+        id: `bkh_dana_${weekday}`,
+        orgId: ORG,
+        userId: "user_dana",
+        weekday,
+        open: 1,
+        startMin: 8 * 60,
+        endMin: 16 * 60,
+      })),
+    )
+    .run();
+  db.insert(bookings)
+    .values({
+      id: "book_ellis",
+      orgId: ORG,
+      itemId: "pb_svc_call",
+      contactId: "c_ellis",
+      dueOn: agrToday,
+      startTime: "16:00",
+      endTime: "17:00",
+      assigneeUserId: null,
+      status: "scheduled",
+      durationMin: 60,
+      priceCents: 18900,
+      answersJson: JSON.stringify({ q1: "1422" }),
+      createdAt: now,
+    })
+    .run();
   db.insert(notifications)
     .values(
       ["user_maya", "user_sam"].flatMap((userId) => [
@@ -5650,6 +5713,7 @@ function seedTemplates(db: AppDatabase, now: string) {
         { id: `note_agr_over_${userId}`, orgId: ORG, userId, kind: "agreement", commentId: null, entityType: "agreement_visit", entityId: "agv_mow", projectId: "proj_brooks", actorId: null, actorName: "Fieldline", snippet: "Overdue · Seasonal cut", readAt: null, createdAt: now },
         { id: `note_agr_exp_${userId}`, orgId: ORG, userId, kind: "agreement", commentId: null, entityType: "agreement", entityId: "agr_mow", projectId: "proj_brooks", actorId: null, actorName: "Fieldline", snippet: "Expiring · Seasonal cut", readAt: null, createdAt: now },
         { id: `note_disp_${userId}`, orgId: ORG, userId, kind: "dispatch", commentId: null, entityType: "dispatch", entityId: "sch_disp_coil", projectId: "proj_chen", actorId: null, actorName: "Fieldline", snippet: "Unassigned · Coil visit", readAt: null, createdAt: now },
+        { id: `note_book_${userId}`, orgId: ORG, userId, kind: "booking", commentId: null, entityType: "booking", entityId: "book_ellis", projectId: null, actorId: null, actorName: "Nora Ellis", snippet: "Service call · 16:00", readAt: null, createdAt: now },
       ]),
     )
     .run();

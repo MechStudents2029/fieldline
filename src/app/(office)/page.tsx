@@ -8,7 +8,7 @@ import { requireSession } from "@/lib/auth/session";
 import { formatCalendarDay } from "@/lib/format";
 import { cashAlert } from "@/lib/services/cash";
 import { formatCompact, formatPercent, formatWhole } from "@/lib/money";
-import { canEditCrm, canSeeMoney } from "@/lib/permissions";
+import { canEditCrm, canManageSettings, canSeeMoney } from "@/lib/permissions";
 import { companyChecklist, firstProposal } from "@/lib/services/onboarding";
 import { dashboard, listInvoices, listProjects, pipelineBoard } from "@/lib/services/read";
 import { MyDay } from "@/components/my-day";
@@ -41,6 +41,7 @@ import { overdueSelections } from "@/lib/services/selections";
 import { selectionsNeedingPo } from "@/lib/services/order-from";
 import { deliveryAttention } from "@/lib/services/receiving";
 import { agreementAttention } from "@/lib/services/agreements";
+import { bookingAttention } from "@/lib/services/booking";
 import { dispatchAttention } from "@/lib/services/dispatch";
 import { siteAttention } from "@/lib/services/geo";
 import { lowStockCount } from "@/lib/services/inventory";
@@ -257,6 +258,8 @@ export default async function TodayPage() {
   push("agr-exp", agreements.expiring.count, agreements.expiring.href, "Agreements expiring", String(agreements.expiring.count));
   const dispatch = dispatchAttention(session.orgId);
   push("dispatch", dispatch.count, dispatch.href, "Unassigned today", String(dispatch.count));
+  const booked = canManageSettings(session.role) ? bookingAttention(session.orgId) : { count: 0, href: null as string | null };
+  push("booking", booked.count, booked.href, "Online booking", String(booked.count));
   for (const watch of weeklyOtWatch(session)) {
     attention.push({ key: `ot-${watch.userId}`, href: "/time", title: `${watch.name} · weekly OT`, count: 1, trailing: watch.trailing, money: false });
   }

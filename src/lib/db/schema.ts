@@ -47,6 +47,15 @@ export const organizations = sqliteTable("organizations", {
   geoRadiusM: integer("geo_radius_m").notNull().default(300),
   geoUnit: text("geo_unit").notNull().default("ft"),
   defaultDrawsJson: text("default_draws_json"),
+  bookingEnabled: integer("booking_enabled").notNull().default(0),
+  bookingToken: text("booking_token"),
+  bookingIntervalMin: integer("booking_interval_min").notNull().default(30),
+  bookingBufferMin: integer("booking_buffer_min").notNull().default(0),
+  bookingEarliestHours: integer("booking_earliest_hours").notNull().default(24),
+  bookingDaysMask: integer("booking_days_mask").notNull().default(62),
+  bookingStartMin: integer("booking_start_min").notNull().default(480),
+  bookingEndMin: integer("booking_end_min").notNull().default(1020),
+  bookingQuestionsJson: text("booking_questions_json").notNull().default("[]"),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });
@@ -79,6 +88,7 @@ export const memberships = sqliteTable(
       .references(() => users.id),
     role: text("role").notNull(),
     requireLocation: integer("require_location").notNull().default(0),
+    bookable: integer("bookable").notNull().default(0),
     createdAt: text("created_at").notNull(),
   },
   (t) => [uniqueIndex("memberships_org_user").on(t.orgId, t.userId)],
@@ -257,6 +267,10 @@ export const priceBookItems = sqliteTable(
     defaultWasteBps: integer("default_waste_bps"),
     defaultRoundToMilli: integer("default_round_to_milli"),
     lastUsedAt: text("last_used_at"),
+    bookable: integer("bookable").notNull().default(0),
+    bookDurationMin: integer("book_duration_min"),
+    bookPriceCents: integer("book_price_cents"),
+    bookStaffJson: text("book_staff_json"),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
     createdBy: text("created_by"),
@@ -3108,6 +3122,53 @@ export const agreementLines = sqliteTable(
     sortOrder: integer("sort_order").notNull().default(0),
   },
   (t) => [index("agreement_lines_agreement").on(t.orgId, t.agreementId)],
+);
+
+export const bookings = sqliteTable(
+  "bookings",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    itemId: text("item_id").notNull(),
+    contactId: text("contact_id").notNull(),
+    dueOn: text("due_on").notNull(),
+    startTime: text("start_time").notNull(),
+    endTime: text("end_time").notNull(),
+    assigneeUserId: text("assignee_user_id"),
+    status: text("status").notNull(),
+    durationMin: integer("duration_min").notNull(),
+    priceCents: integer("price_cents"),
+    answersJson: text("answers_json").notNull().default("{}"),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [index("bookings_org_day").on(t.orgId, t.dueOn)],
+);
+
+export const bookingHours = sqliteTable(
+  "booking_hours",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    userId: text("user_id").notNull(),
+    weekday: integer("weekday").notNull(),
+    open: integer("open").notNull().default(1),
+    startMin: integer("start_min"),
+    endMin: integer("end_min"),
+  },
+  (t) => [uniqueIndex("booking_hours_user_day").on(t.orgId, t.userId, t.weekday)],
+);
+
+export const bookingOffs = sqliteTable(
+  "booking_offs",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    userId: text("user_id").notNull(),
+    startDate: text("start_date").notNull(),
+    endDate: text("end_date").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [index("booking_offs_user").on(t.orgId, t.userId, t.startDate)],
 );
 
 export const agreementVisits = sqliteTable(
