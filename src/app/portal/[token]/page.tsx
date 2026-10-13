@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { acceptPortalAgreementAction } from "@/app/(office)/agreements/actions";
 import { approveCoAction, chooseSelectionAction, portalMessageAction, portalSignTmAction } from "@/app/actions";
 import { ActionForm } from "@/components/action-form";
 import { FileButton } from "@/components/file-button";
@@ -22,6 +23,7 @@ import { PortalWarrantySection } from "@/components/portal-warranty";
 import { portalRows } from "@/lib/services/custom-fields";
 import { portalCostInvoices } from "@/lib/services/cost-plus";
 import { portalBilling } from "@/lib/services/draws";
+import { portalAgreements } from "@/lib/services/agreements";
 import { portalByToken } from "@/lib/services/read";
 import { portalWarranty } from "@/lib/services/punch";
 import { RfiPortal } from "@/components/rfi-portal";
@@ -74,6 +76,7 @@ export default async function PortalPage({ params }: { params: Promise<{ token: 
     finalInvoiceAt: finalInvoiceAt(data.invoices),
   });
   const billing = portalBilling(token);
+  const agreements = portalAgreements(token);
   const costInvoices = new Map(portalCostInvoices(token).map((invoice) => [invoice.id, invoice]));
   const selections = portalSelections(token) ?? [];
   const warranty = portalWarranty(token);
@@ -195,6 +198,29 @@ export default async function PortalPage({ params }: { params: Promise<{ token: 
           <SubmittalPortal token={token} items={clientPortalSubmittals(token)} jobs={[]} side="client" />
           {warranty && (warranty.closed || warranty.punch.length > 0) ? (
             <PortalWarrantySection token={token} home={warranty} startedAt={portalStarted()} visuals={punchVisuals} />
+          ) : null}
+          {agreements.length > 0 ? (
+            <section aria-label="Agreements">
+              <h2>Agreements</h2>
+              <div className="home-stack">
+                {agreements.map((row) => (
+                  <article key={row.id} className="home-card">
+                    <p className="home-strong">{row.name}</p>
+                    <p className="home-sub">{formatDate(row.startOn)}</p>
+                    <ActionForm action={acceptPortalAgreementAction.bind(null, token)} className="home-form">
+                      <input type="hidden" name="acceptToken" value={row.token} />
+                      <label className="text-sm">
+                        Name
+                        <input name="name" aria-label="Agreement name" required className="home-input" />
+                      </label>
+                      <button type="submit" className="home-button">
+                        Accept
+                      </button>
+                    </ActionForm>
+                  </article>
+                ))}
+              </div>
+            </section>
           ) : null}
           {listed.length > 0 ? (
             <section aria-label="Change orders">

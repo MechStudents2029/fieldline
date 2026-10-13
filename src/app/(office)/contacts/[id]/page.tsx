@@ -5,13 +5,14 @@ import { FileButton } from "@/components/file-button";
 import { MissingRecord } from "@/components/missing-record";
 import { VendorLink } from "@/components/vendor-link";
 import { requireSession } from "@/lib/auth/session";
-import { formatCalendarDay, formatDateTime } from "@/lib/format";
+import { formatCalendarDay, formatDate, formatDateTime } from "@/lib/format";
 import { formatMoney } from "@/lib/money";
 import { canSeeMoney } from "@/lib/permissions";
 import { CERT_TYPES } from "@/lib/vendor/compliance";
 import { contactDetail } from "@/lib/services/read";
 import { vendorOffice } from "@/lib/services/vendor-portal";
 import { outstandingWaivers } from "@/lib/services/waivers";
+import { clientAgreements } from "@/lib/services/agreements";
 import { openCreditBalance } from "@/lib/services/vendor-credits";
 import { RecordFields } from "@/components/field-record";
 import { fieldRows } from "@/lib/services/custom-fields";
@@ -25,6 +26,7 @@ export default async function ContactPage({ params, searchParams }: { params: Pr
   const vendor = vendorOffice(session, id);
   const waivers = canSeeMoney(session.role) ? outstandingWaivers(session, id) : [];
   const credits = canSeeMoney(session.role) ? openCreditBalance(session.orgId, id) : { cents: 0, count: 0 };
+  const agreements = detail.contact.type === "client" ? clientAgreements(session.orgId, id) : [];
   return (
     <div className="flex flex-col gap-4">
       <div>
@@ -51,6 +53,20 @@ export default async function ContactPage({ params, searchParams }: { params: Pr
           </p>
         ) : null}
       </div>
+      {agreements.length ? (
+        <section aria-label="Agreements">
+          <h2 className="mac-t13 font-semibold">Agreements</h2>
+          <ul className="flex flex-col gap-1">
+            {agreements.map((row) => (
+              <li key={row.id} className="mac-t13">
+                <Link href={`/agreements/${row.id}`}>{row.name}</Link>
+                <span className="fl-pill ml-2">{row.statusLabel}</span>
+                {row.nextOn ? <span className="num"> · {formatDate(row.nextOn)}</span> : null}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
       {credits.count ? (
         <section aria-label="Credits">
           <h2 className="mac-t13 font-semibold">Credits</h2>

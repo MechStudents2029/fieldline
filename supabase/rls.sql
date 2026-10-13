@@ -697,6 +697,41 @@ create policy stock_movements_scope on public.stock_movements
   using (org_id in (select public.current_org_ids()))
   with check (org_id in (select public.current_org_ids()));
 
+alter table public.service_agreements enable row level security;
+drop policy if exists service_agreements_scope on public.service_agreements;
+create policy service_agreements_scope on public.service_agreements
+  for all to authenticated
+  using (org_id in (select public.current_org_ids()))
+  with check (org_id in (select public.current_org_ids()));
+
+alter table public.agreement_lines enable row level security;
+drop policy if exists agreement_lines_scope on public.agreement_lines;
+create policy agreement_lines_scope on public.agreement_lines
+  for all to authenticated
+  using (org_id in (select public.current_org_ids()))
+  with check (org_id in (select public.current_org_ids()));
+
+alter table public.agreement_visits enable row level security;
+drop policy if exists agreement_visits_scope on public.agreement_visits;
+create policy agreement_visits_scope on public.agreement_visits
+  for all to authenticated
+  using (org_id in (select public.current_org_ids()))
+  with check (org_id in (select public.current_org_ids()));
+
+alter table public.agreement_checks enable row level security;
+drop policy if exists agreement_checks_scope on public.agreement_checks;
+create policy agreement_checks_scope on public.agreement_checks
+  for all to authenticated
+  using (org_id in (select public.current_org_ids()))
+  with check (org_id in (select public.current_org_ids()));
+
+alter table public.agreement_invoices enable row level security;
+drop policy if exists agreement_invoices_scope on public.agreement_invoices;
+create policy agreement_invoices_scope on public.agreement_invoices
+  for all to authenticated
+  using (org_id in (select public.current_org_ids()))
+  with check (org_id in (select public.current_org_ids()));
+
 alter table public.time_geo_overrides enable row level security;
 drop policy if exists time_geo_overrides_scope on public.time_geo_overrides;
 create policy time_geo_overrides_scope on public.time_geo_overrides

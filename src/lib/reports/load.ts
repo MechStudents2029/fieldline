@@ -36,6 +36,7 @@ import { calendarForOrg, formatHours, splitsById, workedMinutes } from "@/lib/se
 import { burdenBpsFor, hourlyCostFor, otRulesFor } from "@/lib/time/post";
 import { isNonJob, isShiftType, laborMoney } from "@/lib/time/overtime";
 import { localDay } from "@/lib/time/calendar";
+import { agreementReport } from "@/lib/services/agreements";
 import { cashForecast } from "@/lib/services/cash";
 import { wipReport } from "@/lib/services/wip";
 
@@ -118,7 +119,26 @@ export function loadSource(actor: Actor, source: SourceId, today: string): Engin
   if (source === "certificates") return loadCerts(db, actor.orgId, today);
   if (source === "cash") return loadCash(actor);
   if (source === "confirmations") return loadConfirmations(db, actor.orgId);
+  if (source === "agreements") return loadAgreements(actor.orgId, today);
   return loadPunch(db, actor.orgId);
+}
+
+function loadAgreements(orgId: string, today: string): EngineRow[] {
+  const report = agreementReport(orgId, today);
+  const rate = report.rate == null ? "—" : formatPercent(report.rate);
+  return report.rows.map((row) => ({
+    id: row.id,
+    href: `/agreements/${row.id}`,
+    cells: {
+      name: text(row.name),
+      client: text(row.client),
+      status: text(row.status),
+      monthly: money(row.monthlyCents),
+      scheduled: num(row.scheduled),
+      completed: num(row.completed),
+      rate: { text: rate, sort: report.rate ?? -1, value: report.rate },
+    },
+  }));
 }
 
 function loadDeliveries(actor: Actor): EngineRow[] {

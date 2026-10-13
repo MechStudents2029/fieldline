@@ -40,6 +40,7 @@ import { staleClientUpdates } from "@/lib/services/client-updates";
 import { overdueSelections } from "@/lib/services/selections";
 import { selectionsNeedingPo } from "@/lib/services/order-from";
 import { deliveryAttention } from "@/lib/services/receiving";
+import { agreementAttention } from "@/lib/services/agreements";
 import { siteAttention } from "@/lib/services/geo";
 import { lowStockCount } from "@/lib/services/inventory";
 import { creditAttention } from "@/lib/services/vendor-credits";
@@ -249,6 +250,10 @@ export default async function TodayPage() {
   push("stock", stock, stock > 0 ? "/inventory?low=1" : null, "Low stock", String(stock));
   const sites = siteAttention(session);
   push("site", sites.count, sites.href, "Outside job site", String(sites.count));
+  const agreements = agreementAttention(session.orgId);
+  push("agr-open", agreements.unscheduled.count, agreements.unscheduled.href, "Unscheduled visits", String(agreements.unscheduled.count));
+  push("agr-due", agreements.overdue.count, agreements.overdue.href, "Overdue visits", String(agreements.overdue.count));
+  push("agr-exp", agreements.expiring.count, agreements.expiring.href, "Agreements expiring", String(agreements.expiring.count));
   for (const watch of weeklyOtWatch(session)) {
     attention.push({ key: `ot-${watch.userId}`, href: "/time", title: `${watch.name} · weekly OT`, count: 1, trailing: watch.trailing, money: false });
   }

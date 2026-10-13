@@ -3043,3 +3043,101 @@ export const stockMovements = sqliteTable(
   },
   (t) => [index("stock_movements_item").on(t.orgId, t.stockItemId, t.createdAt), index("stock_movements_key").on(t.orgId, t.sourceKey)],
 );
+
+export const serviceAgreements = sqliteTable(
+  "service_agreements",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    contactId: text("contact_id").notNull(),
+    projectId: text("project_id"),
+    name: text("name").notNull(),
+    status: text("status").notNull(),
+    startOn: text("start_on").notNull(),
+    termKind: text("term_kind").notNull(),
+    termMonths: integer("term_months"),
+    endOn: text("end_on"),
+    visitLimit: integer("visit_limit"),
+    cadence: text("cadence").notNull(),
+    intervalWeeks: integer("interval_weeks").notNull().default(1),
+    customDates: text("custom_dates").notNull().default("[]"),
+    billing: text("billing").notNull(),
+    fixedCents: integer("fixed_cents").notNull().default(0),
+    checklistJson: text("checklist_json").notNull().default("[]"),
+    assigneeUserId: text("assignee_user_id"),
+    notes: text("notes").notNull().default(""),
+    parentId: text("parent_id"),
+    acceptToken: text("accept_token").notNull(),
+    acceptedAt: text("accepted_at"),
+    acceptedName: text("accepted_name"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    createdBy: text("created_by"),
+  },
+  (t) => [index("service_agreements_org").on(t.orgId, t.status), uniqueIndex("service_agreements_token").on(t.acceptToken)],
+);
+
+export const agreementLines = sqliteTable(
+  "agreement_lines",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    agreementId: text("agreement_id").notNull(),
+    priceBookItemId: text("price_book_item_id"),
+    code: text("code").notNull(),
+    name: text("name").notNull(),
+    unit: text("unit").notNull(),
+    qtyMilli: integer("qty_milli").notNull(),
+    unitPriceCents: integer("unit_price_cents").notNull(),
+    sortOrder: integer("sort_order").notNull().default(0),
+  },
+  (t) => [index("agreement_lines_agreement").on(t.orgId, t.agreementId)],
+);
+
+export const agreementVisits = sqliteTable(
+  "agreement_visits",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    agreementId: text("agreement_id").notNull(),
+    dueOn: text("due_on").notNull(),
+    status: text("status").notNull(),
+    assigneeUserId: text("assignee_user_id"),
+    scheduleItemId: text("schedule_item_id"),
+    projectId: text("project_id"),
+    invoiceId: text("invoice_id"),
+    skipReason: text("skip_reason"),
+    completedAt: text("completed_at"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (t) => [index("agreement_visits_agreement").on(t.orgId, t.agreementId, t.dueOn)],
+);
+
+export const agreementChecks = sqliteTable(
+  "agreement_checks",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    visitId: text("visit_id").notNull(),
+    label: text("label").notNull(),
+    done: integer("done").notNull().default(0),
+    sortOrder: integer("sort_order").notNull().default(0),
+  },
+  (t) => [index("agreement_checks_visit").on(t.orgId, t.visitId)],
+);
+
+export const agreementInvoices = sqliteTable(
+  "agreement_invoices",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    agreementId: text("agreement_id").notNull(),
+    visitId: text("visit_id"),
+    periodOn: text("period_on"),
+    invoiceId: text("invoice_id").notNull(),
+    sourceKey: text("source_key").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [uniqueIndex("agreement_invoices_key").on(t.orgId, t.sourceKey)],
+);

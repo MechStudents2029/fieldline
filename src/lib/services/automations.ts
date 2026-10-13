@@ -1,6 +1,7 @@
 import { and, eq, inArray } from "drizzle-orm";
 import { getDb } from "@/lib/db/client";
 import {
+  agreementVisits,
   auditLogs,
   automationNotices,
   automationRules,
@@ -26,6 +27,7 @@ import {
   safetyTopics,
   priceBookItems,
   scheduleItems,
+  serviceAgreements,
   stockItems,
   scheduleLinks,
   selections,
@@ -80,7 +82,9 @@ export type Trigger =
   | { kind: "delivery_received" }
   | { kind: "vendor_credit_issued" }
   | { kind: "stock_low" }
-  | { kind: "clock_outside" };
+  | { kind: "clock_outside" }
+  | { kind: "visit_due" }
+  | { kind: "agreement_expiring" };
 
 export type Condition =
   | { kind: "job_type"; value: string }
@@ -187,6 +191,8 @@ export function parseTrigger(raw: string): Trigger | null {
   if (row.kind === "vendor_credit_issued") return { kind: "vendor_credit_issued" };
   if (row.kind === "stock_low") return { kind: "stock_low" };
   if (row.kind === "clock_outside") return { kind: "clock_outside" };
+  if (row.kind === "visit_due") return { kind: "visit_due" };
+  if (row.kind === "agreement_expiring") return { kind: "agreement_expiring" };
   return null;
 }
 
@@ -266,6 +272,8 @@ export function triggerLabel(trigger: Trigger): string {
   if (trigger.kind === "vendor_credit_issued") return "Vendor credit issued";
   if (trigger.kind === "stock_low") return "Low stock";
   if (trigger.kind === "clock_outside") return "Clock punch outside job site";
+  if (trigger.kind === "visit_due") return "Visit due";
+  if (trigger.kind === "agreement_expiring") return "Agreement expiring";
   return "Equipment overdue";
 }
 
@@ -401,6 +409,11 @@ function hrefFor(event: AutomationEvent) {
   if (event.kind === "vendor_credit_issued") return `/vendor-credits/${event.recordId}`;
   if (event.kind === "stock_low") return `/inventory/${event.recordId}`;
   if (event.kind === "clock_outside") return "/time";
+  if (event.kind === "visit_due") {
+    const visit = getDb().select().from(agreementVisits).where(and(eq(agreementVisits.orgId, event.orgId), eq(agreementVisits.id, event.recordId))).get();
+    return visit ? `/agreements/${visit.agreementId}` : "/agreements";
+  }
+  if (event.kind === "agreement_expiring") return `/agreements/${event.recordId}`;
   if (event.kind === "equipment_overdue") return "/equipment";
   if ((event.kind === "incident_logged" || event.kind === "checklist_failed") && event.projectId) return `/projects/${event.projectId}/safety`;
   if (event.kind === "vendor_expiring") return "/contacts";
@@ -1052,6 +1065,8 @@ export function previewRecordLabel(trigger: Trigger) {
   if (trigger.kind === "vendor_credit_issued") return "Vendor credit";
   if (trigger.kind === "stock_low") return "Stock item";
   if (trigger.kind === "clock_outside") return "Time entry";
+  if (trigger.kind === "visit_due") return "Visit";
+  if (trigger.kind === "agreement_expiring") return "Agreement";
   return "Checklist item";
 }
 
@@ -1122,6 +1137,18 @@ export function previewChoices(orgId: string, trigger: Trigger) {
       .where(eq(stockItems.orgId, orgId))
       .all()
       .map((row) => ({ id: row.id, label: books.get(row.priceBookItemId) || "Stock" }));
+  }
+  if (trigger.kind === "visit_due") {
+    const names = new Map(db.select().from(serviceAgreements).where(eq(serviceAgreements.orgId, orgId)).all().map((row) => [row.id, row.name]));
+    return db
+      .select()
+      .from(agreementVisits)
+      .where(eq(agreementVisits.orgId, orgId))
+      .all()
+      .map((row) => ({ id: row.id, label: `${names.get(row.agreementId) || "Visit"} ${row.dueOn}` }));
+  }
+  if (trigger.kind === "agreement_expiring") {
+    return db.select().from(serviceAgreements).where(eq(serviceAgreements.orgId, orgId)).all().map((row) => ({ id: row.id, label: row.name }));
   }
   if (trigger.kind === "clock_outside") {
     const names = new Map(db.select({ id: users.id, name: users.name }).from(users).all().map((row) => [row.id, row.name]));
@@ -1326,6 +1353,34 @@ function eventFromRecord(orgId: string, trigger: Trigger, recordId: string): Aut
       name: order.number,
     };
   }
+  if (trigger.kind === "visit_due") {
+    const visit = db.select().from(agreementVisits).where(and(eq(agreementVisits.orgId, orgId), eq(agreementVisits.id, recordId))).get();
+    if (!visit) return null;
+    const row = db.select().from(serviceAgreements).where(and(eq(serviceAgreements.orgId, orgId), eq(serviceAgreements.id, visit.agreementId))).get();
+    return {
+      orgId,
+      kind: "visit_due",
+      recordType: "agreement_visit",
+      recordId: visit.id,
+      recordLabel: row?.name || "Visit",
+      projectId: visit.projectId,
+      name: row?.name || "Visit",
+    };
+  }
+  if (trigger.kind === "agreement_expiring") {
+    const row = db.select().from(serviceAgreements).where(and(eq(serviceAgreements.orgId, orgId), eq(serviceAgreements.id, recordId))).get();
+    if (!row) return null;
+    return {
+      orgId,
+      kind: "agreement_expiring",
+      recordType: "service_agreement",
+      recordId: row.id,
+      recordLabel: row.name,
+      projectId: row.projectId,
+      name: row.name,
+      days: row.endOn ? daySpan(todayFor(orgId), row.endOn) : 0,
+    };
+  }
   if (trigger.kind === "clock_outside") {
     const entry = db.select().from(timeEntries).where(and(eq(timeEntries.orgId, orgId), eq(timeEntries.id, recordId))).get();
     if (!entry) return null;
@@ -1450,6 +1505,8 @@ export function ruleFromForm(formData: FormData): RuleDraft {
   else if (kind === "vendor_credit_issued") trigger = { kind: "vendor_credit_issued" };
   else if (kind === "stock_low") trigger = { kind: "stock_low" };
   else if (kind === "clock_outside") trigger = { kind: "clock_outside" };
+  else if (kind === "visit_due") trigger = { kind: "visit_due" };
+  else if (kind === "agreement_expiring") trigger = { kind: "agreement_expiring" };
   if (!trigger) throw new ServiceError("Pick a trigger.");
   const conditions: Condition[] = [];
   const conditionSlots = formSlots(formData, "c");
