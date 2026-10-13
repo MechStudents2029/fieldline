@@ -51,7 +51,10 @@ test("assign from open, block the overlap, then move the card", async ({ page, r
   const dana = page.getByRole("region", { name: "Dana Cho" });
   await expect(coil).toBeVisible();
   await expect(dana.getByRole("button", { name: "Tile shower" })).toBeVisible();
-  await expect(dana.getByText("1h")).toBeVisible();
+  await expect(dana.getByText("1h booked")).toBeVisible();
+  const listed = (await open.getByRole("heading").innerText()).replace(/\D/g, "");
+  await expect(page.locator("[data-bar=toolbar] p")).toHaveText(`${listed} open`);
+  await expect(open.getByText(/Oct \d+/).first()).toBeVisible();
   await expect(page.getByRole("region", { name: "Luis Ortega" }).getByRole("button", { name: "Framing walk" })).toBeVisible();
   await shot(page, "dispatch-light");
   await page.emulateMedia({ colorScheme: "dark" });

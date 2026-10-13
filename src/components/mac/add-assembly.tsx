@@ -11,11 +11,13 @@ type Measure = { id: string; name: string; valueMilli: number; unit: string };
 
 export function AddAssembly({
   estimateId,
+  optionId,
   locked,
   assemblies,
   measurements,
 }: {
   estimateId: string;
+  optionId?: string;
   locked: boolean;
   assemblies: Choice[];
   measurements: Measure[];
@@ -35,6 +37,7 @@ export function AddAssembly({
       measurementId: measurementId || null,
       measurementName: measurementId ? undefined : name,
       measurementValue: measurementId ? undefined : Number(value),
+      optionId,
     });
     if (result?.error) {
       setError(result.error);

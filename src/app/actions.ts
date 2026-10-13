@@ -192,7 +192,10 @@ import {
   createChangeOrder,
   createLeadFromText,
   createTask,
+  chooseProposalOption,
   declineProposal,
+  duplicateOption,
+  enableOptions,
   dismissDraft,
   generateEstimate,
   issueNextInvoice,
@@ -203,6 +206,7 @@ import {
   confirmReceiptCost,
   previewReceipt,
   readDemoReceipt,
+  recommendOption,
   removeLine,
   reviseEstimate,
   archiveAssembly,
@@ -218,6 +222,7 @@ import {
   syncEstimateGrid,
   submitTesterFeedback,
   signProposal,
+  switchProposalOption,
   updateLine,
   updateOrgSettings,
   addManualLine,
@@ -488,13 +493,14 @@ export async function insertAssemblyAction(estimateId: string, payload: unknown)
   try {
     const user = await actor();
     if (!payload || typeof payload !== "object") return { error: "Check the assembly." };
-    const body = payload as { assemblyId?: string; measurementId?: string | null; measurementName?: string; measurementValue?: number };
+    const body = payload as { assemblyId?: string; measurementId?: string | null; measurementName?: string; measurementValue?: number; optionId?: string | null };
     insertAssembly(user, {
       estimateId,
       assemblyId: String(body.assemblyId || ""),
       measurementId: body.measurementId,
       measurementName: body.measurementName,
       measurementValue: body.measurementValue,
+      optionId: body.optionId,
     });
     revalidatePath(`/estimates/${estimateId}`);
     return { ok: "Saved." };
@@ -542,6 +548,60 @@ export async function updateLineAction(lineId: string, estimateId: string, _prev
   }
 }
 
+export async function enableOptionsAction(estimateId: string, _prev: ActionState, _formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    enableOptions(user, estimateId);
+    revalidatePath(`/estimates/${estimateId}`);
+    return { ok: "Options added." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function duplicateOptionAction(estimateId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const copyId = duplicateOption(user, String(formData.get("optionId") || ""));
+    revalidatePath(`/estimates/${estimateId}`);
+    redirect(`/estimates/${estimateId}?opt=${copyId}`);
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function recommendOptionAction(estimateId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    recommendOption(user, String(formData.get("optionId") || ""));
+    revalidatePath(`/estimates/${estimateId}`);
+    return { ok: "Recommended." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function switchOptionAction(estimateId: string, proposalId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    switchProposalOption(user, proposalId, String(formData.get("optionId") || ""), String(formData.get("reason") || ""));
+    revalidatePath(`/estimates/${estimateId}`);
+    return { ok: "Option switched." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function chooseOptionAction(token: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    chooseProposalOption(token, String(formData.get("optionId") || ""), await requestIp());
+    revalidatePath(`/p/${token}`);
+    redirect(`/p/${token}`);
+  } catch (error) {
+    return failure(error);
+  }
+}
+
 export async function addLineAction(estimateId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
   try {
     const user = await actor();
@@ -554,6 +614,7 @@ export async function addLineAction(estimateId: string, _prev: ActionState, form
       unitCostCents: unitCost,
       markupBps: Math.round(Number(formData.get("markup") || 35) * 100),
       costCode: String(formData.get("costCode") || "") || undefined,
+      optionId: String(formData.get("optionId") || "") || undefined,
     });
     revalidatePath(`/estimates/${estimateId}`);
     return { ok: "Line added." };

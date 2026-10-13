@@ -101,6 +101,7 @@ begin
     'price_book_items',
     'estimates',
     'estimate_sections',
+    'estimate_options',
     'line_items',
     'estimate_measurements',
     'assemblies',
@@ -266,6 +267,7 @@ begin
   foreach tbl in array array[
     'estimates',
     'estimate_sections',
+    'estimate_options',
     'line_items',
     'estimate_measurements',
     'assemblies',

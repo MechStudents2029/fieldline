@@ -138,6 +138,7 @@ export function ensureReady(holder: Holder) {
   ensureInventory(holder);
   ensureGeofence(holder);
   ensureAgreements(holder);
+  ensureOptions(holder);
   const version = holder.sqlite.prepare("select value from app_meta where key = ?").get("seed_version") as
     | { value: string }
     | undefined;
@@ -1300,6 +1301,23 @@ function ensureRetainage(holder: Holder) {
   ensureColumn(holder, "purchase_orders", "retainage_bps", "integer not null default 0");
   ensureColumn(holder, "bills", "retainage_cents", "integer not null default 0");
   ensureColumn(holder, "bills", "kind", "text not null default 'standard'");
+}
+
+function ensureOptions(holder: Holder) {
+  const pk = holder.dialect === "postgres" ? "text primary key" : "text primary key not null";
+  ensureColumn(holder, "line_items", "option_id", "text");
+  if (!tableExists(holder.sqlite, "estimate_options", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists estimate_options (
+      id ${pk},
+      org_id text not null,
+      estimate_id text not null,
+      name text not null,
+      sort_order integer not null,
+      recommended integer not null default 0,
+      created_at text not null
+    )`);
+  }
+  holder.sqlite.exec("create index if not exists estimate_options_estimate on estimate_options (org_id, estimate_id)");
 }
 
 function ensureColumn(holder: Holder, table: string, column: string, type: string) {

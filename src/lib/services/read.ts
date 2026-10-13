@@ -16,6 +16,7 @@ import {
   documents,
   estimateGroups,
   estimateMeasurements,
+  estimateOptions,
   estimateSections,
   estimates,
   followUpDrafts,
@@ -263,12 +264,19 @@ export function estimateDetail(orgId: string, estimateId: string) {
     .where(and(eq(estimateGroups.estimateId, estimateId), eq(estimateGroups.orgId, orgId)))
     .orderBy(asc(estimateGroups.sortOrder))
     .all();
+  const options = db
+    .select()
+    .from(estimateOptions)
+    .where(and(eq(estimateOptions.estimateId, estimateId), eq(estimateOptions.orgId, orgId)))
+    .orderBy(asc(estimateOptions.sortOrder))
+    .all();
+  const gateId = options.find((option) => option.recommended === 1)?.id ?? options[0]?.id ?? null;
   let cost = 0;
   let price = 0;
   const priced = lines.map((line) => {
     const amounts = lineAmounts(line.qtyMilli, line.unitCostCents, line.markupBps);
     const billing = (line.billing || "included") as Billing;
-    if (countsTowardTotal(billing)) {
+    if (countsTowardTotal(billing) && (gateId == null || line.optionId === gateId)) {
       cost += amounts.cost;
       price += amounts.price;
     }
@@ -289,6 +297,7 @@ export function estimateDetail(orgId: string, estimateId: string) {
     lead,
     contact,
     sections,
+    options,
     measurements,
     groups,
     lines: priced,
@@ -447,9 +456,14 @@ export function listEstimates(orgId: string) {
   const lines = ids.length
     ? db.select().from(lineItems).where(and(eq(lineItems.orgId, orgId), inArray(lineItems.estimateId, ids))).all()
     : [];
+  const optionRows = ids.length
+    ? db.select().from(estimateOptions).where(and(eq(estimateOptions.orgId, orgId), inArray(estimateOptions.estimateId, ids))).all()
+    : [];
   return rows.map((row) => {
+    const mine = optionRows.filter((option) => option.estimateId === row.estimate.id).sort((a, b) => a.sortOrder - b.sortOrder);
+    const gateId = mine.find((option) => option.recommended === 1)?.id ?? mine[0]?.id ?? null;
     const priceCents = lines
-      .filter((line) => line.estimateId === row.estimate.id && countsTowardTotal((line.billing || "included") as Billing))
+      .filter((line) => line.estimateId === row.estimate.id && (gateId == null || line.optionId === gateId) && countsTowardTotal((line.billing || "included") as Billing))
       .reduce((sum, line) => sum + lineAmounts(line.qtyMilli, line.unitCostCents, line.markupBps).price, 0);
     return { ...row, priceCents };
   });

@@ -1692,6 +1692,21 @@ html.mac-inspector-off .mac-inspector { display: none; }
 .home-bubble.mine { background: var(--fl-fill); }
 .home-note { margin-top: 12px; }
 .home-proposal { margin-inline: auto; max-width: 440px; min-height: 100vh; padding: 24px 16px 40px; }
+.home-options { max-width: 960px; }
+.option-compare { display: flex; flex-direction: column; gap: 8px; }
+.option-stat { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; min-width: 0; padding: 8px 10px; border-radius: 10px; background: var(--mac-fill); }
+.option-grid { display: flex; flex-direction: column; gap: 12px; margin-top: 20px; }
+.option-card { min-width: 0; padding: 12px; border-radius: 12px; background: var(--fl-elevated); }
+.option-card[data-state="chosen"] { box-shadow: inset 0 0 0 1.5px var(--fl-accent); }
+.option-card h2 { font-size: 15px; line-height: 20px; }
+.option-card .home-price { font-size: 28px; line-height: 32px; }
+.option-card .home-scope { margin-top: 8px; }
+@media (min-width: 768px) {
+  .option-compare { flex-direction: row; }
+  .option-stat { flex: 1; flex-direction: column; align-items: flex-start; }
+  .option-grid { flex-direction: row; align-items: stretch; }
+  .option-card { flex: 1; }
+}
 .home-hero { height: 140px; margin: 16px 0; border-radius: 16px; background: #d5e3d8; }
 @media (prefers-color-scheme: dark) {
   .home-hero { background: #1a3330; }
