@@ -185,10 +185,7 @@ export function dispatchBoard(actor: Actor, on?: string): DispatchBoard {
   if (field) cards = cards.filter((card) => card.assigneeId === actor.userId);
   const busy = new Set(cards.filter((card) => card.assigneeId && card.dueOn === day && windowOf(card.startMin, card.endMin)).map((card) => card.assigneeId as string));
   const shown = field ? loaded.people.filter((person) => person.id === actor.userId) : loaded.people.filter((person) => person.role === "field" || busy.has(person.id));
-  const columns = [
-    ...(field ? [] : [{ id: "", name: "Unassigned" }]),
-    ...shown.map((person) => ({ id: person.id, name: person.name })),
-  ];
+  const columns = shown.map((person) => ({ id: person.id, name: person.name }));
   return {
     day,
     prev: addDays(day, -1),
