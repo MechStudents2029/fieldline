@@ -56,6 +56,13 @@ export const organizations = sqliteTable("organizations", {
   bookingStartMin: integer("booking_start_min").notNull().default(480),
   bookingEndMin: integer("booking_end_min").notNull().default(1020),
   bookingQuestionsJson: text("booking_questions_json").notNull().default("[]"),
+  reviewEnabled: integer("review_enabled").notNull().default(0),
+  reviewTiming: text("review_timing").notNull().default("complete"),
+  reviewGoogleUrl: text("review_google_url"),
+  reviewFacebookUrl: text("review_facebook_url"),
+  reviewWebsiteUrl: text("review_website_url"),
+  reviewExcludeTags: text("review_exclude_tags").notNull().default(""),
+  reviewTemplate: text("review_template").notNull().default(""),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });
@@ -485,6 +492,7 @@ export const projects = sqliteTable(
     siteLatE6: integer("site_lat_e6"),
     siteLngE6: integer("site_lng_e6"),
     siteRadiusM: integer("site_radius_m"),
+    tags: text("tags").notNull().default(""),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
     createdBy: text("created_by"),
@@ -3169,6 +3177,26 @@ export const bookingOffs = sqliteTable(
     createdAt: text("created_at").notNull(),
   },
   (t) => [index("booking_offs_user").on(t.orgId, t.userId, t.startDate)],
+);
+
+export const reviewRequests = sqliteTable(
+  "review_requests",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    projectId: text("project_id").notNull(),
+    contactId: text("contact_id").notNull(),
+    status: text("status").notNull(),
+    platform: text("platform").notNull().default(""),
+    url: text("url").notNull().default(""),
+    message: text("message").notNull().default(""),
+    skipReason: text("skip_reason").notNull().default(""),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    copiedAt: text("copied_at"),
+    sentAt: text("sent_at"),
+  },
+  (t) => [uniqueIndex("review_requests_job").on(t.orgId, t.projectId), index("review_requests_org").on(t.orgId, t.status)],
 );
 
 export const agreementVisits = sqliteTable(

@@ -94,6 +94,13 @@ export default async function SettingsPage() {
               </Link>
             </li>
           ) : null}
+          {canManageSettings(session.role) ? (
+            <li>
+              <Link href="/settings/reviews" className="block py-2 mac-t13 text-[var(--mac-accent)]">
+                Reviews
+              </Link>
+            </li>
+          ) : null}
           {canManageSettings(session.role) && canSeeMoney(session.role) ? (
             <li>
               <Link href="/settings/lien-waivers" className="block py-2 mac-t13 text-[var(--mac-accent)]">

@@ -24,6 +24,8 @@ import { DashboardStrip } from "@/components/dashboard-strip";
 import { dashboardForRole } from "@/lib/services/dashboards";
 import { formatHours, timeBoard } from "@/lib/services/time";
 import { fieldOpenTickets } from "@/lib/services/tm";
+import { fieldReviewQueue } from "@/lib/services/reviews";
+import { AskReview } from "@/components/review-copy";
 
 function clock(iso: string) {
   const mins = Math.max(0, Math.floor((Date.now() - Date.parse(iso)) / 60000));
@@ -50,6 +52,7 @@ export function MyDay({ actor }: { actor: Actor }) {
   const notices = noticesFor(actor);
   const talks = leaderTalks(actor);
   const tickets = fieldOpenTickets(actor);
+  const reviews = fieldReviewQueue(actor);
   const home = dashboardForRole(actor);
   const open = day.open;
   return (
@@ -122,6 +125,18 @@ export function MyDay({ actor }: { actor: Actor }) {
           ))}
         </ul>
       </section>
+      {reviews.length > 0 ? (
+        <section aria-label="Ask for review" data-testid="ask-review" className="flex flex-col gap-2">
+          <h2 className="fl-section">Ask for review</h2>
+          <ul className="fl-group">
+            {reviews.map((row) => (
+              <li key={row.id} className="fl-cell">
+                <AskReview id={row.id} job={row.job} url={row.url} message={row.message} />
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
       <section aria-label="Tomorrow" className="flex flex-col gap-2">
         <h2 className="fl-section">Tomorrow</h2>
         <ul className="fl-group">

@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import { emitAutomation } from "@/lib/services/automations";
+import { considerReview } from "@/lib/services/reviews";
 import { applyDefaults } from "@/lib/services/custom-fields";
 import { dataDir, getDb } from "@/lib/db/client";
 import { officeDb } from "@/lib/db/office";
@@ -1885,7 +1886,7 @@ export function payInvoice(input: {
 }) {
   if (!input.idempotencyKey) throw new ServiceError("Missing idempotency key.");
   const db = getDb();
-  return db.transaction((tx) => {
+  const result = db.transaction((tx) => {
     const invoice = tx.select().from(invoices).where(eq(invoices.payToken, input.token)).get();
     if (!invoice) throw new ServiceError("Invoice not found.");
     const existing = tx.select().from(payments).where(eq(payments.idempotencyKey, input.idempotencyKey)).get();
@@ -1937,6 +1938,15 @@ export function payInvoice(input: {
     audit(tx, invoice.orgId, null, decision.ok ? "payment.succeeded" : "payment.failed", "invoice", invoice.id, input.ip);
     return { ok: decision.ok, duplicate: false, reason: decision.ok ? null : decision.reason, paymentId };
   });
+  if (result.ok && !result.duplicate) {
+    try {
+      const invoice = db.select().from(invoices).where(eq(invoices.payToken, input.token)).get();
+      if (invoice) considerReview(invoice.orgId, invoice.projectId, "paid");
+    } catch {
+      // A review miss does not undo the payment.
+    }
+  }
+  return result;
 }
 
 export function issueNextInvoice(actor: Actor, projectId: string) {

@@ -2,6 +2,15 @@
 
 ## 2026-10-13
 
+### Review requests
+
+- Settings, Reviews holds the Google review link, and optional Facebook and website links. Timing is Job completed or Job fully paid. Tags on the exclude list skip that job. The message can use {client}, {job}, and {link}. Field cannot change it.
+- A finished job, or a job whose invoices are all paid, gets one review request. A second trigger keeps that same row. Draft means there is no link yet. Ready means the link is there. Copy link records Copied. Mark sent records that the office sent it outside Fieldline. Skip needs a reason. Void closes it.
+- Work, Reviews lists the requests, filters them, and downloads CSV. The detail page has the link and the message. Today counts an open request for an owner or admin. Inbox has the note. An automation can run when a request is created, and when it is marked sent.
+- The client portal shows Leave a review once the request is ready. The link opens the pasted review page. My day shows Ask for review on a job the tech is already on, and copies the link. Nothing is emailed or texted.
+- Reports count requests created, marked sent, and skipped this month.
+- Seed: Diaz deck replacement is complete, with a Ready request and a Google review link on the company.
+
 ### Online booking
 
 - Settings, Bookings turns the public page on, sets the days and hours, the earliest lead time, the interval, and the buffer. The link is on that page to copy. Field cannot change it.

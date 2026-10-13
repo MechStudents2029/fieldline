@@ -42,6 +42,7 @@ import { selectionsNeedingPo } from "@/lib/services/order-from";
 import { deliveryAttention } from "@/lib/services/receiving";
 import { agreementAttention } from "@/lib/services/agreements";
 import { bookingAttention } from "@/lib/services/booking";
+import { reviewAttention } from "@/lib/services/reviews";
 import { dispatchAttention } from "@/lib/services/dispatch";
 import { siteAttention } from "@/lib/services/geo";
 import { lowStockCount } from "@/lib/services/inventory";
@@ -260,6 +261,8 @@ export default async function TodayPage() {
   push("dispatch", dispatch.count, dispatch.href, "Unassigned today", String(dispatch.count));
   const booked = canManageSettings(session.role) ? bookingAttention(session.orgId) : { count: 0, href: null as string | null };
   push("booking", booked.count, booked.href, "Online booking", String(booked.count));
+  const reviews = canManageSettings(session.role) ? reviewAttention(session.orgId) : { count: 0, href: null as string | null };
+  push("reviews", reviews.count, reviews.href, "Review request", String(reviews.count));
   for (const watch of weeklyOtWatch(session)) {
     attention.push({ key: `ot-${watch.userId}`, href: "/time", title: `${watch.name} · weekly OT`, count: 1, trailing: watch.trailing, money: false });
   }

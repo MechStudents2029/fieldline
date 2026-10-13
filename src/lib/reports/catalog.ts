@@ -16,7 +16,7 @@ export const BUILDER_SOURCES = [
 
 export type BuilderSource = (typeof BUILDER_SOURCES)[number]["id"];
 
-export type SourceId = BuilderSource | "certificates" | "punch" | "cash" | "confirmations" | "agreements" | "options";
+export type SourceId = BuilderSource | "certificates" | "punch" | "cash" | "confirmations" | "agreements" | "options" | "reviews";
 
 export type CatalogColumn = {
   key: string;
@@ -177,6 +177,10 @@ export const CATALOG: Record<SourceId, CatalogColumn[]> = {
     { key: "wins", label: "Wins", kind: "number" },
     { key: "share", label: "Share", kind: "percent", money: true },
     { key: "amount", label: "Amount", kind: "money", money: true },
+  ],
+  reviews: [
+    { key: "metric", label: "Metric", kind: "text" },
+    { key: "count", label: "Count", kind: "number" },
   ],
 };
 
@@ -406,6 +410,17 @@ export const BUILTINS: BuiltinReport[] = [
       dir: "asc",
     }),
   },
+  {
+    id: "review_requests",
+    name: "Review requests",
+    source: "reviews",
+    field: false,
+    query: query({
+      columns: ["metric", "count"],
+      sort: "metric",
+      dir: "asc",
+    }),
+  },
 ];
 
 export const PAGE_REPORTS = [
@@ -419,7 +434,7 @@ export function builtinById(id: string): BuiltinReport | undefined {
 }
 
 export function sourceLabel(source: string): string {
-  return BUILDER_SOURCES.find((item) => item.id === source)?.label ?? (source === "certificates" ? "Vendor COIs" : source === "punch" ? "Punch items" : source === "cash" ? "Cash" : source === "confirmations" ? "Confirmations" : source === "agreements" ? "Agreements" : source === "options" ? "Options" : source);
+  return BUILDER_SOURCES.find((item) => item.id === source)?.label ?? (source === "certificates" ? "Vendor COIs" : source === "punch" ? "Punch items" : source === "cash" ? "Cash" : source === "confirmations" ? "Confirmations" : source === "agreements" ? "Agreements" : source === "options" ? "Options" : source === "reviews" ? "Reviews" : source);
 }
 
 export function customRecord(source: string): string {

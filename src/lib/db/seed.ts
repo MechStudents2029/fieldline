@@ -132,6 +132,7 @@ import {
   commentMentions,
   comments,
   notifications,
+  reviewRequests,
   warrantyRequests,
   proposals,
   signatures,
@@ -193,7 +194,7 @@ import {
   WEBSITE_FORM_SOURCE,
 } from "@/lib/lead-form/rules";
 
-export const SEED_VERSION = "55";
+export const SEED_VERSION = "56";
 
 const ORG = "org_rivera";
 const NORTH = "org_northline";
@@ -278,6 +279,13 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
         bookingStartMin: 8 * 60,
         bookingEndMin: 17 * 60,
         bookingQuestionsJson: JSON.stringify([{ id: "q1", label: "Gate code" }]),
+        reviewEnabled: 1,
+        reviewTiming: "complete",
+        reviewGoogleUrl: "https://search.google.com/local/writereview?placeid=ChIJdemoRiveraOakland",
+        reviewFacebookUrl: null,
+        reviewWebsiteUrl: null,
+        reviewExcludeTags: "",
+        reviewTemplate: "{client}, {job} is finished. {link}",
         warrantyMonths: 12,
         vendorComplianceMode: "warn",
         vendorRequiredTypes: "general_liability,workers_comp",
@@ -1225,6 +1233,43 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
           updatedAt: now,
         })
         .where(eq(projects.id, job.id))
+        .run();
+      const reviewUrl = "https://search.google.com/local/writereview?placeid=ChIJdemoRiveraOakland";
+      db.insert(reviewRequests)
+        .values({
+          id: "rev_diaz",
+          orgId: ORG,
+          projectId: "proj_diaz",
+          contactId: "c_diaz",
+          status: "ready",
+          platform: "google",
+          url: reviewUrl,
+          message: `Rosa Diaz, Diaz deck replacement is finished. ${reviewUrl}`,
+          skipReason: "",
+          createdAt: now,
+          updatedAt: now,
+          copiedAt: null,
+          sentAt: null,
+        })
+        .run();
+      db.insert(notifications)
+        .values(
+          ["user_maya", "user_sam"].map((userId) => ({
+            id: `note_rev_${userId}`,
+            orgId: ORG,
+            userId,
+            kind: "review",
+            commentId: null,
+            entityType: "review_request",
+            entityId: "rev_diaz",
+            projectId: null,
+            actorId: null,
+            actorName: "Fieldline",
+            snippet: "Diaz deck replacement",
+            readAt: null,
+            createdAt: daysAgo(40),
+          })),
+        )
         .run();
     }
     db.update(proposals).set({ projectId: job.id }).where(eq(proposals.id, proposalId)).run();
