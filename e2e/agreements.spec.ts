@@ -26,7 +26,7 @@ test("sell a maintenance agreement through a draft invoice and a renewal", async
   await page.getByRole("button", { name: "Save" }).click();
   await expect(page.getByRole("heading", { name: "Filter plan e2e" })).toBeVisible();
   await page.getByRole("button", { name: "Accept" }).click();
-  await expect(page.getByText("Accepted")).toBeVisible();
+  await expect(page.locator(".fl-pill", { hasText: "Active" })).toBeVisible();
   await page.goto("/schedule?on=2026-10-13");
   await expect(page.getByText("Filter plan e2e").first()).toBeVisible();
   await page.goto("/agreements");
@@ -42,7 +42,7 @@ test("sell a maintenance agreement through a draft invoice and a renewal", async
   await expect(page.getByRole("heading", { name: "Filter plan e2e" })).toBeVisible();
   await expect(page.locator(".fl-pill", { hasText: "Draft" })).toBeVisible();
   await page.getByRole("button", { name: "Accept" }).click();
-  await expect(page.getByText("Accepted")).toBeVisible();
+  await expect(page.locator(".fl-pill", { hasText: "Active" })).toBeVisible();
   await page.getByRole("link", { name: "Filter plan e2e" }).first().click();
   await expect(page.locator(".fl-pill", { hasText: "Renewed" })).toBeVisible();
 });

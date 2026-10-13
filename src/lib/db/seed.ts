@@ -5400,7 +5400,7 @@ function seedTemplates(db: AppDatabase, now: string) {
       { id: "agv_hvac_next", orgId: ORG, agreementId: "agr_hvac", dueOn: agrTomorrow, status: "scheduled", assigneeUserId: "user_dana", scheduleItemId: "sch_agr_hvac_next", projectId: "proj_okonkwo", invoiceId: null, skipReason: null, completedAt: null, createdAt: now, updatedAt: now },
       { id: "agv_mow", orgId: ORG, agreementId: "agr_mow", dueOn: agrYesterday, status: "scheduled", assigneeUserId: null, scheduleItemId: "sch_agr_mow", projectId: "proj_brooks", invoiceId: null, skipReason: null, completedAt: null, createdAt: now, updatedAt: now },
       { id: "agv_snow_a", orgId: ORG, agreementId: "agr_snow", dueOn: agrYesterday, status: "scheduled", assigneeUserId: null, scheduleItemId: "sch_agr_snow_a", projectId: "proj_diaz", invoiceId: null, skipReason: null, completedAt: null, createdAt: now, updatedAt: now },
-      { id: "agv_snow_b", orgId: ORG, agreementId: "agr_snow", dueOn: agrToday, status: "scheduled", assigneeUserId: "user_dana", scheduleItemId: "sch_agr_snow_b", projectId: "proj_diaz", invoiceId: null, skipReason: null, completedAt: null, createdAt: now, updatedAt: now },
+      { id: "agv_snow_b", orgId: ORG, agreementId: "agr_snow", dueOn: agrToday, status: "scheduled", assigneeUserId: null, scheduleItemId: "sch_agr_snow_b", projectId: "proj_diaz", invoiceId: null, skipReason: null, completedAt: null, createdAt: now, updatedAt: now },
     ])
     .run();
   db.insert(agreementChecks)
@@ -5494,7 +5494,6 @@ function seedTemplates(db: AppDatabase, now: string) {
     .values([
       { id: "scha_agr_hvac_done", orgId: ORG, itemId: "sch_agr_hvac_done", userId: "user_dana" },
       { id: "scha_agr_hvac_next", orgId: ORG, itemId: "sch_agr_hvac_next", userId: "user_dana" },
-      { id: "scha_agr_snow_b", orgId: ORG, itemId: "sch_agr_snow_b", userId: "user_dana" },
     ])
     .run();
   db.insert(notifications)
