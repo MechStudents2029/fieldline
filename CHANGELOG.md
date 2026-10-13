@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-10-13
+
+### Service agreements
+
+- An agreement sits on a client and an optional job. It names the included price-book lines, a start date, a term, a visit cadence, a billing rule, a checklist, and a default crew.
+- Cadence is weekly, every N weeks, monthly, quarterly, semiannual, annual, a list of dates, or as needed. Dates stay on the calendar day, including month-end and the spring-forward weekend. A rolling 90-day horizon fills visits. As-needed agreements add visits in a block.
+- Billing writes a draft invoice. Per visit, that happens when the visit is completed. A fixed month, quarter, or year writes the draft on the period date from the follow-up cron. The same visit or period does not write a second draft.
+- Status is draft, active, expiring soon (inside 30 days), pending renewal, renewed, expired, or cancelled. Renew copies the agreement into a draft. The current agreement becomes renewed when that draft is accepted.
+- Visits land on the schedule. Office can assign, move, or link a job. The crew can skip with a reason or complete the checklist. Today lists unscheduled visits, overdue visits, and agreements expiring. Inbox carries the same three notes.
+- Work > Agreements filters by status and downloads CSV. The client record shows the active agreement and the next visit. The client portal accepts a draft by typing a name. Reports cover monthly recurring revenue, visits completed against scheduled, and the renewal rate. Automations can run on a visit due or an agreement expiring.
+- Seed: Filter plan on Okonkwo, Seasonal cut expiring on Brooks, Furnace tune pending renewal on Chen, Snow route renewed on Diaz, and an expired coil cleaning.
+
 ## 2026-10-12
 
 ### Job-site geofence

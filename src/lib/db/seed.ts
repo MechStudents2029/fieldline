@@ -6,12 +6,18 @@ import { resolveDataDir } from "@/lib/db/paths";
 import type { AppDatabase } from "@/lib/db/client";
 import { addMonths } from "@/lib/closeout/check";
 import { usFederalHolidays } from "@/lib/schedule/holidays";
+import { addMonths as addAgreementMonths, sellUnitCents } from "@/lib/agreements/cadence";
 import { addCalendarDays, localDay, localWeek, zonedTimeToUtc } from "@/lib/time/calendar";
 import { evaluateSite, sitePill } from "@/lib/geo/fence";
 import { laborMoney, splitWeek, type OtRules } from "@/lib/time/overtime";
 import { CATALOG_FORMULAS, northlineCatalog, riveraCatalog } from "@/lib/db/catalog";
 import {
   activities,
+  agreementChecks,
+  agreementInvoices,
+  agreementLines,
+  agreementVisits,
+  serviceAgreements,
   aiRuns,
   appMeta,
   automationRules,
@@ -184,7 +190,7 @@ import {
   WEBSITE_FORM_SOURCE,
 } from "@/lib/lead-form/rules";
 
-export const SEED_VERSION = "51";
+export const SEED_VERSION = "52";
 
 const ORG = "org_rivera";
 const NORTH = "org_northline";
@@ -5343,5 +5349,160 @@ function seedTemplates(db: AppDatabase, now: string) {
       { id: "audit_tm_ok", orgId: ORG, actorId: "user_dana", action: "tm.create", entityType: "tm_ticket", entityId: "tm_ok_draft", payloadJson: JSON.stringify({ number: 1 }), ip: null, createdAt: daysAgo(1) },
       { id: "audit_tm_el", orgId: ORG, actorId: null, action: "tm.client_sign", entityType: "tm_ticket", entityId: "tm_el_verified", payloadJson: JSON.stringify({ status: "verified" }), ip: null, createdAt: now },
     ])
+    .run();
+  const agrToday = localDay(Date.now(), "America/New_York");
+  const agrYesterday = addCalendarDays(agrToday, -1);
+  const agrTomorrow = addCalendarDays(agrToday, 1);
+  const agrSoon = addCalendarDays(agrToday, 20);
+  const agrPast = addCalendarDays(agrToday, -40);
+  const agrTuneEnd = addCalendarDays(agrToday, 40);
+  const mowStart = addAgreementMonths(agrToday, -3);
+  const labor = sellUnitCents(7800, 3500);
+  const agrStamp = {
+    orgId: ORG,
+    intervalWeeks: 1,
+    customDates: "[]",
+    notes: "",
+    createdAt: now,
+    updatedAt: now,
+    createdBy: "user_maya",
+  };
+  db.insert(serviceAgreements)
+    .values([
+      { ...agrStamp, id: "agr_hvac", contactId: "c_okonkwo", projectId: "proj_okonkwo", name: "Filter plan", status: "active", startOn: agrToday, termKind: "until_cancelled", termMonths: null, endOn: null, visitLimit: null, cadence: "monthly", billing: "per_visit", fixedCents: 0, checklistJson: JSON.stringify(["Replace filter", "Check condensate"]), assigneeUserId: "user_dana", parentId: null, acceptToken: "tok_agr_hvac", acceptedAt: now, acceptedName: "Amara Okonkwo" },
+      { ...agrStamp, id: "agr_mow", contactId: "c_brooks", projectId: "proj_brooks", name: "Seasonal cut", status: "active", startOn: mowStart, termKind: "date", termMonths: null, endOn: agrSoon, visitLimit: null, cadence: "annual", billing: "quarterly", fixedCents: 45000, checklistJson: "[]", assigneeUserId: null, parentId: null, acceptToken: "tok_agr_mow", acceptedAt: now, acceptedName: "Brooks" },
+      { ...agrStamp, id: "agr_tune", contactId: "c_chen", projectId: "proj_chen", name: "Furnace tune", status: "pending_renewal", startOn: agrPast, termKind: "date", termMonths: null, endOn: agrTuneEnd, visitLimit: null, cadence: "annual", billing: "per_visit", fixedCents: 0, checklistJson: "[]", assigneeUserId: "user_dana", parentId: null, acceptToken: "tok_agr_tune", acceptedAt: daysAgo(20), acceptedName: "Mei Chen" },
+      { ...agrStamp, id: "agr_tune_next", contactId: "c_chen", projectId: "proj_chen", name: "Furnace tune", status: "draft", startOn: addCalendarDays(agrTuneEnd, 1), termKind: "date", termMonths: null, endOn: addAgreementMonths(addCalendarDays(agrTuneEnd, 1), 12), visitLimit: null, cadence: "annual", billing: "per_visit", fixedCents: 0, checklistJson: "[]", assigneeUserId: "user_dana", parentId: "agr_tune", acceptToken: "tok_agr_tune_next", acceptedAt: null, acceptedName: null },
+      { ...agrStamp, id: "agr_snow_old", contactId: "c_diaz", projectId: "proj_diaz", name: "Snow route", status: "renewed", startOn: addAgreementMonths(agrToday, -12), termKind: "date", termMonths: null, endOn: agrYesterday, visitLimit: null, cadence: "annual", billing: "per_visit", fixedCents: 0, checklistJson: "[]", assigneeUserId: null, parentId: null, acceptToken: "tok_agr_snow_old", acceptedAt: daysAgo(300), acceptedName: "Diaz" },
+      { ...agrStamp, id: "agr_snow", contactId: "c_diaz", projectId: "proj_diaz", name: "Snow route", status: "active", startOn: agrToday, termKind: "until_cancelled", termMonths: null, endOn: null, visitLimit: null, cadence: "as_needed", billing: "per_visit", fixedCents: 0, checklistJson: JSON.stringify(["Clear the walk"]), assigneeUserId: "user_dana", parentId: "agr_snow_old", acceptToken: "tok_agr_snow", acceptedAt: now, acceptedName: "Diaz" },
+      { ...agrStamp, id: "agr_old", contactId: "c_chen", projectId: "proj_chen", name: "Coil cleaning", status: "expired", startOn: addAgreementMonths(agrToday, -14), termKind: "date", termMonths: null, endOn: addCalendarDays(agrToday, -5), visitLimit: null, cadence: "annual", billing: "per_visit", fixedCents: 0, checklistJson: "[]", assigneeUserId: null, parentId: null, acceptToken: "tok_agr_old", acceptedAt: daysAgo(400), acceptedName: "Mei Chen" },
+    ])
+    .run();
+  const agrLine = (id: string, agreementId: string) => ({
+    id,
+    orgId: ORG,
+    agreementId,
+    priceBookItemId: "pb_frm-labor",
+    code: "FRM-LABOR",
+    name: "Carpenter",
+    unit: "hr",
+    qtyMilli: 1000,
+    unitPriceCents: labor,
+    sortOrder: 0,
+  });
+  db.insert(agreementLines)
+    .values(["agr_hvac", "agr_mow", "agr_tune", "agr_tune_next", "agr_snow_old", "agr_snow", "agr_old"].map((agreementId) => agrLine(`agl_${agreementId}`, agreementId)))
+    .run();
+  db.insert(agreementVisits)
+    .values([
+      { id: "agv_hvac_done", orgId: ORG, agreementId: "agr_hvac", dueOn: agrYesterday, status: "completed", assigneeUserId: "user_dana", scheduleItemId: "sch_agr_hvac_done", projectId: "proj_okonkwo", invoiceId: "inv_agr_hvac", skipReason: null, completedAt: now, createdAt: now, updatedAt: now },
+      { id: "agv_hvac_due", orgId: ORG, agreementId: "agr_hvac", dueOn: agrToday, status: "scheduled", assigneeUserId: null, scheduleItemId: "sch_agr_hvac_due", projectId: "proj_okonkwo", invoiceId: null, skipReason: null, completedAt: null, createdAt: now, updatedAt: now },
+      { id: "agv_hvac_next", orgId: ORG, agreementId: "agr_hvac", dueOn: agrTomorrow, status: "scheduled", assigneeUserId: "user_dana", scheduleItemId: "sch_agr_hvac_next", projectId: "proj_okonkwo", invoiceId: null, skipReason: null, completedAt: null, createdAt: now, updatedAt: now },
+      { id: "agv_mow", orgId: ORG, agreementId: "agr_mow", dueOn: agrYesterday, status: "scheduled", assigneeUserId: null, scheduleItemId: "sch_agr_mow", projectId: "proj_brooks", invoiceId: null, skipReason: null, completedAt: null, createdAt: now, updatedAt: now },
+      { id: "agv_snow_a", orgId: ORG, agreementId: "agr_snow", dueOn: agrYesterday, status: "scheduled", assigneeUserId: null, scheduleItemId: "sch_agr_snow_a", projectId: "proj_diaz", invoiceId: null, skipReason: null, completedAt: null, createdAt: now, updatedAt: now },
+      { id: "agv_snow_b", orgId: ORG, agreementId: "agr_snow", dueOn: agrToday, status: "scheduled", assigneeUserId: null, scheduleItemId: "sch_agr_snow_b", projectId: "proj_diaz", invoiceId: null, skipReason: null, completedAt: null, createdAt: now, updatedAt: now },
+    ])
+    .run();
+  db.insert(agreementChecks)
+    .values([
+      { id: "agc_hvac_done_1", orgId: ORG, visitId: "agv_hvac_done", label: "Replace filter", done: 1, sortOrder: 0 },
+      { id: "agc_hvac_done_2", orgId: ORG, visitId: "agv_hvac_done", label: "Check condensate", done: 1, sortOrder: 1 },
+      { id: "agc_hvac_due_1", orgId: ORG, visitId: "agv_hvac_due", label: "Replace filter", done: 0, sortOrder: 0 },
+      { id: "agc_hvac_due_2", orgId: ORG, visitId: "agv_hvac_due", label: "Check condensate", done: 0, sortOrder: 1 },
+      { id: "agc_hvac_next_1", orgId: ORG, visitId: "agv_hvac_next", label: "Replace filter", done: 0, sortOrder: 0 },
+      { id: "agc_snow_b", orgId: ORG, visitId: "agv_snow_b", label: "Clear the walk", done: 0, sortOrder: 0 },
+    ])
+    .run();
+  const draftInvoice = (id: string, projectId: string, number: string, token: string, total: number, day: string) => ({
+    id,
+    orgId: ORG,
+    projectId,
+    changeOrderId: null,
+    number,
+    type: "service",
+    status: "draft",
+    scheduleIndex: null,
+    issueDate: day,
+    dueDate: day,
+    subtotalCents: total,
+    taxCents: 0,
+    totalCents: total,
+    amountPaidCents: 0,
+    payToken: token,
+    applicationNumber: null,
+    retainageCents: 0,
+    presentAs: "grouped",
+    markupDisplay: "baked",
+    createdAt: now,
+    updatedAt: now,
+    createdBy: "user_maya",
+  });
+  db.insert(invoices)
+    .values([
+      draftInvoice("inv_agr_hvac", "proj_okonkwo", "SA-1901", "demo_pay_agr_hvac", labor, agrYesterday),
+      draftInvoice("inv_agr_mow_a", "proj_brooks", "SA-1902", "demo_pay_agr_mow_a", 45000, mowStart),
+      draftInvoice("inv_agr_mow_b", "proj_brooks", "SA-1903", "demo_pay_agr_mow_b", 45000, agrToday),
+    ])
+    .run();
+  db.insert(invoiceLines)
+    .values([
+      { id: "invl_agr_hvac", orgId: ORG, invoiceId: "inv_agr_hvac", description: "Filter plan", amountCents: labor, sortOrder: 0 },
+      { id: "invl_agr_mow_a", orgId: ORG, invoiceId: "inv_agr_mow_a", description: `Seasonal cut · ${mowStart}`, amountCents: 45000, sortOrder: 0 },
+      { id: "invl_agr_mow_b", orgId: ORG, invoiceId: "inv_agr_mow_b", description: `Seasonal cut · ${agrToday}`, amountCents: 45000, sortOrder: 0 },
+    ])
+    .run();
+  db.insert(agreementInvoices)
+    .values([
+      { id: "agin_hvac", orgId: ORG, agreementId: "agr_hvac", visitId: "agv_hvac_done", periodOn: null, invoiceId: "inv_agr_hvac", sourceKey: "visit:agv_hvac_done", createdAt: now },
+      { id: "agin_mow_a", orgId: ORG, agreementId: "agr_mow", visitId: null, periodOn: mowStart, invoiceId: "inv_agr_mow_a", sourceKey: `period:agr_mow:${mowStart}`, createdAt: now },
+      { id: "agin_mow_b", orgId: ORG, agreementId: "agr_mow", visitId: null, periodOn: agrToday, invoiceId: "inv_agr_mow_b", sourceKey: `period:agr_mow:${agrToday}`, createdAt: now },
+    ])
+    .run();
+  db.insert(scheduleItems)
+    .values(
+      [
+        ["sch_agr_hvac_done", "proj_okonkwo", "Filter plan", agrYesterday, "done", 10000, "Finish"],
+        ["sch_agr_hvac_due", "proj_okonkwo", "Filter plan", agrToday, "planned", 0, "Finish"],
+        ["sch_agr_hvac_next", "proj_okonkwo", "Filter plan", agrTomorrow, "planned", 0, "Finish"],
+        ["sch_agr_mow", "proj_brooks", "Seasonal cut", agrYesterday, "planned", 0, "Close-in"],
+        ["sch_agr_snow_a", "proj_diaz", "Snow route", agrYesterday, "planned", 0, ""],
+        ["sch_agr_snow_b", "proj_diaz", "Snow route", agrToday, "planned", 0, ""],
+      ].map(([id, projectId, title, day, status, progress, phase]) => ({
+        id: String(id),
+        orgId: ORG,
+        projectId: String(projectId),
+        title: String(title),
+        startDate: String(day),
+        endDate: String(day),
+        startTime: null,
+        status: String(status),
+        note: null,
+        vendorContactId: null,
+        confirmStatus: null,
+        confirmReason: "",
+        confirmProposed: null,
+        confirmRequestedBy: null,
+        phase: String(phase) || null,
+        progressBps: Number(progress),
+        createdAt: now,
+        updatedAt: now,
+        createdBy: "user_maya",
+      })),
+    )
+    .run();
+  db.insert(scheduleAssignees)
+    .values([
+      { id: "scha_agr_hvac_done", orgId: ORG, itemId: "sch_agr_hvac_done", userId: "user_dana" },
+      { id: "scha_agr_hvac_next", orgId: ORG, itemId: "sch_agr_hvac_next", userId: "user_dana" },
+    ])
+    .run();
+  db.insert(notifications)
+    .values(
+      ["user_maya", "user_sam"].flatMap((userId) => [
+        { id: `note_agr_open_${userId}`, orgId: ORG, userId, kind: "agreement", commentId: null, entityType: "agreement_visit", entityId: "agv_hvac_due", projectId: "proj_okonkwo", actorId: null, actorName: "Fieldline", snippet: "Unscheduled · Filter plan", readAt: null, createdAt: now },
+        { id: `note_agr_over_${userId}`, orgId: ORG, userId, kind: "agreement", commentId: null, entityType: "agreement_visit", entityId: "agv_mow", projectId: "proj_brooks", actorId: null, actorName: "Fieldline", snippet: "Overdue · Seasonal cut", readAt: null, createdAt: now },
+        { id: `note_agr_exp_${userId}`, orgId: ORG, userId, kind: "agreement", commentId: null, entityType: "agreement", entityId: "agr_mow", projectId: "proj_brooks", actorId: null, actorName: "Fieldline", snippet: "Expiring · Seasonal cut", readAt: null, createdAt: now },
+      ]),
+    )
     .run();
 }

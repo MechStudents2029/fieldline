@@ -35,6 +35,7 @@ import { rfiLabel } from "@/lib/rfis/format";
 import { ticketLabel } from "@/lib/tm/number";
 import { sweepTodoReminders } from "@/lib/services/todos";
 import { photoExtension, photoUploadError, rasterImageType } from "@/lib/security";
+import { agreementNotice } from "@/lib/services/agreements";
 import { ServiceError } from "@/lib/services/errors";
 import type { Actor } from "@/lib/services/read";
 
@@ -726,6 +727,7 @@ export function listInbox(actor: Actor, filter: "unread" | "mentions" | "all"): 
       if (filter === "mentions" && row.kind !== "mention") return false;
       if (row.entityType === "task") return Boolean(taskNotice(db, actor.orgId, row.entityId));
       if (row.entityType === "time_entry") return Boolean(timeNotice(db, actor.orgId, row.entityId));
+      if (row.entityType === "agreement" || row.entityType === "agreement_visit") return Boolean(agreementNotice(db, actor.orgId, row.entityType, row.entityId));
       const entity = resolveEntity(db, actor.orgId, row.entityType, row.entityId);
       if (!entity) return false;
       if (financial(entity.type) && !canSeeMoney(roleOf(actor))) return false;
@@ -735,12 +737,13 @@ export function listInbox(actor: Actor, filter: "unread" | "mentions" | "all"): 
   return rows.map((row) => {
     const task = row.entityType === "task" ? taskNotice(db, actor.orgId, row.entityId) : null;
     const punch = row.entityType === "time_entry" ? timeNotice(db, actor.orgId, row.entityId) : null;
-    const entity = task || punch ? null : resolveEntity(db, actor.orgId, row.entityType, row.entityId);
+    const agreement = row.entityType === "agreement" || row.entityType === "agreement_visit" ? agreementNotice(db, actor.orgId, row.entityType, row.entityId) : null;
+    const entity = task || punch || agreement ? null : resolveEntity(db, actor.orgId, row.entityType, row.entityId);
     return {
       id: row.id,
       kind: row.kind,
       who: (row.actorId && names.get(row.actorId)) || row.actorName,
-      record: task?.record ?? punch?.record ?? (entity ? recordLine(entity) : row.entityType),
+      record: task?.record ?? punch?.record ?? agreement?.record ?? (entity ? recordLine(entity) : row.entityType),
       snippet: row.snippet,
       age: shortAge(row.createdAt),
       unread: !row.readAt,
@@ -775,6 +778,17 @@ export function openNotification(actor: Actor, noticeId: string): string | null 
         .run();
     }
     return punch.href;
+  }
+  if (row.entityType === "agreement" || row.entityType === "agreement_visit") {
+    const notice = agreementNotice(db, actor.orgId, row.entityType, row.entityId);
+    if (!notice) return null;
+    if (!row.readAt) {
+      db.update(notifications)
+        .set({ readAt: nowIso() })
+        .where(and(eq(notifications.orgId, actor.orgId), eq(notifications.id, row.id)))
+        .run();
+    }
+    return notice.href;
   }
   if (row.entityType === "task") {
     const task = taskNotice(db, actor.orgId, row.entityId);

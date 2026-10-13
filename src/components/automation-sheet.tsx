@@ -26,6 +26,8 @@ const TRIGGERS = [
   ["vendor_credit_issued", "Vendor credit issued"],
   ["stock_low", "Low stock"],
   ["clock_outside", "Clock punch outside job site"],
+  ["visit_due", "Visit due"],
+  ["agreement_expiring", "Agreement expiring"],
 ] as const;
 
 const ACTION_KINDS = [

@@ -137,6 +137,7 @@ export function ensureReady(holder: Holder) {
   ensureVendorCredits(holder);
   ensureInventory(holder);
   ensureGeofence(holder);
+  ensureAgreements(holder);
   const version = holder.sqlite.prepare("select value from app_meta where key = ?").get("seed_version") as
     | { value: string }
     | undefined;
@@ -2773,6 +2774,99 @@ function ensureInventory(holder: Holder) {
   }
   holder.sqlite.exec("create index if not exists stock_movements_item on stock_movements (org_id, stock_item_id, created_at)");
   holder.sqlite.exec("create index if not exists stock_movements_key on stock_movements (org_id, source_key)");
+}
+
+function ensureAgreements(holder: Holder) {
+  const pk = holder.dialect === "postgres" ? "text primary key" : "text primary key not null";
+  if (!tableExists(holder.sqlite, "service_agreements", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists service_agreements (
+      id ${pk},
+      org_id text not null,
+      contact_id text not null,
+      project_id text,
+      name text not null,
+      status text not null,
+      start_on text not null,
+      term_kind text not null,
+      term_months integer,
+      end_on text,
+      visit_limit integer,
+      cadence text not null,
+      interval_weeks integer not null default 1,
+      custom_dates text not null default '[]',
+      billing text not null,
+      fixed_cents integer not null default 0,
+      checklist_json text not null default '[]',
+      assignee_user_id text,
+      notes text not null default '',
+      parent_id text,
+      accept_token text not null,
+      accepted_at text,
+      accepted_name text,
+      created_at text not null,
+      updated_at text not null,
+      created_by text
+    )`);
+  }
+  holder.sqlite.exec("create unique index if not exists service_agreements_token on service_agreements (accept_token)");
+  holder.sqlite.exec("create index if not exists service_agreements_org on service_agreements (org_id, status)");
+  if (!tableExists(holder.sqlite, "agreement_lines", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists agreement_lines (
+      id ${pk},
+      org_id text not null,
+      agreement_id text not null,
+      price_book_item_id text,
+      code text not null,
+      name text not null,
+      unit text not null,
+      qty_milli integer not null,
+      unit_price_cents integer not null,
+      sort_order integer not null default 0
+    )`);
+  }
+  holder.sqlite.exec("create index if not exists agreement_lines_agreement on agreement_lines (org_id, agreement_id)");
+  if (!tableExists(holder.sqlite, "agreement_visits", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists agreement_visits (
+      id ${pk},
+      org_id text not null,
+      agreement_id text not null,
+      due_on text not null,
+      status text not null,
+      assignee_user_id text,
+      schedule_item_id text,
+      project_id text,
+      invoice_id text,
+      skip_reason text,
+      completed_at text,
+      created_at text not null,
+      updated_at text not null
+    )`);
+  }
+  holder.sqlite.exec("create index if not exists agreement_visits_agreement on agreement_visits (org_id, agreement_id, due_on)");
+  if (!tableExists(holder.sqlite, "agreement_checks", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists agreement_checks (
+      id ${pk},
+      org_id text not null,
+      visit_id text not null,
+      label text not null,
+      done integer not null default 0,
+      sort_order integer not null default 0
+    )`);
+  }
+  holder.sqlite.exec("create index if not exists agreement_checks_visit on agreement_checks (org_id, visit_id)");
+  if (!tableExists(holder.sqlite, "agreement_invoices", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists agreement_invoices (
+      id ${pk},
+      org_id text not null,
+      agreement_id text not null,
+      visit_id text,
+      period_on text,
+      invoice_id text not null,
+      source_key text not null,
+      created_at text not null
+    )`);
+  }
+  holder.sqlite.exec("create unique index if not exists agreement_invoices_key on agreement_invoices (org_id, source_key)");
 }
 
 function ensureGeofence(holder: Holder) {

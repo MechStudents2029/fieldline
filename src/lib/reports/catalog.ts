@@ -16,7 +16,7 @@ export const BUILDER_SOURCES = [
 
 export type BuilderSource = (typeof BUILDER_SOURCES)[number]["id"];
 
-export type SourceId = BuilderSource | "certificates" | "punch" | "cash" | "confirmations";
+export type SourceId = BuilderSource | "certificates" | "punch" | "cash" | "confirmations" | "agreements";
 
 export type CatalogColumn = {
   key: string;
@@ -162,6 +162,15 @@ export const CATALOG: Record<SourceId, CatalogColumn[]> = {
     { key: "status", label: "Status", kind: "text" },
     { key: "start", label: "Start", kind: "date" },
     { key: "proposed", label: "Proposed", kind: "date" },
+  ],
+  agreements: [
+    { key: "name", label: "Agreement", kind: "text" },
+    { key: "client", label: "Client", kind: "text" },
+    { key: "status", label: "Status", kind: "text" },
+    { key: "monthly", label: "Monthly", kind: "money", money: true },
+    { key: "scheduled", label: "Scheduled", kind: "number" },
+    { key: "completed", label: "Completed", kind: "number" },
+    { key: "rate", label: "Renewal rate", kind: "percent", money: true },
   ],
 };
 
@@ -331,6 +340,42 @@ export const BUILTINS: BuiltinReport[] = [
     }),
   },
   {
+    id: "agreement_revenue",
+    name: "Agreement revenue",
+    source: "agreements",
+    field: false,
+    href: "/agreements",
+    query: query({
+      columns: ["name", "client", "status", "monthly"],
+      sort: "monthly",
+      dir: "desc",
+      chart: "bar",
+      chartColumn: "monthly",
+    }),
+  },
+  {
+    id: "agreement_visits",
+    name: "Agreement visits",
+    source: "agreements",
+    field: true,
+    href: "/agreements",
+    query: query({
+      columns: ["name", "client", "status", "scheduled", "completed"],
+      sort: "name",
+    }),
+  },
+  {
+    id: "agreement_renewal",
+    name: "Agreement renewal",
+    source: "agreements",
+    field: false,
+    href: "/agreements",
+    query: query({
+      columns: ["name", "status", "rate"],
+      sort: "name",
+    }),
+  },
+  {
     id: "cash_13",
     name: "13-week cash",
     source: "cash",
@@ -357,7 +402,7 @@ export function builtinById(id: string): BuiltinReport | undefined {
 }
 
 export function sourceLabel(source: string): string {
-  return BUILDER_SOURCES.find((item) => item.id === source)?.label ?? (source === "certificates" ? "Vendor COIs" : source === "punch" ? "Punch items" : source === "cash" ? "Cash" : source === "confirmations" ? "Confirmations" : source);
+  return BUILDER_SOURCES.find((item) => item.id === source)?.label ?? (source === "certificates" ? "Vendor COIs" : source === "punch" ? "Punch items" : source === "cash" ? "Cash" : source === "confirmations" ? "Confirmations" : source === "agreements" ? "Agreements" : source);
 }
 
 export function customRecord(source: string): string {

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getDb } from "@/lib/db/client";
 import { organizations } from "@/lib/db/schema";
 import { cronAuthorized } from "@/lib/security";
+import { rollAgreements } from "@/lib/services/agreements";
 import { scanAutomationClock } from "@/lib/services/automations";
 import { scanFollowUps } from "@/lib/services/write";
 
@@ -13,5 +14,6 @@ export async function GET(request: Request) {
   const orgs = getDb().select().from(organizations).all();
   const created = orgs.reduce((sum, org) => sum + scanFollowUps(org.id).created, 0);
   const automations = orgs.reduce((sum, org) => sum + scanAutomationClock(org.id).ran, 0);
-  return NextResponse.json({ ok: true, created, automations, demo: allowed.demo });
+  const agreements = orgs.reduce((sum, org) => sum + rollAgreements(org.id).invoices, 0);
+  return NextResponse.json({ ok: true, created, automations, agreements, demo: allowed.demo });
 }

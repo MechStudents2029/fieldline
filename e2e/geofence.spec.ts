@@ -12,9 +12,11 @@ async function signInAs(page: import("@playwright/test").Page, email: string) {
 async function closeOpenShift(page: import("@playwright/test").Page) {
   await page.goto("/time");
   const clockOut = page.getByRole("button", { name: "Clock out" });
+  const clockIn = page.getByRole("button", { name: "Clock in" });
+  await expect(clockOut.or(clockIn)).toBeVisible();
   if (await clockOut.isVisible()) {
     await clockOut.click();
-    await expect(page.getByRole("button", { name: "Clock in" })).toBeVisible();
+    await expect(clockIn).toBeVisible();
   }
 }
 

@@ -166,16 +166,16 @@ test("job gantt, critical path, drag, zoom, print, and the Today polish", async 
   await expect(page.locator("a:visible", { hasText: "Schedule slip" })).toContainText("1");
 
   await page.goto("/reports/builtin/sales_month");
-  await expect(page.locator("[data-group='2026-07']")).toContainText("Jul 2026 · 1");
-  await expect(page.locator("[data-group='2026-07']")).not.toContainText("2026-07");
-  await expect(page.locator("[data-subtotal='2026-07'] td").nth(0)).toHaveText("");
-  await expect(page.locator("[data-subtotal='2026-07'] td").nth(1)).toContainText("$");
-  await expect(page.locator("[data-subtotal='2026-07'] td").nth(2)).toHaveText("");
+  await expect(page.locator("[data-group='2026-09']")).toContainText("Sep 2026 · 1");
+  await expect(page.locator("[data-group='2026-09']")).not.toContainText("2026-09");
+  await expect(page.locator("[data-subtotal='2026-09'] td").nth(0)).toHaveText("");
+  await expect(page.locator("[data-subtotal='2026-09'] td").nth(1)).toContainText("$");
+  await expect(page.locator("[data-subtotal='2026-09'] td").nth(2)).toHaveText("");
   const chart = page.locator("[data-chart=bar]");
   await expect(chart).toHaveCSS("height", "64px");
   const barWidth = await chart.locator(".rounded-sm").first().evaluate((el) => el.getBoundingClientRect().width);
   expect(barWidth).toBeLessThan(12);
-  await expect(chart).toContainText("Jul 2026");
+  await expect(chart).toContainText("Sep 2026");
   await shot(page, "reports-grouped-light");
   await page.emulateMedia({ colorScheme: "dark" });
   await shot(page, "reports-grouped-dark");
