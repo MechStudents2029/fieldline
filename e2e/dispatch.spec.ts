@@ -20,7 +20,7 @@ test("assign from unassigned, block the overlap, then move the card", async ({ p
   await coil.getByLabel("Start").fill("07:30");
   await coil.getByLabel("End").fill("08:30");
   await coil.getByLabel("Crew").selectOption({ label: "Dana Cho" });
-  await coil.getByRole("button", { name: "Assign" }).click();
+  await coil.getByRole("button", { name: "Assign", exact: true }).click();
   await expect(coil.getByRole("alert")).toHaveText(/Overlaps Tile shower/);
   await expect(unassigned.getByRole("article", { name: "Coil visit" })).toBeVisible();
   await shot(page, "dispatch-light");
@@ -30,13 +30,13 @@ test("assign from unassigned, block the overlap, then move the card", async ({ p
   await coil.getByLabel("Start").fill("08:30");
   await coil.getByLabel("End").fill("09:30");
   await coil.getByLabel("Crew").selectOption({ label: "Maya Rivera" });
-  await coil.getByRole("button", { name: "Assign" }).click();
+  await coil.getByRole("button", { name: "Assign", exact: true }).click();
   const maya = page.getByRole("region", { name: "Maya Rivera" }).getByRole("article", { name: "Coil visit" });
   await expect(maya).toBeVisible();
   await maya.getByLabel("Start").fill("15:00");
   await maya.getByLabel("End").fill("16:00");
   await maya.getByLabel("Crew").selectOption({ label: "Luis Ortega" });
-  await maya.getByRole("button", { name: "Assign" }).click();
+  await maya.getByRole("button", { name: "Assign", exact: true }).click();
   await expect(page.getByRole("region", { name: "Luis Ortega" }).getByRole("article", { name: "Coil visit" })).toBeVisible();
   await page.goto("/");
   await revealToday(page, "Unassigned today");
