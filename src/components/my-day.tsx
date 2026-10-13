@@ -125,18 +125,6 @@ export function MyDay({ actor }: { actor: Actor }) {
           ))}
         </ul>
       </section>
-      {reviews.length > 0 ? (
-        <section aria-label="Ask for review" data-testid="ask-review" className="flex flex-col gap-2">
-          <h2 className="fl-section">Ask for review</h2>
-          <ul className="fl-group">
-            {reviews.map((row) => (
-              <li key={row.id} className="fl-cell">
-                <AskReview id={row.id} job={row.job} url={row.url} message={row.message} />
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
       <section aria-label="Tomorrow" className="flex flex-col gap-2">
         <h2 className="fl-section">Tomorrow</h2>
         <ul className="fl-group">
@@ -181,6 +169,18 @@ export function MyDay({ actor }: { actor: Actor }) {
           <ClockInForm jobs={day.clockJobs} codes={day.codes} scope={{ orgId: actor.orgId, userId: actor.userId }} />
         </section>
       )}
+      {reviews.length > 0 ? (
+        <section aria-label="Ask for review" data-testid="ask-review" className="flex flex-col gap-2">
+          <h2 className="fl-section">Ask for review</h2>
+          <ul className="fl-group">
+            {reviews.map((row) => (
+              <li key={row.id} className="fl-cell">
+                <AskReview id={row.id} job={row.job} url={row.url} message={row.message} />
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
       {home ? <DashboardStrip name={home.name} tiles={home.tiles} /> : null}
       {talks.length > 0 ? (
         <section aria-label="Toolbox" className="flex flex-col gap-2">
