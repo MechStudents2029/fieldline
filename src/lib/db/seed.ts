@@ -2596,7 +2596,17 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
   const sundayOut = riveraAt(sunday, 12);
   const samSplit = splitWeek([{ id: "time_sam_sunday", localDay: sunday, minutes: 4 * 60, shiftType: "regular" }], otRules)[0];
   const samMoney = laborMoney(samSplit!, 4500, otRules, 1200);
-  const ptoDay = addCalendarDays(weekStart, 2);
+  let ptoDay = addCalendarDays(weekStart, 2);
+  // An approved PTO block that covers "now" locks a live clock-in.
+  for (const offset of [2, 3, 4, 1, 0, 5]) {
+    const day = addCalendarDays(weekStart, offset);
+    const start = Date.parse(riveraAt(day, 8));
+    const end = Date.parse(riveraAt(day, 16));
+    if (Date.now() < start || Date.now() > end) {
+      ptoDay = day;
+      break;
+    }
+  }
   const ptoIn = riveraAt(ptoDay, 8);
   const ptoOut = riveraAt(ptoDay, 16);
   db.insert(timeEntries)
