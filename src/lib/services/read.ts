@@ -981,6 +981,7 @@ export function portalByToken(token: string) {
       orgId: payment.orgId,
       invoiceId: payment.invoiceId,
       status: payment.status,
+      method: payment.method,
       amountCents: payment.amountCents,
       createdAt: payment.createdAt,
     })),

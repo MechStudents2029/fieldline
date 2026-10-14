@@ -25,6 +25,7 @@ import { openDeliveries } from "@/lib/services/receiving";
 import { SitePinForm } from "@/components/site-pin-form";
 import { sitePinView } from "@/lib/services/geo";
 import { jobStockSummary } from "@/lib/services/inventory";
+import { jobClientCredits } from "@/lib/services/client-credits";
 import { jobCreditSummary } from "@/lib/services/vendor-credits";
 import { jobInspectionMarks, scheduleGateLabels } from "@/lib/services/permits";
 import { GanttBoard } from "@/components/gantt-board";
@@ -208,11 +209,24 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
       ) : null}
       {detail.money ? (() => {
         const credits = jobCreditSummary(session.orgId, detail.project.id);
-        if (!credits) return null;
+        const ownerCredits = jobClientCredits(session.orgId, detail.project.id);
+        if (!credits && !ownerCredits) return null;
         return (
           <p className="mb-5 px-4 mac-t13">
-            <Link href={credits.href}>Vendor credits</Link>
-            <span className="num"> · {formatMoney(credits.openCents)} open</span>
+            {credits ? (
+              <>
+                <Link href={credits.href}>Vendor credits</Link>
+                <span className="num"> · {formatMoney(credits.openCents)} open</span>
+              </>
+            ) : null}
+            {ownerCredits ? (
+              <>
+                {credits ? <span> · </span> : null}
+                <Link href={ownerCredits.href}>Credit memos</Link>
+                <span className="num"> · {formatMoney(ownerCredits.openCents)} open</span>
+                {ownerCredits.appliedCents ? <span className="num"> · {formatMoney(ownerCredits.appliedCents)} applied</span> : null}
+              </>
+            ) : null}
           </p>
         );
       })() : null}
@@ -489,7 +503,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
           {detail.invoices.map((invoice) => (
             <GroupedRow
               key={invoice.id}
-              href={`/pay/${invoice.payToken}`}
+              href={`/invoices/${invoice.id}`}
               title={`${invoice.number} · ${invoice.type} · ${invoice.status}`}
               trailing={formatWhole(invoice.totalCents)}
             />

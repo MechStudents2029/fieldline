@@ -38,6 +38,7 @@ import { photoExtension, photoUploadError, rasterImageType } from "@/lib/securit
 import { agreementNotice } from "@/lib/services/agreements";
 import { bookingNotice } from "@/lib/services/booking";
 import { collectNotice } from "@/lib/services/collections";
+import { creditMemoNotice } from "@/lib/services/client-credits";
 import { reviewNotice } from "@/lib/services/reviews";
 import { dispatchNotice } from "@/lib/services/dispatch";
 import { ServiceError } from "@/lib/services/errors";
@@ -736,6 +737,10 @@ export function listInbox(actor: Actor, filter: "unread" | "mentions" | "all"): 
       if (row.entityType === "booking") return Boolean(bookingNotice(db, actor.orgId, row.entityId));
       if (row.entityType === "review_request") return Boolean(reviewNotice(db, actor.orgId, row.entityId));
       if (row.entityType === "invoice_followup") return Boolean(collectNotice(db, actor.orgId, row.entityId));
+      if (row.entityType === "client_credit_memo") {
+        if (!canSeeMoney(roleOf(actor))) return false;
+        return Boolean(creditMemoNotice(db, actor.orgId, row.entityId));
+      }
       const entity = resolveEntity(db, actor.orgId, row.entityType, row.entityId);
       if (!entity) return false;
       if (financial(entity.type) && !canSeeMoney(roleOf(actor))) return false;
@@ -750,12 +755,13 @@ export function listInbox(actor: Actor, filter: "unread" | "mentions" | "all"): 
     const booking = row.entityType === "booking" ? bookingNotice(db, actor.orgId, row.entityId) : null;
     const review = row.entityType === "review_request" ? reviewNotice(db, actor.orgId, row.entityId) : null;
     const follow = row.entityType === "invoice_followup" ? collectNotice(db, actor.orgId, row.entityId) : null;
-    const entity = task || punch || agreement || dispatch || booking || review || follow ? null : resolveEntity(db, actor.orgId, row.entityType, row.entityId);
+    const credit = row.entityType === "client_credit_memo" ? creditMemoNotice(db, actor.orgId, row.entityId) : null;
+    const entity = task || punch || agreement || dispatch || booking || review || follow || credit ? null : resolveEntity(db, actor.orgId, row.entityType, row.entityId);
     return {
       id: row.id,
       kind: row.kind,
       who: (row.actorId && names.get(row.actorId)) || row.actorName,
-      record: task?.record ?? punch?.record ?? agreement?.record ?? dispatch?.record ?? booking?.record ?? review?.record ?? follow?.record ?? (entity ? recordLine(entity) : row.entityType),
+      record: task?.record ?? punch?.record ?? agreement?.record ?? dispatch?.record ?? booking?.record ?? review?.record ?? follow?.record ?? credit?.record ?? (entity ? recordLine(entity) : row.entityType),
       snippet: row.snippet,
       age: shortAge(row.createdAt),
       unread: !row.readAt,
@@ -804,6 +810,18 @@ export function openNotification(actor: Actor, noticeId: string): string | null 
   }
   if (row.entityType === "invoice_followup") {
     const notice = collectNotice(db, actor.orgId, row.entityId);
+    if (!notice) return null;
+    if (!row.readAt) {
+      db.update(notifications)
+        .set({ readAt: nowIso() })
+        .where(and(eq(notifications.orgId, actor.orgId), eq(notifications.id, row.id)))
+        .run();
+    }
+    return notice.href;
+  }
+  if (row.entityType === "client_credit_memo") {
+    if (!canSeeMoney(roleOf(actor))) return null;
+    const notice = creditMemoNotice(db, actor.orgId, row.entityId);
     if (!notice) return null;
     if (!row.readAt) {
       db.update(notifications)

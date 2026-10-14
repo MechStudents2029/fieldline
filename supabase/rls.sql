@@ -751,6 +751,27 @@ create policy time_geo_overrides_scope on public.time_geo_overrides
   using (org_id in (select public.current_org_ids()))
   with check (org_id in (select public.current_org_ids()));
 
+alter table public.client_credit_memos enable row level security;
+drop policy if exists client_credit_memos_scope on public.client_credit_memos;
+create policy client_credit_memos_scope on public.client_credit_memos
+  for all to authenticated
+  using (org_id in (select public.current_org_ids()))
+  with check (org_id in (select public.current_org_ids()));
+
+alter table public.client_credit_memo_lines enable row level security;
+drop policy if exists client_credit_memo_lines_scope on public.client_credit_memo_lines;
+create policy client_credit_memo_lines_scope on public.client_credit_memo_lines
+  for all to authenticated
+  using (org_id in (select public.current_org_ids()))
+  with check (org_id in (select public.current_org_ids()));
+
+alter table public.client_credit_applications enable row level security;
+drop policy if exists client_credit_applications_scope on public.client_credit_applications;
+create policy client_credit_applications_scope on public.client_credit_applications
+  for all to authenticated
+  using (org_id in (select public.current_org_ids()))
+  with check (org_id in (select public.current_org_ids()));
+
 alter table public.wip_attempts enable row level security;
 drop policy if exists wip_attempts_scope on public.wip_attempts;
 create policy wip_attempts_scope on public.wip_attempts

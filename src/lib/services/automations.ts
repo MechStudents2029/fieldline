@@ -29,6 +29,7 @@ import {
   priceBookItems,
   reviewRequests,
   invoiceFollowUps,
+  clientCreditMemos,
   scheduleItems,
   serviceAgreements,
   stockItems,
@@ -95,7 +96,10 @@ export type Trigger =
   | { kind: "review_request_created" }
   | { kind: "review_request_marked_sent" }
   | { kind: "invoice_followup_created" }
-  | { kind: "invoice_followup_marked_sent" };
+  | { kind: "invoice_followup_marked_sent" }
+  | { kind: "client_credit_created" }
+  | { kind: "client_credit_applied" }
+  | { kind: "client_credit_voided" };
 
 export type Condition =
   | { kind: "job_type"; value: string }
@@ -210,6 +214,9 @@ export function parseTrigger(raw: string): Trigger | null {
   if (row.kind === "review_request_marked_sent") return { kind: "review_request_marked_sent" };
   if (row.kind === "invoice_followup_created") return { kind: "invoice_followup_created" };
   if (row.kind === "invoice_followup_marked_sent") return { kind: "invoice_followup_marked_sent" };
+  if (row.kind === "client_credit_created") return { kind: "client_credit_created" };
+  if (row.kind === "client_credit_applied") return { kind: "client_credit_applied" };
+  if (row.kind === "client_credit_voided") return { kind: "client_credit_voided" };
   return null;
 }
 
@@ -297,6 +304,9 @@ export function triggerLabel(trigger: Trigger): string {
   if (trigger.kind === "review_request_marked_sent") return "Review marked sent";
   if (trigger.kind === "invoice_followup_created") return "Invoice follow-up created";
   if (trigger.kind === "invoice_followup_marked_sent") return "Invoice follow-up marked sent";
+  if (trigger.kind === "client_credit_created") return "Client credit memo created";
+  if (trigger.kind === "client_credit_applied") return "Client credit memo applied";
+  if (trigger.kind === "client_credit_voided") return "Client credit memo voided";
   return "Equipment overdue";
 }
 
@@ -441,6 +451,7 @@ function hrefFor(event: AutomationEvent) {
   if (event.kind === "booking_created") return "/dispatch";
   if (event.kind === "review_request_created" || event.kind === "review_request_marked_sent") return `/reviews/${event.recordId}`;
   if (event.kind === "invoice_followup_created" || event.kind === "invoice_followup_marked_sent") return `/collections/${event.recordId}`;
+  if (event.kind === "client_credit_created" || event.kind === "client_credit_applied" || event.kind === "client_credit_voided") return `/credit-memos/${event.recordId}`;
   if (event.kind === "equipment_overdue") return "/equipment";
   if ((event.kind === "incident_logged" || event.kind === "checklist_failed") && event.projectId) return `/projects/${event.projectId}/safety`;
   if (event.kind === "vendor_expiring") return "/contacts";
@@ -1119,6 +1130,7 @@ export function previewRecordLabel(trigger: Trigger) {
   if (trigger.kind === "booking_created") return "Booking";
   if (trigger.kind === "review_request_created" || trigger.kind === "review_request_marked_sent") return "Review";
   if (trigger.kind === "invoice_followup_created" || trigger.kind === "invoice_followup_marked_sent") return "Invoice";
+  if (trigger.kind === "client_credit_created" || trigger.kind === "client_credit_applied" || trigger.kind === "client_credit_voided") return "Credit memo";
   return "Checklist item";
 }
 
@@ -1223,6 +1235,9 @@ export function previewChoices(orgId: string, trigger: Trigger) {
   if (trigger.kind === "invoice_followup_created" || trigger.kind === "invoice_followup_marked_sent") {
     const numbers = new Map(db.select().from(invoices).where(eq(invoices.orgId, orgId)).all().map((row) => [row.id, row.number]));
     return db.select().from(invoiceFollowUps).where(eq(invoiceFollowUps.orgId, orgId)).all().map((row) => ({ id: row.id, label: numbers.get(row.invoiceId) || "Invoice" }));
+  }
+  if (trigger.kind === "client_credit_created" || trigger.kind === "client_credit_applied" || trigger.kind === "client_credit_voided") {
+    return db.select().from(clientCreditMemos).where(eq(clientCreditMemos.orgId, orgId)).all().map((row) => ({ id: row.id, label: row.number }));
   }
   if (trigger.kind === "clock_outside") {
     const names = new Map(db.select({ id: users.id, name: users.name }).from(users).all().map((row) => [row.id, row.name]));
@@ -1541,6 +1556,20 @@ function eventFromRecord(orgId: string, trigger: Trigger, recordId: string): Aut
       amountCents: invoice ? invoice.totalCents - invoice.amountPaidCents : null,
     };
   }
+  if (trigger.kind === "client_credit_created" || trigger.kind === "client_credit_applied" || trigger.kind === "client_credit_voided") {
+    const memo = db.select().from(clientCreditMemos).where(and(eq(clientCreditMemos.orgId, orgId), eq(clientCreditMemos.id, recordId))).get();
+    if (!memo) return null;
+    return {
+      orgId,
+      kind: trigger.kind,
+      recordType: "client_credit_memo",
+      recordId: memo.id,
+      recordLabel: memo.number,
+      projectId: memo.projectId,
+      name: memo.number,
+      amountCents: memo.amountCents,
+    };
+  }
   const item = db.select().from(equipment).where(and(eq(equipment.orgId, orgId), eq(equipment.id, recordId))).get();
   if (!item) return null;
   const open = db
@@ -1645,6 +1674,9 @@ export function ruleFromForm(formData: FormData): RuleDraft {
   else if (kind === "review_request_marked_sent") trigger = { kind: "review_request_marked_sent" };
   else if (kind === "invoice_followup_created") trigger = { kind: "invoice_followup_created" };
   else if (kind === "invoice_followup_marked_sent") trigger = { kind: "invoice_followup_marked_sent" };
+  else if (kind === "client_credit_created") trigger = { kind: "client_credit_created" };
+  else if (kind === "client_credit_applied") trigger = { kind: "client_credit_applied" };
+  else if (kind === "client_credit_voided") trigger = { kind: "client_credit_voided" };
   if (!trigger) throw new ServiceError("Pick a trigger.");
   const conditions: Condition[] = [];
   const conditionSlots = formSlots(formData, "c");

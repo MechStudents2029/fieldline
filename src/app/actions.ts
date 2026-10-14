@@ -158,6 +158,7 @@ import { billReceived, parseReceiveLines, receiveDelivery, voidReceipt } from "@
 import { adjustStock, issueStock, reorderStock, returnStock, transferJobStock, transferStock, voidMovement } from "@/lib/services/inventory";
 import { parseQtyMilli } from "@/lib/receiving/match";
 import { createCreditFromLine, createCreditFromOrder, createCreditFromPunch, createCreditFromReceipt, issueCredit, setCreditStaleDays, voidCredit } from "@/lib/services/vendor-credits";
+import { applyClientCredit, createClientCredit, dollarsToCents, releaseClientCredit, voidClientCredit, type CreditLineInput } from "@/lib/services/client-credits";
 import { respondPortalCredit } from "@/lib/services/vendor-portal";
 import {
   closePurchaseOrder,
@@ -1961,6 +1962,96 @@ export async function issueCreditAction(creditId: string, _prev: ActionState, fo
     revalidatePath("/vendor-credits");
     revalidatePath("/");
     return { ok: "Issued." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+function creditLines(formData: FormData): CreditLineInput[] {
+  const lines: CreditLineInput[] = [];
+  for (let index = 0; index < 4; index += 1) {
+    const costCode = String(formData.get(`line${index}code`) || "");
+    const description = String(formData.get(`line${index}desc`) || "");
+    const amount = String(formData.get(`line${index}amount`) || "");
+    if (!costCode.trim() && !description.trim() && !amount.trim()) continue;
+    lines.push({ costCode, description, amountCents: amount.trim() ? dollarsToCents(amount) : 0 });
+  }
+  return lines;
+}
+
+export async function createClientCreditAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const kind = String(formData.get("kind") || "flat") === "lines" ? "lines" : "flat";
+    const amount = String(formData.get("amount") || "");
+    const saved = createClientCredit(user, {
+      projectId: String(formData.get("projectId") || ""),
+      title: String(formData.get("title") || ""),
+      description: String(formData.get("description") || ""),
+      kind,
+      amountCents: amount.trim() ? dollarsToCents(amount) : 0,
+      lines: kind === "lines" ? creditLines(formData) : [],
+      release: formData.get("release") === "1",
+    });
+    revalidatePath("/credit-memos");
+    revalidatePath("/");
+    revalidatePath("/inbox");
+    if (user.role === "field") return { ok: "Draft saved." };
+    redirect(`/credit-memos/${saved.id}`);
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function releaseClientCreditAction(memoId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const amount = String(formData.get("amount") || "");
+    releaseClientCredit(user, memoId, {
+      amountCents: amount.trim() ? dollarsToCents(amount) : undefined,
+      lines: creditLines(formData),
+    });
+    revalidatePath(`/credit-memos/${memoId}`);
+    revalidatePath("/credit-memos");
+    revalidatePath("/");
+    revalidatePath("/inbox");
+    return { ok: "Released." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function applyClientCreditAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const memoId = String(formData.get("memoId") || "");
+    const invoiceId = String(formData.get("invoiceId") || "");
+    const saved = applyClientCredit(user, {
+      memoId,
+      invoiceId,
+      amountCents: dollarsToCents(String(formData.get("amount") || "")),
+      idempotencyKey: String(formData.get("idempotencyKey") || ""),
+    });
+    revalidatePath(`/credit-memos/${memoId}`);
+    revalidatePath(`/invoices/${invoiceId}`);
+    revalidatePath("/credit-memos");
+    revalidatePath("/invoices");
+    revalidatePath("/");
+    return { ok: saved.duplicate ? "Already applied." : "Applied." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function voidClientCreditAction(memoId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const saved = voidClientCredit(user, memoId, String(formData.get("reason") || ""));
+    revalidatePath(`/credit-memos/${memoId}`);
+    revalidatePath(`/projects/${saved.projectId}`);
+    revalidatePath("/credit-memos");
+    revalidatePath("/invoices");
+    return { ok: "Voided. The invoice balance is back." };
   } catch (error) {
     return failure(error);
   }

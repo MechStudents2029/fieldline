@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { getDb } from "@/lib/db/client";
 import { invoices, organizations, payments } from "@/lib/db/schema";
 import { id, nowIso } from "@/lib/ids";
+import { cashDueCents } from "@/lib/credits/client-memo";
 import { stripeIdempotencyKey } from "@/lib/payments/apply";
 import { ServiceError } from "@/lib/services/errors";
 
@@ -83,9 +84,11 @@ export async function ensureStripePaymentIntent(token: string, client?: StripeIn
   if (!invoice) throw new ServiceError("Invoice not found.");
   if (invoice.status === "void") throw new ServiceError("This invoice was voided.");
   if (invoice.status === "paid") return { clientSecret: null as string | null, paymentIntentId: "", status: "succeeded" };
+  const due = cashDueCents(invoice.totalCents, invoice.amountPaidCents);
+  if (due < 1) return { clientSecret: null as string | null, paymentIntentId: "", status: "succeeded" };
 
   const org = db.select().from(organizations).where(eq(organizations.id, invoice.orgId)).get();
-  const key = stripeIdempotencyKey(invoice.id, invoice.totalCents);
+  const key = stripeIdempotencyKey(invoice.id, due);
   const existing = db
     .select()
     .from(payments)
@@ -97,7 +100,7 @@ export async function ensureStripePaymentIntent(token: string, client?: StripeIn
     snapshot = await stripe.retrievePaymentIntent(existing.stripePaymentIntent);
   } else {
     snapshot = await stripe.createPaymentIntent({
-      amount: invoice.totalCents,
+      amount: due,
       currency: "usd",
       paymentMethodTypes: paymentMethodTypes(Boolean(org?.cardEnabled)),
       metadata: { invoiceId: invoice.id, orgId: invoice.orgId, payToken: invoice.payToken },
@@ -107,7 +110,7 @@ export async function ensureStripePaymentIntent(token: string, client?: StripeIn
     const now = nowIso();
     const row = {
       method: "ach" as const,
-      amountCents: invoice.totalCents,
+      amountCents: due,
       feeCents: 0,
       netCents: 0,
       status: localStatus(snapshot.status),

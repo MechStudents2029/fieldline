@@ -142,6 +142,7 @@ export function ensureReady(holder: Holder) {
   ensureBooking(holder);
   ensureReviews(holder);
   ensureCollections(holder);
+  ensureClientCredits(holder);
   const version = holder.sqlite.prepare("select value from app_meta where key = ?").get("seed_version") as
     | { value: string }
     | undefined;
@@ -2847,6 +2848,58 @@ function ensureVendorCredits(holder: Holder) {
     )`);
   }
   holder.sqlite.exec("create index if not exists vendor_credit_applications_credit on vendor_credit_applications (org_id, credit_id)");
+}
+
+function ensureClientCredits(holder: Holder) {
+  const pk = holder.dialect === "postgres" ? "text primary key" : "text primary key not null";
+  if (!tableExists(holder.sqlite, "client_credit_memos", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists client_credit_memos (
+      id ${pk},
+      org_id text not null,
+      number text not null,
+      project_id text not null,
+      client_contact_id text not null,
+      title text not null,
+      description text not null default '',
+      kind text not null,
+      amount_cents integer not null,
+      status text not null,
+      released_at text,
+      void_reason text,
+      created_at text not null,
+      updated_at text not null,
+      created_by text
+    )`);
+  }
+  holder.sqlite.exec("create index if not exists client_credit_memos_org on client_credit_memos (org_id, project_id, status)");
+  if (!tableExists(holder.sqlite, "client_credit_memo_lines", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists client_credit_memo_lines (
+      id ${pk},
+      org_id text not null,
+      memo_id text not null,
+      cost_code text not null,
+      description text not null,
+      amount_cents integer not null,
+      sort_order integer not null default 0
+    )`);
+  }
+  holder.sqlite.exec("create index if not exists client_credit_memo_lines_memo on client_credit_memo_lines (org_id, memo_id)");
+  if (!tableExists(holder.sqlite, "client_credit_applications", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists client_credit_applications (
+      id ${pk},
+      org_id text not null,
+      memo_id text not null,
+      invoice_id text not null,
+      payment_id text not null,
+      amount_cents integer not null,
+      idempotency_key text not null,
+      created_at text not null,
+      created_by text
+    )`);
+  }
+  holder.sqlite.exec("create unique index if not exists client_credit_applications_key on client_credit_applications (org_id, idempotency_key)");
+  holder.sqlite.exec("create index if not exists client_credit_applications_memo on client_credit_applications (org_id, memo_id)");
+  holder.sqlite.exec("create index if not exists client_credit_applications_invoice on client_credit_applications (org_id, invoice_id)");
 }
 
 function ensureInventory(holder: Holder) {

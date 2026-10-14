@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-10-14
+
+### Client credit memos
+
+- A client credit memo sits on a job. It is a flat fee or cost-code lines. It has a number such as CM-1048, a title, a description, and an amount in cents. Status is Draft, Ready, Partial, Applied, or Void. Ready means released.
+- Releasing it does not change the revised contract or the job running total. Applying it lowers the open balance on an owner invoice. The payment method is Credit memo. Cash recorded on that payment is $0.
+- Office applies part or all of a Ready memo to an open invoice on the same job. The same idempotency key does not apply twice. More than the memo left, or more than the invoice balance, is refused. Voiding reverses each application, puts that amount back on the invoice, and leaves the memo unusable.
+- Work, Credit memos lists the rows, filters them, and downloads CSV. A job shows the open and applied amounts. The client record shows the open credit balance. The invoice page lists applied memos under Payments. The client portal lists released memos and shows applied credits on the price summary and on the invoice. Clients cannot apply.
+- Today counts a Ready or partial memo for an owner or admin. Inbox has the note. Automations can run on `client_credit_created`, `client_credit_applied`, and `client_credit_voided`.
+- Field can propose a draft and does not see the amount. Field cannot release, apply, or void. Nothing is emailed or texted. Nothing is sent to a payment processor.
+- Seed: CM-1048 is an open $180 window allowance on Brooks. CM-1049 is $300, with $80 applied to RR-1036. Diaz and RR-1019 are unchanged.
+
 ## 2026-10-13
 
 ### Invoice follow-ups
