@@ -25,6 +25,7 @@ export default async function DispatchPage({ searchParams }: { searchParams: Pro
               items={[
                 { href: `/dispatch?on=${board.day}`, label: "Day", current: true },
                 { href: "/schedule", label: "Week" },
+                { href: "/schedule/workload", label: "Workload" },
               ]}
             />
           </span>

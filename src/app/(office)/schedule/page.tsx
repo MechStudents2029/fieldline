@@ -31,6 +31,7 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
                 items={[
                   { href: "/schedule?view=grid", label: "Grid", current: false },
                   { href: "/schedule?view=gantt", label: "Gantt", current: true },
+                  { href: "/schedule/workload", label: "Workload", current: false },
                   { href: "/dispatch", label: "Day", current: false },
                 ]}
               />
@@ -61,6 +62,9 @@ export default async function SchedulePage({ searchParams }: { searchParams: Pro
         <p className="fl-footnote text-[var(--fl-secondary)]">{board.label}</p>
         <Link href="/schedule?view=gantt" className="fl-footnote text-[var(--fl-accent)]">
           Gantt
+        </Link>
+        <Link href="/schedule/workload" className="fl-footnote text-[var(--fl-accent)]">
+          Workload
         </Link>
         <Link href="/dispatch" className="fl-footnote text-[var(--fl-accent)]">
           Day

@@ -46,6 +46,7 @@ import { collectAttention } from "@/lib/services/collections";
 import { selectionFollowAttention } from "@/lib/services/selection-followups";
 import { reviewAttention } from "@/lib/services/reviews";
 import { dispatchAttention } from "@/lib/services/dispatch";
+import { overbookedThisWeek } from "@/lib/services/workload";
 import { siteAttention } from "@/lib/services/geo";
 import { lowStockCount } from "@/lib/services/inventory";
 import { clientCreditAttention } from "@/lib/services/client-credits";
@@ -262,6 +263,7 @@ export default async function TodayPage() {
   push("agr-due", agreements.overdue.count, agreements.overdue.href, "Overdue visits", String(agreements.overdue.count));
   push("agr-exp", agreements.expiring.count, agreements.expiring.href, "Agreements expiring", String(agreements.expiring.count));
   const dispatch = dispatchAttention(session.orgId);
+  const overbooked = overbookedThisWeek(session.orgId);
   push("dispatch", dispatch.count, dispatch.href, "Unassigned today", String(dispatch.count));
   const booked = canManageSettings(session.role) ? bookingAttention(session.orgId) : { count: 0, href: null as string | null };
   push("booking", booked.count, booked.href, "Online booking", String(booked.count));
@@ -314,6 +316,13 @@ export default async function TodayPage() {
       {showSetup ? <SetupRow steps={checklist.steps} /> : null}
       {proposal ? <FirstProposal steps={proposal} /> : null}
       {quiet ? <EmptyState title="No jobs yet" why="Add a lead to start your pipeline." href="/leads/new" action="Add a lead" /> : null}
+      {overbooked.href ? (
+        <Link href={overbooked.href} className="fl-cell fl-group" data-workload-today>
+          <span className="min-w-0 flex-1 truncate">Overbooked</span>
+          <span className="min-w-0 truncate text-[var(--fl-secondary)]">{overbooked.names}</span>
+          <span className="num">{overbooked.count}</span>
+        </Link>
+      ) : null}
       <Attention rows={attention} />
       {shown.length > 0 ? (
         <GroupedList label="Needs you">
@@ -378,6 +387,13 @@ export default async function TodayPage() {
         {showSetup ? <SetupRow steps={checklist.steps} /> : null}
         {proposal ? <FirstProposal steps={proposal} /> : null}
         {quiet ? <EmptyState title="No jobs yet" why="Add a lead to start your pipeline." href="/leads/new" action="Add a lead" /> : null}
+        {overbooked.href ? (
+          <Link href={overbooked.href} className="fl-cell fl-group" data-workload-today>
+            <span className="min-w-0 flex-1 truncate">Overbooked</span>
+            <span className="min-w-0 truncate text-[var(--mac-secondary)]">{overbooked.names}</span>
+            <span className="num">{overbooked.count}</span>
+          </Link>
+        ) : null}
         <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_400px]">
           <div className="flex flex-col gap-6">
             <Attention rows={attention} />

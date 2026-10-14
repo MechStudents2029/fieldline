@@ -323,6 +323,41 @@
   font-weight: 500;
 }
 
+.wl-table td {
+  height: auto;
+  white-space: normal;
+  vertical-align: middle;
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+
+.wl-table tbody th {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  min-width: 9rem;
+  background: var(--mac-window);
+}
+
+.mac-table.wl-table tbody tr:nth-child(even) th {
+  background: var(--mac-alt);
+}
+
+.wl-cell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.wl-cell.is-over {
+  color: var(--mac-accent);
+}
+
+.fl-pill.wl-pill.is-over {
+  background: color-mix(in srgb, var(--mac-accent) 16%, transparent);
+  color: var(--mac-accent);
+}
+
 .fl-strip {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

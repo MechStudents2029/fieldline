@@ -11,7 +11,7 @@ export async function assignDispatchAction(_state: ActionState, formData: FormDa
   try {
     const intent = String(formData.get("intent") || "assign");
     const assignee = String(formData.get("assignee") || "");
-    assignDispatch(session, {
+    const result = assignDispatch(session, {
       cardId: String(formData.get("card") || ""),
       assigneeId: intent === "unassign" ? null : assignee || null,
       start: String(formData.get("start") || "") || null,
@@ -20,8 +20,9 @@ export async function assignDispatchAction(_state: ActionState, formData: FormDa
     });
     revalidatePath("/dispatch");
     revalidatePath("/schedule");
+    revalidatePath("/schedule/workload");
     revalidatePath("/");
-    return { ok: intent === "unassign" || !assignee ? "Unassigned" : "Assigned" };
+    return { ok: intent === "unassign" || !assignee ? "Unassigned" : "Assigned", ...(result.warning ? { warning: result.warning } : {}) };
   } catch (error) {
     if (error instanceof ServiceError) return { error: error.message };
     throw error;

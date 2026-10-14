@@ -146,6 +146,7 @@ export function ensureReady(holder: Holder) {
   ensureClientCredits(holder);
   ensureLeadSources(holder);
   ensureCommissions(holder);
+  ensureCapacity(holder);
   const version = holder.sqlite.prepare("select value from app_meta where key = ?").get("seed_version") as
     | { value: string }
     | undefined;
@@ -3195,6 +3196,12 @@ function ensureGantt(holder: Holder) {
     )`);
   }
   holder.sqlite.exec("create unique index if not exists user_prefs_key on user_prefs (org_id, user_id, key)");
+}
+
+function ensureCapacity(holder: Holder) {
+  ensureColumn(holder, "organizations", "capacity_minutes", "integer not null default 2400");
+  ensureColumn(holder, "memberships", "capacity_minutes", "integer");
+  ensureColumn(holder, "schedule_items", "planned_minutes", "integer");
 }
 
 function ensureCommissions(holder: Holder) {

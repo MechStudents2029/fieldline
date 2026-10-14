@@ -51,6 +51,7 @@ import {
 import { addNonJobShift, saveOvertimeSettings, setBillLaborBurden } from "@/lib/time/post";
 import type { TimeUndo } from "@/lib/services/time";
 import { moveScheduleItem, rotateCalendarFeed, saveScheduleItem, type ScheduleStatus } from "@/lib/services/schedule";
+import { capacityWarning, saveCapacity } from "@/lib/services/workload";
 import { attachRecordFile, enforceScheduleGate, inspectionTodos, requestReinspection, saveInspection, savePermit, scheduleGateStatus, setInspectionGateMode } from "@/lib/services/permits";
 import { setScheduleBaseline } from "@/lib/services/schedule-plan";
 import { addWorkException, removeWorkException } from "@/lib/services/work-calendar";
@@ -273,6 +274,7 @@ export type ActionState = {
   delayDays?: number;
   needsGate?: boolean;
   gateReason?: string;
+  warning?: string;
 } | null;
 
 export type BillDraftState = {
@@ -1092,6 +1094,23 @@ export async function settingsAction(_prev: ActionState, formData: FormData): Pr
     revalidatePath("/time");
     revalidatePath("/");
     return { ok: "Settings saved." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function saveCapacityAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    saveCapacity(user, {
+      hours: Number(formData.get("weeklyHours")),
+      workdays: formData.getAll("workday").map((day) => Number(day)).filter((day) => Number.isInteger(day)),
+      people: formData.getAll("person").map(String).map((userId) => ({ userId, hours: String(formData.get(`hours_${userId}`) ?? "") })),
+    });
+    revalidatePath("/settings/capacity");
+    revalidatePath("/schedule/workload");
+    revalidatePath("/");
+    return { ok: "Saved." };
   } catch (error) {
     return failure(error);
   }
@@ -2777,6 +2796,7 @@ function scheduleInput(formData: FormData) {
     status: (status === "confirmed" || status === "done" ? status : "planned") as ScheduleStatus,
     note: String(formData.get("note") || "") || null,
     assigneeIds: formData.getAll("assignee").map(String).filter(Boolean),
+    plannedHours: formData.has("hours") ? String(formData.get("hours") ?? "") : undefined,
   };
 }
 
@@ -2811,7 +2831,8 @@ export async function saveScheduleAction(_prev: ActionState, formData: FormData)
     }
     saveScheduleItem(user, { ...input, links: scheduleLinks(formData) }, existing || undefined, delay, formData.get("confirmGate") === "1");
     refreshSchedule(input.projectId);
-    return { ok: "Saved." };
+    const warning = capacityWarning(user, input.assigneeIds, input.startDate, input.endDate);
+    return { ok: "Saved.", ...(warning ? { warning } : {}) };
   } catch (error) {
     return failure(error);
   }
@@ -2858,7 +2879,8 @@ export async function moveScheduleAction(input: { id: string; startDate: string;
     if (preview.needsReason && !delay) return { needsReason: true, delayDays: preview.days, confirm: preview.count > 1 || preview.resets.length > 0 ? preview.label : undefined };
     moveScheduleItem(user, input.id, input, delay, Boolean(input.confirmGate));
     refreshSchedule("");
-    return { ok: "Saved." };
+    const warning = input.assigneeId ? capacityWarning(user, [input.assigneeId], input.startDate, input.endDate) : null;
+    return { ok: "Saved.", ...(warning ? { warning } : {}) };
   } catch (error) {
     return failure(error);
   }

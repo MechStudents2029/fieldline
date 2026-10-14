@@ -2,6 +2,15 @@
 
 ## 2026-10-14
 
+### Crew workload
+
+- Settings, Capacity is the company week in hours, 40 unless you change it, and the same workdays the schedule already uses. A person can have their own hours. Blank puts them back on the company week. Field cannot change it.
+- Schedule, Workload is people by week, this week and the next seven. Move the date to shift the window. A cell is booked hours, capacity, and a percent. Over 100% is teal. Open a cell for the items. Filter by office or field, or by a crew. Crews and vendors show only when they are on an item, and only with the Crews filter. CSV downloads the same grid.
+- Booked hours come from schedule assignments, dispatch visits, and bookings. Hours set on an item are the total for the span, spread across that span's workdays in the company time zone. A start and end clock, with no hours set, counts on every workday. Otherwise each workday is 8 hours. Weekends and company days off get nothing. The same person and item count once, including a visit tied to that item. Approved PTO lowers that week's capacity and is not booked time.
+- Assigning someone on the schedule or the day board past that week's capacity shows the resulting hours and still saves.
+- Today lists the people over this week, with the count, and opens Workload.
+- Seed: Dana is over this week and next. Luis has framing and drywall and stays under. Sam is 24 hours a week, with 8 hours of approved PTO this week, and a short measure next week. Nothing is emailed or texted.
+
 ### Sales commissions
 
 - Settings, Commissions is a plan for a person or a role. The rate is on contract value or on gross profit. Gross profit is sold minus job cost. When the job has no cost yet, the basis is the contract and the line says so. A project type can carry its own rate. Milestones are percents that add to 100, for deposit, job start, and completion or fully collected. Field cannot change the plans.

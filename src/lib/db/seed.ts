@@ -7,6 +7,7 @@ import type { AppDatabase } from "@/lib/db/client";
 import { addMonths } from "@/lib/closeout/check";
 import { usFederalHolidays } from "@/lib/schedule/holidays";
 import { addMonths as addAgreementMonths, sellUnitCents } from "@/lib/agreements/cadence";
+import { isWorkday } from "@/lib/schedule/workdays";
 import { addCalendarDays, localDay, localWeek, zonedTimeToUtc } from "@/lib/time/calendar";
 import { evaluateSite, sitePill } from "@/lib/geo/fence";
 import { laborMoney, splitWeek, type OtRules } from "@/lib/time/overtime";
@@ -208,7 +209,7 @@ import {
   WEBSITE_FORM_SOURCE,
 } from "@/lib/lead-form/rules";
 
-export const SEED_VERSION = "62";
+export const SEED_VERSION = "63";
 
 const ORG = "org_rivera";
 const NORTH = "org_northline";
@@ -272,6 +273,7 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
         termsVersion: "2026-09-01",
         timeZone: "America/New_York",
         weekStartsOn: 1,
+        capacityMinutes: 40 * 60,
         otEnabled: 1,
         otDailyMinutes: 8 * 60,
         otWeeklyMinutes: 40 * 60,
@@ -361,7 +363,7 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
       { id: "mem_maya", orgId: ORG, userId: "user_maya", role: "owner", createdAt: created },
       { id: "mem_luis", orgId: ORG, userId: "user_luis", role: "estimator", createdAt: created },
       { id: "mem_dana", orgId: ORG, userId: "user_dana", role: "field", bookable: 1, createdAt: created },
-      { id: "mem_sam", orgId: ORG, userId: "user_sam", role: "admin", createdAt: created },
+      { id: "mem_sam", orgId: ORG, userId: "user_sam", role: "admin", capacityMinutes: 24 * 60, createdAt: created },
       { id: "mem_riley", orgId: ORG, userId: "user_riley", role: "viewer", createdAt: created },
       { id: "mem_jordan", orgId: NORTH, userId: "user_jordan", role: "owner", createdAt: created },
     ])
@@ -3279,6 +3281,16 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
 
   const tomorrow = addCalendarDays(today, 1);
   const scheduleDay = (offset: number) => addCalendarDays(weekStart, offset);
+  const holidayYear = Number(today.slice(0, 4));
+  const loadCalendar = {
+    mask: 62,
+    exceptions: [...usFederalHolidays(holidayYear), ...usFederalHolidays(holidayYear + 1)].map((row) => ({
+      kind: "off" as const,
+      start: row.date,
+      end: row.date,
+      yearly: row.yearly,
+    })),
+  };
   // The walk is Mon–Tue. From Wednesday through Sunday, keep it on today's board.
   const frameEnd = today > scheduleDay(1) && today < scheduleDay(8) ? today : scheduleDay(1);
   const scheduleSeed: {
@@ -3299,6 +3311,7 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
     confirmReason?: string;
     confirmProposed?: string | null;
     confirmRequestedBy?: string | null;
+    plannedMinutes?: number | null;
   }[] = [
     { id: "sch_ok_demo", projectId: "proj_okonkwo", title: "Demo", start: addCalendarDays(today, -2), end: addCalendarDays(today, -1), time: null, status: "done", note: null, assignees: [], phase: "Rough", progressBps: 10000 },
     { id: "sch_ok_tile", projectId: "proj_okonkwo", title: "Tile shower", start: today, end: tomorrow, time: "07:30", status: "confirmed", note: "Homeowner home after 3", assignees: ["user_dana"], phase: "Finish", progressBps: 4000 },
@@ -3313,6 +3326,38 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
     { id: "sch_chen_measure", projectId: "proj_chen", title: "Measure", start: scheduleDay(8), end: scheduleDay(8), time: "09:00", status: "planned", note: null, assignees: ["user_sam"] },
     { id: "sch_br_delivery", projectId: "proj_brooks", title: "Window delivery", start: scheduleDay(10), end: scheduleDay(10), time: null, status: "confirmed", note: null, assignees: ["user_dana"], phase: "Close-in" },
     { id: "sch_br_drywall", projectId: "proj_brooks", title: "Drywall", start: scheduleDay(8), end: scheduleDay(9), time: null, status: "planned", note: null, assignees: ["user_luis"], vendorContactId: "c_harbor", phase: "Close-in" },
+    ...[0, 1, 2, 3, 4]
+      .filter((offset) => {
+        const day = scheduleDay(offset);
+        return day !== today && isWorkday(day, loadCalendar);
+      })
+      .map((offset) => ({
+        id: `sch_load_${offset}`,
+        projectId: "proj_brooks",
+        title: "Shop load",
+        start: scheduleDay(offset),
+        end: scheduleDay(offset),
+        time: "07:00",
+        endTime: "19:00",
+        status: "planned",
+        note: null,
+        assignees: ["user_dana"],
+        plannedMinutes: 12 * 60,
+        phase: "Close-in",
+      })),
+    {
+      id: "sch_load_next",
+      projectId: "proj_brooks",
+      title: "Shop load next",
+      start: scheduleDay(7),
+      end: scheduleDay(10),
+      time: null,
+      status: "planned",
+      note: null,
+      assignees: ["user_dana"],
+      plannedMinutes: 48 * 60,
+      phase: "Close-in",
+    },
   ];
   db.insert(scheduleItems)
     .values(
@@ -3325,6 +3370,7 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
         endDate: item.end,
         startTime: item.time,
         endTime: item.endTime ?? null,
+        plannedMinutes: item.plannedMinutes ?? null,
         status: item.status,
         note: item.note,
         vendorContactId: item.vendorContactId ?? null,
@@ -3371,7 +3417,6 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
     ])
     .run();
 
-  const holidayYear = Number(today.slice(0, 4));
   const holidays = [...usFederalHolidays(holidayYear), ...usFederalHolidays(holidayYear + 1).filter((row) => !row.yearly)];
   db.insert(workdayExceptions)
     .values([

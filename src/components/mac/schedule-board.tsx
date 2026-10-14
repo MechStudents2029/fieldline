@@ -9,6 +9,12 @@ import { shiftSpan } from "@/lib/schedule/range";
 import type { ScheduleBoard as Board, ScheduleChip } from "@/lib/services/schedule";
 import { addCalendarDays } from "@/lib/time/calendar";
 
+function hoursValue(minutes: number | null | undefined): string {
+  if (minutes == null) return "";
+  const hours = minutes / 60;
+  return Number.isInteger(hours) ? String(hours) : String(Math.round(hours * 100) / 100);
+}
+
 type Draft = {
   id: string | null;
   projectId: string;
@@ -19,6 +25,7 @@ type Draft = {
   status: string;
   note: string;
   assigneeIds: string[];
+  hours: string;
 };
 
 type Pending = {
@@ -47,6 +54,7 @@ export function ScheduleBoard({ board, openJobId }: { board: Board; openJobId: s
       status: "planned",
       note: "",
       assigneeIds: [],
+      hours: "",
     };
   });
   const [pending, setPending] = useState<Pending | null>(null);
@@ -58,6 +66,7 @@ export function ScheduleBoard({ board, openJobId }: { board: Board; openJobId: s
   const [askReason, setAskReason] = useState(false);
   const [sheetDays, setSheetDays] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -87,6 +96,7 @@ export function ScheduleBoard({ board, openJobId }: { board: Board; openJobId: s
       status: "planned",
       note: "",
       assigneeIds: userId ? [userId] : [],
+      hours: "",
     });
   }
 
@@ -104,6 +114,7 @@ export function ScheduleBoard({ board, openJobId }: { board: Board; openJobId: s
       status: item.status,
       note: item.note ?? "",
       assigneeIds: item.assigneeIds,
+      hours: hoursValue(item.plannedMinutes),
     });
   }
 
@@ -136,10 +147,12 @@ export function ScheduleBoard({ board, openJobId }: { board: Board; openJobId: s
     }
     if (!result || result.error) {
       setError(result?.error ?? "Could not save.");
+      setNotice(null);
       return;
     }
     setDraft(null);
     setError(null);
+    setNotice(result.warning ?? null);
     router.replace(board.hrefs.current);
     router.refresh();
   }
@@ -151,10 +164,12 @@ export function ScheduleBoard({ board, openJobId }: { board: Board; openJobId: s
     setBusy(false);
     if (!result || result.error) {
       setError(result?.error ?? "Could not save.");
+      setNotice(null);
       return;
     }
     setPending(null);
     setError(null);
+    setNotice(result.warning ?? null);
     router.refresh();
   }
 
@@ -296,6 +311,9 @@ export function ScheduleBoard({ board, openJobId }: { board: Board; openJobId: s
             <a href="/schedule?view=gantt" className="mac-glass-btn">
               Gantt
             </a>
+            <a href="/schedule/workload" className="mac-glass-btn">
+              Workload
+            </a>
             <a href="/dispatch" className="mac-glass-btn">
               Day
             </a>
@@ -423,6 +441,11 @@ export function ScheduleBoard({ board, openJobId }: { board: Board; openJobId: s
             </button>
           </span>
         ) : null}
+        {notice ? (
+          <span role="status" className="text-[var(--mac-accent)]">
+            {notice}
+          </span>
+        ) : null}
         {error && !draft ? (
           <span role="alert" className="text-[var(--mac-danger)]">
             {error}
@@ -495,6 +518,10 @@ export function ScheduleBoard({ board, openJobId }: { board: Board; openJobId: s
             <label className="text-[13px]">
               Start time
               <input name="startTime" type="time" aria-label="Start time" defaultValue={draft.startTime} className="field mt-1" disabled={!board.canEdit} />
+            </label>
+            <label className="text-[13px]">
+              Hours
+              <input name="hours" aria-label="Hours" inputMode="decimal" defaultValue={draft.hours} className="field mt-1" disabled={!board.canEdit} />
             </label>
             <label className="text-[13px]">
               Status
