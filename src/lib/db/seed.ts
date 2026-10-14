@@ -3329,7 +3329,7 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
     ...[0, 1, 2, 3, 4]
       .filter((offset) => {
         const day = scheduleDay(offset);
-        return day !== today && isWorkday(day, loadCalendar);
+        return day !== today && day !== tomorrow && isWorkday(day, loadCalendar);
       })
       .map((offset) => ({
         id: `sch_load_${offset}`,
