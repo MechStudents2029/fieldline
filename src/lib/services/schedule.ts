@@ -143,7 +143,7 @@ function cleanNote(value: string | null): string | null {
 
 function cleanPlanned(value: string | null | undefined): number | null | undefined {
   if (value === undefined) return undefined;
-  const text = value.trim();
+  const text = (value ?? "").trim();
   if (!text) return null;
   const hours = Number(text);
   if (!Number.isFinite(hours) || hours < 0 || hours > 400) throw new ServiceError("Hours are 0 to 400.");
