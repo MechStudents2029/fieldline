@@ -135,6 +135,7 @@ import {
   commentMentions,
   comments,
   invoiceFollowUps,
+  selectionFollowUps,
   notifications,
   reviewRequests,
   warrantyRequests,
@@ -200,7 +201,7 @@ import {
   WEBSITE_FORM_SOURCE,
 } from "@/lib/lead-form/rules";
 
-export const SEED_VERSION = "59";
+export const SEED_VERSION = "60";
 
 const ORG = "org_rivera";
 const NORTH = "org_northline";
@@ -297,6 +298,11 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
         collectDay2: 14,
         collectExcludeTags: "",
         collectTemplate: "{client}, {invoice} for {amount} was due {due}. {link}",
+        selFollowEnabled: 1,
+        selFollowBefore: 3,
+        selFollowAfter: 0,
+        selFollowExcludeTags: "",
+        selFollowTemplate: "{client}, {selection} on {job} is due {due}. {link}",
         warrantyMonths: 12,
         vendorComplianceMode: "warn",
         vendorRequiredTypes: "general_liability,workers_comp",
@@ -3769,6 +3775,45 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
         createdAt: daysAgo(4),
       },
     ])
+    .run();
+
+  const floorLink = `${appOrigin(process.env) ?? ""}/portal/demo_portal_okonkwo#selection-sel_ok_floor`;
+  db.insert(selectionFollowUps)
+    .values({
+      id: "sfol_ok_floor",
+      orgId: ORG,
+      selectionId: "sel_ok_floor",
+      projectId: "proj_okonkwo",
+      contactId: "c_okonkwo",
+      cadenceDays: 3,
+      status: "ready",
+      url: floorLink,
+      message: `Amara Okonkwo, Floor tile on Okonkwo primary bath is due ${formatDate(floorDue)}. ${floorLink}`,
+      skipReason: "",
+      createdAt: now,
+      updatedAt: now,
+      copiedAt: null,
+      sentAt: null,
+    })
+    .run();
+  db.insert(notifications)
+    .values(
+      ["user_maya", "user_sam"].map((userId) => ({
+        id: `note_sfol_${userId}`,
+        orgId: ORG,
+        userId,
+        kind: "selection",
+        commentId: null,
+        entityType: "selection_followup",
+        entityId: "sfol_ok_floor",
+        projectId: null,
+        actorId: null,
+        actorName: "Fieldline",
+        snippet: "Floor tile",
+        readAt: null,
+        createdAt: daysAgo(40),
+      })),
+    )
     .run();
 
   db.insert(activities)

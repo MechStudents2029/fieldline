@@ -43,6 +43,7 @@ import { deliveryAttention } from "@/lib/services/receiving";
 import { agreementAttention } from "@/lib/services/agreements";
 import { bookingAttention } from "@/lib/services/booking";
 import { collectAttention } from "@/lib/services/collections";
+import { selectionFollowAttention } from "@/lib/services/selection-followups";
 import { reviewAttention } from "@/lib/services/reviews";
 import { dispatchAttention } from "@/lib/services/dispatch";
 import { siteAttention } from "@/lib/services/geo";
@@ -267,6 +268,8 @@ export default async function TodayPage() {
   push("reviews", reviews.count, reviews.href, "Review request", String(reviews.count));
   const collections = canManageSettings(session.role) ? collectAttention(session.orgId) : { count: 0, href: null as string | null };
   push("collections", collections.count, collections.href, "Collections", String(collections.count));
+  const selectionFollows = canManageSettings(session.role) ? selectionFollowAttention(session.orgId) : { count: 0, href: null as string | null };
+  push("selection-followups", selectionFollows.count, selectionFollows.href, "Due selections", String(selectionFollows.count));
   const ownerCredits = canManageSettings(session.role) ? clientCreditAttention(session.orgId, session.role) : { count: 0, cents: 0, href: null as string | null };
   push("client-credits", ownerCredits.count, ownerCredits.href, "Credit memos", money ? formatWhole(ownerCredits.cents) : String(ownerCredits.count), money);
   for (const watch of weeklyOtWatch(session)) {

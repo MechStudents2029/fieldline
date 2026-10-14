@@ -68,6 +68,11 @@ export const organizations = sqliteTable("organizations", {
   collectDay2: integer("collect_day2").notNull().default(14),
   collectExcludeTags: text("collect_exclude_tags").notNull().default(""),
   collectTemplate: text("collect_template").notNull().default(""),
+  selFollowEnabled: integer("sel_follow_enabled").notNull().default(0),
+  selFollowBefore: integer("sel_follow_before").notNull().default(3),
+  selFollowAfter: integer("sel_follow_after").notNull().default(0),
+  selFollowExcludeTags: text("sel_follow_exclude_tags").notNull().default(""),
+  selFollowTemplate: text("sel_follow_template").notNull().default(""),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });
@@ -3280,6 +3285,27 @@ export const invoiceFollowUps = sqliteTable(
     sentAt: text("sent_at"),
   },
   (t) => [uniqueIndex("invoice_followups_cadence").on(t.orgId, t.invoiceId, t.cadenceDays), index("invoice_followups_org").on(t.orgId, t.status)],
+);
+
+export const selectionFollowUps = sqliteTable(
+  "selection_followups",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    selectionId: text("selection_id").notNull(),
+    projectId: text("project_id").notNull(),
+    contactId: text("contact_id").notNull(),
+    cadenceDays: integer("cadence_days").notNull(),
+    status: text("status").notNull(),
+    url: text("url").notNull().default(""),
+    message: text("message").notNull().default(""),
+    skipReason: text("skip_reason").notNull().default(""),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    copiedAt: text("copied_at"),
+    sentAt: text("sent_at"),
+  },
+  (t) => [uniqueIndex("selection_followups_cadence").on(t.orgId, t.selectionId, t.cadenceDays), index("selection_followups_org").on(t.orgId, t.status)],
 );
 
 export const agreementVisits = sqliteTable(
