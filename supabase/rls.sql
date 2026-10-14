@@ -792,6 +792,40 @@ create policy client_credit_applications_scope on public.client_credit_applicati
   using (org_id in (select public.current_org_ids()))
   with check (org_id in (select public.current_org_ids()));
 
+alter table public.commission_plans enable row level security;
+drop policy if exists commission_plans_money on public.commission_plans;
+create policy commission_plans_money on public.commission_plans
+  for all to authenticated
+  using (org_id in (select public.current_org_ids()) and public.can_see_money(org_id))
+  with check (org_id in (select public.current_org_ids()) and public.can_see_money(org_id));
+
+alter table public.commission_plan_overrides enable row level security;
+drop policy if exists commission_plan_overrides_money on public.commission_plan_overrides;
+create policy commission_plan_overrides_money on public.commission_plan_overrides
+  for all to authenticated
+  using (org_id in (select public.current_org_ids()) and public.can_see_money(org_id))
+  with check (org_id in (select public.current_org_ids()) and public.can_see_money(org_id));
+
+alter table public.commission_splits enable row level security;
+drop policy if exists commission_splits_money on public.commission_splits;
+create policy commission_splits_money on public.commission_splits
+  for all to authenticated
+  using (org_id in (select public.current_org_ids()) and public.can_see_money(org_id))
+  with check (org_id in (select public.current_org_ids()) and public.can_see_money(org_id));
+
+alter table public.commission_lines enable row level security;
+drop policy if exists commission_lines_scope on public.commission_lines;
+create policy commission_lines_scope on public.commission_lines
+  for all to authenticated
+  using (
+    org_id in (select public.current_org_ids())
+    and (public.can_see_money(org_id) or user_id = public.current_user_id())
+  )
+  with check (
+    org_id in (select public.current_org_ids())
+    and (public.can_see_money(org_id) or user_id = public.current_user_id())
+  );
+
 alter table public.wip_attempts enable row level security;
 drop policy if exists wip_attempts_scope on public.wip_attempts;
 create policy wip_attempts_scope on public.wip_attempts

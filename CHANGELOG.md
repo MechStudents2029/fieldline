@@ -2,6 +2,14 @@
 
 ## 2026-10-14
 
+### Sales commissions
+
+- Settings, Commissions is a plan for a person or a role. The rate is on contract value or on gross profit. Gross profit is sold minus job cost. When the job has no cost yet, the basis is the contract and the line says so. A project type can carry its own rate. Milestones are percents that add to 100, for deposit, job start, and completion or fully collected. Field cannot change the plans.
+- A won job holds splits for setter, consultant, manager, or another person. Percents must add to 100 or less. The rest is unassigned. A fixed share is dollars of that person's basis. A change order that moves the sold amount recalculates the earned commission and shows the delta. Nothing is paid by itself.
+- Commission is earned as cash is collected. Invoice payments count. An applied credit memo counts. A voided payment comes back out. Each line stores the person, the job, the basis, the rate, the earned cents, the milestone, and a status of Draft, Owed, Paid, or Void. Running it again does not earn the same dollars twice. Mark paid records the office payment. It does not send ACH or payroll.
+- Work, Commissions lists owed and paid by person and job, filters, and downloads CSV. Open a row to Mark paid or Void. A person who cannot see company money sees only their own rows, and cannot mark them. Today counts Owed for an owner or admin. Inbox has one note. Automations can run on `commission_owed` and `commission_marked_paid`.
+- Seed: Maya is 5% of contract, 6% on Bath remodel, paid 40/30/30. Luis is 10% of gross profit, paid 30/40/30. Office is 4% of contract for the estimator role. Okonkwo is 60% Maya and 40% Luis, with Maya's deposit marked paid. Diaz is 70% Luis and 30% Maya, with Luis's deposit marked paid. Brooks is 50% Maya, so 50% stays unassigned. Nothing is emailed or texted.
+
 ### Lead sources
 
 - Settings, Lead sources is the company list. Each source has a name, Active or Archived, and optional spend in cents for a month. Spend can change the next month. A new company starts with Website form, Referral, Google, Repeat client, Yard sign, and Other. Field cannot change the list or the spend.

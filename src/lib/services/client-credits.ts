@@ -29,6 +29,7 @@ import { dismissCollections } from "@/lib/services/collections";
 import { ServiceError } from "@/lib/services/errors";
 import type { Actor } from "@/lib/services/read";
 import { bindReviewEmit, considerReview } from "@/lib/services/reviews";
+import { syncJobCommissions } from "@/lib/services/commissions";
 
 type Database = NonNullable<ReturnType<typeof officeDb>>;
 type MemoRow = typeof clientCreditMemos.$inferSelect;
@@ -395,6 +396,13 @@ export function applyClientCredit(actor: Actor, input: { memoId: string; invoice
         // A follow-up miss does not undo the credit.
       }
     }
+    if (result.projectId) {
+      try {
+        syncJobCommissions(actor.orgId, result.projectId);
+      } catch {
+        // A commission miss does not undo the credit.
+      }
+    }
   }
   return result;
 }
@@ -442,6 +450,11 @@ export function voidClientCredit(actor: Actor, memoId: string, reason: string) {
     return memo;
   });
   emit("client_credit_voided", saved, saved.amountCents);
+  try {
+    syncJobCommissions(actor.orgId, saved.projectId);
+  } catch {
+    // A commission miss does not undo the void.
+  }
   return { id: saved.id, number: saved.number, projectId: saved.projectId, status: "void" };
 }
 

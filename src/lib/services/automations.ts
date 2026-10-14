@@ -31,6 +31,7 @@ import {
   invoiceFollowUps,
   selectionFollowUps,
   clientCreditMemos,
+  commissionLines,
   scheduleItems,
   serviceAgreements,
   stockItems,
@@ -103,7 +104,9 @@ export type Trigger =
   | { kind: "selection_followup_marked_sent" }
   | { kind: "client_credit_created" }
   | { kind: "client_credit_applied" }
-  | { kind: "client_credit_voided" };
+  | { kind: "client_credit_voided" }
+  | { kind: "commission_owed" }
+  | { kind: "commission_marked_paid" };
 
 export type Condition =
   | { kind: "job_type"; value: string }
@@ -223,6 +226,8 @@ export function parseTrigger(raw: string): Trigger | null {
   if (row.kind === "client_credit_created") return { kind: "client_credit_created" };
   if (row.kind === "client_credit_applied") return { kind: "client_credit_applied" };
   if (row.kind === "client_credit_voided") return { kind: "client_credit_voided" };
+  if (row.kind === "commission_owed") return { kind: "commission_owed" };
+  if (row.kind === "commission_marked_paid") return { kind: "commission_marked_paid" };
   return null;
 }
 
@@ -315,6 +320,8 @@ export function triggerLabel(trigger: Trigger): string {
   if (trigger.kind === "client_credit_created") return "Client credit memo created";
   if (trigger.kind === "client_credit_applied") return "Client credit memo applied";
   if (trigger.kind === "client_credit_voided") return "Client credit memo voided";
+  if (trigger.kind === "commission_owed") return "Commission owed";
+  if (trigger.kind === "commission_marked_paid") return "Commission marked paid";
   return "Equipment overdue";
 }
 
@@ -461,6 +468,7 @@ function hrefFor(event: AutomationEvent) {
   if (event.kind === "invoice_followup_created" || event.kind === "invoice_followup_marked_sent") return `/collections/${event.recordId}`;
   if (event.kind === "selection_followup_created" || event.kind === "selection_followup_marked_sent") return `/selection-followups/${event.recordId}`;
   if (event.kind === "client_credit_created" || event.kind === "client_credit_applied" || event.kind === "client_credit_voided") return `/credit-memos/${event.recordId}`;
+  if (event.kind === "commission_owed" || event.kind === "commission_marked_paid") return `/commissions/${event.recordId}`;
   if (event.kind === "equipment_overdue") return "/equipment";
   if ((event.kind === "incident_logged" || event.kind === "checklist_failed") && event.projectId) return `/projects/${event.projectId}/safety`;
   if (event.kind === "vendor_expiring") return "/contacts";
@@ -1141,6 +1149,7 @@ export function previewRecordLabel(trigger: Trigger) {
   if (trigger.kind === "invoice_followup_created" || trigger.kind === "invoice_followup_marked_sent") return "Invoice";
   if (trigger.kind === "selection_followup_created" || trigger.kind === "selection_followup_marked_sent") return "Selection";
   if (trigger.kind === "client_credit_created" || trigger.kind === "client_credit_applied" || trigger.kind === "client_credit_voided") return "Credit memo";
+  if (trigger.kind === "commission_owed" || trigger.kind === "commission_marked_paid") return "Commission";
   return "Checklist item";
 }
 
@@ -1252,6 +1261,10 @@ export function previewChoices(orgId: string, trigger: Trigger) {
   }
   if (trigger.kind === "client_credit_created" || trigger.kind === "client_credit_applied" || trigger.kind === "client_credit_voided") {
     return db.select().from(clientCreditMemos).where(eq(clientCreditMemos.orgId, orgId)).all().map((row) => ({ id: row.id, label: row.number }));
+  }
+  if (trigger.kind === "commission_owed" || trigger.kind === "commission_marked_paid") {
+    const names = new Map(db.select().from(projects).where(eq(projects.orgId, orgId)).all().map((row) => [row.id, row.name]));
+    return db.select().from(commissionLines).where(eq(commissionLines.orgId, orgId)).all().map((row) => ({ id: row.id, label: names.get(row.projectId) || "Commission" }));
   }
   if (trigger.kind === "clock_outside") {
     const names = new Map(db.select({ id: users.id, name: users.name }).from(users).all().map((row) => [row.id, row.name]));
@@ -1598,6 +1611,21 @@ function eventFromRecord(orgId: string, trigger: Trigger, recordId: string): Aut
       amountCents: memo.amountCents,
     };
   }
+  if (trigger.kind === "commission_owed" || trigger.kind === "commission_marked_paid") {
+    const line = db.select().from(commissionLines).where(and(eq(commissionLines.orgId, orgId), eq(commissionLines.id, recordId))).get();
+    if (!line) return null;
+    const project = db.select().from(projects).where(and(eq(projects.orgId, orgId), eq(projects.id, line.projectId))).get();
+    return {
+      orgId,
+      kind: trigger.kind,
+      recordType: "commission_line",
+      recordId: line.id,
+      recordLabel: project?.name || "Commission",
+      projectId: line.projectId,
+      name: project?.name || "Commission",
+      amountCents: line.earnedCents,
+    };
+  }
   const item = db.select().from(equipment).where(and(eq(equipment.orgId, orgId), eq(equipment.id, recordId))).get();
   if (!item) return null;
   const open = db
@@ -1707,6 +1735,8 @@ export function ruleFromForm(formData: FormData): RuleDraft {
   else if (kind === "client_credit_created") trigger = { kind: "client_credit_created" };
   else if (kind === "client_credit_applied") trigger = { kind: "client_credit_applied" };
   else if (kind === "client_credit_voided") trigger = { kind: "client_credit_voided" };
+  else if (kind === "commission_owed") trigger = { kind: "commission_owed" };
+  else if (kind === "commission_marked_paid") trigger = { kind: "commission_marked_paid" };
   if (!trigger) throw new ServiceError("Pick a trigger.");
   const conditions: Condition[] = [];
   const conditionSlots = formSlots(formData, "c");

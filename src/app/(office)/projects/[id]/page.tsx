@@ -156,6 +156,9 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
         <Link href={`/todos?job=${detail.project.id}`} className="text-sm text-[var(--fl-accent)]">
           To-dos
         </Link>
+        <Link href={`/projects/${detail.project.id}/commissions`} className="text-sm text-[var(--fl-accent)]">
+          Commissions
+        </Link>
         {canEditCrm(session.role) ? (
           <Link href={`/projects/${detail.project.id}/template`} className="text-sm text-[var(--fl-accent)]">
             Template

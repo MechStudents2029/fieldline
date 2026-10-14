@@ -76,6 +76,7 @@ import { assertReceiptFree } from "@/lib/services/cost-plus";
 import { ServiceError } from "@/lib/services/errors";
 import { leadPhotoCues, type Actor } from "@/lib/services/read";
 import { bindLeadSource } from "@/lib/services/lead-sources";
+import { syncJobCommissions } from "@/lib/services/commissions";
 
 type Tx = Parameters<Parameters<ReturnType<typeof getDb>["transaction"]>[0]>[0];
 type Writer = Tx | ReturnType<typeof getDb>;
@@ -1959,6 +1960,11 @@ export function payInvoice(input: {
           // A review miss does not undo the payment.
         }
         dismissCollections(invoice.orgId, invoice.id);
+        try {
+          syncJobCommissions(invoice.orgId, invoice.projectId);
+        } catch {
+          // A commission miss does not undo the payment.
+        }
       }
     } catch {
       // A follow-up miss does not undo the payment.
@@ -2099,7 +2105,7 @@ export function approveChangeOrder(input: { token: string; typedName: string; co
   if (!input.consent) throw new ServiceError("Check the consent box before approving.");
   if (input.typedName.trim().length < 2) throw new ServiceError("Type your name to approve.");
   const db = getDb();
-  return db.transaction((tx) => {
+  const result = db.transaction((tx) => {
     const order = tx.select().from(changeOrders).where(eq(changeOrders.publicToken, input.token)).get();
     if (!order) throw new ServiceError("Change order not found.");
     if (order.status === "approved") throw new ServiceError("This change order is already approved.");
@@ -2193,8 +2199,14 @@ export function approveChangeOrder(input: { token: string; typedName: string; co
     });
     log(tx, order.orgId, "project", project.id, "change_order", `Approved CO ${order.number}. Contract and budget updated.`, "contact", null);
     audit(tx, order.orgId, null, "change_order.approve", "change_order", order.id, input.ip);
-    return { projectId: project.id, payToken, invoiceId, portalToken: project.portalToken };
+    return { projectId: project.id, payToken, invoiceId, portalToken: project.portalToken, orgId: order.orgId };
   });
+  try {
+    syncJobCommissions(result.orgId, result.projectId);
+  } catch {
+    // A commission miss does not undo the change order.
+  }
+  return result;
 }
 
 export function addCost(
@@ -2245,6 +2257,11 @@ export function addCost(
     "user",
     actor.userId,
   );
+  try {
+    syncJobCommissions(actor.orgId, projectId);
+  } catch {
+    // A commission miss does not undo the cost.
+  }
   if (alert) {
     db.insert(tasks)
       .values({

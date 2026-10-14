@@ -8,6 +8,7 @@ import { emitAutomation } from "@/lib/services/automations";
 import { ServiceError } from "@/lib/services/errors";
 import { dismissCollections } from "@/lib/services/collections";
 import { bindReviewEmit, considerReview } from "@/lib/services/reviews";
+import { syncJobCommissions } from "@/lib/services/commissions";
 
 export type StripePaymentEvent = {
   eventId: string;
@@ -205,6 +206,11 @@ export function applyStripePaymentEvent(event: StripePaymentEvent): ApplyResult 
             // A review miss does not undo the payment.
           }
           dismissCollections(paid.orgId, paid.id);
+          try {
+            syncJobCommissions(paid.orgId, paid.projectId);
+          } catch {
+            // A commission miss does not undo the payment.
+          }
         }
       }
     } catch {

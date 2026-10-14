@@ -506,6 +506,7 @@ export const projects = sqliteTable(
     siteLngE6: integer("site_lng_e6"),
     siteRadiusM: integer("site_radius_m"),
     tags: text("tags").notNull().default(""),
+    projectType: text("project_type"),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
     createdBy: text("created_by"),
@@ -3385,4 +3386,81 @@ export const leadSourceSpend = sqliteTable(
     updatedAt: text("updated_at").notNull(),
   },
   (t) => [uniqueIndex("lead_source_spend_month").on(t.orgId, t.sourceId, t.month), index("lead_source_spend_org").on(t.orgId, t.month)],
+);
+
+export const commissionPlans = sqliteTable(
+  "commission_plans",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    name: text("name").notNull(),
+    subject: text("subject").notNull(),
+    userId: text("user_id"),
+    role: text("role"),
+    basis: text("basis").notNull(),
+    rateBps: integer("rate_bps").notNull(),
+    depositBps: integer("deposit_bps").notNull(),
+    startBps: integer("start_bps").notNull(),
+    completionBps: integer("completion_bps").notNull(),
+    status: text("status").notNull(),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (t) => [index("commission_plans_org").on(t.orgId, t.status)],
+);
+
+export const commissionPlanOverrides = sqliteTable(
+  "commission_plan_overrides",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    planId: text("plan_id").notNull(),
+    projectType: text("project_type").notNull(),
+    basis: text("basis"),
+    rateBps: integer("rate_bps").notNull(),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (t) => [uniqueIndex("commission_plan_overrides_type").on(t.orgId, t.planId, t.projectType)],
+);
+
+export const commissionSplits = sqliteTable(
+  "commission_splits",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    projectId: text("project_id").notNull(),
+    userId: text("user_id").notNull(),
+    seat: text("seat").notNull(),
+    mode: text("mode").notNull(),
+    shareBps: integer("share_bps").notNull().default(0),
+    shareCents: integer("share_cents").notNull().default(0),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (t) => [uniqueIndex("commission_splits_user").on(t.orgId, t.projectId, t.userId), index("commission_splits_org").on(t.orgId, t.projectId)],
+);
+
+export const commissionLines = sqliteTable(
+  "commission_lines",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    projectId: text("project_id").notNull(),
+    userId: text("user_id").notNull(),
+    milestone: text("milestone").notNull(),
+    sourceKey: text("source_key").notNull(),
+    basisCents: integer("basis_cents").notNull(),
+    rateBps: integer("rate_bps").notNull(),
+    earnedCents: integer("earned_cents").notNull(),
+    deltaCents: integer("delta_cents").notNull().default(0),
+    soldCents: integer("sold_cents").notNull(),
+    fallback: integer("fallback").notNull().default(0),
+    status: text("status").notNull(),
+    paidAt: text("paid_at"),
+    paidBy: text("paid_by"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (t) => [uniqueIndex("commission_lines_key").on(t.orgId, t.sourceKey), index("commission_lines_org").on(t.orgId, t.status)],
 );

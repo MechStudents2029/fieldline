@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import type Database from "better-sqlite3";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { resolveDataDir } from "@/lib/db/paths";
 import type { AppDatabase } from "@/lib/db/client";
 import { addMonths } from "@/lib/closeout/check";
@@ -34,6 +34,10 @@ import {
   clientCreditApplications,
   clientCreditMemoLines,
   clientCreditMemos,
+  commissionLines,
+  commissionPlanOverrides,
+  commissionPlans,
+  commissionSplits,
   consents,
   contacts,
   customFields,
@@ -182,6 +186,7 @@ import { hashPassword, newSalt } from "@/lib/auth/password";
 import { canonicalJson, sha256 } from "@/lib/esign/hash";
 import { publicSnapshot } from "@/lib/selections/money";
 import { formatDate } from "@/lib/format";
+import { syncJob } from "@/lib/commissions/apply";
 import { daysAgo, daysFromNow, nowIso } from "@/lib/ids";
 import { floorPlanPdf } from "@/lib/markup/pdf";
 import { achFeeCents, formatMoney, qtyToMilli } from "@/lib/money";
@@ -203,7 +208,7 @@ import {
   WEBSITE_FORM_SOURCE,
 } from "@/lib/lead-form/rules";
 
-export const SEED_VERSION = "61";
+export const SEED_VERSION = "62";
 
 const ORG = "org_rivera";
 const NORTH = "org_northline";
@@ -4829,6 +4834,124 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
       createdBy: "user_maya",
     })
     .run();
+
+  const commissionStamp = daysAgo(3);
+  for (const [projectId, projectType] of [
+    ["proj_chen", "Bath remodel"],
+    ["proj_okonkwo", "Bath remodel"],
+    ["proj_brooks", "Addition"],
+    ["proj_diaz", "Deck"],
+  ] as const) {
+    db.update(projects).set({ projectType }).where(eq(projects.id, projectId)).run();
+  }
+  db.insert(commissionPlans)
+    .values([
+      {
+        id: "cplan_maya",
+        orgId: ORG,
+        name: "Maya",
+        subject: "user",
+        userId: "user_maya",
+        role: null,
+        basis: "contract",
+        rateBps: 500,
+        depositBps: 4000,
+        startBps: 3000,
+        completionBps: 3000,
+        status: "active",
+        createdAt: commissionStamp,
+        updatedAt: commissionStamp,
+      },
+      {
+        id: "cplan_luis",
+        orgId: ORG,
+        name: "Luis",
+        subject: "user",
+        userId: "user_luis",
+        role: null,
+        basis: "gross_profit",
+        rateBps: 1000,
+        depositBps: 3000,
+        startBps: 4000,
+        completionBps: 3000,
+        status: "active",
+        createdAt: commissionStamp,
+        updatedAt: commissionStamp,
+      },
+      {
+        id: "cplan_office",
+        orgId: ORG,
+        name: "Office",
+        subject: "role",
+        userId: null,
+        role: "estimator",
+        basis: "contract",
+        rateBps: 400,
+        depositBps: 5000,
+        startBps: 0,
+        completionBps: 5000,
+        status: "active",
+        createdAt: commissionStamp,
+        updatedAt: commissionStamp,
+      },
+    ])
+    .run();
+  db.insert(commissionPlanOverrides)
+    .values({
+      id: "cpov_maya_bath",
+      orgId: ORG,
+      planId: "cplan_maya",
+      projectType: "Bath remodel",
+      basis: null,
+      rateBps: 600,
+      createdAt: commissionStamp,
+      updatedAt: commissionStamp,
+    })
+    .run();
+  db.insert(commissionSplits)
+    .values([
+      { id: "csplit_ok_maya", orgId: ORG, projectId: "proj_okonkwo", userId: "user_maya", seat: "setter", mode: "percent", shareBps: 6000, shareCents: 0, createdAt: commissionStamp, updatedAt: commissionStamp },
+      { id: "csplit_ok_luis", orgId: ORG, projectId: "proj_okonkwo", userId: "user_luis", seat: "consultant", mode: "percent", shareBps: 4000, shareCents: 0, createdAt: commissionStamp, updatedAt: commissionStamp },
+      { id: "csplit_dz_luis", orgId: ORG, projectId: "proj_diaz", userId: "user_luis", seat: "manager", mode: "percent", shareBps: 7000, shareCents: 0, createdAt: commissionStamp, updatedAt: commissionStamp },
+      { id: "csplit_dz_maya", orgId: ORG, projectId: "proj_diaz", userId: "user_maya", seat: "setter", mode: "percent", shareBps: 3000, shareCents: 0, createdAt: commissionStamp, updatedAt: commissionStamp },
+      { id: "csplit_br_maya", orgId: ORG, projectId: "proj_brooks", userId: "user_maya", seat: "setter", mode: "percent", shareBps: 5000, shareCents: 0, createdAt: commissionStamp, updatedAt: commissionStamp },
+    ])
+    .run();
+  for (const projectId of ["proj_okonkwo", "proj_diaz", "proj_brooks"]) syncJob(db, ORG, projectId);
+  db.update(commissionLines)
+    .set({ status: "paid", paidAt: daysAgo(2), paidBy: "user_maya", updatedAt: daysAgo(2) })
+    .where(eq(commissionLines.sourceKey, "proj_okonkwo:user_maya:deposit"))
+    .run();
+  db.update(commissionLines)
+    .set({ status: "paid", paidAt: daysAgo(6), paidBy: "user_maya", updatedAt: daysAgo(6) })
+    .where(eq(commissionLines.sourceKey, "proj_diaz:user_luis:deposit"))
+    .run();
+  const owedLine = db
+    .select()
+    .from(commissionLines)
+    .where(and(eq(commissionLines.orgId, ORG), eq(commissionLines.projectId, "proj_okonkwo"), eq(commissionLines.status, "owed")))
+    .all()[0];
+  if (owedLine) {
+    db.insert(notifications)
+      .values(
+        ["user_maya", "user_sam"].map((userId) => ({
+          id: `note_com_${userId}`,
+          orgId: ORG,
+          userId,
+          kind: "commission",
+          commentId: null,
+          entityType: "commission_line",
+          entityId: owedLine.id,
+          projectId: "proj_okonkwo",
+          actorId: null,
+          actorName: "Fieldline",
+          snippet: "Okonkwo primary bath · owed",
+          readAt: null,
+          createdAt: daysAgo(1),
+        })),
+      )
+      .run();
+  }
 
   db.insert(auditLogs)
     .values({
