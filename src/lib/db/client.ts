@@ -142,6 +142,7 @@ export function ensureReady(holder: Holder) {
   ensureBooking(holder);
   ensureReviews(holder);
   ensureCollections(holder);
+  ensureSelectionFollowUps(holder);
   ensureClientCredits(holder);
   const version = holder.sqlite.prepare("select value from app_meta where key = ?").get("seed_version") as
     | { value: string }
@@ -1425,6 +1426,35 @@ function ensureCollections(holder: Holder) {
   }
   holder.sqlite.exec("create unique index if not exists invoice_followups_cadence on invoice_followups (org_id, invoice_id, cadence_days)");
   holder.sqlite.exec("create index if not exists invoice_followups_org on invoice_followups (org_id, status)");
+}
+
+function ensureSelectionFollowUps(holder: Holder) {
+  const pk = holder.dialect === "postgres" ? "text primary key" : "text primary key not null";
+  ensureColumn(holder, "organizations", "sel_follow_enabled", "integer not null default 0");
+  ensureColumn(holder, "organizations", "sel_follow_before", "integer not null default 3");
+  ensureColumn(holder, "organizations", "sel_follow_after", "integer not null default 0");
+  ensureColumn(holder, "organizations", "sel_follow_exclude_tags", "text not null default ''");
+  ensureColumn(holder, "organizations", "sel_follow_template", "text not null default ''");
+  if (!tableExists(holder.sqlite, "selection_followups", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists selection_followups (
+      id ${pk},
+      org_id text not null,
+      selection_id text not null,
+      project_id text not null,
+      contact_id text not null,
+      cadence_days integer not null,
+      status text not null,
+      url text not null default '',
+      message text not null default '',
+      skip_reason text not null default '',
+      created_at text not null,
+      updated_at text not null,
+      copied_at text,
+      sent_at text
+    )`);
+  }
+  holder.sqlite.exec("create unique index if not exists selection_followups_cadence on selection_followups (org_id, selection_id, cadence_days)");
+  holder.sqlite.exec("create index if not exists selection_followups_org on selection_followups (org_id, status)");
 }
 
 function ensureOptions(holder: Holder) {

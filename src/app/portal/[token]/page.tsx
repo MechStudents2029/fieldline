@@ -37,6 +37,7 @@ import { clientPortalMarkups, clientPortalPins } from "@/lib/services/markup";
 import { portalPassedInspections } from "@/lib/services/permits";
 import { portalTmTickets } from "@/lib/services/tm";
 import { portalChase } from "@/lib/services/collections";
+import { portalSelectionDue } from "@/lib/services/selection-followups";
 import { portalReview } from "@/lib/services/reviews";
 
 export const dynamic = "force-dynamic";
@@ -102,6 +103,7 @@ export default async function PortalPage({ params }: { params: Promise<{ token: 
   const approved = orders.filter((order) => order.status === "approved");
   const reviewLink = portalReview(token);
   const chased = portalChase(token);
+  const dueSelections = portalSelectionDue(token);
   const creditMemos = portalClientCredits(token);
   const creditByInvoice = new Map<string, number>();
   for (const payment of data.payments) {
@@ -191,6 +193,11 @@ export default async function PortalPage({ params }: { params: Promise<{ token: 
               <Link className="home-link" href={`#selection-${selection.id}`}>
                 {selection.title}
               </Link>
+              {dueSelections.has(selection.id) ? (
+                <span className="home-pill" data-testid="selection-due">
+                  Due
+                </span>
+              ) : null}
               {selection.area ? <span className="home-sub">{selection.area}</span> : null}
             </p>
           ))}
@@ -539,7 +546,7 @@ export default async function PortalPage({ params }: { params: Promise<{ token: 
               <h2>Selections</h2>
               <div className="home-stack">
                 {selections.map((selection) => (
-                  <SelectionCard key={selection.id} token={token} selection={selection} />
+                  <SelectionCard key={selection.id} token={token} selection={selection} due={dueSelections.has(selection.id)} />
                 ))}
               </div>
             </section>
@@ -583,13 +590,18 @@ export default async function PortalPage({ params }: { params: Promise<{ token: 
   );
 }
 
-function SelectionCard({ token, selection }: { token: string; selection: PortalSelection }) {
+function SelectionCard({ token, selection, due }: { token: string; selection: PortalSelection; due?: boolean }) {
   const chosen = selection.choices.find((choice) => choice.id === selection.chosenChoiceId) ?? null;
   return (
     <article className="home-card" id={`selection-${selection.id}`}>
       <div className="home-row">
         <div>
           <p className="home-strong">{selection.title}</p>
+          {due ? (
+            <span className="home-pill" data-testid="selection-due">
+              Due
+            </span>
+          ) : null}
           {selection.area ? <p className="home-sub">{selection.area}</p> : null}
         </div>
         {chosen ? <span className="home-money">{chosen.deltaLabel}</span> : null}

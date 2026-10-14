@@ -26,6 +26,7 @@ import {
   publicSnapshot,
 } from "@/lib/selections/money";
 import { ServiceError } from "@/lib/services/errors";
+import { dismissSelectionFollowUps } from "@/lib/services/selection-followups";
 import { emitAutomation } from "@/lib/services/automations";
 import { notifySelectionNeedsPo, orderDesk, orderedSourceIds } from "@/lib/services/order-from";
 import type { Actor } from "@/lib/services/read";
@@ -662,6 +663,7 @@ export function approveSelection(actor: Actor, selectionId: string, choiceId: st
     projectId: selection.projectId,
     name: selection.title,
   });
+  closeFollowUps(actor.orgId, selection.id);
   return { id: selection.id, duplicate: false };
 }
 
@@ -741,6 +743,7 @@ export function lockSelection(actor: Actor, selectionId: string) {
       after: { ...before, status: "locked" },
     });
   });
+  closeFollowUps(actor.orgId, selection.id);
   return selection.id;
 }
 
@@ -935,6 +938,15 @@ export function chooseSelection(input: {
     projectId: project.id,
     name: selection.title,
   });
+  closeFollowUps(project.orgId, selection.id);
   notifySelectionNeedsPo(project.orgId, selection.id, input.typedName.trim());
   return { duplicate: false, projectId: project.id };
+}
+
+function closeFollowUps(orgId: string, selectionId: string) {
+  try {
+    dismissSelectionFollowUps(orgId, selectionId);
+  } catch {
+    // A follow-up miss does not undo the choice.
+  }
 }

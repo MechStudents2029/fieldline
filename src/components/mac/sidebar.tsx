@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, Boxes, Briefcase, Calendar, CircleDollarSign, ClipboardList, Clock, Columns2, Copy, FileMinus, FileText, HardHat, Inbox, ListTodo, MessageSquare, Package, Receipt, Repeat, Star, Sun, Ticket, Undo2, Users, Wallet, Wrench } from "lucide-react";
+import { BarChart3, Boxes, Briefcase, Calendar, CircleDollarSign, ClipboardList, Clock, Columns2, Copy, FileMinus, FileText, HardHat, Inbox, ListChecks, ListTodo, MessageSquare, Package, Receipt, Repeat, Star, Sun, Ticket, Undo2, Users, Wallet, Wrench } from "lucide-react";
 import { SignOutButton } from "@/components/sign-out-button";
 import type { OfficeChrome } from "@/lib/services/read";
 
@@ -96,6 +96,7 @@ export function Sidebar({
           {item("/agreements", "Agreements", <Repeat size={16} strokeWidth={1.6} />)}
           {field ? null : item("/reviews", "Reviews", <Star size={16} strokeWidth={1.6} />)}
           {field ? null : item("/collections", "Collections", <CircleDollarSign size={16} strokeWidth={1.6} />)}
+          {field ? null : item("/selection-followups", "Due selections", <ListChecks size={16} strokeWidth={1.6} />)}
           {field ? null : item("/credit-memos", "Credit memos", <FileMinus size={16} strokeWidth={1.6} />)}
           {item("/inventory", "Inventory", <Boxes size={16} strokeWidth={1.6} />)}
           {field ? null : item("/vendor-credits", "Vendor credits", <Undo2 size={16} strokeWidth={1.6} />)}
