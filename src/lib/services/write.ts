@@ -75,6 +75,7 @@ import { attachApprovedChange, attachSignedDraws, billNextDraw } from "@/lib/ser
 import { assertReceiptFree } from "@/lib/services/cost-plus";
 import { ServiceError } from "@/lib/services/errors";
 import { leadPhotoCues, type Actor } from "@/lib/services/read";
+import { bindLeadSource } from "@/lib/services/lead-sources";
 
 type Tx = Parameters<Parameters<ReturnType<typeof getDb>["transaction"]>[0]>[0];
 type Writer = Tx | ReturnType<typeof getDb>;
@@ -228,6 +229,7 @@ export function createLeadFromText(actor: Actor, text: string, source = "manual"
   const name = intake.name || "New client";
   const now = nowIso();
   db.transaction((tx) => {
+    const bound = bindLeadSource(tx, actor.orgId, source);
     tx.insert(contacts)
       .values({
         id: contactId,
@@ -242,6 +244,7 @@ export function createLeadFromText(actor: Actor, text: string, source = "manual"
         state: null,
         zip: null,
         notes: null,
+        sourceId: bound.id,
         deletedAt: null,
         createdAt: now,
         updatedAt: now,
@@ -268,7 +271,8 @@ export function createLeadFromText(actor: Actor, text: string, source = "manual"
         contactId,
         stageId: stage.id,
         title: `${name} ${intake.projectType}`.trim(),
-        source,
+        source: bound.name,
+        sourceId: bound.id,
         valueEstCents: intake.valueHighCents ?? intake.valueLowCents,
         ownerUserId: actor.userId,
         status: "open",
@@ -1714,6 +1718,7 @@ export function signProposal(input: {
         id: projectId,
         orgId: proposal.orgId,
         leadId: proposal.leadId,
+        leadSourceId: lead?.sourceId ?? null,
         proposalId: proposal.id,
         contactId: lead?.contactId || "",
         name: stored.public.title,

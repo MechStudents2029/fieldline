@@ -22,6 +22,7 @@ import { id, nowIso } from "@/lib/ids";
 import { DEFAULT_TIME_ZONE, DEFAULT_WEEK_START, isValidTimeZone } from "@/lib/time/calendar";
 import { proposalChecklist, setupChecklist, type ChecklistFacts, type ChecklistStep, type ProposalStep } from "@/lib/onboarding/checklist";
 import { canManageSettings } from "@/lib/permissions";
+import { ensureDefaultSources } from "@/lib/services/lead-sources";
 import { isStarterTrade, type SignupFields, type StarterTrade } from "@/lib/security";
 import { ServiceError } from "@/lib/services/errors";
 import { authenticate, type Actor } from "@/lib/services/read";
@@ -118,6 +119,7 @@ export function createCompany(input: SignupFields & { authUserId?: string | null
         )
         .run();
       if (input.starter) insertStarterItems(tx, orgId, userId, input.trade);
+      ensureDefaultSources(tx, orgId);
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "";

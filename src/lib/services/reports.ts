@@ -17,6 +17,7 @@ import {
   type ReportQuery,
 } from "@/lib/reports/engine";
 import { columnsFor, loadSource, orgToday } from "@/lib/reports/load";
+import { leadSourceFooter } from "@/lib/services/lead-sources";
 import { customColumns } from "@/lib/services/custom-fields";
 import { ServiceError } from "@/lib/services/errors";
 import type { Actor } from "@/lib/services/read";
@@ -92,13 +93,15 @@ function catalogColumns(actor: Actor, source: SourceId): EngineColumn[] {
 export function runBuilt(actor: Actor, source: SourceId, query: ReportQuery): EngineResult {
   if (!sourceAllowed(actor.role as Role, source)) throw new ServiceError("Your role cannot see this report.");
   const dated = resolveDates(actor, query);
-  const rows = loadSource(actor, source, orgToday(actor.orgId));
+  const rows = loadSource(actor, source, orgToday(actor.orgId), { from: dated.from, to: dated.to });
   const columns = columnsFor(actor, source, rows);
   const allowed = new Set(columns.map((column) => column.key));
   const hideMoney = !canSeeMoney(actor.role as Role);
   const visible = visibleColumns(columns, hideMoney).filter((column) => allowed.has(column.key));
   const picked = dated.columns.filter((key) => visible.some((column) => column.key === key));
-  return runEngine(rows, visible, { ...dated, columns: picked.length ? picked : visible.map((column) => column.key) });
+  const result = runEngine(rows, visible, { ...dated, columns: picked.length ? picked : visible.map((column) => column.key) });
+  if (source !== "lead_sources") return result;
+  return { ...result, footer: leadSourceFooter(result.groups.flatMap((group) => group.rows)) };
 }
 
 export function library(actor: Actor) {
@@ -131,12 +134,16 @@ export function library(actor: Actor) {
   return { ready, saved };
 }
 
-export function openBuiltin(actor: Actor, reportId: string, extra?: ReportQuery["filters"]): ReportView {
+export function openBuiltin(actor: Actor, reportId: string, extra?: ReportQuery["filters"], range?: { from?: string; to?: string }): ReportView {
   const report = builtinById(reportId);
   if (!report) throw new ServiceError("That report is not in your company.");
   if (!report.field && actor.role === "field") throw new ServiceError("Your role cannot see this report.");
   if (report.source === "cash" && !canSeeCash(actor.role as Role)) throw new ServiceError("Your role cannot see this report.");
-  const query = parseQuery({ ...report.query, filters: [...report.query.filters, ...(extra ?? [])] });
+  const query = parseQuery({
+    ...report.query,
+    filters: [...report.query.filters, ...(extra ?? [])],
+    ...(report.id === "lead_sources" && range ? { from: range.from || "", to: range.to || "" } : {}),
+  });
   return {
     id: report.id,
     name: report.name,
@@ -262,7 +269,11 @@ export function reportCsv(view: ReportView): string {
       lines.push(view.result.columns.map((column, index) => csvCell(index === 0 ? group.key : subtotalLabel(column, group.subtotal[column.key]))).join(","));
     }
   }
-  lines.push(view.result.columns.map((column, index) => csvCell(index === 0 ? "Total" : formatAgg(column, view.result.total[column.key], column.kind === "percent" ? "avg" : column.kind === "text" || column.kind === "date" ? "count" : "sum"))).join(","));
+  if (view.result.footer) {
+    lines.push(view.result.columns.map((column) => csvCell(view.result.footer?.[column.key] ?? "")).join(","));
+  } else {
+    lines.push(view.result.columns.map((column, index) => csvCell(index === 0 ? "Total" : formatAgg(column, view.result.total[column.key], column.kind === "percent" ? "avg" : column.kind === "text" || column.kind === "date" ? "count" : "sum"))).join(","));
+  }
   return lines.join("\n");
 }
 

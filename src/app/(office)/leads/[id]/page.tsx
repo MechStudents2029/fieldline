@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { generateEstimateAction, leadPhotoAction, moveLeadFormAction, noteAction, taskAction } from "@/app/actions";
+import { setLeadSourceAction } from "@/app/(office)/settings/lead-sources/actions";
 import { MissingRecord } from "@/components/missing-record";
 import { ActionForm } from "@/components/action-form";
 import { PhotoCapture } from "@/components/photo-capture";
@@ -8,7 +9,8 @@ import { requireSession } from "@/lib/auth/session";
 import { formatDateTime } from "@/lib/format";
 import { formatMoney } from "@/lib/money";
 import { WEBSITE_FORM_SOURCE } from "@/lib/lead-form/rules";
-import { canSeeMoney } from "@/lib/permissions";
+import { canEditCrm, canSeeMoney } from "@/lib/permissions";
+import { sourceChoices } from "@/lib/services/lead-sources";
 import { markWebLeadOpened, webLeadSubmission } from "@/lib/services/lead-form";
 import { captionFromMetadata, leadDetail, pipelineBoard } from "@/lib/services/read";
 import { RecordFields } from "@/components/field-record";
@@ -18,6 +20,7 @@ export default async function LeadPage({ params, searchParams }: { params: Promi
   const { id } = await params;
   const query = await searchParams;
   const session = await requireSession();
+  const choices = sourceChoices(session.orgId);
   const detail = leadDetail(session.orgId, id);
   if (!detail?.contact) return <MissingRecord orgName={session.orgName} kind="lead" />;
   const board = pipelineBoard(session.orgId);
@@ -38,12 +41,13 @@ export default async function LeadPage({ params, searchParams }: { params: Promi
       ).filter((row) => row[1])
     : [];
   const latest = detail.estimates.find((estimate) => estimate.status !== "void");
+  const sourceOptions = choices.filter((source) => source.status === "active" || source.id === detail.lead.sourceId);
   return (
     <div className="flex flex-col gap-5">
       <div>
         <p className="flex items-center gap-2 text-xs uppercase tracking-wide text-muted-foreground">
-          <span>{detail.stage?.name} · {detail.lead.source}</span>
-          {web ? <span className="fl-pill normal-case">Website form</span> : null}
+          <span>{detail.stage?.name}</span>
+          <span className="fl-pill normal-case">{detail.lead.source}</span>
         </p>
         <h1 className="font-heading text-3xl">{detail.lead.title}</h1>
         <p className="text-sm">
@@ -55,6 +59,24 @@ export default async function LeadPage({ params, searchParams }: { params: Promi
         </p>
         {money && detail.lead.valueEstCents != null ? <p className="mt-1 text-sm">Named budget {formatMoney(detail.lead.valueEstCents)}</p> : null}
       </div>
+      {canEditCrm(session.role) ? (
+        <ActionForm action={setLeadSourceAction} className="flex items-end gap-2">
+          <label className="flex-1 text-sm">
+            Source
+            <select name="sourceId" aria-label="Lead source" defaultValue={detail.lead.sourceId ?? ""} className="field mt-1">
+              {sourceOptions.map((source) => (
+                <option key={source.id} value={source.id}>
+                  {source.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <input type="hidden" name="leadId" value={detail.lead.id} />
+          <Button type="submit" variant="outline" className="h-11">
+            Save
+          </Button>
+        </ActionForm>
+      ) : null}
       <ActionForm action={moveLeadFormAction.bind(null, detail.lead.id)} className="flex items-end gap-2">
         <label className="flex-1 text-sm">
           Stage

@@ -62,7 +62,9 @@ export function ReportTable({ result }: { result: EngineResult }) {
           <tr data-total="1">
             {result.columns.map((column, index) => (
               <td key={column.key} className={`font-semibold ${numeric(column.kind) ? "num text-right" : ""}`}>
-                {aggregateCell(column, index, index === 0 ? `Total ${count}` : subtotalLabel(column, result.total[column.key]), "total")}
+                {result.footer
+                  ? (result.footer[column.key] ?? "")
+                  : aggregateCell(column, index, index === 0 ? `Total ${count}` : subtotalLabel(column, result.total[column.key]), "total")}
               </td>
             ))}
           </tr>

@@ -89,9 +89,24 @@ describe("online booking", () => {
     const card = board.cards.find((item) => item.id === `book:${placed.bookingId}`);
     expect(card).toMatchObject({ title: "Service call", site: "Ava Moss", assigneeId: "user_dana", kind: "book" });
     expect(getDb().select().from(invoices).all().length).toBe(before.invoices);
-    expect(getDb().select().from(leads).all().length).toBe(before.leads);
+    expect(getDb().select().from(leads).all().length).toBe(before.leads + 1);
+    expect(getDb().select().from(leads).where(eq(leads.source, "Online booking")).all()).toHaveLength(1);
     expect(getDb().select().from(projects).all().length).toBe(before.projects);
     expect(getDb().select().from(messages).all().length).toBe(before.messages);
+    const again = day.slots.find((item) => item.startMin >= slot.startMin + 60);
+    if (again) {
+      bookPublic({
+        token: "demo_booking_rivera",
+        itemId: "pb_svc_call",
+        day: day.day,
+        startMin: again.startMin,
+        name: "Ava Moss",
+        phone: "(510) 555-0198",
+        email: "ava.moss.book@example.com",
+        answers: { q1: "2214" },
+      });
+      expect(getDb().select().from(leads).where(eq(leads.source, "Online booking")).all()).toHaveLength(1);
+    }
     expect(bookingAttention("org_rivera").count).toBeGreaterThanOrEqual(2);
 
     const inbox = listInbox(maya, "unread");

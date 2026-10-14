@@ -126,6 +126,7 @@ export const contacts = sqliteTable(
     state: text("state"),
     zip: text("zip"),
     notes: text("notes"),
+    sourceId: text("source_id"),
     retainageBps: integer("retainage_bps"),
     cashDaysLate: integer("cash_days_late"),
     deletedAt: text("deleted_at"),
@@ -177,6 +178,7 @@ export const leads = sqliteTable(
     stageId: text("stage_id").notNull(),
     title: text("title").notNull(),
     source: text("source").notNull(),
+    sourceId: text("source_id"),
     valueEstCents: integer("value_est_cents"),
     ownerUserId: text("owner_user_id"),
     status: text("status").notNull(),
@@ -475,6 +477,7 @@ export const projects = sqliteTable(
     id: text("id").primaryKey(),
     orgId: text("org_id").notNull(),
     leadId: text("lead_id"),
+    leadSourceId: text("lead_source_id"),
     proposalId: text("proposal_id"),
     contactId: text("contact_id").notNull(),
     name: text("name").notNull(),
@@ -3354,4 +3357,32 @@ export const agreementInvoices = sqliteTable(
     createdAt: text("created_at").notNull(),
   },
   (t) => [uniqueIndex("agreement_invoices_key").on(t.orgId, t.sourceKey)],
+);
+
+export const leadSources = sqliteTable(
+  "lead_sources",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    name: text("name").notNull(),
+    status: text("status").notNull(),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (t) => [uniqueIndex("lead_sources_org_name").on(t.orgId, t.name), index("lead_sources_org").on(t.orgId, t.status)],
+);
+
+export const leadSourceSpend = sqliteTable(
+  "lead_source_spend",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    sourceId: text("source_id").notNull(),
+    month: text("month").notNull(),
+    spendCents: integer("spend_cents").notNull(),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (t) => [uniqueIndex("lead_source_spend_month").on(t.orgId, t.sourceId, t.month), index("lead_source_spend_org").on(t.orgId, t.month)],
 );

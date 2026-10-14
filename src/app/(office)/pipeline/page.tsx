@@ -9,6 +9,7 @@ import { requireSession } from "@/lib/auth/session";
 import { one, pinnedTarget, readQuery } from "@/lib/lists/query";
 import { canEditCrm, canSeeMoney } from "@/lib/permissions";
 import { pipelineBoard } from "@/lib/services/read";
+import { sourceChoices } from "@/lib/services/lead-sources";
 import { LIST_FILTERS, listSavedViews, viewHref } from "@/lib/services/saved-views";
 import { fieldList } from "@/lib/lists/fields";
 import { customFilters } from "@/lib/services/custom-fields";
@@ -27,6 +28,7 @@ export default async function PipelinePage({
   const filters = readQuery(query, keys);
   const fields = fieldList(session, "lead", "/pipeline", filters);
   const board = pipelineBoard(session.orgId, { q: filters.q, source: filters.source });
+  board.sources = [...new Set([...board.sources, ...sourceChoices(session.orgId).filter((source) => source.status === "active").map((source) => source.name)])].sort((a, b) => a.localeCompare(b));
   board.cards = board.cards.filter((card) => fields.match(card.lead.id));
   const filtered = Boolean(filters.q || filters.source);
   return (

@@ -7,6 +7,7 @@ import { requireSession } from "@/lib/auth/session";
 import { one, pinnedTarget, readQuery } from "@/lib/lists/query";
 import { canEditCrm, canManageSettings } from "@/lib/permissions";
 import { listContacts } from "@/lib/services/read";
+import { sourceChoices } from "@/lib/services/lead-sources";
 import { LIST_FILTERS, listSavedViews, viewHref } from "@/lib/services/saved-views";
 import { fieldList } from "@/lib/lists/fields";
 import { customFilters } from "@/lib/services/custom-fields";
@@ -24,9 +25,11 @@ export default async function ContactsPage({ searchParams }: { searchParams: Pro
   const vendors = fieldList(session, "vendor", "/contacts", filters);
   const fieldFilters = filters.type === "vendor" || filters.type === "sub" ? vendors.filters : filters.type === "client" ? clients.filters : [...clients.filters, ...vendors.filters];
   const visible = [...clients.visible, ...vendors.visible.filter((column) => !clients.visible.some((item) => item.key === column.key))];
-  const rows = listContacts(session.orgId, filters.q, filters.type).filter((contact) => (contact.type === "client" ? clients : vendors).match(contact.id));
+  const sources = sourceChoices(session.orgId);
+  const sourceName = new Map(sources.map((source) => [source.id, source.name]));
+  const rows = listContacts(session.orgId, filters.q, filters.type, filters.source).filter((contact) => (contact.type === "client" ? clients : vendors).match(contact.id));
   const compliance = complianceByContact(session.orgId);
-  const filtered = Boolean(filters.q || filters.type);
+  const filtered = Boolean(filters.q || filters.type || filters.source);
   return (
     <div className="flex flex-col gap-4">
       <div className="hidden md:block">
@@ -57,7 +60,7 @@ export default async function ContactsPage({ searchParams }: { searchParams: Pro
         canShare={canEditCrm(session.role)}
         clearHref={filtered ? "/contacts?view=none" : null}
         views={views.map((view) => ({ id: view.id, name: view.name, href: viewHref(view), pinned: view.pinned, mine: view.mine, shared: view.shared }))}
-        filters={[{ name: "type", label: "Type", value: filters.type || "", any: "Any", options: [{ value: "client", label: "Clients" }, { value: "sub", label: "Subs" }, { value: "vendor", label: "Vendors" }] }, ...fieldFilters]}
+        filters={[{ name: "type", label: "Type", value: filters.type || "", any: "Any", options: [{ value: "client", label: "Clients" }, { value: "sub", label: "Subs" }, { value: "vendor", label: "Vendors" }] }, { name: "source", label: "Source", value: filters.source || "", any: "Any", options: sources.map((source) => ({ value: source.name, label: source.name })) }, ...fieldFilters]}
         columns={[...clients.columns, ...vendors.columns.filter((column) => !clients.columns.some((item) => item.id === column.id))]}
         extra={<a className="list-link" href={`/api/export/lists?list=contacts&${new URLSearchParams(filters).toString()}`}>CSV</a>}
       />
@@ -77,6 +80,7 @@ export default async function ContactsPage({ searchParams }: { searchParams: Pro
               <th className="px-2">Name</th>
               <th className="px-2">Company</th>
               <th className="px-2">Type</th>
+              <th className="px-2">Source</th>
               <th className="px-2">Compliance</th>
               {visible.map((column) => (
                 <th key={column.key} className="px-2">{column.label}</th>
@@ -93,6 +97,7 @@ export default async function ContactsPage({ searchParams }: { searchParams: Pro
                 </td>
                 <td className="px-2">{contact.company || contact.email || contact.city}</td>
                 <td className="fit px-2" data-fit="status">{contact.type}</td>
+                <td className="fit px-2" data-fit="status">{contact.sourceId ? <span className="fl-pill">{sourceName.get(contact.sourceId) || "—"}</span> : "—"}</td>
                 <td className="fit px-2" data-fit="status">
                   {compliance[contact.id] ? (
                     <span className="fl-pill" data-compliance={compliance[contact.id].state}>

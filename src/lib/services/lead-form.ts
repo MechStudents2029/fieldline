@@ -18,6 +18,7 @@ import {
   pipelineStages,
 } from "@/lib/db/schema";
 import { id, nowIso, token } from "@/lib/ids";
+import { bindLeadSource } from "@/lib/services/lead-sources";
 import {
   attributionLabel,
   defaultFields,
@@ -365,12 +366,14 @@ export function submitLeadForm(input: SubmitInput): { leadId: string; contactId:
   const deduped = Boolean(existing);
 
   db.transaction((tx) => {
+    const bound = bindLeadSource(tx, orgId, WEBSITE_FORM_SOURCE);
     if (existing) {
       tx.update(contacts)
         .set({
           email: existing.email || answers.email,
           phone: existing.phone || answers.phone,
           address: existing.address || answers.address,
+          ...(existing.sourceId ? {} : { sourceId: bound.id }),
           updatedAt: atIso,
         })
         .where(and(eq(contacts.id, existing.id), eq(contacts.orgId, orgId)))
@@ -404,6 +407,7 @@ export function submitLeadForm(input: SubmitInput): { leadId: string; contactId:
           state: null,
           zip: null,
           notes: null,
+          sourceId: bound.id,
           deletedAt: null,
           createdAt: atIso,
           updatedAt: atIso,
@@ -418,7 +422,8 @@ export function submitLeadForm(input: SubmitInput): { leadId: string; contactId:
         contactId,
         stageId: stage.id,
         title,
-        source: WEBSITE_FORM_SOURCE,
+        source: bound.name,
+        sourceId: bound.id,
         valueEstCents: value,
         ownerUserId: null,
         status: "open",

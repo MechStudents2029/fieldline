@@ -4,9 +4,10 @@ import { PrintButton } from "@/components/print-button";
 import { ReportChart } from "@/components/report-chart";
 import { ReportTable } from "@/components/report-table";
 import { Toolbar } from "@/components/mac/toolbar";
+import { DateRangeBar } from "@/components/date-range-bar";
 import type { ReportView } from "@/lib/services/reports";
 
-export function ReportScreen({ view, csvHref, actions }: { view: ReportView; csvHref: string; actions?: ReactNode }) {
+export function ReportScreen({ view, csvHref, actions, range }: { view: ReportView; csvHref: string; actions?: ReactNode; range?: { from: string; to: string } | null }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <Toolbar
@@ -27,6 +28,7 @@ export function ReportScreen({ view, csvHref, actions }: { view: ReportView; csv
         }
       />
       <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-auto px-4 pb-8">
+        {range ? <DateRangeBar from={range.from} to={range.to} /> : null}
         {view.result.chart.length > 0 && view.query.chart ? <ReportChart kind={view.query.chart} points={view.result.chart} /> : null}
         <ReportTable result={view.result} />
       </div>

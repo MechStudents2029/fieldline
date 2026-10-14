@@ -42,6 +42,7 @@ import { optionFigures, type OptionProposalRow } from "@/lib/estimate/options";
 import { agreementReport } from "@/lib/services/agreements";
 import { cashForecast } from "@/lib/services/cash";
 import { wipReport } from "@/lib/services/wip";
+import { leadSourceEngineRows } from "@/lib/services/lead-sources";
 
 const INSURANCE = new Set(["general_liability", "workers_comp"]);
 
@@ -106,7 +107,7 @@ export function columnsFor(actor: Actor, source: SourceId, rows: EngineRow[]): E
   return [...CATALOG[source], ...attachCustom(actor, source, rows)];
 }
 
-export function loadSource(actor: Actor, source: SourceId, today: string): EngineRow[] {
+export function loadSource(actor: Actor, source: SourceId, today: string, range: { from: string; to: string } = { from: "", to: "" }): EngineRow[] {
   const db = dbFor(actor);
   if (source === "jobs") return loadJobs(actor, db);
   if (source === "clients") return loadClients(db, actor.orgId);
@@ -126,6 +127,7 @@ export function loadSource(actor: Actor, source: SourceId, today: string): Engin
   if (source === "options") return loadOptions(db, actor.orgId);
   if (source === "reviews") return loadReviews(actor.orgId);
   if (source === "collections") return loadCollections(actor.orgId);
+  if (source === "lead_sources") return leadSourceEngineRows(actor.orgId, range);
   return loadPunch(db, actor.orgId);
 }
 

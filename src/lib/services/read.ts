@@ -23,6 +23,7 @@ import {
   integrationConnections,
   invoiceLines,
   invoices,
+  leadSources,
   leads,
   lineItems,
   memberships,
@@ -313,10 +314,15 @@ export function estimateDetail(orgId: string, estimateId: string) {
   };
 }
 
-export function listContacts(orgId: string, q?: string, type?: string) {
+export function listContacts(orgId: string, q?: string, type?: string, source?: string) {
   const db = officeDb(orgId);
   if (!db) return [];
   const query = q?.trim();
+  const sourceName = source?.trim();
+  const sourceId = sourceName
+    ? db.select().from(leadSources).where(and(eq(leadSources.orgId, orgId), eq(leadSources.name, sourceName))).get()?.id
+    : undefined;
+  if (sourceName && !sourceId) return [];
   return db
     .select()
     .from(contacts)
@@ -325,6 +331,7 @@ export function listContacts(orgId: string, q?: string, type?: string) {
         eq(contacts.orgId, orgId),
         isNull(contacts.deletedAt),
         type ? eq(contacts.type, type) : undefined,
+        sourceId ? eq(contacts.sourceId, sourceId) : undefined,
         query ? or(like(contacts.name, `%${query}%`), like(contacts.company, `%${query}%`), like(contacts.email, `%${query}%`)) : undefined,
       ),
     )

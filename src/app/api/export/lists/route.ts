@@ -15,7 +15,7 @@ export async function GET(request: Request) {
   let body = "";
   let filename = "list.csv";
   if (list === "contacts") {
-    const rows = listContacts(session.orgId, query.q, query.type).filter((row) => matchesCustom(session, row.type === "client" ? "client" : "vendor", row.id, query));
+    const rows = listContacts(session.orgId, query.q, query.type, query.source).filter((row) => matchesCustom(session, row.type === "client" ? "client" : "vendor", row.id, query));
     const clients = rows.filter((row) => row.type === "client");
     const vendors = rows.filter((row) => row.type !== "client");
     body = [

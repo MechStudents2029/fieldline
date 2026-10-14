@@ -14,7 +14,10 @@ export async function GET(request: Request) {
     const extra = url.searchParams.get("col")
       ? parseQuery({ filters: [{ column: url.searchParams.get("col") || "", op: (url.searchParams.get("op") || "eq") as "eq", value: url.searchParams.get("val") || "" }] }).filters
       : [];
-    const view = url.searchParams.get("saved") === "1" ? openSaved(session, id) : openBuiltin(session, id, extra);
+    const view =
+      url.searchParams.get("saved") === "1"
+        ? openSaved(session, id)
+        : openBuiltin(session, id, extra, { from: url.searchParams.get("from") || "", to: url.searchParams.get("to") || "" });
     return new NextResponse(reportCsv(view), {
       headers: {
         "Content-Type": "text/csv; charset=utf-8",

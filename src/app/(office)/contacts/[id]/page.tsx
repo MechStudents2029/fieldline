@@ -10,6 +10,7 @@ import { formatMoney } from "@/lib/money";
 import { canSeeMoney } from "@/lib/permissions";
 import { CERT_TYPES } from "@/lib/vendor/compliance";
 import { contactDetail } from "@/lib/services/read";
+import { sourceName } from "@/lib/services/lead-sources";
 import { vendorOffice } from "@/lib/services/vendor-portal";
 import { outstandingWaivers } from "@/lib/services/waivers";
 import { clientAgreements } from "@/lib/services/agreements";
@@ -32,7 +33,10 @@ export default async function ContactPage({ params, searchParams }: { params: Pr
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <p className="text-xs uppercase text-muted-foreground">{detail.contact.type}</p>
+        <p className="flex items-center gap-2 text-xs uppercase text-muted-foreground">
+          <span>{detail.contact.type}</span>
+          {sourceName(session.orgId, detail.contact.sourceId) ? <span className="fl-pill normal-case">{sourceName(session.orgId, detail.contact.sourceId)}</span> : null}
+        </p>
         <h1 className="font-heading text-3xl">{detail.contact.name}</h1>
         <p className="text-sm text-muted-foreground">
           {[detail.contact.company, detail.contact.email, detail.contact.phone, detail.contact.address, detail.contact.city].filter(Boolean).join(" · ")}
