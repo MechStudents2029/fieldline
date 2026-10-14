@@ -64,5 +64,5 @@ test("book a service call and see it on dispatch", async ({ page, request }) => 
 
   await page.goto("/");
   await revealToday(page, "Online booking");
-  await expect(page.getByRole("link", { name: /Online booking/ })).toBeVisible();
+  await expect(page.getByRole("link", { name: /^Online booking/ })).toBeVisible();
 });
