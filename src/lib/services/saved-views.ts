@@ -16,7 +16,7 @@ export const LIST_FILTERS: Record<string, string[]> = {
   bills: ["job", "vendor", "status", "waiver", "ready", "q"],
   "purchase-orders": ["job", "vendor", "status", "q"],
   wip: ["asof", "pm", "status", "q"],
-  contacts: ["type", "q"],
+  contacts: ["type", "source", "q"],
   leads: ["source", "q"],
   inbox: ["filter", "q"],
   jobs: ["group", "q"],

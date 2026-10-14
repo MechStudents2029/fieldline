@@ -54,6 +54,8 @@ import {
   invoices,
   laborRates,
   leads,
+  leadSources,
+  leadSourceSpend,
   lineItems,
   memberships,
   messageThreads,
@@ -200,7 +202,7 @@ import {
   WEBSITE_FORM_SOURCE,
 } from "@/lib/lead-form/rules";
 
-export const SEED_VERSION = "59";
+export const SEED_VERSION = "60";
 
 const ORG = "org_rivera";
 const NORTH = "org_northline";
@@ -638,6 +640,67 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
     lost?: string;
   };
 
+  const sourceStamp = now;
+  function monthBack(delta: number) {
+    const date = new Date(sourceStamp);
+    const shifted = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() - delta, 1));
+    return `${shifted.getUTCFullYear()}-${String(shifted.getUTCMonth() + 1).padStart(2, "0")}`;
+  }
+  const riveraSources = [
+    { id: "src_web", name: "Website form", status: "active", sortOrder: 0 },
+    { id: "src_ref", name: "Referral", status: "active", sortOrder: 1 },
+    { id: "src_google", name: "Google", status: "active", sortOrder: 2 },
+    { id: "src_repeat", name: "Repeat client", status: "active", sortOrder: 3 },
+    { id: "src_yard", name: "Yard sign", status: "active", sortOrder: 4 },
+    { id: "src_other", name: "Other", status: "active", sortOrder: 5 },
+    { id: "src_show", name: "Home show", status: "archived", sortOrder: 6 },
+    { id: "src_book", name: "Online booking", status: "active", sortOrder: 7 },
+  ];
+  const northSources = [
+    { id: "src_n_web", name: "Website form", status: "active", sortOrder: 0 },
+    { id: "src_n_ref", name: "Referral", status: "active", sortOrder: 1 },
+    { id: "src_n_google", name: "Google", status: "active", sortOrder: 2 },
+    { id: "src_n_repeat", name: "Repeat client", status: "active", sortOrder: 3 },
+    { id: "src_n_yard", name: "Yard sign", status: "active", sortOrder: 4 },
+    { id: "src_n_other", name: "Other", status: "active", sortOrder: 5 },
+  ];
+  db.insert(leadSources)
+    .values(
+      [...riveraSources.map((source) => ({ ...source, orgId: ORG })), ...northSources.map((source) => ({ ...source, orgId: NORTH }))].map((source) => ({
+        id: source.id,
+        orgId: source.orgId,
+        name: source.name,
+        status: source.status,
+        sortOrder: source.sortOrder,
+        createdAt: sourceStamp,
+        updatedAt: sourceStamp,
+      })),
+    )
+    .run();
+  const spendRows = [
+    { id: "spend_google_0", sourceId: "src_google", month: monthBack(0), spendCents: 98000 },
+    { id: "spend_google_1", sourceId: "src_google", month: monthBack(1), spendCents: 145000 },
+    { id: "spend_google_2", sourceId: "src_google", month: monthBack(2), spendCents: 120000 },
+    { id: "spend_yard_0", sourceId: "src_yard", month: monthBack(0), spendCents: 35000 },
+    { id: "spend_yard_1", sourceId: "src_yard", month: monthBack(1), spendCents: 35000 },
+    { id: "spend_yard_2", sourceId: "src_yard", month: monthBack(2), spendCents: 35000 },
+    { id: "spend_show", sourceId: "src_show", month: monthBack(3), spendCents: 80000 },
+  ];
+  db.insert(leadSourceSpend)
+    .values(spendRows.map((row) => ({ ...row, orgId: ORG, createdAt: sourceStamp, updatedAt: sourceStamp })))
+    .run();
+
+  const leadSourceByKey: Record<string, { id: string; name: string }> = {
+    referral: { id: "src_ref", name: "Referral" },
+    website: { id: "src_web", name: "Website form" },
+    google: { id: "src_google", name: "Google" },
+    repeat: { id: "src_repeat", name: "Repeat client" },
+    "yard sign": { id: "src_yard", name: "Yard sign" },
+    "home show": { id: "src_show", name: "Home show" },
+    angi: { id: "src_other", name: "Other" },
+    neighbor: { id: "src_ref", name: "Referral" },
+  };
+
   const leadRows: LeadSeed[] = [
     { id: "lead_vasquez", contactId: "c_vasquez", stageId: "stage_visit", title: "Vasquez gut kitchen", source: "referral", value: 7000000, status: "open", owner: "user_luis", scope: vasquezScope, sqft: 240, updated: daysAgo(1) },
     { id: "lead_webb", contactId: "c_webb", stageId: "stage_new", title: "Webb basement finish", source: "website", value: 4500000, status: "open", owner: "user_maya", scope: "Marcus Webb wants a basement finish, about 600 sq ft, bath and a bedroom.", sqft: 600, updated: daysAgo(8) },
@@ -661,7 +724,8 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
         contactId: lead.contactId,
         stageId: lead.stageId,
         title: lead.title,
-        source: lead.source,
+        source: leadSourceByKey[lead.source]?.name ?? lead.source,
+        sourceId: leadSourceByKey[lead.source]?.id ?? null,
         valueEstCents: lead.value,
         ownerUserId: lead.owner,
         status: lead.status,
@@ -683,7 +747,8 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
       contactId: "c_north_ada",
       stageId: "stage_n_new",
       title: "Mensah EV charger",
-      source: "referral",
+      source: "Referral",
+      sourceId: "src_n_ref",
       valueEstCents: 180000,
       ownerUserId: "user_jordan",
       status: "open",
@@ -705,6 +770,7 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
       stageId: "stage_new",
       title: "Nora Ellis Bath remodel",
       source: WEBSITE_FORM_SOURCE,
+      sourceId: "src_web",
       valueEstCents: null,
       ownerUserId: null,
       status: "open",
@@ -717,6 +783,26 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
       createdBy: null,
     })
     .run();
+
+  const contactSources: [string, string][] = [
+    ["c_vasquez", "src_ref"],
+    ["c_webb", "src_web"],
+    ["c_shah", "src_google"],
+    ["c_briggs", "src_repeat"],
+    ["c_cho", "src_show"],
+    ["c_chen", "src_ref"],
+    ["c_okonkwo", "src_ref"],
+    ["c_brooks", "src_yard"],
+    ["c_diaz", "src_repeat"],
+    ["c_park", "src_other"],
+    ["c_romero", "src_google"],
+    ["c_haddad", "src_ref"],
+    ["c_ellis", "src_web"],
+    ["c_north_ada", "src_n_ref"],
+  ];
+  for (const [contactId, sourceId] of contactSources) {
+    db.update(contacts).set({ sourceId }).where(eq(contacts.id, contactId)).run();
+  }
 
   const schedule = defaultSchedule({ depositBps: 4000, progressBps: 4000, finalBps: 2000 });
 
@@ -1221,6 +1307,7 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
         id: job.id,
         orgId: ORG,
         leadId: job.leadId,
+        leadSourceId: job.id === "proj_chen" || job.id === "proj_okonkwo" ? "src_ref" : job.id === "proj_brooks" ? "src_yard" : job.id === "proj_diaz" ? "src_repeat" : null,
         proposalId,
         contactId: job.contactId,
         name: job.name,
@@ -4451,7 +4538,7 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
       { id: "view_rfis_open", orgId: ORG, userId: "user_maya", listKey: "rfis", name: "Awaiting answer", queryJson: JSON.stringify({ status: "open" }), sortKey: null, sortDir: null, shared: 1, createdAt: now, updatedAt: now },
       { id: "view_todos_week", orgId: ORG, userId: "user_dana", listKey: "todos", name: "This week", queryJson: JSON.stringify({ due: "week" }), sortKey: null, sortDir: null, shared: 0, createdAt: now, updatedAt: now },
       { id: "view_todos_high", orgId: ORG, userId: "user_dana", listKey: "todos", name: "High", queryJson: JSON.stringify({ priority: "high" }), sortKey: null, sortDir: null, shared: 0, createdAt: now, updatedAt: now },
-      { id: "view_leads_referral", orgId: ORG, userId: "user_luis", listKey: "leads", name: "Referral", queryJson: JSON.stringify({ source: "referral" }), sortKey: null, sortDir: null, shared: 0, createdAt: now, updatedAt: now },
+      { id: "view_leads_referral", orgId: ORG, userId: "user_luis", listKey: "leads", name: "Referral", queryJson: JSON.stringify({ source: "Referral" }), sortKey: null, sortDir: null, shared: 0, createdAt: now, updatedAt: now },
       { id: "view_todos_luis", orgId: ORG, userId: "user_luis", listKey: "todos", name: "High", queryJson: JSON.stringify({ priority: "high" }), sortKey: null, sortDir: null, shared: 0, createdAt: now, updatedAt: now },
       { id: "view_bills_overdue", orgId: ORG, userId: "user_sam", listKey: "bills", name: "Overdue", queryJson: JSON.stringify({ status: "overdue" }), sortKey: null, sortDir: null, shared: 0, createdAt: now, updatedAt: now },
       { id: "view_pos_issued", orgId: ORG, userId: "user_sam", listKey: "purchase-orders", name: "Issued", queryJson: JSON.stringify({ status: "issued" }), sortKey: null, sortDir: null, shared: 0, createdAt: now, updatedAt: now },
@@ -4788,6 +4875,7 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
       id: "proj_ellis",
       orgId: ORG,
       leadId: "lead_web_ellis",
+      leadSourceId: "src_web",
       proposalId: null,
       contactId: "c_ellis",
       name: "Ellis kitchen",

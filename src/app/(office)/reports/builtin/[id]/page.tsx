@@ -21,13 +21,17 @@ export default async function BuiltinReportPage({
   const extra = one(query.col)
     ? [parseQuery({ filters: [{ column: one(query.col), op: one(query.op) as "eq", value: one(query.val) }] }).filters[0]].filter((filter) => filter?.column)
     : [];
+  const from = one(query.from).slice(0, 10);
+  const to = one(query.to).slice(0, 10);
   let view: ReturnType<typeof openBuiltin>;
   try {
-    view = openBuiltin(session, id, extra);
+    view = openBuiltin(session, id, extra, id === "lead_sources" ? { from, to } : undefined);
   } catch (error) {
     if (error instanceof ServiceError) notFound();
     throw error;
   }
   const csv = new URLSearchParams({ id, col: one(query.col), op: one(query.op), val: one(query.val) });
-  return <ReportScreen view={view} csvHref={`/api/export/report?${csv.toString()}`} />;
+  if (from) csv.set("from", from);
+  if (to) csv.set("to", to);
+  return <ReportScreen view={view} csvHref={`/api/export/report?${csv.toString()}`} range={id === "lead_sources" ? { from, to } : null} />;
 }

@@ -198,6 +198,8 @@ begin
     'lead_forms',
     'lead_form_submissions',
     'lead_form_attempts',
+    'lead_sources',
+    'lead_source_spend',
     'punch_items',
     'warranty_requests',
     'warranty_photos',
@@ -278,6 +280,7 @@ begin
     'booking_offs',
     'review_requests',
     'invoice_followups',
+    'lead_source_spend',
     'line_items',
     'estimate_measurements',
     'assemblies',
@@ -764,6 +767,21 @@ create policy client_credit_memo_lines_scope on public.client_credit_memo_lines
   for all to authenticated
   using (org_id in (select public.current_org_ids()))
   with check (org_id in (select public.current_org_ids()));
+
+alter table public.lead_sources enable row level security;
+drop policy if exists lead_sources_member on public.lead_sources;
+create policy lead_sources_member on public.lead_sources
+  for all to authenticated
+  using (org_id in (select public.current_org_ids()))
+  with check (org_id in (select public.current_org_ids()));
+
+alter table public.lead_source_spend enable row level security;
+drop policy if exists lead_source_spend_member on public.lead_source_spend;
+drop policy if exists lead_source_spend_money on public.lead_source_spend;
+create policy lead_source_spend_money on public.lead_source_spend
+  for all to authenticated
+  using (org_id in (select public.current_org_ids()) and public.can_see_money(org_id))
+  with check (org_id in (select public.current_org_ids()) and public.can_see_money(org_id));
 
 alter table public.client_credit_applications enable row level security;
 drop policy if exists client_credit_applications_scope on public.client_credit_applications;

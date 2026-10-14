@@ -143,6 +143,7 @@ export function ensureReady(holder: Holder) {
   ensureReviews(holder);
   ensureCollections(holder);
   ensureClientCredits(holder);
+  ensureLeadSources(holder);
   const version = holder.sqlite.prepare("select value from app_meta where key = ?").get("seed_version") as
     | { value: string }
     | undefined;
@@ -2900,6 +2901,39 @@ function ensureClientCredits(holder: Holder) {
   holder.sqlite.exec("create unique index if not exists client_credit_applications_key on client_credit_applications (org_id, idempotency_key)");
   holder.sqlite.exec("create index if not exists client_credit_applications_memo on client_credit_applications (org_id, memo_id)");
   holder.sqlite.exec("create index if not exists client_credit_applications_invoice on client_credit_applications (org_id, invoice_id)");
+}
+
+function ensureLeadSources(holder: Holder) {
+  const pk = holder.dialect === "postgres" ? "text primary key" : "text primary key not null";
+  ensureColumn(holder, "contacts", "source_id", "text");
+  ensureColumn(holder, "leads", "source_id", "text");
+  ensureColumn(holder, "projects", "lead_source_id", "text");
+  if (!tableExists(holder.sqlite, "lead_sources", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists lead_sources (
+      id ${pk},
+      org_id text not null,
+      name text not null,
+      status text not null,
+      sort_order integer not null default 0,
+      created_at text not null,
+      updated_at text not null
+    )`);
+  }
+  holder.sqlite.exec("create unique index if not exists lead_sources_org_name on lead_sources (org_id, name)");
+  holder.sqlite.exec("create index if not exists lead_sources_org on lead_sources (org_id, status)");
+  if (!tableExists(holder.sqlite, "lead_source_spend", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists lead_source_spend (
+      id ${pk},
+      org_id text not null,
+      source_id text not null,
+      month text not null,
+      spend_cents integer not null,
+      created_at text not null,
+      updated_at text not null
+    )`);
+  }
+  holder.sqlite.exec("create unique index if not exists lead_source_spend_month on lead_source_spend (org_id, source_id, month)");
+  holder.sqlite.exec("create index if not exists lead_source_spend_org on lead_source_spend (org_id, month)");
 }
 
 function ensureInventory(holder: Holder) {

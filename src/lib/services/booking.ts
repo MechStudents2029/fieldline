@@ -10,9 +10,11 @@ import {
   bookingOffs,
   bookings,
   contacts,
+  leads,
   memberships,
   notifications,
   organizations,
+  pipelineStages,
   priceBookItems,
   scheduleAssignees,
   scheduleItems,
@@ -23,6 +25,7 @@ import { id, nowIso, token } from "@/lib/ids";
 import { canManageSettings, type Role } from "@/lib/permissions";
 import { isWorkday, weekdayOf, type WorkdayCalendar } from "@/lib/schedule/workdays";
 import { ServiceError } from "@/lib/services/errors";
+import { bindLeadSource, ONLINE_BOOKING_SOURCE } from "@/lib/services/lead-sources";
 import { emitAutomation } from "@/lib/services/automations";
 import type { Actor } from "@/lib/services/read";
 import { workCalendarFor } from "@/lib/services/work-calendar";
@@ -393,8 +396,12 @@ export function bookPublic(input: { token: string; itemId: string; day: string; 
       .find((row) => row.email?.trim().toLowerCase() === email);
     const now = nowIso();
     const contactId = existing?.id ?? id("c");
+    const bound = bindLeadSource(tx, org.id, ONLINE_BOOKING_SOURCE);
     if (existing) {
-      tx.update(contacts).set({ name, phone, updatedAt: now }).where(and(eq(contacts.orgId, org.id), eq(contacts.id, existing.id))).run();
+      tx.update(contacts)
+        .set({ name, phone, updatedAt: now, ...(existing.sourceId ? {} : { sourceId: bound.id }) })
+        .where(and(eq(contacts.orgId, org.id), eq(contacts.id, existing.id)))
+        .run();
     } else {
       tx.insert(contacts)
         .values({
@@ -410,12 +417,49 @@ export function bookPublic(input: { token: string; itemId: string; day: string; 
           state: null,
           zip: null,
           notes: null,
+          sourceId: bound.id,
           deletedAt: null,
           createdAt: now,
           updatedAt: now,
           createdBy: null,
         })
         .run();
+    }
+    const priorLead = tx
+      .select({ id: leads.id })
+      .from(leads)
+      .where(and(eq(leads.orgId, org.id), eq(leads.contactId, contactId), isNull(leads.deletedAt)))
+      .get();
+    if (!priorLead) {
+      const stage = tx
+        .select()
+        .from(pipelineStages)
+        .where(and(eq(pipelineStages.orgId, org.id), eq(pipelineStages.kind, "open")))
+        .all()
+        .sort((a, b) => a.sortOrder - b.sortOrder)[0];
+      if (stage) {
+        tx.insert(leads)
+          .values({
+            id: id("lead"),
+            orgId: org.id,
+            contactId,
+            stageId: stage.id,
+            title: `${name} ${item.name}`.trim(),
+            source: bound.name,
+            sourceId: bound.id,
+            valueEstCents: null,
+            ownerUserId: null,
+            status: "open",
+            lostReason: null,
+            scopeText: item.name,
+            sqft: null,
+            deletedAt: null,
+            createdAt: now,
+            updatedAt: now,
+            createdBy: null,
+          })
+          .run();
+      }
     }
     const bookingId = id("book");
     const endMin = input.startMin + item.bookDurationMin!;

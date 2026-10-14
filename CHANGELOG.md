@@ -2,6 +2,14 @@
 
 ## 2026-10-14
 
+### Lead sources
+
+- Settings, Lead sources is the company list. Each source has a name, Active or Archived, and optional spend in cents for a month. Spend can change the next month. A new company starts with Website form, Referral, Google, Repeat client, Yard sign, and Other. Field cannot change the list or the spend.
+- Every lead has one source. The public lead form uses Website form. Online booking uses Online booking and files one lead for a new contact. A second booking for that contact keeps the same lead. An office lead starts on Other unless someone picks another source. Changing it writes an audit entry. The source shows on the lead and on the client, and both lists filter by it.
+- A job created from a won lead keeps the source it had at signing. Changing the lead later leaves the job on the original source.
+- Reports, Lead sources uses the report date range and CSV. Each source shows leads, won, win rate, sold value, collected cash, spend, cost per lead, cost per won job, and return (collected divided by spend). Sold value is the signed contract plus approved change orders. A zero denominator is a dash. The totals row uses the sums. Money stays integer cents. Nothing is emailed or texted.
+- Seed: Rivera has those sources plus an archived Home show and Online booking. Google, Yard sign, and Home show have a few months of spend. Chen and Okonkwo stay Referral. Brooks stays Yard sign. Diaz stays Repeat client. Ellis stays Website form.
+
 ### Client credit memos
 
 - A client credit memo sits on a job. It is a flat fee or cost-code lines. It has a number such as CM-1048, a title, a description, and an amount in cents. Status is Draft, Ready, Partial, Applied, or Void. Ready means released.

@@ -57,6 +57,7 @@ export type EngineResult = {
   total: Record<string, Agg>;
   chart: { label: string; value: number }[];
   grouped: boolean;
+  footer?: Record<string, string>;
 };
 
 export function emptyQuery(): ReportQuery {

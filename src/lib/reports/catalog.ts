@@ -16,7 +16,7 @@ export const BUILDER_SOURCES = [
 
 export type BuilderSource = (typeof BUILDER_SOURCES)[number]["id"];
 
-export type SourceId = BuilderSource | "certificates" | "punch" | "cash" | "confirmations" | "agreements" | "options" | "reviews" | "collections";
+export type SourceId = BuilderSource | "certificates" | "punch" | "cash" | "confirmations" | "agreements" | "options" | "reviews" | "collections" | "lead_sources";
 
 export type CatalogColumn = {
   key: string;
@@ -186,6 +186,18 @@ export const CATALOG: Record<SourceId, CatalogColumn[]> = {
     { key: "metric", label: "Metric", kind: "text" },
     { key: "count", label: "Count", kind: "number" },
     { key: "open", label: "Open", kind: "money", money: true },
+  ],
+  lead_sources: [
+    { key: "name", label: "Source", kind: "text" },
+    { key: "leads", label: "Leads", kind: "number" },
+    { key: "won", label: "Won", kind: "number" },
+    { key: "rate", label: "Win rate", kind: "percent", money: true },
+    { key: "sold", label: "Sold", kind: "money", money: true },
+    { key: "collected", label: "Collected", kind: "money", money: true },
+    { key: "spend", label: "Spend", kind: "money", money: true },
+    { key: "cpl", label: "Cost / lead", kind: "money", money: true },
+    { key: "cpw", label: "Cost / won", kind: "money", money: true },
+    { key: "ret", label: "Return", kind: "text", money: true },
   ],
 };
 
@@ -437,6 +449,17 @@ export const BUILTINS: BuiltinReport[] = [
       dir: "asc",
     }),
   },
+  {
+    id: "lead_sources",
+    name: "Lead sources",
+    source: "lead_sources",
+    field: false,
+    query: query({
+      columns: ["name", "leads", "won", "rate", "sold", "collected", "spend", "cpl", "cpw", "ret"],
+      sort: "name",
+      dir: "asc",
+    }),
+  },
 ];
 
 export const PAGE_REPORTS = [
@@ -450,7 +473,7 @@ export function builtinById(id: string): BuiltinReport | undefined {
 }
 
 export function sourceLabel(source: string): string {
-  return BUILDER_SOURCES.find((item) => item.id === source)?.label ?? (source === "certificates" ? "Vendor COIs" : source === "punch" ? "Punch items" : source === "cash" ? "Cash" : source === "confirmations" ? "Confirmations" : source === "agreements" ? "Agreements" : source === "options" ? "Options" : source === "reviews" ? "Reviews" : source === "collections" ? "Collections" : source);
+  return BUILDER_SOURCES.find((item) => item.id === source)?.label ?? (source === "certificates" ? "Vendor COIs" : source === "punch" ? "Punch items" : source === "cash" ? "Cash" : source === "confirmations" ? "Confirmations" : source === "agreements" ? "Agreements" : source === "options" ? "Options" : source === "reviews" ? "Reviews" : source === "collections" ? "Collections" : source === "lead_sources" ? "Lead sources" : source);
 }
 
 export function customRecord(source: string): string {
