@@ -50,6 +50,7 @@ export type ScheduleInput = {
   note: string | null;
   assigneeIds: string[];
   links?: ScheduleLinkInput[];
+  plannedHours?: string | null;
 };
 
 export type ScheduleChip = {
@@ -70,6 +71,7 @@ export type ScheduleChip = {
   delivery?: string | null;
   kind: "item" | "inspection";
   baseline: boolean;
+  plannedMinutes: number | null;
 };
 
 export type ScheduleBoard = {
@@ -137,6 +139,15 @@ function cleanNote(value: string | null): string | null {
   const note = value.trim();
   if (note.length > 400) throw new ServiceError("Keep the note under 400 characters.");
   return note;
+}
+
+function cleanPlanned(value: string | null | undefined): number | null | undefined {
+  if (value === undefined) return undefined;
+  const text = (value ?? "").trim();
+  if (!text) return null;
+  const hours = Number(text);
+  if (!Number.isFinite(hours) || hours < 0 || hours > 400) throw new ServiceError("Hours are 0 to 400.");
+  return Math.round(hours * 60);
 }
 
 function cleanStatus(value: string): ScheduleStatus {
@@ -288,6 +299,7 @@ export function scheduleBoard(actor: Actor, query: { on?: string; span?: string 
     delivery: deliveryNotes.get(row.id) ?? null,
     kind: "item",
     baseline: baselineOf.has(row.id),
+    plannedMinutes: row.plannedMinutes,
   });
   const milestoneChips = (userId: string | null, date: string): ScheduleChip[] =>
     milestones
@@ -314,6 +326,7 @@ export function scheduleBoard(actor: Actor, query: { on?: string; span?: string 
         gate: null,
         kind: "inspection" as const,
         baseline: false,
+        plannedMinutes: null,
       }));
   const marksFor = (userId: string | null, date: string) =>
     itemRows
@@ -518,6 +531,7 @@ export function saveScheduleItem(actor: Actor, input: ScheduleInput, itemId?: st
   if (endDate < startDate) throw new ServiceError("End is on or after the start.");
   if (inclusiveDays(startDate, endDate).length > 62) throw new ServiceError("Keep an item inside two months.");
   const startTime = cleanTime(input.startTime);
+  const plannedMinutes = cleanPlanned(input.plannedHours);
   const status = cleanStatus(input.status);
   const note = cleanNote(input.note);
   const project = db
@@ -551,6 +565,7 @@ export function saveScheduleItem(actor: Actor, input: ScheduleInput, itemId?: st
         status,
         note,
         updatedAt: now,
+        ...(plannedMinutes !== undefined ? { plannedMinutes } : {}),
         ...(plan.length ? {} : { startDate, endDate }),
       })
       .where(and(eq(scheduleItems.orgId, actor.orgId), eq(scheduleItems.id, existing.id)))
@@ -567,6 +582,7 @@ export function saveScheduleItem(actor: Actor, input: ScheduleInput, itemId?: st
         startTime,
         status,
         note,
+        plannedMinutes: plannedMinutes ?? null,
         createdAt: now,
         updatedAt: now,
         createdBy: actor.userId,

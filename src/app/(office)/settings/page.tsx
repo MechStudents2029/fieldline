@@ -82,6 +82,13 @@ export default async function SettingsPage() {
           ) : null}
           {canManageSettings(session.role) ? (
             <li>
+              <Link href="/settings/capacity" className="block py-2 mac-t13 text-[var(--mac-accent)]">
+                Capacity
+              </Link>
+            </li>
+          ) : null}
+          {canManageSettings(session.role) ? (
+            <li>
               <Link href="/settings/lead-form" className="block py-2 mac-t13 text-[var(--mac-accent)]">
                 Lead form
               </Link>

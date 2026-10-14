@@ -73,6 +73,7 @@ export const organizations = sqliteTable("organizations", {
   selFollowAfter: integer("sel_follow_after").notNull().default(0),
   selFollowExcludeTags: text("sel_follow_exclude_tags").notNull().default(""),
   selFollowTemplate: text("sel_follow_template").notNull().default(""),
+  capacityMinutes: integer("capacity_minutes").notNull().default(2400),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });
@@ -106,6 +107,7 @@ export const memberships = sqliteTable(
     role: text("role").notNull(),
     requireLocation: integer("require_location").notNull().default(0),
     bookable: integer("bookable").notNull().default(0),
+    capacityMinutes: integer("capacity_minutes"),
     createdAt: text("created_at").notNull(),
   },
   (t) => [uniqueIndex("memberships_org_user").on(t.orgId, t.userId)],
@@ -1205,6 +1207,7 @@ export const scheduleItems = sqliteTable(
     endDate: text("end_date").notNull(),
     startTime: text("start_time"),
     endTime: text("end_time"),
+    plannedMinutes: integer("planned_minutes"),
     status: text("status").notNull(),
     held: integer("held").notNull().default(0),
     phase: text("phase"),

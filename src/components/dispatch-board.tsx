@@ -85,7 +85,7 @@ function CardFace({ card, className, style, onPointerDown, onOpen }: { card: Boa
   );
 }
 
-function CardPopover({ card, board, x, y, onClose }: { card: BoardCard; board: Board; x: number; y: number; onClose: () => void }) {
+function CardPopover({ card, board, x, y, onClose, onResult }: { card: BoardCard; board: Board; x: number; y: number; onClose: () => void; onResult: (result: ActionState) => void }) {
   const [state, setState] = useState<ActionState>(null);
   const [pending, setPending] = useState(false);
   useEffect(() => {
@@ -117,6 +117,7 @@ function CardPopover({ card, board, x, y, onClose }: { card: BoardCard; board: B
     const result = await assignDispatchAction(null, data);
     setPending(false);
     setState(result);
+    onResult(result);
     if (result?.ok) onClose();
   }
 
@@ -146,6 +147,7 @@ function CardPopover({ card, board, x, y, onClose }: { card: BoardCard; board: B
 export function DispatchBoard({ board }: { board: Board }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [picked, setPicked] = useState<{ id: string; x: number; y: number } | null>(null);
   const [who, setWho] = useState(board.columns[0]?.id ?? "");
   const columnCards = (columnId: string) => board.cards.filter((card) => card.dueOn === board.day && card.assigneeId === columnId && card.start).sort((a, b) => (a.startMin ?? 0) - (b.startMin ?? 0) || a.title.localeCompare(b.title));
@@ -168,6 +170,7 @@ export function DispatchBoard({ board }: { board: Board }) {
     data.set("day", board.day);
     const result = await assignDispatchAction(null, data);
     setError(result?.error ?? null);
+    setNotice(result?.warning ?? null);
     if (!result?.error) router.refresh();
   }
 
@@ -231,6 +234,7 @@ export function DispatchBoard({ board }: { board: Board }) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
+      {notice ? <p role="status" className="px-4 py-1 text-[12px] text-[var(--mac-accent)]">{notice}</p> : null}
       {error ? <p role="alert" className="px-4 py-1 text-[12px] text-[var(--mac-danger)]">{error}</p> : null}
       <div className="flex flex-col gap-3 px-4 pb-4 md:hidden">
         <div className="flex gap-2 overflow-x-auto">
@@ -326,7 +330,20 @@ export function DispatchBoard({ board }: { board: Board }) {
           </ul>
         </aside>
       </div>
-      {picked && pickedCard && board.canEdit ? <CardPopover key={picked.id} card={pickedCard} board={board} x={picked.x} y={picked.y} onClose={finish} /> : null}
+      {picked && pickedCard && board.canEdit ? (
+        <CardPopover
+          key={picked.id}
+          card={pickedCard}
+          board={board}
+          x={picked.x}
+          y={picked.y}
+          onClose={finish}
+          onResult={(result) => {
+            setError(result?.error ?? null);
+            setNotice(result?.warning ?? null);
+          }}
+        />
+      ) : null}
     </div>
   );
 }

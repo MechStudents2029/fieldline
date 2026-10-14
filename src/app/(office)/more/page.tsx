@@ -31,6 +31,7 @@ const links = [
   ["/credit-memos", "Credit memos"],
   ["/commissions", "Commissions"],
   ["/dispatch", "Dispatch"],
+  ["/schedule/workload", "Workload"],
   ["/price-book", "Price book"],
   ["/copilot", "Copilot"],
   ["/settings", "Settings"],

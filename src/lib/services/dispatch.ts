@@ -10,6 +10,7 @@ import { canEditSchedule, type Role } from "@/lib/permissions";
 import { todayKey } from "@/lib/receiving/facts";
 import { ServiceError } from "@/lib/services/errors";
 import type { Actor } from "@/lib/services/read";
+import { capacityWarning } from "@/lib/services/workload";
 
 type Writer = Pick<AppDatabase, "insert" | "select" | "update" | "delete" | "transaction">;
 
@@ -288,7 +289,7 @@ export function assignDispatch(actor: Actor, input: { cardId: string; assigneeId
   if (!plan.ok) throw new ServiceError("That card is not on this day.");
   const previous = current.assigneeId;
   const sameClock = current.startMin === startMin && current.endMin === endMin;
-  if (previous === assigneeId && sameClock) return { id: input.cardId };
+  if (previous === assigneeId && sameClock) return { id: input.cardId, warning: null };
   const now = nowIso();
   const action = !assigneeId ? "dispatch.unassign" : previous && previous !== assigneeId ? "dispatch.reassign" : "dispatch.assign";
   if (parsed.kind === "book") {
@@ -321,7 +322,7 @@ export function assignDispatch(actor: Actor, input: { cardId: string; assigneeId
         })
         .run();
     });
-    return { id: input.cardId };
+    return { id: input.cardId, warning: assigneeId ? capacityWarning(actor, [assigneeId], day, day) : null };
   }
   const visit = parsed.kind === "visit" ? db.select().from(agreementVisits).where(and(eq(agreementVisits.orgId, actor.orgId), eq(agreementVisits.id, parsed.rawId))).get() : null;
   const itemId = parsed.kind === "item" ? parsed.rawId : visit?.scheduleItemId ?? null;
@@ -367,5 +368,14 @@ export function assignDispatch(actor: Actor, input: { cardId: string; assigneeId
       })
       .run();
   });
-  return { id: input.cardId };
+  let spanStart = day;
+  let spanEnd = day;
+  if (itemId) {
+    const saved = db.select().from(scheduleItems).where(and(eq(scheduleItems.orgId, actor.orgId), eq(scheduleItems.id, itemId))).get();
+    if (saved) {
+      spanStart = saved.startDate;
+      spanEnd = saved.endDate;
+    }
+  }
+  return { id: input.cardId, warning: assigneeId ? capacityWarning(actor, [assigneeId], spanStart, spanEnd) : null };
 }
