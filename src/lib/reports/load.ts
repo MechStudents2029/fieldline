@@ -27,6 +27,7 @@ import { CATALOG, customRecord, type CatalogColumn, type SourceId } from "@/lib/
 import type { EngineCell, EngineColumn, EngineRow } from "@/lib/reports/engine";
 import { isGeoUnit } from "@/lib/geo/fence";
 import { punchSiteColumn } from "@/lib/services/geo";
+import { collectMonth } from "@/lib/services/collections";
 import { reviewMonth } from "@/lib/services/reviews";
 import { customCell, customColumns } from "@/lib/services/custom-fields";
 import { ServiceError } from "@/lib/services/errors";
@@ -124,6 +125,7 @@ export function loadSource(actor: Actor, source: SourceId, today: string): Engin
   if (source === "agreements") return loadAgreements(actor.orgId, today);
   if (source === "options") return loadOptions(db, actor.orgId);
   if (source === "reviews") return loadReviews(actor.orgId);
+  if (source === "collections") return loadCollections(actor.orgId);
   return loadPunch(db, actor.orgId);
 }
 
@@ -133,6 +135,17 @@ function loadReviews(orgId: string): EngineRow[] {
     { id: "created", href: "/reviews", cells: { metric: text("Created"), count: num(month.created) } },
     { id: "sent", href: "/reviews?status=sent", cells: { metric: text("Marked sent"), count: num(month.sent) } },
     { id: "skipped", href: "/reviews?status=skipped", cells: { metric: text("Skipped"), count: num(month.skipped) } },
+  ];
+}
+
+function loadCollections(orgId: string): EngineRow[] {
+  const month = collectMonth(orgId);
+  const closed = money(0);
+  return [
+    { id: "created", href: "/collections", cells: { metric: text("Created"), count: num(month.created), open: closed } },
+    { id: "sent", href: "/collections?status=sent", cells: { metric: text("Sent"), count: num(month.sent), open: closed } },
+    { id: "skipped", href: "/collections?status=skipped", cells: { metric: text("Skipped"), count: num(month.skipped), open: closed } },
+    { id: "ready", href: "/collections?status=ready", cells: { metric: text("Ready"), count: num(month.ready), open: money(month.openCents) } },
   ];
 }
 

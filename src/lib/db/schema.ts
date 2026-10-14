@@ -63,6 +63,11 @@ export const organizations = sqliteTable("organizations", {
   reviewWebsiteUrl: text("review_website_url"),
   reviewExcludeTags: text("review_exclude_tags").notNull().default(""),
   reviewTemplate: text("review_template").notNull().default(""),
+  collectEnabled: integer("collect_enabled").notNull().default(0),
+  collectDay1: integer("collect_day1").notNull().default(3),
+  collectDay2: integer("collect_day2").notNull().default(14),
+  collectExcludeTags: text("collect_exclude_tags").notNull().default(""),
+  collectTemplate: text("collect_template").notNull().default(""),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });
@@ -3197,6 +3202,27 @@ export const reviewRequests = sqliteTable(
     sentAt: text("sent_at"),
   },
   (t) => [uniqueIndex("review_requests_job").on(t.orgId, t.projectId), index("review_requests_org").on(t.orgId, t.status)],
+);
+
+export const invoiceFollowUps = sqliteTable(
+  "invoice_followups",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    invoiceId: text("invoice_id").notNull(),
+    projectId: text("project_id").notNull(),
+    contactId: text("contact_id").notNull(),
+    cadenceDays: integer("cadence_days").notNull(),
+    status: text("status").notNull(),
+    url: text("url").notNull().default(""),
+    message: text("message").notNull().default(""),
+    skipReason: text("skip_reason").notNull().default(""),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    copiedAt: text("copied_at"),
+    sentAt: text("sent_at"),
+  },
+  (t) => [uniqueIndex("invoice_followups_cadence").on(t.orgId, t.invoiceId, t.cadenceDays), index("invoice_followups_org").on(t.orgId, t.status)],
 );
 
 export const agreementVisits = sqliteTable(

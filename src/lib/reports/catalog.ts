@@ -16,7 +16,7 @@ export const BUILDER_SOURCES = [
 
 export type BuilderSource = (typeof BUILDER_SOURCES)[number]["id"];
 
-export type SourceId = BuilderSource | "certificates" | "punch" | "cash" | "confirmations" | "agreements" | "options" | "reviews";
+export type SourceId = BuilderSource | "certificates" | "punch" | "cash" | "confirmations" | "agreements" | "options" | "reviews" | "collections";
 
 export type CatalogColumn = {
   key: string;
@@ -181,6 +181,11 @@ export const CATALOG: Record<SourceId, CatalogColumn[]> = {
   reviews: [
     { key: "metric", label: "Metric", kind: "text" },
     { key: "count", label: "Count", kind: "number" },
+  ],
+  collections: [
+    { key: "metric", label: "Metric", kind: "text" },
+    { key: "count", label: "Count", kind: "number" },
+    { key: "open", label: "Open", kind: "money", money: true },
   ],
 };
 
@@ -421,6 +426,17 @@ export const BUILTINS: BuiltinReport[] = [
       dir: "asc",
     }),
   },
+  {
+    id: "invoice_followups",
+    name: "Invoice follow-ups",
+    source: "collections",
+    field: false,
+    query: query({
+      columns: ["metric", "count", "open"],
+      sort: "metric",
+      dir: "asc",
+    }),
+  },
 ];
 
 export const PAGE_REPORTS = [
@@ -434,7 +450,7 @@ export function builtinById(id: string): BuiltinReport | undefined {
 }
 
 export function sourceLabel(source: string): string {
-  return BUILDER_SOURCES.find((item) => item.id === source)?.label ?? (source === "certificates" ? "Vendor COIs" : source === "punch" ? "Punch items" : source === "cash" ? "Cash" : source === "confirmations" ? "Confirmations" : source === "agreements" ? "Agreements" : source === "options" ? "Options" : source === "reviews" ? "Reviews" : source);
+  return BUILDER_SOURCES.find((item) => item.id === source)?.label ?? (source === "certificates" ? "Vendor COIs" : source === "punch" ? "Punch items" : source === "cash" ? "Cash" : source === "confirmations" ? "Confirmations" : source === "agreements" ? "Agreements" : source === "options" ? "Options" : source === "reviews" ? "Reviews" : source === "collections" ? "Collections" : source);
 }
 
 export function customRecord(source: string): string {

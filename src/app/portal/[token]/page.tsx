@@ -35,6 +35,7 @@ import { clientPortalFiles } from "@/lib/services/files";
 import { clientPortalMarkups, clientPortalPins } from "@/lib/services/markup";
 import { portalPassedInspections } from "@/lib/services/permits";
 import { portalTmTickets } from "@/lib/services/tm";
+import { portalChase } from "@/lib/services/collections";
 import { portalReview } from "@/lib/services/reviews";
 
 export const dynamic = "force-dynamic";
@@ -99,6 +100,7 @@ export default async function PortalPage({ params }: { params: Promise<{ token: 
   const listed = orders.filter((order) => order.id !== featuredId);
   const approved = orders.filter((order) => order.status === "approved");
   const reviewLink = portalReview(token);
+  const chased = portalChase(token);
 
   return (
     <main className="home mx-auto min-h-screen w-full max-w-5xl px-4 py-8 lg:px-8">
@@ -163,6 +165,11 @@ export default async function PortalPage({ params }: { params: Promise<{ token: 
               <Link className="home-btn" href={`/pay/${payInvoice.payToken}`}>
                 Pay {formatMoney(payInvoice.totalCents)}
               </Link>
+              {chased.has(payInvoice.id) ? (
+                <span className="home-pill" data-testid="pay-now">
+                  Pay now
+                </span>
+              ) : null}
             </>
           ) : null}
           {pendingSelections.map((selection) => (
@@ -361,6 +368,11 @@ export default async function PortalPage({ params }: { params: Promise<{ token: 
                           <Link className="home-link" href={`/pay/${invoice.payToken}`}>
                             Pay
                           </Link>
+                        ) : null}
+                        {chased.has(invoice.id) ? (
+                          <span className="home-pill" data-testid="pay-now">
+                            Pay now
+                          </span>
                         ) : null}
                       </div>
                     </div>

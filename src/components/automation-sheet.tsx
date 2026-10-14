@@ -32,6 +32,8 @@ const TRIGGERS = [
   ["booking_created", "Online booking created"],
   ["review_request_created", "Review request created"],
   ["review_request_marked_sent", "Review marked sent"],
+  ["invoice_followup_created", "Invoice follow-up created"],
+  ["invoice_followup_marked_sent", "Invoice follow-up marked sent"],
 ] as const;
 
 const ACTION_KINDS = [

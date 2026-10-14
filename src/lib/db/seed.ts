@@ -131,6 +131,7 @@ import {
   commentFiles,
   commentMentions,
   comments,
+  invoiceFollowUps,
   notifications,
   reviewRequests,
   warrantyRequests,
@@ -174,9 +175,11 @@ import { vasquezLines, vasquezMeasurements, vasquezSections } from "@/lib/estima
 import { hashPassword, newSalt } from "@/lib/auth/password";
 import { canonicalJson, sha256 } from "@/lib/esign/hash";
 import { publicSnapshot } from "@/lib/selections/money";
+import { formatDate } from "@/lib/format";
 import { daysAgo, daysFromNow, nowIso } from "@/lib/ids";
 import { floorPlanPdf } from "@/lib/markup/pdf";
 import { achFeeCents, formatMoney, qtyToMilli } from "@/lib/money";
+import { appOrigin } from "@/lib/security";
 import { CONSENT_VERSION, DEMO_PASSWORD } from "@/lib/product";
 import { linkedDeadline } from "@/lib/todos/deadline";
 import { hashVendorToken, DEMO_HARBOR_PORTAL_TOKEN } from "@/lib/vendor/token";
@@ -194,7 +197,7 @@ import {
   WEBSITE_FORM_SOURCE,
 } from "@/lib/lead-form/rules";
 
-export const SEED_VERSION = "56";
+export const SEED_VERSION = "58";
 
 const ORG = "org_rivera";
 const NORTH = "org_northline";
@@ -286,6 +289,11 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
         reviewWebsiteUrl: null,
         reviewExcludeTags: "",
         reviewTemplate: "{client}, {job} is finished. {link}",
+        collectEnabled: 1,
+        collectDay1: 3,
+        collectDay2: 14,
+        collectExcludeTags: "",
+        collectTemplate: "{client}, {invoice} for {amount} was due {due}. {link}",
         warrantyMonths: 12,
         vendorComplianceMode: "warn",
         vendorRequiredTypes: "general_liability,workers_comp",
@@ -1161,6 +1169,9 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
       throw new Error(`Snapshot total mismatch for ${job.id}`);
     }
     const proposalId = `prop_${job.id}`;
+    const signedStamp = daysAgo(job.startDays + 3);
+    // Okonkwo is the September sale. Once today is the 14th, Brooks lands on Sep 1.
+    const decidedAt = job.id === "proj_brooks" && signedStamp.startsWith("2026-09") ? signedStamp.replace(/^\d{4}-\d{2}-\d{2}/, "2026-08-31") : signedStamp;
     db.insert(proposals)
       .values({
         id: proposalId,
@@ -1176,11 +1187,11 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
         totalCents: total,
         sentAt: daysAgo(job.startDays + 5),
         viewedAt: daysAgo(job.startDays + 4),
-        signedAt: daysAgo(job.startDays + 3),
+        signedAt: decidedAt,
         declinedAt: null,
         expiresAt: daysFromNow(10),
         createdAt: daysAgo(job.startDays + 5),
-        updatedAt: daysAgo(job.startDays + 3),
+        updatedAt: decidedAt,
         createdBy: "user_maya",
       })
       .run();
@@ -1194,7 +1205,7 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
         signerEmail: null,
         typedName: job.client,
         drawnDataUrl: null,
-        signedAt: daysAgo(job.startDays + 3),
+        signedAt: decidedAt,
         ip: "203.0.113.10",
         userAgent: "seed",
         docHash: sha256(canonicalJson(snap.public)),
@@ -1584,6 +1595,46 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
           updatedAt: daysAgo(invoice.days - 1),
         };
       }),
+    )
+    .run();
+
+  const diazDue = daysAgo(3).slice(0, 10);
+  const diazLink = `${appOrigin(process.env) ?? ""}/pay/demo_pay_diaz_final`;
+  db.insert(invoiceFollowUps)
+    .values({
+      id: "fol_diaz",
+      orgId: ORG,
+      invoiceId: "inv_dz_final",
+      projectId: "proj_diaz",
+      contactId: "c_diaz",
+      cadenceDays: 3,
+      status: "ready",
+      url: diazLink,
+      message: `Rosa Diaz, RR-1019 for ${formatMoney(480000)} was due ${formatDate(diazDue)}. ${diazLink}`,
+      skipReason: "",
+      createdAt: now,
+      updatedAt: now,
+      copiedAt: null,
+      sentAt: null,
+    })
+    .run();
+  db.insert(notifications)
+    .values(
+      ["user_maya", "user_sam"].map((userId) => ({
+        id: `note_col_${userId}`,
+        orgId: ORG,
+        userId,
+        kind: "collection",
+        commentId: null,
+        entityType: "invoice_followup",
+        entityId: "fol_diaz",
+        projectId: null,
+        actorId: null,
+        actorName: "Fieldline",
+        snippet: "RR-1019",
+        readAt: null,
+        createdAt: daysAgo(40),
+      })),
     )
     .run();
 
@@ -2548,7 +2599,17 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
   const sundayOut = riveraAt(sunday, 12);
   const samSplit = splitWeek([{ id: "time_sam_sunday", localDay: sunday, minutes: 4 * 60, shiftType: "regular" }], otRules)[0];
   const samMoney = laborMoney(samSplit!, 4500, otRules, 1200);
-  const ptoDay = addCalendarDays(weekStart, 2);
+  let ptoDay = addCalendarDays(weekStart, 2);
+  // An approved PTO block that covers "now" locks a live clock-in.
+  for (const offset of [2, 3, 4, 1, 0, 5]) {
+    const day = addCalendarDays(weekStart, offset);
+    const start = Date.parse(riveraAt(day, 8));
+    const end = Date.parse(riveraAt(day, 16));
+    if (Date.now() < start || Date.now() > end) {
+      ptoDay = day;
+      break;
+    }
+  }
   const ptoIn = riveraAt(ptoDay, 8);
   const ptoOut = riveraAt(ptoDay, 16);
   db.insert(timeEntries)
@@ -3021,6 +3082,8 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
 
   const tomorrow = addCalendarDays(today, 1);
   const scheduleDay = (offset: number) => addCalendarDays(weekStart, offset);
+  // The walk is Mon–Tue. From Wednesday through Sunday, keep it on today's board.
+  const frameEnd = today > scheduleDay(1) && today < scheduleDay(8) ? today : scheduleDay(1);
   const scheduleSeed: {
     id: string;
     projectId: string;
@@ -3047,7 +3110,7 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
     { id: "sch_ok_trim", projectId: "proj_okonkwo", title: "Trim out", start: addCalendarDays(today, 2), end: addCalendarDays(today, 2), time: null, status: "planned", note: null, assignees: [], vendorContactId: "c_harbor", phase: "Finish", confirmStatus: "declined", confirmReason: "Need the valve spec", confirmProposed: addCalendarDays(today, 5), confirmRequestedBy: "user_maya" },
     { id: "sch_chen_conflict", projectId: "proj_chen", title: "Vanity set", start: today, end: today, time: null, status: "planned", note: null, assignees: ["user_dana"] },
     { id: "sch_disp_coil", projectId: "proj_chen", title: "Coil visit", start: today, end: today, time: "08:30", endTime: "09:30", status: "planned", note: null, assignees: [] },
-    { id: "sch_br_frame", projectId: "proj_brooks", title: "Framing walk", start: scheduleDay(0), end: scheduleDay(1), time: "08:00", status: "confirmed", note: null, assignees: ["user_luis"], phase: "Framing", progressBps: 6000 },
+    { id: "sch_br_frame", projectId: "proj_brooks", title: "Framing walk", start: scheduleDay(0), end: frameEnd, time: "08:00", status: "confirmed", note: null, assignees: ["user_luis"], phase: "Framing", progressBps: 6000 },
     { id: "sch_ok_walk", projectId: "proj_okonkwo", title: "Client walk", start: yesterday, end: yesterday, time: null, status: "planned", note: null, assignees: ["user_maya"], phase: "Finish" },
     { id: "sch_dz_punch", projectId: "proj_diaz", title: "Punch list", start: scheduleDay(2), end: scheduleDay(2), time: null, status: "done", note: null, assignees: [] },
     { id: "sch_chen_measure", projectId: "proj_chen", title: "Measure", start: scheduleDay(8), end: scheduleDay(8), time: "09:00", status: "planned", note: null, assignees: ["user_sam"] },

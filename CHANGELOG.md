@@ -2,6 +2,15 @@
 
 ## 2026-10-13
 
+### Invoice follow-ups
+
+- Settings, Collections turns overdue follow-ups on. Two reminders are days after the due date, 3 and 14 unless you change them, and neither can pass 90. The message can use {client}, {invoice}, {amount}, {due}, and {link}. Tags on the exclude list skip that job. Field cannot change it.
+- An invoice that is sent and past due gets one follow-up per cadence. The same invoice and cadence stays one row. Paid, void, and draft invoices do not get one. Paying or voiding closes an open follow-up.
+- Draft means the pay link is missing. Ready means the portal pay link is there. Copy link records Copied. Mark sent records that the office sent it outside Fieldline. Skip needs a reason. Void closes it.
+- Work, Collections lists the rows, filters them, and downloads CSV. The detail page has the message and the pay link. Today counts a Ready follow-up for an owner or admin. Inbox has the note. An automation can run when a follow-up is created, and when it is marked sent.
+- The client portal keeps Pay on an open invoice, and shows Pay now while a follow-up is Ready or Copied. Reports count follow-ups created, marked sent, and skipped this month, and the dollars still open on Ready rows.
+- Seed: RR-1019 on Diaz is past due, with a Ready follow-up and a pay link. Nothing is emailed or texted.
+
 ### Review requests
 
 - Settings, Reviews holds the Google review link, and optional Facebook and website links. Timing is Job completed or Job fully paid. Tags on the exclude list skip that job. The message can use {client}, {job}, and {link}. Field cannot change it.
