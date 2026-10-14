@@ -5,6 +5,7 @@ import { id, nowIso } from "@/lib/ids";
 import { achFeeCents, cardFeeCents } from "@/lib/money";
 import { emitAutomation } from "@/lib/services/automations";
 import { ServiceError } from "@/lib/services/errors";
+import { dismissCollections } from "@/lib/services/collections";
 import { bindReviewEmit, considerReview } from "@/lib/services/reviews";
 
 export type StripePaymentEvent = {
@@ -187,10 +188,17 @@ export function applyStripePaymentEvent(event: StripePaymentEvent): ApplyResult 
       const payment = db.select().from(payments).where(eq(payments.stripePaymentIntent, event.paymentIntentId)).get();
       if (payment) {
         const paid = db.select().from(invoices).where(and(eq(invoices.id, payment.invoiceId), eq(invoices.orgId, payment.orgId))).get();
-        if (paid) considerReview(paid.orgId, paid.projectId, "paid");
+        if (paid) {
+          try {
+            considerReview(paid.orgId, paid.projectId, "paid");
+          } catch {
+            // A review miss does not undo the payment.
+          }
+          dismissCollections(paid.orgId, paid.id);
+        }
       }
     } catch {
-      // A review miss does not undo the payment.
+      // A follow-up miss does not undo the payment.
     }
   }
   return result;

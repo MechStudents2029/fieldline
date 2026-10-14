@@ -29,6 +29,7 @@ import { defaultSchedule } from "@/lib/domain/snapshot";
 import { daysFromNow, id, nowIso, token } from "@/lib/ids";
 import { canManageMoney, canManageSettings, canSeeMoney, type Role } from "@/lib/permissions";
 import { ServiceError } from "@/lib/services/errors";
+import { dismissCollections } from "@/lib/services/collections";
 import { releaseInvoiceCosts } from "@/lib/services/cost-plus";
 import { restoreTmForInvoice } from "@/lib/services/tm";
 import type { Actor } from "@/lib/services/read";
@@ -783,6 +784,11 @@ export function voidBilling(actor: Actor, invoiceId: string) {
     }
     audit(tx, actor.orgId, actor.userId, "invoice.void", "invoice", invoice.id, { number: invoice.number });
   });
+  try {
+    dismissCollections(actor.orgId, invoice.id);
+  } catch {
+    // A follow-up miss does not undo the void.
+  }
 }
 
 export function releaseRetainage(actor: Actor, projectId: string) {
@@ -840,6 +846,11 @@ export function rollChangeOrder(actor: Actor, changeOrderId: string) {
     }
     audit(tx, actor.orgId, actor.userId, "draw.edit", "change_order", order.id, { rolledCents: order.priceDeltaCents });
   });
+  try {
+    dismissCollections(actor.orgId, invoice.id);
+  } catch {
+    // A follow-up miss does not undo the roll.
+  }
 }
 
 export function saveBillingDefaults(

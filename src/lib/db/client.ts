@@ -141,6 +141,7 @@ export function ensureReady(holder: Holder) {
   ensureOptions(holder);
   ensureBooking(holder);
   ensureReviews(holder);
+  ensureCollections(holder);
   const version = holder.sqlite.prepare("select value from app_meta where key = ?").get("seed_version") as
     | { value: string }
     | undefined;
@@ -1394,6 +1395,35 @@ function ensureReviews(holder: Holder) {
   }
   holder.sqlite.exec("create unique index if not exists review_requests_job on review_requests (org_id, project_id)");
   holder.sqlite.exec("create index if not exists review_requests_org on review_requests (org_id, status)");
+}
+
+function ensureCollections(holder: Holder) {
+  const pk = holder.dialect === "postgres" ? "text primary key" : "text primary key not null";
+  ensureColumn(holder, "organizations", "collect_enabled", "integer not null default 0");
+  ensureColumn(holder, "organizations", "collect_day1", "integer not null default 3");
+  ensureColumn(holder, "organizations", "collect_day2", "integer not null default 14");
+  ensureColumn(holder, "organizations", "collect_exclude_tags", "text not null default ''");
+  ensureColumn(holder, "organizations", "collect_template", "text not null default ''");
+  if (!tableExists(holder.sqlite, "invoice_followups", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists invoice_followups (
+      id ${pk},
+      org_id text not null,
+      invoice_id text not null,
+      project_id text not null,
+      contact_id text not null,
+      cadence_days integer not null,
+      status text not null,
+      url text not null default '',
+      message text not null default '',
+      skip_reason text not null default '',
+      created_at text not null,
+      updated_at text not null,
+      copied_at text,
+      sent_at text
+    )`);
+  }
+  holder.sqlite.exec("create unique index if not exists invoice_followups_cadence on invoice_followups (org_id, invoice_id, cadence_days)");
+  holder.sqlite.exec("create index if not exists invoice_followups_org on invoice_followups (org_id, status)");
 }
 
 function ensureOptions(holder: Holder) {

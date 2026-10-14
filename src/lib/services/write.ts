@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import { emitAutomation } from "@/lib/services/automations";
+import { dismissCollections } from "@/lib/services/collections";
 import { considerReview } from "@/lib/services/reviews";
 import { applyDefaults } from "@/lib/services/custom-fields";
 import { dataDir, getDb } from "@/lib/db/client";
@@ -1941,9 +1942,16 @@ export function payInvoice(input: {
   if (result.ok && !result.duplicate) {
     try {
       const invoice = db.select().from(invoices).where(eq(invoices.payToken, input.token)).get();
-      if (invoice) considerReview(invoice.orgId, invoice.projectId, "paid");
+      if (invoice) {
+        try {
+          considerReview(invoice.orgId, invoice.projectId, "paid");
+        } catch {
+          // A review miss does not undo the payment.
+        }
+        dismissCollections(invoice.orgId, invoice.id);
+      }
     } catch {
-      // A review miss does not undo the payment.
+      // A follow-up miss does not undo the payment.
     }
   }
   return result;

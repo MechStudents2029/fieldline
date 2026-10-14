@@ -131,6 +131,7 @@ import {
   commentFiles,
   commentMentions,
   comments,
+  invoiceFollowUps,
   notifications,
   reviewRequests,
   warrantyRequests,
@@ -174,9 +175,11 @@ import { vasquezLines, vasquezMeasurements, vasquezSections } from "@/lib/estima
 import { hashPassword, newSalt } from "@/lib/auth/password";
 import { canonicalJson, sha256 } from "@/lib/esign/hash";
 import { publicSnapshot } from "@/lib/selections/money";
+import { formatDate } from "@/lib/format";
 import { daysAgo, daysFromNow, nowIso } from "@/lib/ids";
 import { floorPlanPdf } from "@/lib/markup/pdf";
 import { achFeeCents, formatMoney, qtyToMilli } from "@/lib/money";
+import { appOrigin } from "@/lib/security";
 import { CONSENT_VERSION, DEMO_PASSWORD } from "@/lib/product";
 import { linkedDeadline } from "@/lib/todos/deadline";
 import { hashVendorToken, DEMO_HARBOR_PORTAL_TOKEN } from "@/lib/vendor/token";
@@ -194,7 +197,7 @@ import {
   WEBSITE_FORM_SOURCE,
 } from "@/lib/lead-form/rules";
 
-export const SEED_VERSION = "56";
+export const SEED_VERSION = "57";
 
 const ORG = "org_rivera";
 const NORTH = "org_northline";
@@ -286,6 +289,11 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
         reviewWebsiteUrl: null,
         reviewExcludeTags: "",
         reviewTemplate: "{client}, {job} is finished. {link}",
+        collectEnabled: 1,
+        collectDay1: 3,
+        collectDay2: 14,
+        collectExcludeTags: "",
+        collectTemplate: "{client}, {invoice} for {amount} was due {due}. {link}",
         warrantyMonths: 12,
         vendorComplianceMode: "warn",
         vendorRequiredTypes: "general_liability,workers_comp",
@@ -1584,6 +1592,46 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
           updatedAt: daysAgo(invoice.days - 1),
         };
       }),
+    )
+    .run();
+
+  const diazDue = daysAgo(3).slice(0, 10);
+  const diazLink = `${appOrigin(process.env) ?? ""}/pay/demo_pay_diaz_final`;
+  db.insert(invoiceFollowUps)
+    .values({
+      id: "fol_diaz",
+      orgId: ORG,
+      invoiceId: "inv_dz_final",
+      projectId: "proj_diaz",
+      contactId: "c_diaz",
+      cadenceDays: 3,
+      status: "ready",
+      url: diazLink,
+      message: `Rosa Diaz, RR-1019 for ${formatMoney(480000)} was due ${formatDate(diazDue)}. ${diazLink}`,
+      skipReason: "",
+      createdAt: now,
+      updatedAt: now,
+      copiedAt: null,
+      sentAt: null,
+    })
+    .run();
+  db.insert(notifications)
+    .values(
+      ["user_maya", "user_sam"].map((userId) => ({
+        id: `note_col_${userId}`,
+        orgId: ORG,
+        userId,
+        kind: "collection",
+        commentId: null,
+        entityType: "invoice_followup",
+        entityId: "fol_diaz",
+        projectId: null,
+        actorId: null,
+        actorName: "Fieldline",
+        snippet: "RR-1019",
+        readAt: null,
+        createdAt: daysAgo(40),
+      })),
     )
     .run();
 
