@@ -47,7 +47,7 @@ test("overdue invoice follow-up is ready to copy, not emailed", async ({ page, r
   await page.emulateMedia({ colorScheme: "light" });
 
   await page.goto("/");
-  const more = page.locator("details[data-today-more]");
+  const more = page.locator("details[data-today-more]:visible");
   await more.locator("summary").click();
   await expect(more.getByRole("link", { name: "Collections" })).toBeVisible();
   await shot(page, "collect-today-light");

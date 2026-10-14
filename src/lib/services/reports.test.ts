@@ -57,6 +57,7 @@ describe("saved reports", () => {
     expect(buckets).toEqual(expect.arrayContaining(["Current", "30"]));
     expect(aging.result.total.balance.sum).toBeGreaterThan(0);
     const sales = openBuiltin(maya, "sales_month");
+    expect(sales.result.groups.find((group) => group.key === "2026-09")?.rows).toHaveLength(1);
     expect(sales.result.grouped).toBe(true);
     expect(sales.result.chart.length).toBeGreaterThan(0);
     expect(sales.result.total.won.sum).toBeGreaterThan(0);
