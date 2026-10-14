@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { PayForm } from "@/components/pay-form";
 import { StripePayForm } from "@/components/stripe-pay-form";
 import { formatDate } from "@/lib/format";
+import { cashDueCents, paymentMethodLabel } from "@/lib/credits/client-memo";
 import { formatMoney } from "@/lib/money";
 import { ensureStripePaymentIntent } from "@/lib/payments/intent";
 import { invoiceTypeLabel } from "@/lib/portal/summary";
@@ -23,11 +24,13 @@ export default async function PayPage({
   const data = invoiceByPayToken(token);
   if (!data?.invoice || !data.org || !data.project) notFound();
   const paid = data.invoice.status === "paid";
+  const due = cashDueCents(data.invoice.totalCents, data.invoice.amountPaidCents);
   const stripeOn = Boolean(process.env.STRIPE_SECRET_KEY);
+  const history = data.payments.filter((payment) => payment.status === "succeeded" || payment.method === "credit_memo");
   return (
     <main className="home home-proposal">
       <p className="home-company">{data.org.name}</p>
-      <h1 className="home-price">{formatMoney(data.invoice.totalCents)}</h1>
+      <h1 className="home-price">{formatMoney(paid ? data.invoice.totalCents : due)}</h1>
       <p className="home-strong">{data.invoice.number}</p>
       <p className="home-sub">
         {invoiceTypeLabel(data.invoice.type)} · {data.project.name}
@@ -47,6 +50,22 @@ export default async function PayPage({
             Project
           </Link>
         </p>
+      ) : null}
+      {history.length ? (
+        <section className="home-note" aria-label="Payments">
+          <h2 className="home-title">Payments</h2>
+          <ul className="home-scope">
+            {history.map((payment) => (
+              <li key={payment.id}>
+                <span>
+                  {paymentMethodLabel(payment.method)}
+                  {payment.status === "void" ? " · Void" : ""}
+                </span>
+                <span className="home-money">{formatMoney(payment.amountCents)}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
       ) : null}
       {paid ? (
         <PaidNote payments={data.payments} />

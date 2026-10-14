@@ -65,6 +65,7 @@ import { assembleSnapshot, defaultSchedule, type SnapshotOption, type StoredSnap
 import { canonicalJson, sha256 } from "@/lib/esign/hash";
 import { daysFromNow, id, nowIso, token } from "@/lib/ids";
 import { deliverMessage } from "@/lib/messages/outbox";
+import { cashDueCents } from "@/lib/credits/client-memo";
 import { achFeeCents, cardFeeCents, lineAmounts, lineInputError, marginBps, positiveMoneyError, qtyToMilli } from "@/lib/money";
 import { decideAch, decideCard } from "@/lib/payments/decide";
 import { canAddFieldNotes, canEditCrm, canManageMoney, type Role } from "@/lib/permissions";
@@ -1898,6 +1899,10 @@ export function payInvoice(input: {
       return { ok: true, duplicate: true, reason: null, paymentId: null };
     }
     if (invoice.status === "void") throw new ServiceError("This invoice was voided.");
+    const due = cashDueCents(invoice.totalCents, invoice.amountPaidCents);
+    if (due < 1) {
+      return { ok: true, duplicate: true, reason: null, paymentId: null };
+    }
     const decision =
       input.method === "ach"
         ? decideAch(input.routing || "", input.account || "")
@@ -1906,7 +1911,7 @@ export function payInvoice(input: {
     if (input.method === "card" && org && !org.cardEnabled) {
       throw new ServiceError("This contractor accepts ACH only.");
     }
-    const fee = input.method === "ach" ? achFeeCents(invoice.totalCents) : cardFeeCents(invoice.totalCents);
+    const fee = input.method === "ach" ? achFeeCents(due) : cardFeeCents(due);
     const now = nowIso();
     const paymentId = id("pay");
     tx.insert(payments)
@@ -1915,9 +1920,9 @@ export function payInvoice(input: {
         orgId: invoice.orgId,
         invoiceId: invoice.id,
         method: input.method,
-        amountCents: invoice.totalCents,
+        amountCents: due,
         feeCents: decision.ok ? fee : 0,
-        netCents: decision.ok ? invoice.totalCents - fee : 0,
+        netCents: decision.ok ? due - fee : 0,
         status: decision.ok ? "succeeded" : "failed",
         stripePaymentIntent: `pi_mock_${paymentId}`,
         idempotencyKey: input.idempotencyKey,
@@ -1929,7 +1934,7 @@ export function payInvoice(input: {
       .run();
     if (decision.ok) {
       tx.update(invoices)
-        .set({ status: "paid", amountPaidCents: invoice.totalCents, updatedAt: now })
+        .set({ status: "paid", amountPaidCents: invoice.amountPaidCents + due, updatedAt: now })
         .where(eq(invoices.id, invoice.id))
         .run();
       log(tx, invoice.orgId, "project", invoice.projectId, "payment", `Payment received for ${invoice.number}.`, "system", null);

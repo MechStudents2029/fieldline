@@ -172,18 +172,20 @@ describe("stripe test-mode payments", () => {
       method: "ach",
     });
     expect(mismatch.status).toBe("amount_mismatch");
+    const open = invoice("inv_br_prog");
+    const due = (open?.totalCents ?? 0) - (open?.amountPaidCents ?? 0);
     const failed = applyStripePaymentEvent({
       eventId: "evt_br_fail",
       type: "payment_intent.payment_failed",
       paymentIntentId: "pi_br_fail",
-      amountCents: 3440000,
+      amountCents: due,
       invoiceId: "inv_br_prog",
       orgId: "org_rivera",
       method: "ach",
       failureReason: "Insufficient funds.",
     });
     expect(failed.status).toBe("failed");
-    expect(invoice("inv_br_prog")).toMatchObject({ status: "open", amountPaidCents: 0 });
+    expect(invoice("inv_br_prog")).toMatchObject({ status: "open", amountPaidCents: open?.amountPaidCents });
   });
 
   it("rejects an unsigned webhook on a public deploy and does not apply the demo stub", async () => {

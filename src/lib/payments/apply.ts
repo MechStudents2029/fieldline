@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { getDb } from "@/lib/db/client";
 import { activities, auditLogs, invoices, payments } from "@/lib/db/schema";
 import { id, nowIso } from "@/lib/ids";
+import { cashDueCents } from "@/lib/credits/client-memo";
 import { achFeeCents, cardFeeCents } from "@/lib/money";
 import { emitAutomation } from "@/lib/services/automations";
 import { ServiceError } from "@/lib/services/errors";
@@ -54,7 +55,7 @@ function remember(tx: ReturnType<typeof getDb>, orgId: string, event: StripePaym
 
 /**
  * Apply a verified Stripe PaymentIntent event once.
- * The invoice is marked paid only on succeeded, and amountPaid is set to the invoice total (never added twice).
+ * The invoice is marked paid only on succeeded. amountPaid grows by the cash still due, never twice for the same PaymentIntent.
  */
 export function applyStripePaymentEvent(event: StripePaymentEvent): ApplyResult {
   if (!event.eventId || !event.paymentIntentId) throw new ServiceError("Stripe event is missing an id.");
@@ -87,12 +88,21 @@ export function applyStripePaymentEvent(event: StripePaymentEvent): ApplyResult 
       remember(tx, invoice.orgId, event, "ignored");
       return { applied: false, duplicate: false, status: "ignored" };
     }
-    if (event.amountCents !== invoice.totalCents) {
+    const due = cashDueCents(invoice.totalCents, invoice.amountPaidCents);
+    if (due < 1) {
+      if (byIntent?.status === "succeeded") {
+        remember(tx, invoice.orgId, event, "succeeded");
+        return { applied: false, duplicate: true, status: "succeeded" };
+      }
+      remember(tx, invoice.orgId, event, "paid");
+      return { applied: false, duplicate: false, status: "paid" };
+    }
+    if (event.amountCents !== due) {
       remember(tx, invoice.orgId, event, "amount_mismatch");
       return { applied: false, duplicate: false, status: "amount_mismatch" };
     }
 
-    const key = stripeIdempotencyKey(invoice.id, invoice.totalCents);
+    const key = stripeIdempotencyKey(invoice.id, due);
     const byKey = tx
       .select()
       .from(payments)
@@ -113,12 +123,12 @@ export function applyStripePaymentEvent(event: StripePaymentEvent): ApplyResult 
     }
 
     const now = nowIso();
-    const fee = next === "succeeded" ? (event.method === "ach" ? achFeeCents(invoice.totalCents) : cardFeeCents(invoice.totalCents)) : 0;
+    const fee = next === "succeeded" ? (event.method === "ach" ? achFeeCents(due) : cardFeeCents(due)) : 0;
     const patch = {
       method: event.method,
-      amountCents: invoice.totalCents,
+      amountCents: due,
       feeCents: fee,
-      netCents: next === "succeeded" ? invoice.totalCents - fee : 0,
+      netCents: next === "succeeded" ? due - fee : 0,
       status: next,
       stripePaymentIntent: event.paymentIntentId,
       failureReason: next === "failed" ? event.failureReason || "The payment failed." : null,
@@ -145,7 +155,7 @@ export function applyStripePaymentEvent(event: StripePaymentEvent): ApplyResult 
 
     if (next === "succeeded" && invoice.status !== "paid") {
       tx.update(invoices)
-        .set({ status: "paid", amountPaidCents: invoice.totalCents, updatedAt: now })
+        .set({ status: "paid", amountPaidCents: invoice.amountPaidCents + due, updatedAt: now })
         .where(and(eq(invoices.id, invoice.id), eq(invoices.orgId, invoice.orgId)))
         .run();
       tx.insert(activities)

@@ -35,7 +35,7 @@ describe("portal summary math", () => {
         { status: "processing", amountCents: 100 },
       ],
     });
-    expect(money).toEqual({ contractCents: 1602, paidCents: 525, balanceCents: 1077 });
+    expect(money).toEqual({ contractCents: 1602, paidCents: 525, creditCents: 0, balanceCents: 1077 });
 
     const rounded = portalMoney({
       proposalStatus: "signed",
@@ -43,7 +43,7 @@ describe("portal summary math", () => {
       orders: [{ status: "approved", priceDeltaCents: 10.6 }],
       payments: [{ status: "succeeded", amountCents: 10.4 }],
     });
-    expect(rounded).toEqual({ contractCents: 22, paidCents: 10, balanceCents: 12 });
+    expect(rounded).toEqual({ contractCents: 22, paidCents: 10, creditCents: 0, balanceCents: 12 });
     expect(Number.isInteger(rounded.contractCents)).toBe(true);
   });
 
@@ -55,7 +55,7 @@ describe("portal summary math", () => {
         orders: [{ status: "approved", priceDeltaCents: 200 }],
         payments: [],
       }),
-    ).toEqual({ contractCents: 200, paidCents: 0, balanceCents: 200 });
+    ).toEqual({ contractCents: 200, paidCents: 0, creditCents: 0, balanceCents: 200 });
   });
 });
 
@@ -254,7 +254,7 @@ describe("portal isolation", () => {
       orders: portal?.orders ?? [],
       payments: portal?.payments ?? [],
     });
-    expect(money).toEqual({ contractCents: 4_620_000, paidCents: 1_680_000, balanceCents: 2_940_000 });
+    expect(money).toEqual({ contractCents: 4_620_000, paidCents: 1_680_000, creditCents: 0, balanceCents: 2_940_000 });
     expect(portal?.orders.some((order) => order.status === "sent" && order.priceDeltaCents === 96000)).toBe(true);
 
     const steps = portalTimeline({

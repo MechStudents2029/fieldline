@@ -58,7 +58,7 @@ export default async function InvoicesPage() {
             {rows.map(({ invoice, project, contact }) => (
               <tr key={invoice.id}>
                 <td className="px-2">
-                  <Link href={`/pay/${invoice.payToken}`} className="font-medium underline">
+                  <Link href={`/invoices/${invoice.id}`} className="font-medium underline">
                     {invoice.number}
                   </Link>
                 </td>

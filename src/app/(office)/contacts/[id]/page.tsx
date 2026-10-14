@@ -13,6 +13,7 @@ import { contactDetail } from "@/lib/services/read";
 import { vendorOffice } from "@/lib/services/vendor-portal";
 import { outstandingWaivers } from "@/lib/services/waivers";
 import { clientAgreements } from "@/lib/services/agreements";
+import { clientOpenCredit } from "@/lib/services/client-credits";
 import { openCreditBalance } from "@/lib/services/vendor-credits";
 import { RecordFields } from "@/components/field-record";
 import { fieldRows } from "@/lib/services/custom-fields";
@@ -26,6 +27,7 @@ export default async function ContactPage({ params, searchParams }: { params: Pr
   const vendor = vendorOffice(session, id);
   const waivers = canSeeMoney(session.role) ? outstandingWaivers(session, id) : [];
   const credits = canSeeMoney(session.role) ? openCreditBalance(session.orgId, id) : { cents: 0, count: 0 };
+  const ownerCredits = canSeeMoney(session.role) && detail.contact.type === "client" ? clientOpenCredit(session.orgId, id) : { cents: 0, count: 0 };
   const agreements = detail.contact.type === "client" ? clientAgreements(session.orgId, id) : [];
   return (
     <div className="flex flex-col gap-4">
@@ -65,6 +67,15 @@ export default async function ContactPage({ params, searchParams }: { params: Pr
               </li>
             ))}
           </ul>
+        </section>
+      ) : null}
+      {ownerCredits.count ? (
+        <section aria-label="Credit memos">
+          <h2 className="mac-t13 font-semibold">Credit memos</h2>
+          <p className="mac-t13">
+            <Link href={`/credit-memos?client=${id}`}>{ownerCredits.count} open</Link>
+            <span className="num"> · {formatMoney(ownerCredits.cents)}</span>
+          </p>
         </section>
       ) : null}
       {credits.count ? (

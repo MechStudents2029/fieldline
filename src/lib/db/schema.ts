@@ -3015,6 +3015,63 @@ export const vendorCreditApplications = sqliteTable(
   (t) => [index("vendor_credit_applications_credit").on(t.orgId, t.creditId)],
 );
 
+/** Owner credit on a job. It does not change the revised contract. */
+export const clientCreditMemos = sqliteTable(
+  "client_credit_memos",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    number: text("number").notNull(),
+    projectId: text("project_id").notNull(),
+    clientContactId: text("client_contact_id").notNull(),
+    title: text("title").notNull(),
+    description: text("description").notNull().default(""),
+    kind: text("kind").notNull(),
+    amountCents: integer("amount_cents").notNull(),
+    status: text("status").notNull(),
+    releasedAt: text("released_at"),
+    voidReason: text("void_reason"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    createdBy: text("created_by"),
+  },
+  (t) => [index("client_credit_memos_org").on(t.orgId, t.projectId, t.status)],
+);
+
+export const clientCreditMemoLines = sqliteTable(
+  "client_credit_memo_lines",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    memoId: text("memo_id").notNull(),
+    costCode: text("cost_code").notNull(),
+    description: text("description").notNull(),
+    amountCents: integer("amount_cents").notNull(),
+    sortOrder: integer("sort_order").notNull().default(0),
+  },
+  (t) => [index("client_credit_memo_lines_memo").on(t.orgId, t.memoId)],
+);
+
+export const clientCreditApplications = sqliteTable(
+  "client_credit_applications",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    memoId: text("memo_id").notNull(),
+    invoiceId: text("invoice_id").notNull(),
+    paymentId: text("payment_id").notNull(),
+    amountCents: integer("amount_cents").notNull(),
+    idempotencyKey: text("idempotency_key").notNull(),
+    createdAt: text("created_at").notNull(),
+    createdBy: text("created_by"),
+  },
+  (t) => [
+    uniqueIndex("client_credit_applications_key").on(t.orgId, t.idempotencyKey),
+    index("client_credit_applications_memo").on(t.orgId, t.memoId),
+    index("client_credit_applications_invoice").on(t.orgId, t.invoiceId),
+  ],
+);
+
 /** A price-book row the company keeps on hand. Name, unit, and cost code stay on the book. */
 export const stockItems = sqliteTable(
   "stock_items",

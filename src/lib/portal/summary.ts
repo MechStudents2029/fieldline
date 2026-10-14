@@ -8,11 +8,13 @@ export type PortalMoneyOrder = {
 export type PortalMoneyPayment = {
   status: string;
   amountCents: number;
+  method?: string | null;
 };
 
 export type PortalMoney = {
   contractCents: number;
   paidCents: number;
+  creditCents: number;
   balanceCents: number;
 };
 
@@ -33,10 +35,14 @@ export function portalMoney(input: {
     .filter((order) => order.status === "approved")
     .reduce((sum, order) => sum + cents(order.priceDeltaCents), 0);
   const contractCents = signed + approved;
-  const paidCents = input.payments
-    .filter((payment) => payment.status === "succeeded")
+  const succeeded = input.payments.filter((payment) => payment.status === "succeeded");
+  const creditCents = succeeded
+    .filter((payment) => payment.method === "credit_memo")
     .reduce((sum, payment) => sum + cents(payment.amountCents), 0);
-  return { contractCents, paidCents, balanceCents: contractCents - paidCents };
+  const paidCents = succeeded
+    .filter((payment) => payment.method !== "credit_memo")
+    .reduce((sum, payment) => sum + cents(payment.amountCents), 0);
+  return { contractCents, paidCents, creditCents, balanceCents: contractCents - paidCents - creditCents };
 }
 
 export type TimelineStep = {

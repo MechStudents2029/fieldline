@@ -24,6 +24,7 @@ import { portalRows } from "@/lib/services/custom-fields";
 import { portalCostInvoices } from "@/lib/services/cost-plus";
 import { portalBilling } from "@/lib/services/draws";
 import { portalAgreements } from "@/lib/services/agreements";
+import { portalClientCredits } from "@/lib/services/client-credits";
 import { portalByToken } from "@/lib/services/read";
 import { portalWarranty } from "@/lib/services/punch";
 import { RfiPortal } from "@/components/rfi-portal";
@@ -101,6 +102,13 @@ export default async function PortalPage({ params }: { params: Promise<{ token: 
   const approved = orders.filter((order) => order.status === "approved");
   const reviewLink = portalReview(token);
   const chased = portalChase(token);
+  const creditMemos = portalClientCredits(token);
+  const creditByInvoice = new Map<string, number>();
+  for (const payment of data.payments) {
+    if (payment.status === "succeeded" && payment.method === "credit_memo") {
+      creditByInvoice.set(payment.invoiceId, (creditByInvoice.get(payment.invoiceId) ?? 0) + payment.amountCents);
+    }
+  }
 
   return (
     <main className="home mx-auto min-h-screen w-full max-w-5xl px-4 py-8 lg:px-8">
@@ -141,6 +149,12 @@ export default async function PortalPage({ params }: { params: Promise<{ token: 
           <p>Paid</p>
           <p className="home-figure">{formatMoney(money.paidCents)}</p>
         </div>
+        {money.creditCents > 0 ? (
+          <div>
+            <p>Credits</p>
+            <p className="home-figure">{formatMoney(money.creditCents)}</p>
+          </div>
+        ) : null}
         <div>
           <p>Balance</p>
           <p className="home-figure">{formatMoney(money.balanceCents)}</p>
@@ -348,6 +362,41 @@ export default async function PortalPage({ params }: { params: Promise<{ token: 
             </section>
           ) : null}
 
+          {creditMemos.length > 0 ? (
+            <section aria-label="Credit memos">
+              <h2>Credit memos</h2>
+              <div className="home-stack">
+                {creditMemos.map((memo) => (
+                  <article key={memo.id} className="home-card">
+                    <div className="home-row">
+                      <div>
+                        <p className="home-strong">{memo.number}</p>
+                        <p className="home-sub">{memo.title}</p>
+                      </div>
+                      <div className="home-row-end">
+                        <span className="home-pill">{memo.statusLabel}</span>
+                        <span className="home-money">{formatMoney(memo.remainingCents > 0 ? memo.remainingCents : memo.amountCents)}</span>
+                      </div>
+                    </div>
+                    {memo.description ? <p className="home-sub">{memo.description}</p> : null}
+                    {memo.lines.length ? (
+                      <ul className="home-scope">
+                        {memo.lines.map((line) => (
+                          <li key={line.id}>
+                            <span>
+                              {line.costCode} · {line.description}
+                            </span>
+                            <span className="home-money">{formatMoney(line.amountCents)}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
+                  </article>
+                ))}
+              </div>
+            </section>
+          ) : null}
+
           {data.invoices.length > 0 ? (
             <section aria-label="Invoices">
               <h2>Invoices</h2>
@@ -364,6 +413,9 @@ export default async function PortalPage({ params }: { params: Promise<{ token: 
                       <div className="home-row-end">
                         <span className="home-pill">{sentenceStatus(invoice.status)}</span>
                         <span className="home-money">{formatMoney(invoice.totalCents)}</span>
+                        {(creditByInvoice.get(invoice.id) ?? 0) > 0 ? (
+                          <span className="home-sub">Credit memo {formatMoney(creditByInvoice.get(invoice.id) ?? 0)}</span>
+                        ) : null}
                         {invoice.status === "open" || invoice.status === "draft" ? (
                           <Link className="home-link" href={`/pay/${invoice.payToken}`}>
                             Pay

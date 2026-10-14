@@ -31,6 +31,9 @@ import {
   budgetLines,
   changeOrderLines,
   changeOrders,
+  clientCreditApplications,
+  clientCreditMemoLines,
+  clientCreditMemos,
   consents,
   contacts,
   customFields,
@@ -197,7 +200,7 @@ import {
   WEBSITE_FORM_SOURCE,
 } from "@/lib/lead-form/rules";
 
-export const SEED_VERSION = "58";
+export const SEED_VERSION = "59";
 
 const ORG = "org_rivera";
 const NORTH = "org_northline";
@@ -1530,7 +1533,7 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
     { id: "inv_ok_dep", projectId: "proj_okonkwo", number: "RR-1033", type: "deposit", status: "paid", index: 0, total: 1680000, paid: 1680000, token: "demo_pay_okonkwo_deposit", days: 26, description: "Deposit to schedule the bath" },
     { id: "inv_ok_prog", projectId: "proj_okonkwo", number: "RR-1038", type: "progress", status: "open", index: 1, total: 1680000, paid: 0, token: "demo_pay_okonkwo_progress", days: 6, description: "Progress at rough-in" },
     { id: "inv_br_dep", projectId: "proj_brooks", number: "RR-1022", type: "deposit", status: "paid", index: 0, total: 3440000, paid: 3440000, token: "demo_pay_brooks_deposit", days: 42, description: "Deposit to schedule the addition" },
-    { id: "inv_br_prog", projectId: "proj_brooks", number: "RR-1036", type: "progress", status: "open", index: 1, total: 3440000, paid: 0, token: "demo_pay_brooks_progress", days: 9, description: "Progress at framing" },
+    { id: "inv_br_prog", projectId: "proj_brooks", number: "RR-1036", type: "progress", status: "open", index: 1, total: 3440000, paid: 8000, token: "demo_pay_brooks_progress", days: 9, description: "Progress at framing" },
     { id: "inv_dz_dep", projectId: "proj_diaz", number: "RR-1008", type: "deposit", status: "paid", index: 0, total: 960000, paid: 960000, token: "demo_pay_diaz_deposit", days: 72, description: "Deposit to schedule the deck" },
     { id: "inv_dz_prog", projectId: "proj_diaz", number: "RR-1014", type: "progress", status: "paid", index: 1, total: 960000, paid: 960000, token: "demo_pay_diaz_progress", days: 40, description: "Progress at framing" },
     { id: "inv_dz_final", projectId: "proj_diaz", number: "RR-1019", type: "final", status: "open", index: 2, total: 480000, paid: 0, token: "demo_pay_diaz_final", days: 10, description: "Final on completion" },
@@ -1595,6 +1598,102 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
           updatedAt: daysAgo(invoice.days - 1),
         };
       }),
+    )
+    .run();
+
+  const creditApplied = daysAgo(4);
+  db.insert(payments)
+    .values({
+      id: "pay_ccm_trim",
+      orgId: ORG,
+      invoiceId: "inv_br_prog",
+      method: "credit_memo",
+      amountCents: 8000,
+      feeCents: 0,
+      netCents: 0,
+      status: "succeeded",
+      stripePaymentIntent: null,
+      idempotencyKey: "ccm:org_rivera:seed_ccm_trim",
+      failureReason: null,
+      stub: 1,
+      createdAt: creditApplied,
+      updatedAt: creditApplied,
+    })
+    .run();
+  db.insert(clientCreditMemos)
+    .values([
+      {
+        id: "ccm_open",
+        orgId: ORG,
+        number: "CM-1048",
+        projectId: "proj_brooks",
+        clientContactId: "c_brooks",
+        title: "Window allowance",
+        description: "Returned window allowance",
+        kind: "flat",
+        amountCents: 18000,
+        status: "ready",
+        releasedAt: daysAgo(2),
+        voidReason: null,
+        createdAt: daysAgo(2),
+        updatedAt: daysAgo(2),
+        createdBy: "user_maya",
+      },
+      {
+        id: "ccm_partial",
+        orgId: ORG,
+        number: "CM-1049",
+        projectId: "proj_brooks",
+        clientContactId: "c_brooks",
+        title: "Trim credit",
+        description: "Window trim and the return",
+        kind: "lines",
+        amountCents: 30000,
+        status: "partial",
+        releasedAt: daysAgo(6),
+        voidReason: null,
+        createdAt: daysAgo(6),
+        updatedAt: creditApplied,
+        createdBy: "user_maya",
+      },
+    ])
+    .run();
+  db.insert(clientCreditMemoLines)
+    .values([
+      { id: "cml_trim_win", orgId: ORG, memoId: "ccm_partial", costCode: "WIN-REPL", description: "Window credit", amountCents: 22000, sortOrder: 0 },
+      { id: "cml_trim_trim", orgId: ORG, memoId: "ccm_partial", costCode: "WIN-TRIM", description: "Trim credit", amountCents: 8000, sortOrder: 1 },
+    ])
+    .run();
+  db.insert(clientCreditApplications)
+    .values({
+      id: "cca_trim",
+      orgId: ORG,
+      memoId: "ccm_partial",
+      invoiceId: "inv_br_prog",
+      paymentId: "pay_ccm_trim",
+      amountCents: 8000,
+      idempotencyKey: "seed_ccm_trim",
+      createdAt: creditApplied,
+      createdBy: "user_sam",
+    })
+    .run();
+  db.insert(notifications)
+    .values(
+      ["user_maya", "user_sam"].map((userId) => ({
+        id: `note_ccm_${userId}`,
+        orgId: ORG,
+        userId,
+        kind: "client_credit",
+        commentId: null,
+        entityType: "client_credit_memo",
+        entityId: "ccm_open",
+        projectId: "proj_brooks",
+        actorId: null,
+        actorName: "Fieldline",
+        snippet: "CM-1048",
+        readAt: null,
+        createdAt: daysAgo(2),
+      })),
     )
     .run();
 
