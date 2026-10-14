@@ -10,6 +10,15 @@
 - Reports, Lead sources uses the report date range and CSV. Each source shows leads, won, win rate, sold value, collected cash, spend, cost per lead, cost per won job, and return (collected divided by spend). Sold value is the signed contract plus approved change orders. A zero denominator is a dash. The totals row uses the sums. Money stays integer cents. Nothing is emailed or texted.
 - Seed: Rivera has those sources plus an archived Home show and Online booking. Google, Yard sign, and Home show have a few months of spend. Chen and Okonkwo stay Referral. Brooks stays Yard sign. Diaz stays Repeat client. Ellis stays Website form.
 
+### Selection deadline follow-ups
+
+- Settings, Selections turns deadline follow-ups on. Days before is 3 unless you change it. Days after is optional and stays 0 until you set it. Neither can pass 90. The message can use {client}, {job}, {selection}, {due}, and {link}. Tags on the exclude list skip that job. Field cannot change it.
+- A released selection inside the before-due window gets one follow-up for that cadence. A draft gets one only once it is past due. The same selection and cadence stays one row. Choosing or locking the selection closes an open follow-up.
+- Work, Selection follow-ups lists the rows, filters them, and downloads CSV. Open one to copy the portal link and Mark sent when the office has sent it outside Fieldline. Status is Draft, Ready, Copied, Sent, Skipped, or Void. Skip needs a reason.
+- Today counts a Ready follow-up for an owner or admin. Inbox has the note. Automations can run on `selection_followup_created` and `selection_followup_marked_sent`. The Okonkwo portal shows Due on Floor tile.
+- Field does not open the list. Nothing is emailed or texted.
+- Seed: Floor tile on Okonkwo is one day past due and Ready, with a portal link. Vanity is already chosen and has no follow-up.
+
 ### Client credit memos
 
 - A client credit memo sits on a job. It is a flat fee or cost-code lines. It has a number such as CM-1048, a title, a description, and an amount in cents. Status is Draft, Ready, Partial, Applied, or Void. Ready means released.

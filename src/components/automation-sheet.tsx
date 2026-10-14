@@ -34,6 +34,8 @@ const TRIGGERS = [
   ["review_request_marked_sent", "Review marked sent"],
   ["invoice_followup_created", "Invoice follow-up created"],
   ["invoice_followup_marked_sent", "Invoice follow-up marked sent"],
+  ["selection_followup_created", "Selection follow-up created"],
+  ["selection_followup_marked_sent", "Selection follow-up marked sent"],
   ["client_credit_created", "Client credit memo created"],
   ["client_credit_applied", "Client credit memo applied"],
   ["client_credit_voided", "Client credit memo voided"],
