@@ -145,6 +145,7 @@ export function ensureReady(holder: Holder) {
   ensureSelectionFollowUps(holder);
   ensureClientCredits(holder);
   ensureLeadSources(holder);
+  ensureCommissions(holder);
   const version = holder.sqlite.prepare("select value from app_meta where key = ?").get("seed_version") as
     | { value: string }
     | undefined;
@@ -3194,6 +3195,82 @@ function ensureGantt(holder: Holder) {
     )`);
   }
   holder.sqlite.exec("create unique index if not exists user_prefs_key on user_prefs (org_id, user_id, key)");
+}
+
+function ensureCommissions(holder: Holder) {
+  const pk = holder.dialect === "postgres" ? "text primary key" : "text primary key not null";
+  ensureColumn(holder, "projects", "project_type", "text");
+  if (!tableExists(holder.sqlite, "commission_plans", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists commission_plans (
+      id ${pk},
+      org_id text not null,
+      name text not null,
+      subject text not null,
+      user_id text,
+      role text,
+      basis text not null,
+      rate_bps integer not null,
+      deposit_bps integer not null,
+      start_bps integer not null,
+      completion_bps integer not null,
+      status text not null,
+      created_at text not null,
+      updated_at text not null
+    )`);
+  }
+  holder.sqlite.exec("create index if not exists commission_plans_org on commission_plans (org_id, status)");
+  if (!tableExists(holder.sqlite, "commission_plan_overrides", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists commission_plan_overrides (
+      id ${pk},
+      org_id text not null,
+      plan_id text not null,
+      project_type text not null,
+      basis text,
+      rate_bps integer not null,
+      created_at text not null,
+      updated_at text not null
+    )`);
+  }
+  holder.sqlite.exec("create unique index if not exists commission_plan_overrides_type on commission_plan_overrides (org_id, plan_id, project_type)");
+  if (!tableExists(holder.sqlite, "commission_splits", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists commission_splits (
+      id ${pk},
+      org_id text not null,
+      project_id text not null,
+      user_id text not null,
+      seat text not null,
+      mode text not null,
+      share_bps integer not null default 0,
+      share_cents integer not null default 0,
+      created_at text not null,
+      updated_at text not null
+    )`);
+  }
+  holder.sqlite.exec("create unique index if not exists commission_splits_user on commission_splits (org_id, project_id, user_id)");
+  holder.sqlite.exec("create index if not exists commission_splits_org on commission_splits (org_id, project_id)");
+  if (!tableExists(holder.sqlite, "commission_lines", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists commission_lines (
+      id ${pk},
+      org_id text not null,
+      project_id text not null,
+      user_id text not null,
+      milestone text not null,
+      source_key text not null,
+      basis_cents integer not null,
+      rate_bps integer not null,
+      earned_cents integer not null,
+      delta_cents integer not null default 0,
+      sold_cents integer not null,
+      fallback integer not null default 0,
+      status text not null,
+      paid_at text,
+      paid_by text,
+      created_at text not null,
+      updated_at text not null
+    )`);
+  }
+  holder.sqlite.exec("create unique index if not exists commission_lines_key on commission_lines (org_id, source_key)");
+  holder.sqlite.exec("create index if not exists commission_lines_org on commission_lines (org_id, status)");
 }
 
 export function resetDatabase(): AppDatabase {

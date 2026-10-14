@@ -39,6 +39,8 @@ const TRIGGERS = [
   ["client_credit_created", "Client credit memo created"],
   ["client_credit_applied", "Client credit memo applied"],
   ["client_credit_voided", "Client credit memo voided"],
+  ["commission_owed", "Commission owed"],
+  ["commission_marked_paid", "Commission marked paid"],
 ] as const;
 
 const ACTION_KINDS = [

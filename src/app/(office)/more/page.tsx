@@ -29,6 +29,7 @@ const links = [
   ["/collections", "Collections"],
   ["/selection-followups", "Due selections"],
   ["/credit-memos", "Credit memos"],
+  ["/commissions", "Commissions"],
   ["/dispatch", "Dispatch"],
   ["/price-book", "Price book"],
   ["/copilot", "Copilot"],

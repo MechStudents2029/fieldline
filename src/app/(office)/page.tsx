@@ -49,6 +49,7 @@ import { dispatchAttention } from "@/lib/services/dispatch";
 import { siteAttention } from "@/lib/services/geo";
 import { lowStockCount } from "@/lib/services/inventory";
 import { clientCreditAttention } from "@/lib/services/client-credits";
+import { commissionAttention } from "@/lib/services/commissions";
 import { creditAttention } from "@/lib/services/vendor-credits";
 import { timeBoard, weeklyOtWatch } from "@/lib/services/time";
 import { addCalendarDays, localDay } from "@/lib/time/calendar";
@@ -272,6 +273,8 @@ export default async function TodayPage() {
   push("selection-followups", selectionFollows.count, selectionFollows.href, "Due selections", String(selectionFollows.count));
   const ownerCredits = canManageSettings(session.role) ? clientCreditAttention(session.orgId, session.role) : { count: 0, cents: 0, href: null as string | null };
   push("client-credits", ownerCredits.count, ownerCredits.href, "Credit memos", money ? formatWhole(ownerCredits.cents) : String(ownerCredits.count), money);
+  const commissions = canManageSettings(session.role) ? commissionAttention(session.orgId) : { count: 0, cents: 0, href: null as string | null };
+  push("commissions", commissions.count, commissions.href, "Commissions", money ? formatWhole(commissions.cents) : String(commissions.count), money);
   for (const watch of weeklyOtWatch(session)) {
     attention.push({ key: `ot-${watch.userId}`, href: "/time", title: `${watch.name} · weekly OT`, count: 1, trailing: watch.trailing, money: false });
   }
