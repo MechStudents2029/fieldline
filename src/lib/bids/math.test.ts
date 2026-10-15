@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dueWithinThreeDays, extendCents, lowVendorIds, requestStatusLabel, varianceCents, vendorCanRevise } from "@/lib/bids/math";
+import { dueWithinThreeDays, extendCents, leveledTotalCents, lowVendorIds, rawTotalCents, requestStatusLabel, scopeIncomplete, varianceCents, vendorCanRevise } from "@/lib/bids/math";
 
 describe("bid math", () => {
   it("extends milli quantity to cents and marks the low price", () => {
@@ -21,6 +21,33 @@ describe("bid math", () => {
     ).toEqual(["a", "b"]);
     expect(varianceCents(480_000, 520_000)).toBe(-40_000);
     expect(varianceCents(100, null)).toBeNull();
+  });
+
+  it("levels a vendor from submitted prices plus plugs on missing lines", () => {
+    const harbor = [
+      { submittedCents: 480_000, plugCents: null, leftOpen: false },
+      { submittedCents: null, plugCents: 360_000, leftOpen: false },
+    ];
+    expect(rawTotalCents(harbor)).toBe(480_000);
+    expect(leveledTotalCents(harbor)).toBe(840_000);
+    expect(scopeIncomplete(harbor)).toBe(false);
+    const open = [
+      { submittedCents: null, plugCents: null, leftOpen: true },
+      { submittedCents: null, plugCents: 100, leftOpen: true },
+    ];
+    expect(rawTotalCents(open)).toBeNull();
+    expect(leveledTotalCents(open)).toBe(100);
+    expect(scopeIncomplete(open)).toBe(false);
+    const blank = [
+      { submittedCents: null, plugCents: null, leftOpen: false },
+      { submittedCents: 290_000, plugCents: 50_000, leftOpen: false },
+    ];
+    expect(rawTotalCents(blank)).toBe(290_000);
+    expect(leveledTotalCents(blank)).toBe(290_000);
+    expect(scopeIncomplete(blank)).toBe(true);
+    expect(rawTotalCents([])).toBeNull();
+    expect(leveledTotalCents([])).toBeNull();
+    expect(scopeIncomplete([])).toBe(false);
   });
 
   it("names the request from how many prices are in", () => {

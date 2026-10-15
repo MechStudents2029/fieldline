@@ -1,5 +1,24 @@
+import fs from "node:fs";
 import { devices, expect, test, type Page } from "@playwright/test";
 import { resetDemo, revealToday } from "./helpers";
+
+async function shot(page: Page, name: string) {
+  const buffer = await page.screenshot();
+  fs.mkdirSync("/opt/cursor/artifacts", { recursive: true });
+  const path = `/opt/cursor/artifacts/${name}.png`;
+  let last: unknown;
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    try {
+      fs.writeFileSync(path, buffer);
+      return;
+    } catch (error) {
+      last = error;
+      if (!String(error).includes("EIO")) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 200 * (attempt + 1)));
+    }
+  }
+  throw last;
+}
 
 function dueDate() {
   const day = new Date();
@@ -88,6 +107,58 @@ test("office bid, vendor prices, and per-line award at 1440", async ({ page, req
   await expect(page.locator("a:visible", { hasText: "Bids to award" })).toContainText("1");
   await expect(page.locator("a:visible", { hasText: "Floor tile" })).toHaveCount(1);
   await createAndAward(page);
+});
+
+test("levels a no-bid and flags an open vendor", async ({ page, request }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await resetDemo(request);
+  await signInAs(page, "maya@rivera.demo");
+  await page.goto("/bids/bid_ok_valve");
+  await expect(page.getByRole("heading", { name: "Shower plumbing and glass" })).toBeVisible();
+  const harbor = page.locator("th[data-vendor='Harbor Plumbing']");
+  await expect(harbor.locator("[data-raw]")).toHaveText("$4,800.00");
+  await expect(harbor.locator("[data-leveled]")).toHaveText("$8,400.00");
+  await expect(harbor.locator("[data-incomplete]")).toHaveCount(0);
+  const casa = page.locator("th[data-vendor='Casa Tile']");
+  await expect(casa.locator("[data-raw]")).toHaveText("$9,000.00");
+  await expect(casa.locator("[data-leveled]")).toHaveText("$9,000.00");
+  await expect(page.locator("th[data-vendor='Brighton Electric'] [data-incomplete]")).toHaveText("Incomplete");
+  const glass = page.locator("td[data-vendor='Harbor Plumbing'][data-line='BATH-GLASS']");
+  await expect(glass).toContainText("No bid");
+  await expect(glass.locator("[data-plug]")).toHaveText("$3,600.00");
+  await expect(page.getByLabel("Award BATH-GLASS Harbor Plumbing")).toHaveCount(0);
+  await expect(page.getByLabel("Award BATH-GLASS Casa Tile")).toBeVisible();
+  await shot(page, "bid-level-light");
+  await page.emulateMedia({ colorScheme: "dark" });
+  await shot(page, "bid-level-dark");
+  await page.emulateMedia({ colorScheme: "light" });
+
+  await page.goto("/v/demo_vendor_harbor_m3p8qx7k");
+  await expect(page.locator("body")).toContainText("No bid");
+  await expect(page.locator("body")).not.toContainText("$3,600.00");
+  await expect(page.locator("body")).not.toContainText("Glass allowance");
+
+  await page.goto("/bids/bid_ok_valve");
+  await glass.getByLabel("Plug BATH-GLASS Harbor Plumbing").fill("4100");
+  await glass.getByRole("button", { name: "Plug" }).click();
+  await expect(harbor.locator("[data-leveled]")).toHaveText("$8,900.00");
+
+  const brightonPlumb = page.locator("td[data-vendor='Brighton Electric'][data-line='PLB-SHOWER']");
+  const brightonGlass = page.locator("td[data-vendor='Brighton Electric'][data-line='BATH-GLASS']");
+  await brightonPlumb.getByLabel("Leave open PLB-SHOWER Brighton Electric").check();
+  await brightonPlumb.getByRole("button", { name: "Plug" }).click();
+  await expect(page.locator("th[data-vendor='Brighton Electric'] [data-incomplete]")).toBeVisible();
+  await brightonGlass.getByLabel("Leave open BATH-GLASS Brighton Electric").check();
+  await brightonGlass.getByRole("button", { name: "Plug" }).click();
+  await expect(page.locator("th[data-vendor='Brighton Electric'] [data-incomplete]")).toHaveCount(0);
+
+  await signInAs(page, "dana@rivera.demo");
+  await page.goto("/bids/bid_ok_valve");
+  await expect(page.locator("[data-leveled]")).toHaveCount(0);
+  await expect(page.locator("[data-incomplete]")).toHaveCount(0);
+  await expect(page.locator("body")).not.toContainText("$8,900.00");
+  await expect(page.locator("body")).not.toContainText("$3,600.00");
+  await expect(page.locator("body")).not.toContainText("Glass allowance");
 });
 
 test.describe("bid portal on a phone", () => {

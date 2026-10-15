@@ -1677,6 +1677,20 @@ function ensureBids(holder: Holder) {
       amount_cents integer not null
     )`);
   }
+  if (!tableExists(holder.sqlite, "bid_plugs", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists bid_plugs (
+      id ${pk},
+      org_id text not null,
+      bid_id text not null,
+      invite_id text not null,
+      bid_line_id text not null,
+      amount_cents integer,
+      note text,
+      left_open integer not null default 0,
+      created_at text not null,
+      updated_at text not null
+    )`);
+  }
   holder.sqlite.exec("create index if not exists bid_requests_org on bid_requests (org_id, project_id)");
   holder.sqlite.exec("create index if not exists bid_lines_bid on bid_lines (org_id, bid_id)");
   holder.sqlite.exec("create index if not exists bid_files_bid on bid_files (org_id, bid_id)");
@@ -1685,6 +1699,8 @@ function ensureBids(holder: Holder) {
   holder.sqlite.exec("create unique index if not exists bid_prices_line on bid_prices (org_id, invite_id, bid_line_id)");
   holder.sqlite.exec("create unique index if not exists bid_awards_line on bid_awards (org_id, bid_line_id)");
   holder.sqlite.exec("create index if not exists bid_awards_bid on bid_awards (org_id, bid_id)");
+  holder.sqlite.exec("create unique index if not exists bid_plugs_line on bid_plugs (org_id, invite_id, bid_line_id)");
+  holder.sqlite.exec("create index if not exists bid_plugs_bid on bid_plugs (org_id, bid_id)");
 }
 
 function ensureTesterFeedback(holder: Holder) {

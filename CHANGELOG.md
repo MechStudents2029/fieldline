@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-10-15
+
+### Bid leveling
+
+- On an open bid, a no-bid or blank line can take an internal plug in cents, with a short note. The plug is for leveling only. It is not the vendor’s price, it is not on the vendor portal, and it cannot be awarded.
+- Each vendor column shows a raw total of submitted prices and a leveled total that adds plugs on that vendor’s missing lines. A vendor with any no-bid or blank line stays Incomplete until those lines are plugged or left open.
+- Plugs stay on the bid while it is out. Awarding clears them. Field does not see the amounts.
+
 ## 2026-10-14
 
 ### Crew workload
