@@ -42,14 +42,15 @@ test("captures a receipt, posts it, and marks it reimbursed", async ({ page, req
   await page.setViewportSize({ width: 1280, height: 800 });
   await resetDemo(request);
   await signInAs(page, "dana@rivera.demo");
-  await page.getByLabel("Receipt photo").setInputFiles({ name: "receipt.png", mimeType: "image/png", buffer: PNG });
-  await page.getByLabel("Job").selectOption({ label: "Brooks family room addition" });
-  await page.getByLabel("Store").fill("City Supply");
-  await page.getByLabel("Date").fill("2026-10-14");
-  await page.getByLabel("Total").fill("12.50");
-  await page.getByLabel("Cost code").fill("FRM-WALL");
-  await page.getByLabel("Paid with").selectOption("personal");
-  await page.getByRole("button", { name: "Add receipt" }).click();
+  const form = page.getByRole("region", { name: "Receipt" });
+  await form.getByLabel("Receipt photo").setInputFiles({ name: "receipt.png", mimeType: "image/png", buffer: PNG });
+  await form.getByLabel("Job").selectOption({ label: "Brooks family room addition" });
+  await form.getByLabel("Store").fill("City Supply");
+  await form.getByLabel("Date").fill("2026-10-14");
+  await form.getByLabel("Total").fill("12.50");
+  await form.getByLabel("Cost code").fill("FRM-WALL");
+  await form.getByLabel("Paid with").selectOption("personal");
+  await form.getByRole("button", { name: "Add receipt" }).click();
   await page.waitForURL(/\/receipts\/cr_/);
   const receiptUrl = page.url();
   await expect(page.locator("[data-receipt-detail]")).toHaveAttribute("data-status", "coded");
@@ -61,7 +62,7 @@ test("captures a receipt, posts it, and marks it reimbursed", async ({ page, req
   await expect(page.getByRole("button", { name: "Post" })).toHaveCount(0);
 
   await signInAs(page, "maya@rivera.demo");
-  await expect(page.locator("a", { hasText: "Receipts" }).filter({ hasText: "2" }).first()).toBeVisible();
+  await expect(page.locator("a:visible").filter({ hasText: "Receipts" }).filter({ hasText: "2" })).toBeVisible();
   await page.goto(receiptUrl);
   await page.getByRole("button", { name: "Post" }).click();
   await expect(page.locator("[data-receipt-detail]")).toHaveAttribute("data-status", "posted");
