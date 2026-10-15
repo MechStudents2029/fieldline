@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { requireSession } from "@/lib/auth/session";
 import { formatCalendarDay, formatDateTime } from "@/lib/format";
 import { supabaseAuthConfigured } from "@/lib/supabase/env";
-import { canManageSettings, canSeeMoney, roleLabel } from "@/lib/permissions";
+import { canManageMoney, canManageSettings, canSeeMoney, roleLabel } from "@/lib/permissions";
 import { defaultDrawForm } from "@/lib/services/draws";
 import { companyChecklist } from "@/lib/services/onboarding";
 import { getOrg, integrations, staff } from "@/lib/services/read";
@@ -70,6 +70,13 @@ export default async function SettingsPage() {
             <li>
               <Link href="/import" className="block py-2 mac-t13 text-[var(--mac-accent)]">
                 Import
+              </Link>
+            </li>
+          ) : null}
+          {canManageMoney(session.role) ? (
+            <li>
+              <Link href="/settings/mileage" className="block py-2 mac-t13 text-[var(--mac-accent)]">
+                Mileage
               </Link>
             </li>
           ) : null}

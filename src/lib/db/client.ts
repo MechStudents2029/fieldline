@@ -103,6 +103,7 @@ export function ensureReady(holder: Holder) {
   ensureBids(holder);
   ensureVendorTax(holder);
   ensureCostReceipts(holder);
+  ensureMileage(holder);
   ensureDraws(holder);
   ensureRfis(holder);
   ensureComments(holder);
@@ -1774,6 +1775,53 @@ function ensureCostReceipts(holder: Holder) {
   }
   holder.sqlite.exec("create index if not exists cost_receipts_org on cost_receipts (org_id, status)");
   holder.sqlite.exec("create index if not exists cost_receipt_splits_receipt on cost_receipt_splits (org_id, receipt_id)");
+}
+
+function ensureMileage(holder: Holder) {
+  const pk = holder.dialect === "postgres" ? "text primary key" : "text primary key not null";
+  if (!tableExists(holder.sqlite, "mileage_rates", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists mileage_rates (
+      id ${pk},
+      org_id text not null,
+      starts_on text not null,
+      ends_on text not null,
+      rate_deci_cents integer not null,
+      irs_deci_cents integer not null,
+      created_at text not null,
+      updated_at text not null
+    )`);
+  }
+  if (!tableExists(holder.sqlite, "mileage_trips", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists mileage_trips (
+      id ${pk},
+      org_id text not null,
+      user_id text not null,
+      project_id text,
+      trip_on text not null,
+      start_milli integer,
+      end_milli integer,
+      miles_milli integer not null,
+      from_text text,
+      to_text text,
+      purpose text not null,
+      business integer not null default 1,
+      status text not null,
+      rate_deci_cents integer,
+      irs_deci_cents integer,
+      amount_cents integer,
+      reject_note text,
+      submitted_at text,
+      approved_at text,
+      rejected_at text,
+      reimbursed_at text,
+      reimbursed_by text,
+      created_at text not null,
+      updated_at text not null,
+      created_by text
+    )`);
+  }
+  holder.sqlite.exec("create index if not exists mileage_rates_org on mileage_rates (org_id, starts_on)");
+  holder.sqlite.exec("create index if not exists mileage_trips_org on mileage_trips (org_id, status)");
 }
 
 function ensureTesterFeedback(holder: Holder) {

@@ -65,6 +65,8 @@ import {
   leadSourceSpend,
   lineItems,
   memberships,
+  mileageRates,
+  mileageTrips,
   messageThreads,
   messages,
   organizations,
@@ -213,7 +215,7 @@ import {
   WEBSITE_FORM_SOURCE,
 } from "@/lib/lead-form/rules";
 
-export const SEED_VERSION = "66";
+export const SEED_VERSION = "67";
 
 const ORG = "org_rivera";
 const NORTH = "org_northline";
@@ -5215,6 +5217,117 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
       updatedAt: daysAgo(5),
       createdBy: "user_maya",
     })
+    .run();
+
+  const rateAt = daysAgo(1);
+  db.insert(mileageRates)
+    .values([
+      {
+        id: "mr_2026_h1",
+        orgId: ORG,
+        startsOn: "2026-01-01",
+        endsOn: "2026-06-30",
+        rateDeciCents: 725,
+        irsDeciCents: 725,
+        createdAt: rateAt,
+        updatedAt: rateAt,
+      },
+      {
+        id: "mr_2026_h2",
+        orgId: ORG,
+        startsOn: "2026-07-01",
+        endsOn: "2026-12-31",
+        rateDeciCents: 760,
+        irsDeciCents: 760,
+        createdAt: rateAt,
+        updatedAt: rateAt,
+      },
+    ])
+    .run();
+  db.insert(mileageTrips)
+    .values([
+      {
+        id: "mt_dana_wait",
+        orgId: ORG,
+        userId: "user_dana",
+        projectId: "proj_brooks",
+        tripOn: "2026-04-08",
+        startMilli: null,
+        endMilli: null,
+        milesMilli: 20000,
+        fromText: "Shop",
+        toText: "Brooks",
+        purpose: "Lumber run",
+        business: 1,
+        status: "submitted",
+        rateDeciCents: null,
+        irsDeciCents: null,
+        amountCents: null,
+        rejectNote: null,
+        submittedAt: daysAgo(5),
+        approvedAt: null,
+        rejectedAt: null,
+        reimbursedAt: null,
+        reimbursedBy: null,
+        createdAt: daysAgo(5),
+        updatedAt: daysAgo(5),
+        createdBy: "user_dana",
+      },
+      {
+        id: "mt_maya_paid",
+        orgId: ORG,
+        userId: "user_maya",
+        projectId: null,
+        tripOn: "2026-09-15",
+        startMilli: null,
+        endMilli: null,
+        milesMilli: 10000,
+        fromText: "Shop",
+        toText: "Chen",
+        purpose: "Client walk",
+        business: 1,
+        status: "reimbursed",
+        rateDeciCents: 760,
+        irsDeciCents: 760,
+        amountCents: 760,
+        rejectNote: null,
+        submittedAt: daysAgo(12),
+        approvedAt: daysAgo(4),
+        rejectedAt: null,
+        reimbursedAt: daysAgo(3),
+        reimbursedBy: "user_maya",
+        createdAt: daysAgo(12),
+        updatedAt: daysAgo(3),
+        createdBy: "user_maya",
+      },
+      {
+        id: "mt_dana_no",
+        orgId: ORG,
+        userId: "user_dana",
+        projectId: null,
+        tripOn: "2026-02-11",
+        startMilli: null,
+        endMilli: null,
+        milesMilli: 8000,
+        fromText: "Home",
+        toText: "Shop",
+        purpose: "Shop commute",
+        business: 1,
+        status: "rejected",
+        rateDeciCents: null,
+        irsDeciCents: null,
+        amountCents: null,
+        rejectNote: "Home to shop.",
+        submittedAt: daysAgo(8),
+        approvedAt: null,
+        rejectedAt: daysAgo(6),
+        reimbursedAt: null,
+        reimbursedBy: null,
+        createdAt: daysAgo(8),
+        updatedAt: daysAgo(6),
+        createdBy: "user_dana",
+      },
+    ])
     .run();
 
   db.insert(auditLogs)

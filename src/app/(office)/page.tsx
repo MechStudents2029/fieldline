@@ -18,6 +18,7 @@ import { warrantyQueue } from "@/lib/services/punch";
 import { vendorBillQueue, vendorCertificateQueue } from "@/lib/services/vendor-portal";
 import { necAttention } from "@/lib/services/nec1099";
 import { receiptAttention } from "@/lib/services/cost-receipts";
+import { mileageAttention } from "@/lib/services/mileage";
 import { bidQueues } from "@/lib/services/bids";
 import { readyToBill } from "@/lib/services/draws";
 import { readyToPay, retainageHeldOnClosed } from "@/lib/services/pay-ready";
@@ -300,6 +301,8 @@ export default async function TodayPage() {
   push("nec-w9", nec.count, nec.href, "W-9", String(nec.count));
   const receiptsDue = receiptAttention(session);
   push("receipts", receiptsDue.count, receiptsDue.href, "Receipts", String(receiptsDue.count));
+  const milesDue = mileageAttention(session);
+  push("miles", milesDue.count, milesDue.href, "Miles", String(milesDue.count));
   push("bids-due", bids.due.count, bids.due.href, "Bids due", String(bids.due.count));
   push("bids-award", bids.award.count, bids.award.href, "Bids to award", String(bids.award.count));
   push("bill", ready.count, ready.href, "Ready to bill", `${ready.count} · ${formatWhole(ready.cents)}`, true);

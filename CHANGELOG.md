@@ -2,6 +2,15 @@
 
 ## 2026-10-15
 
+### Mileage logs
+
+- Settings, Mileage holds the company cents-per-mile rate in dated periods. 2026 is 72.5 through June 30 and 76 from July 1. The IRS figure stays on the period when the company rate differs. Office can edit. Field cannot.
+- Field logs a trip from My day. Office logs one from Mileage. Date, start and end odometer or total miles, optional job, from, to, and a purpose. Business or personal. Only business miles are reimbursed. No location is read.
+- Mileage filters by person, job, dates, and Draft, Submitted, Approved, Reimbursed, or Rejected. Office approves or rejects. A rejection needs a note. Field sees only their own trips.
+- Approved business miles sit under Reimbursements, with a total per person and a CSV. The amount is the miles times the rate for that date, in cents. Mark reimbursed records the date and who. No payout is sent. A later rate edit leaves an approved amount as it was.
+- Today counts submitted trips older than two days.
+- Seed: Dana’s April lumber run is waiting. Maya’s September client walk is reimbursed. Dana’s February shop commute is rejected.
+
 ### Receipts and cost inbox
 
 - Field and office capture a receipt from My day or the job. Photo, optional job, store, date, total, optional cost code, note, and company card, personal, or cash. The photo uses the same checks as a job photo. Capture needs a connection. It is not saved on the phone.
