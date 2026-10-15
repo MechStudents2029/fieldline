@@ -47,6 +47,8 @@ import {
   dashboardTiles,
   dashboards,
   costItems,
+  costReceiptSplits,
+  costReceipts,
   documents,
   estimateGroups,
   estimateMeasurements,
@@ -211,7 +213,7 @@ import {
   WEBSITE_FORM_SOURCE,
 } from "@/lib/lead-form/rules";
 
-export const SEED_VERSION = "65";
+export const SEED_VERSION = "66";
 
 const ORG = "org_rivera";
 const NORTH = "org_northline";
@@ -5082,6 +5084,138 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
       )
       .run();
   }
+
+  const depotAAt = daysAgo(5);
+  const depotBAt = daysAgo(4);
+  db.insert(costReceipts)
+    .values([
+      {
+        id: "cr_depot_a",
+        orgId: ORG,
+        projectId: "proj_brooks",
+        submittedBy: "user_dana",
+        vendorName: "Home Depot",
+        purchasedOn: daysAgo(5).slice(0, 10),
+        amountCents: 4280,
+        note: "Screws",
+        payMethod: "company_card",
+        status: "new",
+        photoDocumentId: null,
+        photoHash: "seedhash-depot-a",
+        rejectNote: null,
+        vendorContactId: null,
+        purchaseOrderId: null,
+        billId: null,
+        postedAt: null,
+        rejectedAt: null,
+        reimbursedAt: null,
+        reimbursedBy: null,
+        createdAt: depotAAt,
+        updatedAt: depotAAt,
+      },
+      {
+        id: "cr_depot_b",
+        orgId: ORG,
+        projectId: null,
+        submittedBy: "user_dana",
+        vendorName: "home depot",
+        purchasedOn: daysAgo(3).slice(0, 10),
+        amountCents: 4280,
+        note: null,
+        payMethod: "company_card",
+        status: "new",
+        photoDocumentId: null,
+        photoHash: "seedhash-depot-b",
+        rejectNote: null,
+        vendorContactId: null,
+        purchaseOrderId: null,
+        billId: null,
+        postedAt: null,
+        rejectedAt: null,
+        reimbursedAt: null,
+        reimbursedBy: null,
+        createdAt: depotBAt,
+        updatedAt: depotBAt,
+      },
+      {
+        id: "cr_ace",
+        orgId: ORG,
+        projectId: "proj_brooks",
+        submittedBy: "user_dana",
+        vendorName: "Ace Hardware",
+        purchasedOn: daysAgo(6).slice(0, 10),
+        amountCents: 1840,
+        note: "Blades",
+        payMethod: "personal",
+        status: "posted",
+        photoDocumentId: null,
+        photoHash: "seedhash-ace",
+        rejectNote: null,
+        vendorContactId: null,
+        purchaseOrderId: null,
+        billId: null,
+        postedAt: daysAgo(5),
+        rejectedAt: null,
+        reimbursedAt: null,
+        reimbursedBy: null,
+        createdAt: daysAgo(6),
+        updatedAt: daysAgo(5),
+      },
+      {
+        id: "cr_kiosk",
+        orgId: ORG,
+        projectId: "proj_brooks",
+        submittedBy: "user_dana",
+        vendorName: "Lobby kiosk",
+        purchasedOn: daysAgo(8).slice(0, 10),
+        amountCents: 900,
+        note: null,
+        payMethod: "cash",
+        status: "rejected",
+        photoDocumentId: null,
+        photoHash: "seedhash-kiosk",
+        rejectNote: "Not this job.",
+        vendorContactId: null,
+        purchaseOrderId: null,
+        billId: null,
+        postedAt: null,
+        rejectedAt: daysAgo(7),
+        reimbursedAt: null,
+        reimbursedBy: null,
+        createdAt: daysAgo(8),
+        updatedAt: daysAgo(7),
+      },
+    ])
+    .run();
+  db.insert(costReceiptSplits)
+    .values({
+      id: "crs_ace",
+      orgId: ORG,
+      receiptId: "cr_ace",
+      costCode: "FRM-WALL",
+      amountCents: 1840,
+      costItemId: "cost_cr_ace",
+      sortOrder: 0,
+    })
+    .run();
+  db.insert(costItems)
+    .values({
+      id: "cost_cr_ace",
+      orgId: ORG,
+      projectId: "proj_brooks",
+      budgetLineId: null,
+      costCode: "FRM-WALL",
+      amountCents: 1840,
+      vendorName: "Ace Hardware",
+      memo: "Blades · Personal",
+      source: "receipt",
+      aiExtracted: 0,
+      documentId: null,
+      createdAt: daysAgo(5),
+      updatedAt: daysAgo(5),
+      createdBy: "user_maya",
+    })
+    .run();
 
   db.insert(auditLogs)
     .values({

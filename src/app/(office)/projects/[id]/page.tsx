@@ -7,6 +7,7 @@ import { jobSectionTabs } from "@/components/job-section-tabs";
 import { Toolbar } from "@/components/mac/toolbar";
 import { MissingRecord } from "@/components/missing-record";
 import { PhotoCapture } from "@/components/photo-capture";
+import { CostReceiptForm } from "@/components/cost-receipt-form";
 import { ReceiptCapture } from "@/components/receipt-capture";
 import { Button } from "@/components/ui/button";
 import { requireSession } from "@/lib/auth/session";
@@ -18,6 +19,7 @@ import { canEditCrm, canEditSchedule, canManageMoney, canSeeMoney } from "@/lib/
 import { OrderPicker } from "@/components/order-picker";
 import { budgetCandidates, orderDesk } from "@/lib/services/order-from";
 import { projectBills } from "@/lib/services/bills";
+import { receiptCodes } from "@/lib/services/cost-receipts";
 import { projectPurchaseOrders } from "@/lib/services/purchase-orders";
 import { captionFromMetadata, listPriceBook, listProjects, pipelineBoard, projectDetail } from "@/lib/services/read";
 import { deliveryHolds } from "@/lib/receiving/facts";
@@ -585,6 +587,11 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
       {money ? <ReceiptCapture projectId={detail.project.id} codes={costCodes} /> : null}
       </div>
       </div>
+      {session.role !== "viewer" && !full ? (
+        <section className="md:px-6">
+          <CostReceiptForm fixedProjectId={detail.project.id} jobs={[{ id: detail.project.id, name: detail.project.name }]} codes={receiptCodes(session.orgId)} />
+        </section>
+      ) : null}
       <section id="schedule" className={full ? "flex min-h-0 flex-1 flex-col gap-2" : "flex flex-col gap-2 md:px-6 md:pb-8"}>
         <div className="flex items-center justify-between gap-2">
           <span className="flex items-baseline gap-2">
