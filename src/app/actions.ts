@@ -158,6 +158,18 @@ import {
 import { codeCostReceipt, markReceiptReimbursed, postCostReceipt, rejectCostReceipt, submitCostReceipt } from "@/lib/services/cost-receipts";
 import { parseRateToDeciCents } from "@/lib/mileage/rate";
 import { approveMileageTrip, createMileageTrip, editMileageTrip, markMileageReimbursed, rejectMileageTrip, saveMileageRates, submitMileageTrip, type TripInput } from "@/lib/services/mileage";
+import { parseQtyToMilli } from "@/lib/material/request";
+import {
+  approveMaterialRequest,
+  createMaterialRequest,
+  editMaterialRequest,
+  fulfillMaterialRequest,
+  orderMaterialRequest,
+  rejectMaterialRequest,
+  submitMaterialRequest,
+  type MaterialInput,
+  type MaterialLineInput,
+} from "@/lib/services/material-requests";
 import { billReceived, parseReceiveLines, receiveDelivery, voidReceipt } from "@/lib/services/receiving";
 import { adjustStock, issueStock, reorderStock, returnStock, transferJobStock, transferStock, voidMovement } from "@/lib/services/inventory";
 import { parseQtyMilli } from "@/lib/receiving/match";
@@ -1060,6 +1072,125 @@ export async function markMileageReimbursedAction(tripId: string, _prev: ActionS
     revalidatePath(`/mileage/${tripId}`);
     revalidatePath("/mileage");
     return { ok: "Reimbursed." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+function materialFields(formData: FormData): { error: string } | { input: MaterialInput } {
+  const skus = formData.getAll("lineSku").map(String);
+  const descs = formData.getAll("lineDesc").map(String);
+  const qtys = formData.getAll("lineQty").map(String);
+  const codes = formData.getAll("lineCode").map(String);
+  const count = Math.max(skus.length, descs.length, qtys.length, codes.length);
+  const lines: MaterialLineInput[] = [];
+  for (let index = 0; index < count; index += 1) {
+    const qty = (qtys[index] ?? "").trim();
+    const sku = (skus[index] ?? "").trim();
+    const description = (descs[index] ?? "").trim();
+    const costCode = (codes[index] ?? "").trim();
+    if (!qty && !sku && !description && !costCode) continue;
+    const qtyMilli = parseQtyToMilli(qty);
+    if (qtyMilli == null) return { error: "Enter a quantity." };
+    lines.push({ stockItemId: sku || null, description, qtyMilli, costCode: costCode || null });
+  }
+  if (lines.length === 0) return { error: "Add a line." };
+  return {
+    input: {
+      userId: String(formData.get("userId") || ""),
+      projectId: String(formData.get("projectId") || ""),
+      urgency: String(formData.get("urgency") || "normal"),
+      note: String(formData.get("note") || ""),
+      lines,
+      submit: String(formData.get("intent") || "") === "submit",
+    },
+  };
+}
+
+export async function createMaterialRequestAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const parsed = materialFields(formData);
+  if ("error" in parsed) return parsed;
+  let requestId = "";
+  try {
+    const user = await actor();
+    requestId = createMaterialRequest(user, parsed.input).id;
+  } catch (error) {
+    return failure(error);
+  }
+  revalidatePath("/material-requests");
+  revalidatePath("/");
+  revalidatePath("/inbox");
+  redirect(`/material-requests/${requestId}`);
+}
+
+export async function editMaterialRequestAction(requestId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  const parsed = materialFields(formData);
+  if ("error" in parsed) return parsed;
+  try {
+    const user = await actor();
+    editMaterialRequest(user, requestId, parsed.input);
+    if (parsed.input.submit) submitMaterialRequest(user, requestId);
+    revalidatePath("/material-requests");
+    revalidatePath(`/material-requests/${requestId}`);
+    revalidatePath("/");
+    revalidatePath("/inbox");
+    return { ok: parsed.input.submit ? "Submitted." : "Saved." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function approveMaterialRequestAction(requestId: string, _prev: ActionState, _formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    approveMaterialRequest(user, requestId);
+    revalidatePath("/material-requests");
+    revalidatePath(`/material-requests/${requestId}`);
+    revalidatePath("/");
+    revalidatePath("/inbox");
+    return { ok: "Approved." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function rejectMaterialRequestAction(requestId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    rejectMaterialRequest(user, requestId, String(formData.get("note") || ""));
+    revalidatePath("/material-requests");
+    revalidatePath(`/material-requests/${requestId}`);
+    revalidatePath("/");
+    revalidatePath("/inbox");
+    return { ok: "Rejected." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function fulfillMaterialRequestAction(requestId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    fulfillMaterialRequest(user, requestId, String(formData.get("locationId") || ""));
+    revalidatePath("/material-requests");
+    revalidatePath(`/material-requests/${requestId}`);
+    revalidatePath("/inventory");
+    revalidatePath("/");
+    return { ok: "Fulfilled." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function orderMaterialRequestAction(requestId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    orderMaterialRequest(user, requestId, String(formData.get("vendorContactId") || ""));
+    revalidatePath("/material-requests");
+    revalidatePath(`/material-requests/${requestId}`);
+    revalidatePath("/purchase-orders");
+    revalidatePath("/");
+    return { ok: "Ordered." };
   } catch (error) {
     return failure(error);
   }

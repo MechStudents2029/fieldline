@@ -65,6 +65,8 @@ import {
   leadSourceSpend,
   lineItems,
   memberships,
+  materialRequestLines,
+  materialRequests,
   mileageRates,
   mileageTrips,
   messageThreads,
@@ -215,7 +217,7 @@ import {
   WEBSITE_FORM_SOURCE,
 } from "@/lib/lead-form/rules";
 
-export const SEED_VERSION = "67";
+export const SEED_VERSION = "68";
 
 const ORG = "org_rivera";
 const NORTH = "org_northline";
@@ -5328,6 +5330,155 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
         createdBy: "user_dana",
       },
     ])
+    .run();
+
+  const materialAt = daysAgo(1);
+  db.insert(materialRequests)
+    .values([
+      {
+        id: "mrq_urgent",
+        orgId: ORG,
+        projectId: "proj_brooks",
+        userId: "user_dana",
+        status: "submitted",
+        urgency: "urgent",
+        note: "Need tile",
+        rejectNote: null,
+        purchaseOrderId: null,
+        submittedAt: materialAt,
+        approvedAt: null,
+        fulfilledAt: null,
+        orderedAt: null,
+        rejectedAt: null,
+        createdAt: materialAt,
+        updatedAt: materialAt,
+        createdBy: "user_dana",
+      },
+      {
+        id: "mrq_done",
+        orgId: ORG,
+        projectId: "proj_okonkwo",
+        userId: "user_maya",
+        status: "fulfilled",
+        urgency: "normal",
+        note: null,
+        rejectNote: null,
+        purchaseOrderId: null,
+        submittedAt: daysAgo(6),
+        approvedAt: daysAgo(5),
+        fulfilledAt: daysAgo(4),
+        orderedAt: null,
+        rejectedAt: null,
+        createdAt: daysAgo(6),
+        updatedAt: daysAgo(4),
+        createdBy: "user_maya",
+      },
+      {
+        id: "mrq_po",
+        orgId: ORG,
+        projectId: "proj_okonkwo",
+        userId: "user_maya",
+        status: "ordered",
+        urgency: "normal",
+        note: null,
+        rejectNote: null,
+        purchaseOrderId: "po_ok_vanity",
+        submittedAt: daysAgo(5),
+        approvedAt: daysAgo(4),
+        fulfilledAt: null,
+        orderedAt: daysAgo(3),
+        rejectedAt: null,
+        createdAt: daysAgo(5),
+        updatedAt: daysAgo(3),
+        createdBy: "user_maya",
+      },
+      {
+        id: "mrq_no",
+        orgId: ORG,
+        projectId: "proj_brooks",
+        userId: "user_dana",
+        status: "rejected",
+        urgency: "normal",
+        note: null,
+        rejectNote: "Already on the truck.",
+        purchaseOrderId: null,
+        submittedAt: daysAgo(8),
+        approvedAt: null,
+        fulfilledAt: null,
+        orderedAt: null,
+        rejectedAt: daysAgo(6),
+        createdAt: daysAgo(8),
+        updatedAt: daysAgo(6),
+        createdBy: "user_dana",
+      },
+    ])
+    .run();
+  db.insert(materialRequestLines)
+    .values([
+      {
+        id: "mrl_urgent",
+        orgId: ORG,
+        requestId: "mrq_urgent",
+        stockItemId: "stk_tile",
+        description: "Floor tile, set",
+        qtyMilli: 5000,
+        costCode: "TILE-FLR",
+        sortOrder: 0,
+        movementId: null,
+      },
+      {
+        id: "mrl_done",
+        orgId: ORG,
+        requestId: "mrq_done",
+        stockItemId: "stk_tile",
+        description: "Floor tile, set",
+        qtyMilli: 20000,
+        costCode: "TILE-FLR",
+        sortOrder: 0,
+        movementId: "mov_tile_issue",
+      },
+      {
+        id: "mrl_po",
+        orgId: ORG,
+        requestId: "mrq_po",
+        stockItemId: null,
+        description: "Quartz vanity",
+        qtyMilli: 1000,
+        costCode: "BATH-VANITY",
+        sortOrder: 0,
+        movementId: null,
+      },
+      {
+        id: "mrl_no",
+        orgId: ORG,
+        requestId: "mrq_no",
+        stockItemId: null,
+        description: "Extra blades",
+        qtyMilli: 1000,
+        costCode: null,
+        sortOrder: 0,
+        movementId: null,
+      },
+    ])
+    .run();
+  db.insert(notifications)
+    .values(
+      ["user_maya", "user_sam", "user_luis"].map((userId) => ({
+        id: `note_mrq_${userId.replace("user_", "")}`,
+        orgId: ORG,
+        userId,
+        kind: "material",
+        commentId: null,
+        entityType: "material_request",
+        entityId: "mrq_urgent",
+        projectId: "proj_brooks",
+        actorId: "user_dana",
+        actorName: "Dana Cho",
+        snippet: "Need tile",
+        readAt: null,
+        createdAt: daysAgo(40),
+      })),
+    )
     .run();
 
   db.insert(auditLogs)

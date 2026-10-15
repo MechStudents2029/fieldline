@@ -2,6 +2,14 @@
 
 ## 2026-10-15
 
+### Material requests
+
+- Field submits a request from My day or the job. Office submits one from Materials. Job, one or more lines, quantity, Normal or Urgent, and an optional note. A line is an inventory SKU or a description with an optional cost code. No location is read and no vendor is contacted.
+- Materials is Draft, Submitted, Approved, then Fulfilled, Ordered, or Rejected. A rejection needs a note. Field sees only their own. Office approves, issues stock to the job, or adds the lines to a draft purchase order. Prices come from the price book.
+- The same job and SKU within three days shows a Duplicate pill and a link. It still saves.
+- Today and Inbox count submitted requests older than two days, and any urgent submitted request.
+- CSV is on Materials. Seed: Dana’s tile request is urgent and waiting. Maya’s tile on Okonkwo is fulfilled from the existing yard issue. Quartz vanity is ordered on PO-1056. Extra blades is rejected, and the note is on the request.
+
 ### Mileage logs
 
 - Settings, Mileage holds the company cents-per-mile rate in dated periods. 2026 is 72.5 through June 30 and 76 from July 1. The IRS figure stays on the period when the company rate differs. Office can edit. Field cannot.

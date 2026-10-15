@@ -8,6 +8,7 @@ import { Toolbar } from "@/components/mac/toolbar";
 import { MissingRecord } from "@/components/missing-record";
 import { PhotoCapture } from "@/components/photo-capture";
 import { CostReceiptForm } from "@/components/cost-receipt-form";
+import { MaterialRequestForm } from "@/components/material-request-form";
 import { ReceiptCapture } from "@/components/receipt-capture";
 import { Button } from "@/components/ui/button";
 import { requireSession } from "@/lib/auth/session";
@@ -20,6 +21,7 @@ import { OrderPicker } from "@/components/order-picker";
 import { budgetCandidates, orderDesk } from "@/lib/services/order-from";
 import { projectBills } from "@/lib/services/bills";
 import { receiptCodes } from "@/lib/services/cost-receipts";
+import { materialCodes, materialStock } from "@/lib/services/material-requests";
 import { projectPurchaseOrders } from "@/lib/services/purchase-orders";
 import { captionFromMetadata, listPriceBook, listProjects, pipelineBoard, projectDetail } from "@/lib/services/read";
 import { deliveryHolds } from "@/lib/receiving/facts";
@@ -590,6 +592,12 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
       {session.role !== "viewer" && !full ? (
         <section className="md:px-6">
           <CostReceiptForm fixedProjectId={detail.project.id} jobs={[{ id: detail.project.id, name: detail.project.name }]} codes={receiptCodes(session.orgId)} />
+          <MaterialRequestForm
+            fixedProjectId={detail.project.id}
+            jobs={[{ id: detail.project.id, name: detail.project.name }]}
+            stock={materialStock(session.orgId)}
+            codes={materialCodes(session.orgId)}
+          />
         </section>
       ) : null}
       <section id="schedule" className={full ? "flex min-h-0 flex-1 flex-col gap-2" : "flex flex-col gap-2 md:px-6 md:pb-8"}>
