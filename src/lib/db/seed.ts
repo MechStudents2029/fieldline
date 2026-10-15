@@ -7138,4 +7138,27 @@ function seedTemplates(db: AppDatabase, now: string) {
       createdBy: "user_maya",
     })
     .run();
+  db.insert(clientUpdates)
+    .values(
+      ["proj_lien_ca", "proj_lien_tx", "proj_lien_fl"].map((projectId) => ({
+        id: `cupd_${projectId}`,
+        orgId: ORG,
+        projectId,
+        rangeStart: today,
+        rangeEnd: today,
+        status: "published",
+        body: "On site.",
+        sourcesJson: "[]",
+        photoIdsJson: "[]",
+        publishedAt: now,
+        viewedAt: now,
+        unpublishedAt: null,
+        unpublishReason: null,
+        version: 1,
+        createdAt: now,
+        updatedAt: now,
+        createdBy: "user_maya",
+      })),
+    )
+    .run();
 }
