@@ -152,11 +152,11 @@ export default async function BidPage({ params }: { params: Promise<{ id: string
                           </span>
                         ) : null}
                         {bid.canEdit && price?.missing ? (
-                          <ActionForm action={saveBidPlugAction.bind(null, bid.id)} className="mt-1 flex flex-col items-end gap-1 font-normal">
+                          <ActionForm action={saveBidPlugAction.bind(null, bid.id)} className="mt-1 flex flex-wrap items-center justify-end gap-1 font-normal">
                             <input type="hidden" name="inviteId" value={vendor.inviteId} />
                             <input type="hidden" name="lineId" value={line.id} />
-                            <input name="amount" inputMode="decimal" defaultValue={dollars(price.plugCents)} aria-label={`Plug ${line.costCode} ${vendor.name}`} className="field w-24" />
-                            <input name="note" defaultValue={price.plugNote} aria-label={`Plug note ${line.costCode} ${vendor.name}`} className="field w-28" />
+                            <input name="amount" inputMode="decimal" defaultValue={dollars(price.plugCents)} aria-label={`Plug ${line.costCode} ${vendor.name}`} className="ctl bid-plug" />
+                            <input name="note" defaultValue={price.plugNote} aria-label={`Plug note ${line.costCode} ${vendor.name}`} className="ctl bid-plug-note" />
                             <label className="text-sm">
                               <input type="checkbox" name="open" defaultChecked={price.leftOpen} aria-label={`Leave open ${line.costCode} ${vendor.name}`} /> Open
                             </label>
