@@ -1750,6 +1750,47 @@ export const mileageTrips = sqliteTable(
   (t) => [index("mileage_trips_org").on(t.orgId, t.status)],
 );
 
+/** A crew ask for material. Prices stay on the price book until the office writes a draft PO. */
+export const materialRequests = sqliteTable(
+  "material_requests",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    projectId: text("project_id").notNull(),
+    userId: text("user_id").notNull(),
+    status: text("status").notNull(),
+    urgency: text("urgency").notNull(),
+    note: text("note"),
+    rejectNote: text("reject_note"),
+    purchaseOrderId: text("purchase_order_id"),
+    submittedAt: text("submitted_at"),
+    approvedAt: text("approved_at"),
+    fulfilledAt: text("fulfilled_at"),
+    orderedAt: text("ordered_at"),
+    rejectedAt: text("rejected_at"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    createdBy: text("created_by"),
+  },
+  (t) => [index("material_requests_org").on(t.orgId, t.status)],
+);
+
+export const materialRequestLines = sqliteTable(
+  "material_request_lines",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    requestId: text("request_id").notNull(),
+    stockItemId: text("stock_item_id"),
+    description: text("description").notNull(),
+    qtyMilli: integer("qty_milli").notNull(),
+    costCode: text("cost_code"),
+    sortOrder: integer("sort_order").notNull().default(0),
+    movementId: text("movement_id"),
+  },
+  (t) => [index("material_request_lines_request").on(t.orgId, t.requestId)],
+);
+
 /** Job questions. Cost cents stay on the row; the app strips them for field, vendors, and clients. */
 export const rfis = sqliteTable(
   "rfis",

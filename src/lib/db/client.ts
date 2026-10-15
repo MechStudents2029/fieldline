@@ -104,6 +104,7 @@ export function ensureReady(holder: Holder) {
   ensureVendorTax(holder);
   ensureCostReceipts(holder);
   ensureMileage(holder);
+  ensureMaterialRequests(holder);
   ensureDraws(holder);
   ensureRfis(holder);
   ensureComments(holder);
@@ -1822,6 +1823,46 @@ function ensureMileage(holder: Holder) {
   }
   holder.sqlite.exec("create index if not exists mileage_rates_org on mileage_rates (org_id, starts_on)");
   holder.sqlite.exec("create index if not exists mileage_trips_org on mileage_trips (org_id, status)");
+}
+
+function ensureMaterialRequests(holder: Holder) {
+  const pk = holder.dialect === "postgres" ? "text primary key" : "text primary key not null";
+  if (!tableExists(holder.sqlite, "material_requests", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists material_requests (
+      id ${pk},
+      org_id text not null,
+      project_id text not null,
+      user_id text not null,
+      status text not null,
+      urgency text not null,
+      note text,
+      reject_note text,
+      purchase_order_id text,
+      submitted_at text,
+      approved_at text,
+      fulfilled_at text,
+      ordered_at text,
+      rejected_at text,
+      created_at text not null,
+      updated_at text not null,
+      created_by text
+    )`);
+  }
+  if (!tableExists(holder.sqlite, "material_request_lines", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists material_request_lines (
+      id ${pk},
+      org_id text not null,
+      request_id text not null,
+      stock_item_id text,
+      description text not null,
+      qty_milli integer not null,
+      cost_code text,
+      sort_order integer not null default 0,
+      movement_id text
+    )`);
+  }
+  holder.sqlite.exec("create index if not exists material_requests_org on material_requests (org_id, status)");
+  holder.sqlite.exec("create index if not exists material_request_lines_request on material_request_lines (org_id, request_id)");
 }
 
 function ensureTesterFeedback(holder: Holder) {
