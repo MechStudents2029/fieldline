@@ -72,11 +72,11 @@ describe("invoice follow-ups", () => {
     expect(scanCollections("org_rivera").created).toBe(0);
     expect(scanCollections("org_rivera").created).toBe(0);
     const rows = db.select().from(invoiceFollowUps).where(eq(invoiceFollowUps.orgId, "org_rivera")).all();
-    expect(rows).toHaveLength(1);
-    expect(rows[0]?.invoiceId).toBe("inv_dz_final");
-    expect(rows[0]?.cadenceDays).toBe(3);
-    expect(rows[0]?.status).toBe("ready");
-    expect(rows[0]?.url).toContain("/pay/demo_pay_diaz_final");
+    const diaz = rows.find((row) => row.id === "fol_diaz");
+    expect(diaz?.invoiceId).toBe("inv_dz_final");
+    expect(diaz?.cadenceDays).toBe(3);
+    expect(diaz?.status).toBe("ready");
+    expect(diaz?.url).toContain("/pay/demo_pay_diaz_final");
     expect(db.select().from(invoices).all().length).toBe(invoicesBefore);
     expect(db.select().from(messages).all().length).toBe(messagesBefore);
     expect(db.select().from(projects).all().length).toBe(projectsBefore);

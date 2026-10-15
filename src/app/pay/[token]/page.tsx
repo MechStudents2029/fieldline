@@ -8,6 +8,7 @@ import { formatMoney } from "@/lib/money";
 import { ensureStripePaymentIntent } from "@/lib/payments/intent";
 import { invoiceTypeLabel } from "@/lib/portal/summary";
 import { ServiceError } from "@/lib/services/errors";
+import { policyLineForOrg } from "@/lib/services/late-fees";
 import { invoiceByPayToken } from "@/lib/services/read";
 
 export const dynamic = "force-dynamic";
@@ -36,6 +37,7 @@ export default async function PayPage({
         {invoiceTypeLabel(data.invoice.type)} · {data.project.name}
       </p>
       <p className="home-sub">Due {formatDate(data.invoice.dueDate)}</p>
+      {policyLineForOrg(data.invoice.orgId) ? <p className="home-sub home-center" data-late-policy>{policyLineForOrg(data.invoice.orgId)}</p> : null}
       <ul className="home-scope">
         {data.lines.map((line) => (
           <li key={line.id}>

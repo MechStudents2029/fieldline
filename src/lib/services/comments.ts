@@ -40,6 +40,7 @@ import { bookingNotice } from "@/lib/services/booking";
 import { collectNotice } from "@/lib/services/collections";
 import { selectionFollowNotice } from "@/lib/services/selection-followups";
 import { creditMemoNotice } from "@/lib/services/client-credits";
+import { lateFeeNotice } from "@/lib/services/late-fees";
 import { reviewNotice } from "@/lib/services/reviews";
 import { materialInbox } from "@/lib/services/material-requests";
 import { necAttention } from "@/lib/services/nec1099";
@@ -750,6 +751,10 @@ export function listInbox(actor: Actor, filter: "unread" | "mentions" | "all"): 
         return necAttention(actor.orgId).count > 0;
       }
       if (row.entityType === "material_request") return Boolean(materialInbox(actor.orgId, row.entityId));
+      if (row.entityType === "late_fee") {
+        if (!canSeeMoney(roleOf(actor))) return false;
+        return Boolean(lateFeeNotice(actor.orgId, row.entityId));
+      }
       const entity = resolveEntity(db, actor.orgId, row.entityType, row.entityId);
       if (!entity) return false;
       if (financial(entity.type) && !canSeeMoney(roleOf(actor))) return false;
@@ -768,12 +773,13 @@ export function listInbox(actor: Actor, filter: "unread" | "mentions" | "all"): 
     const credit = row.entityType === "client_credit_memo" ? creditMemoNotice(db, actor.orgId, row.entityId) : null;
     const nec = row.entityType === "nec_w9" && necAttention(actor.orgId).count > 0 ? { record: "1099", href: necAttention(actor.orgId).href || "/reports/nec" } : null;
     const material = row.entityType === "material_request" ? materialInbox(actor.orgId, row.entityId) : null;
-    const entity = task || punch || agreement || dispatch || booking || review || follow || selectionFollow || credit || nec || material ? null : resolveEntity(db, actor.orgId, row.entityType, row.entityId);
+    const lateFee = row.entityType === "late_fee" ? lateFeeNotice(actor.orgId, row.entityId) : null;
+    const entity = task || punch || agreement || dispatch || booking || review || follow || selectionFollow || credit || nec || material || lateFee ? null : resolveEntity(db, actor.orgId, row.entityType, row.entityId);
     return {
       id: row.id,
       kind: row.kind,
       who: (row.actorId && names.get(row.actorId)) || row.actorName,
-      record: task?.record ?? punch?.record ?? agreement?.record ?? dispatch?.record ?? booking?.record ?? review?.record ?? follow?.record ?? selectionFollow?.record ?? credit?.record ?? nec?.record ?? material?.record ?? (entity ? recordLine(entity) : row.entityType),
+      record: task?.record ?? punch?.record ?? agreement?.record ?? dispatch?.record ?? booking?.record ?? review?.record ?? follow?.record ?? selectionFollow?.record ?? credit?.record ?? nec?.record ?? material?.record ?? lateFee?.record ?? (entity ? recordLine(entity) : row.entityType),
       snippet: row.snippet,
       age: shortAge(row.createdAt),
       unread: !row.readAt,
@@ -833,6 +839,18 @@ export function openNotification(actor: Actor, noticeId: string): string | null 
   }
   if (row.entityType === "invoice_followup") {
     const notice = collectNotice(db, actor.orgId, row.entityId);
+    if (!notice) return null;
+    if (!row.readAt) {
+      db.update(notifications)
+        .set({ readAt: nowIso() })
+        .where(and(eq(notifications.orgId, actor.orgId), eq(notifications.id, row.id)))
+        .run();
+    }
+    return notice.href;
+  }
+  if (row.entityType === "late_fee") {
+    if (!canSeeMoney(roleOf(actor))) return null;
+    const notice = lateFeeNotice(actor.orgId, row.entityId);
     if (!notice) return null;
     if (!row.readAt) {
       db.update(notifications)

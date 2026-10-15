@@ -106,6 +106,8 @@ export function ensureReady(holder: Holder) {
   ensureMileage(holder);
   ensureMaterialRequests(holder);
   ensureCredentials(holder);
+  ensureLateFees(holder);
+  ensureLiens(holder);
   ensureDraws(holder);
   ensureRfis(holder);
   ensureComments(holder);
@@ -1901,6 +1903,109 @@ function ensureCredentials(holder: Holder) {
   }
   holder.sqlite.exec("create index if not exists credential_types_org on credential_types (org_id, archived)");
   holder.sqlite.exec("create index if not exists crew_credentials_org on crew_credentials (org_id, user_id)");
+}
+
+function ensureLateFees(holder: Holder) {
+  const pk = holder.dialect === "postgres" ? "text primary key" : "text primary key not null";
+  ensureColumn(holder, "organizations", "late_enabled", "integer not null default 0");
+  ensureColumn(holder, "organizations", "late_flat_cents", "integer not null default 0");
+  ensureColumn(holder, "organizations", "late_monthly_bps", "integer not null default 0");
+  ensureColumn(holder, "organizations", "late_grace_days", "integer not null default 7");
+  ensureColumn(holder, "organizations", "late_minimum_cents", "integer not null default 0");
+  ensureColumn(holder, "organizations", "late_cap_cents", "integer not null default 0");
+  ensureColumn(holder, "organizations", "late_exclude_retainage", "integer not null default 0");
+  ensureColumn(holder, "organizations", "late_exclude_draws", "integer not null default 0");
+  ensureColumn(holder, "organizations", "late_exclude_agreements", "integer not null default 0");
+  ensureColumn(holder, "organizations", "late_mode", "text not null default 'review'");
+  if (!tableExists(holder.sqlite, "late_fees", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists late_fees (
+      id ${pk},
+      org_id text not null,
+      invoice_id text not null,
+      period text not null,
+      status text not null,
+      base_cents integer not null,
+      amount_cents integer not null,
+      line_id text,
+      reason text,
+      applied_at text,
+      applied_by text,
+      waived_at text,
+      waived_by text,
+      created_at text not null,
+      updated_at text not null
+    )`);
+  }
+  if (!tableExists(holder.sqlite, "client_statements", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists client_statements (
+      id ${pk},
+      org_id text not null,
+      contact_id text not null,
+      token text not null,
+      sent_at text,
+      sent_by text,
+      created_at text not null,
+      updated_at text not null,
+      created_by text
+    )`);
+  }
+  holder.sqlite.exec("create unique index if not exists late_fees_period on late_fees (org_id, invoice_id, period)");
+  holder.sqlite.exec("create index if not exists late_fees_org on late_fees (org_id, status)");
+  holder.sqlite.exec("create unique index if not exists client_statements_token on client_statements (token)");
+  holder.sqlite.exec("create unique index if not exists client_statements_contact on client_statements (org_id, contact_id)");
+  holder.sqlite.exec("create index if not exists client_statements_org on client_statements (org_id)");
+}
+
+function ensureLiens(holder: Holder) {
+  const pk = holder.dialect === "postgres" ? "text primary key" : "text primary key not null";
+  ensureColumn(holder, "projects", "lien_state", "text");
+  ensureColumn(holder, "projects", "lien_role", "text");
+  ensureColumn(holder, "projects", "lien_first", "text");
+  ensureColumn(holder, "projects", "lien_last", "text");
+  if (!tableExists(holder.sqlite, "lien_rules", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists lien_rules (
+      id ${pk},
+      org_id text not null,
+      state text not null,
+      role text not null,
+      prelim_kind text not null,
+      prelim_days integer not null default 0,
+      prelim_months integer not null default 0,
+      prelim_day integer not null default 0,
+      noi_kind text not null,
+      noi_days integer not null default 0,
+      file_kind text not null,
+      file_anchor text not null,
+      file_days integer not null default 0,
+      file_months integer not null default 0,
+      file_day integer not null default 0,
+      enforce_kind text not null,
+      enforce_from text not null,
+      enforce_days integer not null default 0,
+      prelim_lapses integer not null default 0,
+      citation text not null,
+      created_at text not null,
+      updated_at text not null
+    )`);
+  }
+  if (!tableExists(holder.sqlite, "lien_notices", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists lien_notices (
+      id ${pk},
+      org_id text not null,
+      project_id text not null,
+      kind text not null,
+      sent_on text not null,
+      method text not null,
+      document_id text,
+      created_at text not null,
+      updated_at text not null,
+      created_by text
+    )`);
+  }
+  holder.sqlite.exec("create unique index if not exists lien_rules_state on lien_rules (org_id, state)");
+  holder.sqlite.exec("create index if not exists lien_rules_org on lien_rules (org_id)");
+  holder.sqlite.exec("create unique index if not exists lien_notices_kind on lien_notices (org_id, project_id, kind)");
+  holder.sqlite.exec("create index if not exists lien_notices_org on lien_notices (org_id, project_id)");
 }
 
 function ensureTesterFeedback(holder: Holder) {

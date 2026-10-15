@@ -25,6 +25,7 @@ import { portalCostInvoices } from "@/lib/services/cost-plus";
 import { portalBilling } from "@/lib/services/draws";
 import { portalAgreements } from "@/lib/services/agreements";
 import { portalClientCredits } from "@/lib/services/client-credits";
+import { policyLineForOrg, portalFeeLines } from "@/lib/services/late-fees";
 import { portalByToken } from "@/lib/services/read";
 import { portalWarranty } from "@/lib/services/punch";
 import { RfiPortal } from "@/components/rfi-portal";
@@ -105,6 +106,8 @@ export default async function PortalPage({ params }: { params: Promise<{ token: 
   const chased = portalChase(token);
   const dueSelections = portalSelectionDue(token);
   const creditMemos = portalClientCredits(token);
+  const latePolicy = policyLineForOrg(data.project.orgId);
+  const lateFees = portalFeeLines(data.project.orgId, data.invoices.map((invoice) => invoice.id));
   const creditByInvoice = new Map<string, number>();
   for (const payment of data.payments) {
     if (payment.status === "succeeded" && payment.method === "credit_memo") {
@@ -407,6 +410,7 @@ export default async function PortalPage({ params }: { params: Promise<{ token: 
           {data.invoices.length > 0 ? (
             <section aria-label="Invoices">
               <h2>Invoices</h2>
+              {latePolicy ? <p className="home-sub" data-late-policy>{latePolicy}</p> : null}
               <div className="home-stack">
                 {data.invoices.map((invoice) => (
                   <article key={invoice.id} className="home-card">
@@ -422,6 +426,11 @@ export default async function PortalPage({ params }: { params: Promise<{ token: 
                         <span className="home-money">{formatMoney(invoice.totalCents)}</span>
                         {(creditByInvoice.get(invoice.id) ?? 0) > 0 ? (
                           <span className="home-sub">Credit memo {formatMoney(creditByInvoice.get(invoice.id) ?? 0)}</span>
+                        ) : null}
+                        {(lateFees.get(invoice.id) ?? 0) > 0 ? (
+                          <span className="home-sub" data-late-fee>
+                            Late fee {formatMoney(lateFees.get(invoice.id) ?? 0)}
+                          </span>
                         ) : null}
                         {invoice.status === "open" || invoice.status === "draft" ? (
                           <Link className="home-link" href={`/pay/${invoice.payToken}`}>

@@ -8,7 +8,9 @@ import { addMonths } from "@/lib/closeout/check";
 import { usFederalHolidays } from "@/lib/schedule/holidays";
 import { addMonths as addAgreementMonths, sellUnitCents } from "@/lib/agreements/cadence";
 import { isWorkday } from "@/lib/schedule/workdays";
+import { feeAmount } from "@/lib/fees/late";
 import { addCalendarDays, localDay, localWeek, zonedTimeToUtc } from "@/lib/time/calendar";
+import { SEEDED_LIEN_RULES, addMonths as addLienMonths, recentMonthDay } from "@/lib/liens/deadlines";
 import { evaluateSite, sitePill } from "@/lib/geo/fence";
 import { laborMoney, splitWeek, type OtRules } from "@/lib/time/overtime";
 import { CATALOG_FORMULAS, northlineCatalog, riveraCatalog } from "@/lib/db/catalog";
@@ -61,6 +63,10 @@ import {
   integrationConnections,
   invoiceLines,
   invoices,
+  lateFees,
+  clientStatements,
+  lienNotices,
+  lienRules,
   laborRates,
   leads,
   leadSources,
@@ -219,7 +225,7 @@ import {
   WEBSITE_FORM_SOURCE,
 } from "@/lib/lead-form/rules";
 
-export const SEED_VERSION = "69";
+export const SEED_VERSION = "71";
 
 const ORG = "org_rivera";
 const NORTH = "org_northline";
@@ -322,6 +328,16 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
         selFollowAfter: 0,
         selFollowExcludeTags: "",
         selFollowTemplate: "{client}, {selection} on {job} is due {due}. {link}",
+        lateEnabled: 1,
+        lateFlatCents: 2500,
+        lateMonthlyBps: 100,
+        lateGraceDays: 7,
+        lateMinimumCents: 5000,
+        lateCapCents: 10000,
+        lateExcludeRetainage: 1,
+        lateExcludeDraws: 1,
+        lateExcludeAgreements: 1,
+        lateMode: "review",
         warrantyMonths: 12,
         vendorComplianceMode: "warn",
         vendorRequiredTypes: "general_liability,workers_comp",
@@ -5551,6 +5567,211 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
     ])
     .run();
 
+  const lateDue = addCalendarDays(today, -10);
+  const lateIssued = addCalendarDays(today, -20);
+  const latePeriod = today.slice(0, 7);
+  const latePolicy = { flatCents: 2500, monthlyBps: 100, capCents: 10000 };
+  const pendingFee = feeAmount(latePolicy, 20_000, 0);
+  const appliedFee = feeAmount(latePolicy, 30_000, 0);
+  const waivedFee = feeAmount(latePolicy, 15_000, 0);
+  const lateStamp = daysAgo(2);
+  db.insert(invoices)
+    .values([
+      {
+        id: "inv_lf_pending",
+        orgId: ORG,
+        projectId: "proj_brooks",
+        changeOrderId: null,
+        number: "LF-2001",
+        type: "progress",
+        status: "open",
+        scheduleIndex: null,
+        issueDate: lateIssued,
+        dueDate: lateDue,
+        subtotalCents: 20_000,
+        taxCents: 0,
+        totalCents: 20_000,
+        amountPaidCents: 0,
+        payToken: "demo_pay_lf_pending",
+        applicationNumber: null,
+        retainageCents: 0,
+        presentAs: "grouped",
+        markupDisplay: "baked",
+        createdAt: lateStamp,
+        updatedAt: lateStamp,
+        createdBy: "user_maya",
+      },
+      {
+        id: "inv_lf_applied",
+        orgId: ORG,
+        projectId: "proj_brooks",
+        changeOrderId: null,
+        number: "LF-2002",
+        type: "progress",
+        status: "open",
+        scheduleIndex: null,
+        issueDate: lateIssued,
+        dueDate: lateDue,
+        subtotalCents: 30_000 + appliedFee,
+        taxCents: 0,
+        totalCents: 30_000 + appliedFee,
+        amountPaidCents: 0,
+        payToken: "demo_pay_lf_applied",
+        applicationNumber: null,
+        retainageCents: 0,
+        presentAs: "grouped",
+        markupDisplay: "baked",
+        createdAt: lateStamp,
+        updatedAt: lateStamp,
+        createdBy: "user_maya",
+      },
+      {
+        id: "inv_lf_waived",
+        orgId: ORG,
+        projectId: "proj_brooks",
+        changeOrderId: null,
+        number: "LF-2003",
+        type: "progress",
+        status: "open",
+        scheduleIndex: null,
+        issueDate: lateIssued,
+        dueDate: lateDue,
+        subtotalCents: 15_000,
+        taxCents: 0,
+        totalCents: 15_000,
+        amountPaidCents: 0,
+        payToken: "demo_pay_lf_waived",
+        applicationNumber: null,
+        retainageCents: 0,
+        presentAs: "grouped",
+        markupDisplay: "baked",
+        createdAt: lateStamp,
+        updatedAt: lateStamp,
+        createdBy: "user_maya",
+      },
+    ])
+    .run();
+  db.insert(invoiceLines)
+    .values([
+      { id: "invl_lf_pending", orgId: ORG, invoiceId: "inv_lf_pending", description: "Addition closeout", amountCents: 20_000, sortOrder: 0 },
+      { id: "invl_lf_applied", orgId: ORG, invoiceId: "inv_lf_applied", description: "Addition closeout", amountCents: 30_000, sortOrder: 0 },
+      { id: "invl_lf_fee", orgId: ORG, invoiceId: "inv_lf_applied", description: "Late fee", amountCents: appliedFee, sortOrder: 1 },
+      { id: "invl_lf_waived", orgId: ORG, invoiceId: "inv_lf_waived", description: "Addition closeout", amountCents: 15_000, sortOrder: 0 },
+    ])
+    .run();
+  db.insert(lateFees)
+    .values([
+      {
+        id: "lf_pending",
+        orgId: ORG,
+        invoiceId: "inv_lf_pending",
+        period: latePeriod,
+        status: "pending",
+        baseCents: 20_000,
+        amountCents: pendingFee,
+        lineId: null,
+        reason: null,
+        appliedAt: null,
+        appliedBy: null,
+        waivedAt: null,
+        waivedBy: null,
+        createdAt: lateStamp,
+        updatedAt: lateStamp,
+      },
+      {
+        id: "lf_applied",
+        orgId: ORG,
+        invoiceId: "inv_lf_applied",
+        period: latePeriod,
+        status: "applied",
+        baseCents: 30_000,
+        amountCents: appliedFee,
+        lineId: "invl_lf_fee",
+        reason: null,
+        appliedAt: lateStamp,
+        appliedBy: "user_maya",
+        waivedAt: null,
+        waivedBy: null,
+        createdAt: lateStamp,
+        updatedAt: lateStamp,
+      },
+      {
+        id: "lf_waived",
+        orgId: ORG,
+        invoiceId: "inv_lf_waived",
+        period: latePeriod,
+        status: "waived",
+        baseCents: 15_000,
+        amountCents: waivedFee,
+        lineId: null,
+        reason: "Good customer.",
+        appliedAt: null,
+        appliedBy: null,
+        waivedAt: lateStamp,
+        waivedBy: "user_maya",
+        createdAt: lateStamp,
+        updatedAt: lateStamp,
+      },
+    ])
+    .run();
+  const old = daysAgo(40);
+  db.insert(invoiceFollowUps)
+    .values(
+      [
+        ["fol_lf_pending", "inv_lf_pending"],
+        ["fol_lf_applied", "inv_lf_applied"],
+        ["fol_lf_waived", "inv_lf_waived"],
+      ].map(([followId, invoiceId]) => ({
+        id: followId,
+        orgId: ORG,
+        invoiceId,
+        projectId: "proj_brooks",
+        contactId: "c_brooks",
+        cadenceDays: 3,
+        status: "skipped",
+        url: "",
+        message: "",
+        skipReason: "Sample",
+        createdAt: old,
+        updatedAt: old,
+        copiedAt: null,
+        sentAt: null,
+      })),
+    )
+    .run();
+  db.insert(clientStatements)
+    .values({
+      id: "stmt_brooks",
+      orgId: ORG,
+      contactId: "c_brooks",
+      token: "demo_statement_brooks",
+      sentAt: null,
+      sentBy: null,
+      createdAt: lateStamp,
+      updatedAt: lateStamp,
+      createdBy: "user_maya",
+    })
+    .run();
+  db.insert(notifications)
+    .values(
+      ["user_maya", "user_sam"].map((userId) => ({
+        id: `note_lf_${userId.replace("user_", "")}`,
+        orgId: ORG,
+        userId,
+        kind: "late_fee",
+        commentId: null,
+        entityType: "late_fee",
+        entityId: "lf_pending",
+        projectId: "proj_brooks",
+        actorId: null,
+        actorName: "Fieldline",
+        snippet: "LF-2001",
+        readAt: null,
+        createdAt: daysAgo(40),
+      })),
+    )
+    .run();
+
   db.insert(auditLogs)
     .values({
       id: "audit_seed",
@@ -6776,6 +6997,168 @@ function seedTemplates(db: AppDatabase, now: string) {
         { id: `note_disp_${userId}`, orgId: ORG, userId, kind: "dispatch", commentId: null, entityType: "dispatch", entityId: "sch_disp_coil", projectId: "proj_chen", actorId: null, actorName: "Fieldline", snippet: "Unassigned · Coil visit", readAt: null, createdAt: now },
         { id: `note_book_${userId}`, orgId: ORG, userId, kind: "booking", commentId: null, entityType: "booking", entityId: "book_ellis", projectId: null, actorId: null, actorName: "Nora Ellis", snippet: "Service call · 16:00", readAt: null, createdAt: now },
       ]),
+    )
+    .run();
+
+  const today = localDay(Date.now(), "America/New_York");
+  const noticeDay = recentMonthDay(today, 15);
+  const firstTx = addLienMonths(`${noticeDay.slice(0, 8)}01`, -3);
+  const firstCa = addCalendarDays(today, -30);
+  const due = addCalendarDays(today, 14);
+  db.insert(lienRules)
+    .values(
+      SEEDED_LIEN_RULES.map((rule) => ({
+        id: `lien_rule_${rule.state.toLowerCase()}`,
+        orgId: ORG,
+        state: rule.state,
+        role: rule.role,
+        prelimKind: rule.prelimKind,
+        prelimDays: rule.prelimDays,
+        prelimMonths: rule.prelimMonths,
+        prelimDay: rule.prelimDay,
+        noiKind: rule.noiKind,
+        noiDays: rule.noiDays,
+        fileKind: rule.fileKind,
+        fileAnchor: rule.fileAnchor,
+        fileDays: rule.fileDays,
+        fileMonths: rule.fileMonths,
+        fileDay: rule.fileDay,
+        enforceKind: rule.enforceKind,
+        enforceFrom: rule.enforceFrom,
+        enforceDays: rule.enforceDays,
+        prelimLapses: rule.prelimLapses ? 1 : 0,
+        citation: rule.citation,
+        createdAt: now,
+        updatedAt: now,
+      })),
+    )
+    .run();
+  db.insert(contacts)
+    .values([
+      { id: "c_lien_ca", orgId: ORG, type: "client", name: "Ava Lang", company: null, email: "ava.lang@example.com", phone: "(510) 555-0171", address: "9 Brook St", city: "Oakland", state: "CA", zip: "94611", notes: null, deletedAt: null, createdAt: now, updatedAt: now, createdBy: "user_maya" },
+      { id: "c_lien_tx", orgId: ORG, type: "client", name: "Owen Hale", company: null, email: "owen.hale@example.com", phone: "(512) 555-0144", address: "400 Industrial", city: "Austin", state: "TX", zip: "78701", notes: null, deletedAt: null, createdAt: now, updatedAt: now, createdBy: "user_maya" },
+      { id: "c_lien_fl", orgId: ORG, type: "client", name: "Nora Vega", company: null, email: "nora.vega@example.com", phone: "(305) 555-0166", address: "88 Brickell", city: "Miami", state: "FL", zip: "33131", notes: null, deletedAt: null, createdAt: now, updatedAt: now, createdBy: "user_maya" },
+      { id: "c_lien_paid", orgId: ORG, type: "client", name: "Ivy Cho", company: null, email: "ivy.cho@example.com", phone: "(408) 555-0190", address: "12 Oak Ln", city: "San Jose", state: "CA", zip: "95112", notes: null, deletedAt: null, createdAt: now, updatedAt: now, createdBy: "user_maya" },
+    ])
+    .run();
+  const lienJobRows = [
+    { id: "proj_lien_ca", contactId: "c_lien_ca", name: "Lang hall", status: "active", address: "9 Brook St, Oakland, CA", cents: 125_000, token: "demo_portal_lien_ca", state: "CA", first: firstCa, last: today, substantial: today },
+    { id: "proj_lien_tx", contactId: "c_lien_tx", name: "Hale warehouse", status: "active", address: "400 Industrial, Austin, TX", cents: 86_000, token: "demo_portal_lien_tx", state: "TX", first: firstTx, last: today, substantial: null as string | null },
+    { id: "proj_lien_fl", contactId: "c_lien_fl", name: "Vega condo", status: "active", address: "88 Brickell, Miami, FL", cents: 42_000, token: "demo_portal_lien_fl", state: "FL", first: null as string | null, last: null as string | null, substantial: null as string | null },
+    { id: "proj_lien_paid", contactId: "c_lien_paid", name: "Cho patio", status: "complete", address: "12 Oak Ln, San Jose, CA", cents: 50_000, token: "demo_portal_lien_paid", state: "CA", first: addCalendarDays(today, -10), last: today, substantial: today },
+  ];
+  db.insert(projects)
+    .values(
+      lienJobRows.map((job) => ({
+        id: job.id,
+        orgId: ORG,
+        leadId: null,
+        leadSourceId: null,
+        proposalId: null,
+        contactId: job.contactId,
+        name: job.name,
+        status: job.status,
+        address: job.address,
+        contractValueCents: job.cents,
+        originalContractCents: job.cents,
+        startDate: job.first,
+        endDate: null,
+        portalToken: job.token,
+        substantialAt: job.substantial,
+        billingMode: "progress",
+        retainageBps: 0,
+        pmUserId: "user_maya",
+        lienState: job.state,
+        lienRole: "sub",
+        lienFirst: job.first,
+        lienLast: job.last,
+        createdAt: now,
+        updatedAt: now,
+        createdBy: "user_maya",
+      })),
+    )
+    .run();
+  const lienInvoices = [
+    { id: "inv_lien_ca", projectId: "proj_lien_ca", number: "LIEN-3001", status: "open", cents: 125_000, paid: 0, token: "demo_pay_lien_ca" },
+    { id: "inv_lien_tx", projectId: "proj_lien_tx", number: "LIEN-3002", status: "open", cents: 86_000, paid: 0, token: "demo_pay_lien_tx" },
+    { id: "inv_lien_fl", projectId: "proj_lien_fl", number: "LIEN-3003", status: "open", cents: 42_000, paid: 0, token: "demo_pay_lien_fl" },
+    { id: "inv_lien_paid", projectId: "proj_lien_paid", number: "LIEN-3004", status: "paid", cents: 50_000, paid: 50_000, token: "demo_pay_lien_paid" },
+  ];
+  db.insert(invoices)
+    .values(
+      lienInvoices.map((invoice) => ({
+        id: invoice.id,
+        orgId: ORG,
+        projectId: invoice.projectId,
+        changeOrderId: null,
+        number: invoice.number,
+        type: "progress",
+        status: invoice.status,
+        scheduleIndex: null,
+        issueDate: today,
+        dueDate: due,
+        subtotalCents: invoice.cents,
+        taxCents: 0,
+        totalCents: invoice.cents,
+        amountPaidCents: invoice.paid,
+        payToken: invoice.token,
+        applicationNumber: null,
+        retainageCents: 0,
+        presentAs: "grouped",
+        markupDisplay: "baked",
+        createdAt: now,
+        updatedAt: now,
+        createdBy: "user_maya",
+      })),
+    )
+    .run();
+  db.insert(invoiceLines)
+    .values(
+      lienInvoices.map((invoice, index) => ({
+        id: `invl_lien_${index + 1}`,
+        orgId: ORG,
+        invoiceId: invoice.id,
+        description: "Progress",
+        amountCents: invoice.cents,
+        sortOrder: 0,
+      })),
+    )
+    .run();
+  db.insert(lienNotices)
+    .values({
+      id: "lien_note_ca",
+      orgId: ORG,
+      projectId: "proj_lien_ca",
+      kind: "prelim",
+      sentOn: firstCa,
+      method: "certified",
+      documentId: null,
+      createdAt: now,
+      updatedAt: now,
+      createdBy: "user_maya",
+    })
+    .run();
+  db.insert(clientUpdates)
+    .values(
+      ["proj_lien_ca", "proj_lien_tx", "proj_lien_fl"].map((projectId) => ({
+        id: `cupd_${projectId}`,
+        orgId: ORG,
+        projectId,
+        rangeStart: today,
+        rangeEnd: today,
+        status: "published",
+        body: "On site.",
+        sourcesJson: "[]",
+        photoIdsJson: "[]",
+        publishedAt: now,
+        viewedAt: now,
+        unpublishedAt: null,
+        unpublishReason: null,
+        version: 1,
+        createdAt: now,
+        updatedAt: now,
+        createdBy: "user_maya",
+      })),
     )
     .run();
 }

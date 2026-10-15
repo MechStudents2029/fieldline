@@ -12,6 +12,7 @@ import { optionTotals } from "@/lib/estimate/options";
 import type { Billing } from "@/lib/estimate/pricing";
 import { formatPercent, formatQty, formatWhole, milliToQty } from "@/lib/money";
 import { canSeeMoney } from "@/lib/permissions";
+import { policyLineForOrg } from "@/lib/services/late-fees";
 import { captionFromMetadata, estimateDetail, listAssemblies } from "@/lib/services/read";
 import { estimatePlanHref } from "@/lib/services/takeoff";
 
@@ -180,6 +181,7 @@ export default async function EstimatePage({ params, searchParams }: { params: P
           src: photo.storagePath.startsWith("/") ? photo.storagePath : `/api/files/${photo.id}`,
           caption: captionFromMetadata(photo.metadataJson) || "Site photo",
         }))}
+        policyLine={policyLineForOrg(session.orgId)}
       >
         <div className="estimate-phone">
           <PhotoCapture action={leadPhotoAction.bind(null, detail.estimate.leadId)} label="Take an estimate photo" submitLabel="Save site photo" />

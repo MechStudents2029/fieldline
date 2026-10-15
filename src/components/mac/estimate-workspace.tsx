@@ -165,6 +165,7 @@ export function EstimateWorkspace({
   sqft,
   budgetLabel,
   photos,
+  policyLine,
   children,
 }: {
   userId: string;
@@ -187,6 +188,7 @@ export function EstimateWorkspace({
   sqft: number | null;
   budgetLabel: string | null;
   photos: { src: string; caption: string }[];
+  policyLine?: string | null;
   children: React.ReactNode;
 }) {
   const [sectionRows, setSectionRows] = useState(sections);
@@ -868,6 +870,7 @@ export function EstimateWorkspace({
               <p className="est-preview-total">
                 Total <span data-testid="client-total">{formatWhole(totals.priceCents)}</span>
               </p>
+              {policyLine ? <p data-late-policy>{policyLine}</p> : null}
               <ul className="est-schedule">
                 {schedule.map((part) => (
                   <li key={part.type}>
@@ -884,6 +887,7 @@ export function EstimateWorkspace({
               {address ? <p>{address}</p> : null}
               <p>Version {version}</p>
               <p className="est-muted">Valid for 30 days</p>
+              {policyLine ? <p data-late-policy>{policyLine}</p> : null}
               <p className="est-kicker">Pricing</p>
               <p>Target {formatPercent(marginTargetBps)}</p>
               {budgetLabel ? <p>{budgetLabel}</p> : null}

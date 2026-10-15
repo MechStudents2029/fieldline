@@ -6,6 +6,7 @@ import { rollAgreements } from "@/lib/services/agreements";
 import { scanAutomationClock } from "@/lib/services/automations";
 import { scanCollections } from "@/lib/services/collections";
 import { scanSelectionFollowUps } from "@/lib/services/selection-followups";
+import { scanLateFees } from "@/lib/services/late-fees";
 import { scanFollowUps } from "@/lib/services/write";
 
 export const dynamic = "force-dynamic";
@@ -19,5 +20,6 @@ export async function GET(request: Request) {
   const agreements = orgs.reduce((sum, org) => sum + rollAgreements(org.id).invoices, 0);
   const collections = orgs.reduce((sum, org) => sum + scanCollections(org.id).created, 0);
   const selectionFollowUps = orgs.reduce((sum, org) => sum + scanSelectionFollowUps(org.id).created, 0);
-  return NextResponse.json({ ok: true, created, automations, agreements, collections, selectionFollowUps, demo: allowed.demo });
+  const fees = orgs.reduce((sum, org) => sum + scanLateFees(org.id).created, 0);
+  return NextResponse.json({ ok: true, created, automations, agreements, collections, selectionFollowUps, fees, demo: allowed.demo });
 }

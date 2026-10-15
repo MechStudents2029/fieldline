@@ -2,6 +2,29 @@
 
 ## 2026-10-15
 
+### Lien deadlines
+
+- Settings, Lien rules is one row per state: California, Texas commercial, and Florida. Each row is the company’s role and the day count for a preliminary notice, an optional notice of intent, filing, and enforcement, plus the statute. Owner and admin can edit. New York is not listed. The official Lien Law text was not verified.
+- California Civil Code §§ 8204, 8414, and 8460: a sub’s preliminary notice is 20 days after first furnishing, the claim is 90 days after completion, and a suit is 90 days after the claim is recorded. A late preliminary notice does not end the right while the filing window is open.
+- Texas Property Code §§ 53.056, 53.052, and 53.158, nonresidential: the notice is the 15th day of the third month, the affidavit is the 15th day of the fourth month, and suit is one year after the last day to file.
+- Florida Statutes §§ 713.06, 713.08, and 713.22: the Notice to Owner is 45 days after first furnishing, the claim is 90 days after last furnishing, and the lien lasts one year after recording. A missed Notice to Owner ends the right.
+- A job stores its state, role, first furnish date, and last furnish date. State starts from the address. First and last start from the earliest and latest time entry, delivery, or vendor bill, or from substantial completion. Saving a change writes the audit log. A job is on the list once its state is saved.
+- The job shows each date, the days left, and Protected, Due, At risk, Lapsed, Missing info, or Paid. Paid means the open balance is $0. Mark sent stores the date and certified mail, hand delivery, or other, with an optional proof photo. No message is sent.
+- Preliminary notice and notice of intent print on letter paper. The unpaid amount is the job’s open balance, in cents.
+- Today counts deadlines inside 14 days and anything At risk. Work, Lien deadlines lists the tracked jobs, filters by status and state, and downloads CSV. Field does not see it.
+- Seed: Lang hall in California is Protected. Hale warehouse in Texas is At risk with an open balance. Vega condo in Florida is Missing info. Cho patio is Paid.
+
+### Late fees and statements
+
+- Settings, Billing is off until the office turns it on. A fee can be a flat amount, a monthly percent of the unpaid balance, or both. Grace is 7 days. A minimum balance and a cap per invoice are optional. Retainage, draws, and agreement invoices can be skipped.
+- The policy line shows on estimates, proposals, invoices, and the client portal when the policy is on.
+- The daily job on `/api/cron/follow-ups` posts one fee per invoice per month. A second run that day does not add another. Review first leaves it Pending on Today and in Inbox. Apply posts it on the invoice. Office applies or waives a pending fee. A waive needs a reason.
+- An applied fee is its own Late fee line. It raises the balance, shows on the portal, and is included in AR, Cash, and the QuickBooks CSV. A payment covers the oldest applied fee first, then the invoice principal. Waiving or crediting an applied fee keeps the fee row.
+- A paid, void, disputed, or on-hold invoice accrues nothing.
+- Statements lists open invoices, applied fees, payments, credits, a running balance, and Current / 1–30 / 31–60 / 61–90 / 90+. Print uses the same sheet. Copy link opens the portal page. Mark sent stores the date and who. No message is sent.
+- Reports, AR aging uses those buckets. CSV is `/api/export/ar`. Field does not see it. A viewer can read it.
+- Seed: LF-2001 is past grace with a pending fee. LF-2002 has an applied fee. LF-2003 was waived, and the reason is on the fee. Chris Brooks has a statement.
+
 ### Crew certifications
 
 - Settings, Credential types holds OSHA 10, OSHA 30, Fall protection, Forklift, CPR/First Aid, Driver license, and Trade license. A type is Active or Archived, and can be marked required. Field cannot edit the list.
