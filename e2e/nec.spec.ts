@@ -85,11 +85,14 @@ test("shows the 2026 1099 rollup and a role-gated CSV", async ({ page, request }
   await expect(needs.locator("tr[data-needs='Brighton Electric']")).toBeVisible();
   await expect(needs.getByRole("button", { name: "Copy portal link" })).toHaveAttribute("data-portal", /demo_vendor_brighton_k4n2p9qx/);
   await shot(page, "nec-report-light");
+  await page.setViewportSize({ width: 1280, height: 1200 });
+  await needs.scrollIntoViewIfNeeded();
   await shotLocator(page, "table[aria-label='Needs W-9']", "nec-needs-light");
   await page.emulateMedia({ colorScheme: "dark" });
   await shot(page, "nec-report-dark");
   await shotLocator(page, "table[aria-label='Needs W-9']", "nec-needs-dark");
   await page.emulateMedia({ colorScheme: "light" });
+  await page.setViewportSize({ width: 1280, height: 900 });
 
   await needs.getByRole("button", { name: "Mark requested" }).click();
   await expect(needs.locator(".fl-pill", { hasText: "Requested" })).toBeVisible();
