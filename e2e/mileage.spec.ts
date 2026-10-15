@@ -83,9 +83,13 @@ test("logs a trip, approves it, and marks the miles reimbursed", async ({ page }
   await row.getByRole("button", { name: "Mark reimbursed" }).click();
   await expect(row).toContainText("Reimbursed");
   await expect(row).toContainText("Maya Rivera");
-  const csv = await page.request.get("/api/export/mileage");
-  expect(csv.ok()).toBeTruthy();
-  const body = await csv.text();
+  const csv = await page.evaluate(async () => {
+    const response = await fetch("/api/export/mileage");
+    return { ok: response.ok, status: response.status, text: await response.text() };
+  });
+  expect(csv.status, csv.text.slice(0, 200)).toBe(200);
+  expect(csv.ok).toBeTruthy();
+  const body = csv.text;
   expect(body).toContain("7.25");
   expect(body).toContain("Tile pickup");
 
@@ -95,8 +99,12 @@ test("logs a trip, approves it, and marks the miles reimbursed", async ({ page }
   await expect(page.getByText("Lumber run")).toBeVisible();
   await page.goto("/mileage/mt_dana_no");
   await expect(page.locator("[data-reject-note]")).toHaveText("Home to shop.");
-  const own = await page.request.get("/api/export/mileage");
-  const ownBody = await own.text();
+  const own = await page.evaluate(async () => {
+    const response = await fetch("/api/export/mileage");
+    return { ok: response.ok, status: response.status, text: await response.text() };
+  });
+  expect(own.status, own.text.slice(0, 200)).toBe(200);
+  const ownBody = own.text;
   expect(ownBody).toContain("Tile pickup");
   expect(ownBody).not.toContain("Maya Rivera");
   expect(ownBody).not.toContain("Client walk");
