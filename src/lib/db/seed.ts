@@ -5711,6 +5711,31 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
       },
     ])
     .run();
+  const old = daysAgo(40);
+  db.insert(invoiceFollowUps)
+    .values(
+      [
+        ["fol_lf_pending", "inv_lf_pending"],
+        ["fol_lf_applied", "inv_lf_applied"],
+        ["fol_lf_waived", "inv_lf_waived"],
+      ].map(([followId, invoiceId]) => ({
+        id: followId,
+        orgId: ORG,
+        invoiceId,
+        projectId: "proj_brooks",
+        contactId: "c_brooks",
+        cadenceDays: 3,
+        status: "skipped",
+        url: "",
+        message: "",
+        skipReason: "Sample",
+        createdAt: old,
+        updatedAt: old,
+        copiedAt: null,
+        sentAt: null,
+      })),
+    )
+    .run();
   db.insert(clientStatements)
     .values({
       id: "stmt_brooks",
