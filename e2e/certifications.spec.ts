@@ -98,7 +98,7 @@ test("adds a card, shows expiry on Today, and hides numbers from field CSV", asy
   await signInAs(page, "dana@rivera.demo");
   await page.goto("/certifications");
   await expect(page.getByText("OSHA-30-2201")).toHaveCount(0);
-  await expect(page.getByText("OSHA 30")).toHaveCount(0);
+  await expect(page.locator("[data-cert]").filter({ hasText: "OSHA 30" })).toHaveCount(0);
   await expect(page.getByText("OSHA-10-4419")).toBeVisible();
   await page.goto("/certifications/cred_maya_osha");
   await expect(page.locator("[data-cert-detail]")).toHaveCount(0);

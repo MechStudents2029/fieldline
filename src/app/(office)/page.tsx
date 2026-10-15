@@ -308,7 +308,7 @@ export default async function TodayPage() {
   const materialsDue = materialAttention(session);
   push("materials", materialsDue.count, materialsDue.href, "Materials", String(materialsDue.count));
   const certsDue = credentialAttention(session);
-  push("certs", certsDue.count, certsDue.href, "Certs", String(certsDue.count));
+  push("crew-certs", certsDue.count, certsDue.href, "Certs", String(certsDue.count));
   push("bids-due", bids.due.count, bids.due.href, "Bids due", String(bids.due.count));
   push("bids-award", bids.award.count, bids.award.href, "Bids to award", String(bids.award.count));
   push("bill", ready.count, ready.href, "Ready to bill", `${ready.count} · ${formatWhole(ready.cents)}`, true);

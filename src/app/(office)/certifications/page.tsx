@@ -106,6 +106,7 @@ export default async function CertificationsPage({ searchParams }: { searchParam
                 <span className="fl-body block truncate">{row.typeName}</span>
                 <span className="fl-footnote block truncate text-[var(--fl-secondary)]">{row.personName}</span>
               </Link>
+              {row.numberLabel ? <span className="num">{row.numberLabel}</span> : null}
               <span className="num">{row.expiresOn ?? "—"}</span>
               <span className="fl-pill">{row.statusLabel}</span>
               {row.requestedAt ? <span className="fl-pill">Requested</span> : null}
