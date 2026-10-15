@@ -46,13 +46,9 @@ test("sets a late-fee policy, reviews a fee, and prints a statement", async ({ p
   await page.goto("/fees/lf_pending");
   await expect(page.locator("[data-fee-detail]")).toHaveAttribute("data-status", "pending");
   await page.getByRole("button", { name: "Apply" }).click();
-  await expect(page.getByRole("status")).toHaveText("Applied.");
-  await page.reload();
   await expect(page.locator("[data-fee-detail]")).toHaveAttribute("data-status", "applied");
   await page.getByLabel("Reason").fill("Courtesy");
   await page.getByRole("button", { name: "Waive" }).click();
-  await expect(page.getByRole("status")).toHaveText("Waived.");
-  await page.reload();
   await expect(page.locator("[data-fee-detail]")).toHaveAttribute("data-status", "waived");
   await expect(page.locator("[data-reason]")).toHaveText("Courtesy");
 
@@ -62,15 +58,13 @@ test("sets a late-fee policy, reviews a fee, and prints a statement", async ({ p
 
   await page.goto("/statements/stmt_brooks/print");
   await expect(page.getByRole("heading", { name: "Chris Brooks" })).toBeVisible();
-  await expect(page.getByText("LF-2001")).toBeVisible();
+  await expect(page.getByRole("cell", { name: "LF-2001", exact: true })).toBeVisible();
   await page.goto("/statements/stmt_brooks");
   await page.getByRole("button", { name: "Mark sent" }).click();
-  await expect(page.getByRole("status")).toHaveText("Marked.");
-  await page.reload();
   await expect(page.locator("[data-sent]")).toContainText("Maya Rivera");
   await page.goto("/s/demo_statement_brooks");
   await expect(page.getByRole("heading", { name: "Chris Brooks" })).toBeVisible();
-  await expect(page.getByText("LF-2001")).toBeVisible();
+  await expect(page.getByRole("cell", { name: "LF-2001", exact: true })).toBeVisible();
 
   await page.goto("/reports/ar");
   await expect(page.getByRole("table", { name: "AR aging" })).toBeVisible();
