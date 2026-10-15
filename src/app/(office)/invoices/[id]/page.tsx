@@ -10,6 +10,7 @@ import { cashDueCents, paymentMethodLabel } from "@/lib/credits/client-memo";
 import { formatMoney } from "@/lib/money";
 import { canManageMoney, canSeeMoney } from "@/lib/permissions";
 import { openMemosForInvoice } from "@/lib/services/client-credits";
+import { policyLineForOrg } from "@/lib/services/late-fees";
 import { invoiceByPayToken, listInvoices } from "@/lib/services/read";
 
 export const dynamic = "force-dynamic";
@@ -58,6 +59,7 @@ export default async function InvoiceDetailPage({ params }: { params: Promise<{ 
             ))}
           </tbody>
         </table>
+        {policyLineForOrg(session.orgId) ? <p data-late-policy>{policyLineForOrg(session.orgId)}</p> : null}
         <section aria-label="Payments">
           <h2 className="mac-t13 text-[var(--mac-secondary)]">Payments</h2>
           {history.length === 0 ? <p className="mac-t13">None</p> : null}

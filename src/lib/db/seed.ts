@@ -8,6 +8,7 @@ import { addMonths } from "@/lib/closeout/check";
 import { usFederalHolidays } from "@/lib/schedule/holidays";
 import { addMonths as addAgreementMonths, sellUnitCents } from "@/lib/agreements/cadence";
 import { isWorkday } from "@/lib/schedule/workdays";
+import { feeAmount } from "@/lib/fees/late";
 import { addCalendarDays, localDay, localWeek, zonedTimeToUtc } from "@/lib/time/calendar";
 import { evaluateSite, sitePill } from "@/lib/geo/fence";
 import { laborMoney, splitWeek, type OtRules } from "@/lib/time/overtime";
@@ -61,6 +62,8 @@ import {
   integrationConnections,
   invoiceLines,
   invoices,
+  lateFees,
+  clientStatements,
   laborRates,
   leads,
   leadSources,
@@ -219,7 +222,7 @@ import {
   WEBSITE_FORM_SOURCE,
 } from "@/lib/lead-form/rules";
 
-export const SEED_VERSION = "69";
+export const SEED_VERSION = "70";
 
 const ORG = "org_rivera";
 const NORTH = "org_northline";
@@ -322,6 +325,16 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
         selFollowAfter: 0,
         selFollowExcludeTags: "",
         selFollowTemplate: "{client}, {selection} on {job} is due {due}. {link}",
+        lateEnabled: 1,
+        lateFlatCents: 2500,
+        lateMonthlyBps: 100,
+        lateGraceDays: 7,
+        lateMinimumCents: 5000,
+        lateCapCents: 10000,
+        lateExcludeRetainage: 1,
+        lateExcludeDraws: 1,
+        lateExcludeAgreements: 1,
+        lateMode: "review",
         warrantyMonths: 12,
         vendorComplianceMode: "warn",
         vendorRequiredTypes: "general_liability,workers_comp",
@@ -5549,6 +5562,186 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
         createdBy: "user_sam",
       },
     ])
+    .run();
+
+  const lateDue = addCalendarDays(today, -10);
+  const lateIssued = addCalendarDays(today, -20);
+  const latePeriod = today.slice(0, 7);
+  const latePolicy = { flatCents: 2500, monthlyBps: 100, capCents: 10000 };
+  const pendingFee = feeAmount(latePolicy, 20_000, 0);
+  const appliedFee = feeAmount(latePolicy, 30_000, 0);
+  const waivedFee = feeAmount(latePolicy, 15_000, 0);
+  const lateStamp = daysAgo(2);
+  db.insert(invoices)
+    .values([
+      {
+        id: "inv_lf_pending",
+        orgId: ORG,
+        projectId: "proj_brooks",
+        changeOrderId: null,
+        number: "LF-2001",
+        type: "progress",
+        status: "open",
+        scheduleIndex: null,
+        issueDate: lateIssued,
+        dueDate: lateDue,
+        subtotalCents: 20_000,
+        taxCents: 0,
+        totalCents: 20_000,
+        amountPaidCents: 0,
+        payToken: "demo_pay_lf_pending",
+        applicationNumber: null,
+        retainageCents: 0,
+        presentAs: "grouped",
+        markupDisplay: "baked",
+        createdAt: lateStamp,
+        updatedAt: lateStamp,
+        createdBy: "user_maya",
+      },
+      {
+        id: "inv_lf_applied",
+        orgId: ORG,
+        projectId: "proj_brooks",
+        changeOrderId: null,
+        number: "LF-2002",
+        type: "progress",
+        status: "open",
+        scheduleIndex: null,
+        issueDate: lateIssued,
+        dueDate: lateDue,
+        subtotalCents: 30_000 + appliedFee,
+        taxCents: 0,
+        totalCents: 30_000 + appliedFee,
+        amountPaidCents: 0,
+        payToken: "demo_pay_lf_applied",
+        applicationNumber: null,
+        retainageCents: 0,
+        presentAs: "grouped",
+        markupDisplay: "baked",
+        createdAt: lateStamp,
+        updatedAt: lateStamp,
+        createdBy: "user_maya",
+      },
+      {
+        id: "inv_lf_waived",
+        orgId: ORG,
+        projectId: "proj_brooks",
+        changeOrderId: null,
+        number: "LF-2003",
+        type: "progress",
+        status: "open",
+        scheduleIndex: null,
+        issueDate: lateIssued,
+        dueDate: lateDue,
+        subtotalCents: 15_000,
+        taxCents: 0,
+        totalCents: 15_000,
+        amountPaidCents: 0,
+        payToken: "demo_pay_lf_waived",
+        applicationNumber: null,
+        retainageCents: 0,
+        presentAs: "grouped",
+        markupDisplay: "baked",
+        createdAt: lateStamp,
+        updatedAt: lateStamp,
+        createdBy: "user_maya",
+      },
+    ])
+    .run();
+  db.insert(invoiceLines)
+    .values([
+      { id: "invl_lf_pending", orgId: ORG, invoiceId: "inv_lf_pending", description: "Addition closeout", amountCents: 20_000, sortOrder: 0 },
+      { id: "invl_lf_applied", orgId: ORG, invoiceId: "inv_lf_applied", description: "Addition closeout", amountCents: 30_000, sortOrder: 0 },
+      { id: "invl_lf_fee", orgId: ORG, invoiceId: "inv_lf_applied", description: "Late fee", amountCents: appliedFee, sortOrder: 1 },
+      { id: "invl_lf_waived", orgId: ORG, invoiceId: "inv_lf_waived", description: "Addition closeout", amountCents: 15_000, sortOrder: 0 },
+    ])
+    .run();
+  db.insert(lateFees)
+    .values([
+      {
+        id: "lf_pending",
+        orgId: ORG,
+        invoiceId: "inv_lf_pending",
+        period: latePeriod,
+        status: "pending",
+        baseCents: 20_000,
+        amountCents: pendingFee,
+        lineId: null,
+        reason: null,
+        appliedAt: null,
+        appliedBy: null,
+        waivedAt: null,
+        waivedBy: null,
+        createdAt: lateStamp,
+        updatedAt: lateStamp,
+      },
+      {
+        id: "lf_applied",
+        orgId: ORG,
+        invoiceId: "inv_lf_applied",
+        period: latePeriod,
+        status: "applied",
+        baseCents: 30_000,
+        amountCents: appliedFee,
+        lineId: "invl_lf_fee",
+        reason: null,
+        appliedAt: lateStamp,
+        appliedBy: "user_maya",
+        waivedAt: null,
+        waivedBy: null,
+        createdAt: lateStamp,
+        updatedAt: lateStamp,
+      },
+      {
+        id: "lf_waived",
+        orgId: ORG,
+        invoiceId: "inv_lf_waived",
+        period: latePeriod,
+        status: "waived",
+        baseCents: 15_000,
+        amountCents: waivedFee,
+        lineId: null,
+        reason: "Good customer.",
+        appliedAt: null,
+        appliedBy: null,
+        waivedAt: lateStamp,
+        waivedBy: "user_maya",
+        createdAt: lateStamp,
+        updatedAt: lateStamp,
+      },
+    ])
+    .run();
+  db.insert(clientStatements)
+    .values({
+      id: "stmt_brooks",
+      orgId: ORG,
+      contactId: "c_brooks",
+      token: "demo_statement_brooks",
+      sentAt: null,
+      sentBy: null,
+      createdAt: lateStamp,
+      updatedAt: lateStamp,
+      createdBy: "user_maya",
+    })
+    .run();
+  db.insert(notifications)
+    .values(
+      ["user_maya", "user_sam"].map((userId) => ({
+        id: `note_lf_${userId.replace("user_", "")}`,
+        orgId: ORG,
+        userId,
+        kind: "late_fee",
+        commentId: null,
+        entityType: "late_fee",
+        entityId: "lf_pending",
+        projectId: "proj_brooks",
+        actorId: null,
+        actorName: "Fieldline",
+        snippet: "LF-2001",
+        readAt: null,
+        createdAt: daysAgo(40),
+      })),
+    )
     .run();
 
   db.insert(auditLogs)

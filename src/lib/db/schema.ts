@@ -74,6 +74,16 @@ export const organizations = sqliteTable("organizations", {
   selFollowExcludeTags: text("sel_follow_exclude_tags").notNull().default(""),
   selFollowTemplate: text("sel_follow_template").notNull().default(""),
   capacityMinutes: integer("capacity_minutes").notNull().default(2400),
+  lateEnabled: integer("late_enabled").notNull().default(0),
+  lateFlatCents: integer("late_flat_cents").notNull().default(0),
+  lateMonthlyBps: integer("late_monthly_bps").notNull().default(0),
+  lateGraceDays: integer("late_grace_days").notNull().default(7),
+  lateMinimumCents: integer("late_minimum_cents").notNull().default(0),
+  lateCapCents: integer("late_cap_cents").notNull().default(0),
+  lateExcludeRetainage: integer("late_exclude_retainage").notNull().default(0),
+  lateExcludeDraws: integer("late_exclude_draws").notNull().default(0),
+  lateExcludeAgreements: integer("late_exclude_agreements").notNull().default(0),
+  lateMode: text("late_mode").notNull().default("review"),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });
@@ -1805,6 +1815,46 @@ export const credentialTypes = sqliteTable(
     updatedAt: text("updated_at").notNull(),
   },
   (t) => [index("credential_types_org").on(t.orgId, t.archived)],
+);
+
+/** One fee per invoice per calendar month. Pending waits for review. Applied is a line. Waived stays. */
+export const lateFees = sqliteTable(
+  "late_fees",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    invoiceId: text("invoice_id").notNull(),
+    period: text("period").notNull(),
+    status: text("status").notNull(),
+    baseCents: integer("base_cents").notNull(),
+    amountCents: integer("amount_cents").notNull(),
+    lineId: text("line_id"),
+    reason: text("reason"),
+    appliedAt: text("applied_at"),
+    appliedBy: text("applied_by"),
+    waivedAt: text("waived_at"),
+    waivedBy: text("waived_by"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (t) => [uniqueIndex("late_fees_period").on(t.orgId, t.invoiceId, t.period), index("late_fees_org").on(t.orgId, t.status)],
+);
+
+/** One live statement per client. Mark sent stores the date and who. The link does not send a message. */
+export const clientStatements = sqliteTable(
+  "client_statements",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    contactId: text("contact_id").notNull(),
+    token: text("token").notNull().unique(),
+    sentAt: text("sent_at"),
+    sentBy: text("sent_by"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    createdBy: text("created_by"),
+  },
+  (t) => [uniqueIndex("client_statements_contact").on(t.orgId, t.contactId), index("client_statements_org").on(t.orgId)],
 );
 
 /** One card on a team member. Expired is derived from the date. Revoked is stored. */

@@ -467,6 +467,7 @@ export const PAGE_REPORTS = [
   { id: "variance", name: "Variance", href: "/reports/schedule", field: false },
   { id: "cash", name: "Cash", href: "/reports/cash", field: false },
   { id: "nec", name: "1099", href: "/reports/nec", field: false },
+  { id: "client_ar", name: "Client AR", href: "/reports/ar", field: false },
 ];
 
 export function builtinById(id: string): BuiltinReport | undefined {

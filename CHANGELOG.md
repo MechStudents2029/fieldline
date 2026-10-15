@@ -2,6 +2,17 @@
 
 ## 2026-10-15
 
+### Late fees and statements
+
+- Settings, Billing is off until the office turns it on. A fee can be a flat amount, a monthly percent of the unpaid balance, or both. Grace is 7 days. A minimum balance and a cap per invoice are optional. Retainage, draws, and agreement invoices can be skipped.
+- The policy line shows on estimates, proposals, invoices, and the client portal when the policy is on.
+- The daily job on `/api/cron/follow-ups` posts one fee per invoice per month. A second run that day does not add another. Review first leaves it Pending on Today and in Inbox. Apply posts it on the invoice. Office applies or waives a pending fee. A waive needs a reason.
+- An applied fee is its own Late fee line. It raises the balance, shows on the portal, and is included in AR, Cash, and the QuickBooks CSV. A payment covers the oldest applied fee first, then the invoice principal. Waiving or crediting an applied fee keeps the fee row.
+- A paid, void, disputed, or on-hold invoice accrues nothing.
+- Statements lists open invoices, applied fees, payments, credits, a running balance, and Current / 1–30 / 31–60 / 61–90 / 90+. Print uses the same sheet. Copy link opens the portal page. Mark sent stores the date and who. No message is sent.
+- Reports, AR aging uses those buckets. CSV is `/api/export/ar`. Field does not see it. A viewer can read it.
+- Seed: LF-2001 is past grace with a pending fee. LF-2002 has an applied fee. LF-2003 was waived, and the reason is on the fee. Chris Brooks has a statement.
+
 ### Crew certifications
 
 - Settings, Credential types holds OSHA 10, OSHA 30, Fall protection, Forklift, CPR/First Aid, Driver license, and Trade license. A type is Active or Archived, and can be marked required. Field cannot edit the list.

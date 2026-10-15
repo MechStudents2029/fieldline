@@ -6,6 +6,7 @@ import { ActionForm } from "@/components/action-form";
 import { SignaturePad } from "@/components/signature-pad";
 import { CONSENT_TEXT } from "@/lib/product";
 import { formatMoney } from "@/lib/money";
+import { policyLineForOrg } from "@/lib/services/late-fees";
 import { proposalByToken } from "@/lib/services/read";
 import { documentFields } from "@/lib/services/custom-fields";
 import { markProposalViewed } from "@/lib/services/write";
@@ -49,6 +50,7 @@ export default async function ProposalPage({ params }: { params: Promise<{ token
         <>
           <p className="home-kicker">Total</p>
           <p className="home-price">{formatMoney(snapshot.totalCents)}</p>
+          {policyLineForOrg(data.proposal.orgId) ? <p className="home-sub home-center" data-late-policy>{policyLineForOrg(data.proposal.orgId)}</p> : null}
           {deposit ? (
             <p className="home-sub home-center">
               {closed ? "Deposit" : "Deposit due on sign"} · {formatMoney(deposit.amountCents)}
