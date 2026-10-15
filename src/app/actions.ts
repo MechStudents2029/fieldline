@@ -155,6 +155,7 @@ import {
   updateDraft,
   voidBill,
 } from "@/lib/services/bills";
+import { codeCostReceipt, markReceiptReimbursed, postCostReceipt, rejectCostReceipt, submitCostReceipt } from "@/lib/services/cost-receipts";
 import { billReceived, parseReceiveLines, receiveDelivery, voidReceipt } from "@/lib/services/receiving";
 import { adjustStock, issueStock, reorderStock, returnStock, transferJobStock, transferStock, voidMovement } from "@/lib/services/inventory";
 import { parseQtyMilli } from "@/lib/receiving/match";
@@ -868,6 +869,109 @@ export async function confirmReceiptAction(projectId: string, _prev: ActionState
       ok: `${vendor} $${(amount / 100).toFixed(2)} posted.${posted.alert ? " Margin watch fired." : ""}`,
       postedDocumentId: String(formData.get("documentId") || ""),
     };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+function receiptSplits(formData: FormData) {
+  const splits: { costCode: string; amountCents: number }[] = [];
+  for (let index = 0; index < 3; index += 1) {
+    const costCode = String(formData.get(`splitCode${index}`) || "");
+    const raw = String(formData.get(`splitAmount${index}`) || "").trim();
+    if (!costCode.trim() && !raw) continue;
+    splits.push({ costCode, amountCents: parseMoneyToCents(raw) ?? 0 });
+  }
+  return splits;
+}
+
+export async function submitCostReceiptAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const user = await actor();
+  let receiptId = "";
+  try {
+    const photo = formData.get("photo");
+    if (!(photo instanceof File) || photo.size === 0) return { error: "Choose a photo." };
+    const amount = parseMoneyToCents(String(formData.get("amount") || ""));
+    if (amount == null) return { error: "Enter an amount." };
+    const saved = submitCostReceipt(user, {
+      filename: photo.name || "receipt.png",
+      bytes: Buffer.from(await photo.arrayBuffer()),
+      projectId: String(formData.get("projectId") || ""),
+      vendorName: String(formData.get("vendor") || ""),
+      purchasedOn: String(formData.get("purchasedOn") || ""),
+      amountCents: amount,
+      costCode: String(formData.get("costCode") || ""),
+      note: String(formData.get("note") || ""),
+      payMethod: String(formData.get("payMethod") || ""),
+    });
+    receiptId = saved.id;
+  } catch (error) {
+    return failure(error);
+  }
+  revalidatePath("/receipts");
+  revalidatePath("/");
+  const projectId = String(formData.get("projectId") || "");
+  if (projectId) revalidatePath(`/projects/${projectId}`);
+  redirect(`/receipts/${receiptId}`);
+}
+
+export async function codeCostReceiptAction(receiptId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const amount = parseMoneyToCents(String(formData.get("amount") || ""));
+    if (amount == null) return { error: "Enter an amount." };
+    codeCostReceipt(user, receiptId, {
+      projectId: String(formData.get("projectId") || ""),
+      vendorName: String(formData.get("vendor") || ""),
+      purchasedOn: String(formData.get("purchasedOn") || ""),
+      amountCents: amount,
+      note: String(formData.get("note") || ""),
+      splits: receiptSplits(formData),
+      vendorContactId: String(formData.get("vendorContactId") || ""),
+      purchaseOrderId: String(formData.get("purchaseOrderId") || ""),
+    });
+    revalidatePath("/receipts");
+    revalidatePath(`/receipts/${receiptId}`);
+    return { ok: "Saved." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function postCostReceiptAction(receiptId: string, _prev: ActionState, _formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const posted = postCostReceipt(user, receiptId);
+    revalidatePath("/receipts");
+    revalidatePath(`/receipts/${receiptId}`);
+    revalidatePath("/reimbursements");
+    revalidatePath("/");
+    return { ok: posted.billId ? "Draft bill." : "Posted." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function rejectCostReceiptAction(receiptId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    rejectCostReceipt(user, receiptId, String(formData.get("note") || ""));
+    revalidatePath("/receipts");
+    revalidatePath(`/receipts/${receiptId}`);
+    revalidatePath("/");
+    return { ok: "Rejected." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function markReceiptReimbursedAction(receiptId: string, _prev: ActionState, _formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    markReceiptReimbursed(user, receiptId);
+    revalidatePath("/reimbursements");
+    revalidatePath(`/receipts/${receiptId}`);
+    return { ok: "Reimbursed." };
   } catch (error) {
     return failure(error);
   }

@@ -102,6 +102,7 @@ export function ensureReady(holder: Holder) {
   ensureVendorPortal(holder);
   ensureBids(holder);
   ensureVendorTax(holder);
+  ensureCostReceipts(holder);
   ensureDraws(holder);
   ensureRfis(holder);
   ensureComments(holder);
@@ -1730,6 +1731,49 @@ function ensureVendorTax(holder: Holder) {
   }
   holder.sqlite.exec("create unique index if not exists vendor_tax_contact on vendor_tax (org_id, contact_id)");
   holder.sqlite.exec("create unique index if not exists nec_w9_requests_year on nec_w9_requests (org_id, contact_id, year)");
+}
+
+function ensureCostReceipts(holder: Holder) {
+  const pk = holder.dialect === "postgres" ? "text primary key" : "text primary key not null";
+  if (!tableExists(holder.sqlite, "cost_receipts", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists cost_receipts (
+      id ${pk},
+      org_id text not null,
+      project_id text,
+      submitted_by text not null,
+      vendor_name text not null default '',
+      purchased_on text,
+      amount_cents integer not null,
+      note text,
+      pay_method text not null,
+      status text not null,
+      photo_document_id text,
+      photo_hash text,
+      reject_note text,
+      vendor_contact_id text,
+      purchase_order_id text,
+      bill_id text,
+      posted_at text,
+      rejected_at text,
+      reimbursed_at text,
+      reimbursed_by text,
+      created_at text not null,
+      updated_at text not null
+    )`);
+  }
+  if (!tableExists(holder.sqlite, "cost_receipt_splits", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists cost_receipt_splits (
+      id ${pk},
+      org_id text not null,
+      receipt_id text not null,
+      cost_code text not null,
+      amount_cents integer not null,
+      cost_item_id text,
+      sort_order integer not null default 0
+    )`);
+  }
+  holder.sqlite.exec("create index if not exists cost_receipts_org on cost_receipts (org_id, status)");
+  holder.sqlite.exec("create index if not exists cost_receipt_splits_receipt on cost_receipt_splits (org_id, receipt_id)");
 }
 
 function ensureTesterFeedback(holder: Holder) {

@@ -106,6 +106,8 @@ export function Sidebar({
           {item("/rfis", "RFIs", <MessageSquare size={16} strokeWidth={1.6} />)}
           {role === "owner" || role === "admin" || role === "estimator" ? item("/submittals", "Submittals", <ClipboardList size={16} strokeWidth={1.6} />) : null}
           {item("/time", "Time", <Clock size={16} strokeWidth={1.6} />)}
+          {item("/receipts", "Receipts", <Receipt size={16} strokeWidth={1.6} />)}
+          {item("/reimbursements", "Reimbursements", <CircleDollarSign size={16} strokeWidth={1.6} />)}
           {item("/equipment", "Equipment", <Wrench size={16} strokeWidth={1.6} />)}
           {item("/safety", "Safety", <HardHat size={16} strokeWidth={1.6} />)}
           {field ? null : (

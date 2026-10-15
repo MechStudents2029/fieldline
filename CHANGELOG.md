@@ -2,6 +2,17 @@
 
 ## 2026-10-15
 
+### Receipts and cost inbox
+
+- Field and office capture a receipt from My day or the job. Photo, optional job, store, date, total, optional cost code, note, and company card, personal, or cash. The photo uses the same checks as a job photo. Capture needs a connection. It is not saved on the phone.
+- Receipts is New, Coded, Posted, and Rejected. Office assigns the job, store, and cost code, and can split the total across codes. Field sees only the receipts they submitted.
+- Post writes a job cost, so budget, WIP, and job profit pick it up. A vendor or a PO writes a draft bill instead, through the existing bill. Job cost and the cash line follow when that bill is approved. Reject needs a note the submitter sees.
+- The same store and amount within three days, or the same photo, shows a Duplicate pill and a link. It still saves.
+- A photo is typed by hand. No model is called, and nothing is filled in from the image.
+- Personal receipts that are posted sit under Reimbursements, with a total per person and a CSV. Mark reimbursed records the date and who. No payout is sent.
+- Today counts new receipts older than two days.
+- Seed: two Home Depot receipts on Brooks are a possible duplicate. Dana's Ace Hardware receipt is posted and waiting. Lobby kiosk is rejected.
+
 ### 1099 vendor report
 
 - Reports, 1099 is one calendar year of vendor payments. Cash is the paid date on bills already in Fieldline, net of retainage and of vendor credits applied to that bill. Card and third-party processor payments stay off box 1.

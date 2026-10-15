@@ -1657,6 +1657,50 @@ export const necW9Requests = sqliteTable(
   (t) => [uniqueIndex("nec_w9_requests_year").on(t.orgId, t.contactId, t.year)],
 );
 
+/** Job-cost receipt captured from the field. Amounts stay on this money table. */
+export const costReceipts = sqliteTable(
+  "cost_receipts",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    projectId: text("project_id"),
+    submittedBy: text("submitted_by").notNull(),
+    vendorName: text("vendor_name").notNull().default(""),
+    purchasedOn: text("purchased_on"),
+    amountCents: integer("amount_cents").notNull(),
+    note: text("note"),
+    payMethod: text("pay_method").notNull(),
+    status: text("status").notNull(),
+    photoDocumentId: text("photo_document_id"),
+    photoHash: text("photo_hash"),
+    rejectNote: text("reject_note"),
+    vendorContactId: text("vendor_contact_id"),
+    purchaseOrderId: text("purchase_order_id"),
+    billId: text("bill_id"),
+    postedAt: text("posted_at"),
+    rejectedAt: text("rejected_at"),
+    reimbursedAt: text("reimbursed_at"),
+    reimbursedBy: text("reimbursed_by"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (t) => [index("cost_receipts_org").on(t.orgId, t.status)],
+);
+
+export const costReceiptSplits = sqliteTable(
+  "cost_receipt_splits",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    receiptId: text("receipt_id").notNull(),
+    costCode: text("cost_code").notNull(),
+    amountCents: integer("amount_cents").notNull(),
+    costItemId: text("cost_item_id"),
+    sortOrder: integer("sort_order").notNull().default(0),
+  },
+  (t) => [index("cost_receipt_splits_receipt").on(t.orgId, t.receiptId)],
+);
+
 /** Job questions. Cost cents stay on the row; the app strips them for field, vendors, and clients. */
 export const rfis = sqliteTable(
   "rfis",
