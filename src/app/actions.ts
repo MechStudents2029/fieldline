@@ -156,6 +156,8 @@ import {
   voidBill,
 } from "@/lib/services/bills";
 import { codeCostReceipt, markReceiptReimbursed, postCostReceipt, rejectCostReceipt, submitCostReceipt } from "@/lib/services/cost-receipts";
+import { parseRateToDeciCents } from "@/lib/mileage/rate";
+import { approveMileageTrip, createMileageTrip, editMileageTrip, markMileageReimbursed, rejectMileageTrip, saveMileageRates, submitMileageTrip, type TripInput } from "@/lib/services/mileage";
 import { billReceived, parseReceiveLines, receiveDelivery, voidReceipt } from "@/lib/services/receiving";
 import { adjustStock, issueStock, reorderStock, returnStock, transferJobStock, transferStock, voidMovement } from "@/lib/services/inventory";
 import { parseQtyMilli } from "@/lib/receiving/match";
@@ -972,6 +974,121 @@ export async function markReceiptReimbursedAction(receiptId: string, _prev: Acti
     revalidatePath("/reimbursements");
     revalidatePath(`/receipts/${receiptId}`);
     return { ok: "Reimbursed." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+function tripFields(formData: FormData): TripInput & { submit: boolean } {
+  return {
+    userId: String(formData.get("userId") || ""),
+    projectId: String(formData.get("projectId") || ""),
+    tripOn: String(formData.get("tripOn") || ""),
+    startRaw: String(formData.get("start") || ""),
+    endRaw: String(formData.get("end") || ""),
+    milesRaw: String(formData.get("miles") || ""),
+    fromText: String(formData.get("from") || ""),
+    toText: String(formData.get("to") || ""),
+    purpose: String(formData.get("purpose") || ""),
+    business: String(formData.get("kind") || "business") !== "personal",
+    submit: String(formData.get("intent") || "") === "submit",
+  };
+}
+
+export async function createMileageTripAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const fields = tripFields(formData);
+  let tripId = "";
+  try {
+    const user = await actor();
+    tripId = createMileageTrip(user, fields).id;
+  } catch (error) {
+    return failure(error);
+  }
+  revalidatePath("/mileage");
+  revalidatePath("/");
+  revalidatePath("/reimbursements");
+  redirect(`/mileage/${tripId}`);
+}
+
+export async function editMileageTripAction(tripId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const fields = tripFields(formData);
+    editMileageTrip(user, tripId, fields);
+    if (fields.submit) submitMileageTrip(user, tripId);
+    revalidatePath("/mileage");
+    revalidatePath(`/mileage/${tripId}`);
+    revalidatePath("/");
+    return { ok: fields.submit ? "Submitted." : "Saved." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function approveMileageAction(tripId: string, _prev: ActionState, _formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    approveMileageTrip(user, tripId);
+    revalidatePath("/mileage");
+    revalidatePath(`/mileage/${tripId}`);
+    revalidatePath("/reimbursements");
+    revalidatePath("/");
+    return { ok: "Approved." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function rejectMileageAction(tripId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    rejectMileageTrip(user, tripId, String(formData.get("note") || ""));
+    revalidatePath("/mileage");
+    revalidatePath(`/mileage/${tripId}`);
+    revalidatePath("/");
+    return { ok: "Rejected." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function markMileageReimbursedAction(tripId: string, _prev: ActionState, _formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    markMileageReimbursed(user, tripId);
+    revalidatePath("/reimbursements");
+    revalidatePath(`/mileage/${tripId}`);
+    revalidatePath("/mileage");
+    return { ok: "Reimbursed." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function saveMileageRatesAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const ids = formData.getAll("periodId").map(String);
+    const starts = formData.getAll("starts").map(String);
+    const ends = formData.getAll("ends").map(String);
+    const rates = formData.getAll("rate").map(String);
+    const irs = formData.getAll("irs").map(String);
+    const periods: { id?: string; startsOn: string; endsOn: string; rateDeciCents: number; irsDeciCents: number }[] = [];
+    for (let index = 0; index < starts.length; index += 1) {
+      const startsOn = (starts[index] ?? "").trim();
+      const endsOn = (ends[index] ?? "").trim();
+      const rateText = (rates[index] ?? "").trim();
+      const irsText = (irs[index] ?? "").trim();
+      if (!startsOn && !endsOn && !rateText && !irsText) continue;
+      const rateDeciCents = parseRateToDeciCents(rateText);
+      const irsDeciCents = parseRateToDeciCents(irsText);
+      if (rateDeciCents == null || irsDeciCents == null) return { error: "Enter a rate." };
+      periods.push({ id: ids[index] || undefined, startsOn, endsOn, rateDeciCents, irsDeciCents });
+    }
+    saveMileageRates(user, periods);
+    revalidatePath("/settings/mileage");
+    revalidatePath("/mileage");
+    return { ok: "Saved." };
   } catch (error) {
     return failure(error);
   }

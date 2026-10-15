@@ -1701,6 +1701,55 @@ export const costReceiptSplits = sqliteTable(
   (t) => [index("cost_receipt_splits_receipt").on(t.orgId, t.receiptId)],
 );
 
+/** Cents-per-mile periods. The IRS figure stays even when the company rate differs. */
+export const mileageRates = sqliteTable(
+  "mileage_rates",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    startsOn: text("starts_on").notNull(),
+    endsOn: text("ends_on").notNull(),
+    rateDeciCents: integer("rate_deci_cents").notNull(),
+    irsDeciCents: integer("irs_deci_cents").notNull(),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (t) => [index("mileage_rates_org").on(t.orgId, t.startsOn)],
+);
+
+/** Crew trip log. Amounts are integer cents snapshotted when the office approves. */
+export const mileageTrips = sqliteTable(
+  "mileage_trips",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    userId: text("user_id").notNull(),
+    projectId: text("project_id"),
+    tripOn: text("trip_on").notNull(),
+    startMilli: integer("start_milli"),
+    endMilli: integer("end_milli"),
+    milesMilli: integer("miles_milli").notNull(),
+    fromText: text("from_text"),
+    toText: text("to_text"),
+    purpose: text("purpose").notNull(),
+    business: integer("business").notNull().default(1),
+    status: text("status").notNull(),
+    rateDeciCents: integer("rate_deci_cents"),
+    irsDeciCents: integer("irs_deci_cents"),
+    amountCents: integer("amount_cents"),
+    rejectNote: text("reject_note"),
+    submittedAt: text("submitted_at"),
+    approvedAt: text("approved_at"),
+    rejectedAt: text("rejected_at"),
+    reimbursedAt: text("reimbursed_at"),
+    reimbursedBy: text("reimbursed_by"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    createdBy: text("created_by"),
+  },
+  (t) => [index("mileage_trips_org").on(t.orgId, t.status)],
+);
+
 /** Job questions. Cost cents stay on the row; the app strips them for field, vendors, and clients. */
 export const rfis = sqliteTable(
   "rfis",

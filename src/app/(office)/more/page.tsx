@@ -12,6 +12,7 @@ const links = [
   ["/time", "Time"],
   ["/receipts", "Receipts"],
   ["/reimbursements", "Reimbursements"],
+  ["/mileage", "Mileage"],
   ["/equipment", "Equipment"],
   ["/safety", "Safety"],
   ["/rfis", "RFIs"],

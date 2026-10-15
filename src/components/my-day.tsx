@@ -27,7 +27,9 @@ import { fieldOpenTickets } from "@/lib/services/tm";
 import { fieldReviewQueue } from "@/lib/services/reviews";
 import { AskReview } from "@/components/review-copy";
 import { CostReceiptForm } from "@/components/cost-receipt-form";
+import { MileageForm } from "@/components/mileage-form";
 import { receiptAttention, receiptCodes, receiptJobs } from "@/lib/services/cost-receipts";
+import { mileageAttention, mileageJobs } from "@/lib/services/mileage";
 
 function clock(iso: string) {
   const mins = Math.max(0, Math.floor((Date.now() - Date.parse(iso)) / 60000));
@@ -57,6 +59,7 @@ export function MyDay({ actor }: { actor: Actor }) {
   const reviews = fieldReviewQueue(actor);
   const home = dashboardForRole(actor);
   const receipts = receiptAttention(actor);
+  const miles = mileageAttention(actor);
   const open = day.open;
   return (
     <div className="mx-auto flex max-w-lg flex-col gap-7 md:max-w-none md:px-6">
@@ -179,6 +182,13 @@ export function MyDay({ actor }: { actor: Actor }) {
         </Link>
       ) : null}
       <CostReceiptForm jobs={receiptJobs(actor.orgId)} codes={receiptCodes(actor.orgId)} />
+      {miles.count > 0 && miles.href ? (
+        <Link href={miles.href} className="fl-cell fl-group">
+          <span className="fl-body flex-1">Miles</span>
+          <span className="num">{miles.count}</span>
+        </Link>
+      ) : null}
+      <MileageForm jobs={mileageJobs(actor.orgId)} />
       {reviews.length > 0 ? (
         <section aria-label="Ask for review" data-testid="ask-review" className="flex flex-col gap-2">
           <h2 className="fl-section">Ask for review</h2>
