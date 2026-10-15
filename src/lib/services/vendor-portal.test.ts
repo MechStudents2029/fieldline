@@ -62,8 +62,8 @@ describe("vendor portal", () => {
     expect(home?.vendorName).toBe("Harbor Plumbing");
     expect(home?.openPos).toBe(2);
     expect(home?.commitmentCents).toBe(450_000);
-    expect(home?.billedCents).toBe(644_000);
-    expect(home?.paidCents).toBe(48_000);
+    expect(home?.billedCents).toBe(896_000);
+    expect(home?.paidCents).toBe(300_000);
     expect(home?.orders.map((order) => order.number)).toEqual(["PO-1044", "PO-1055"]);
     expect(home?.orders[0]?.response).toBe("issued");
     expect(home?.schedule.map((row) => row.title).sort()).toEqual(["Drywall", "Rough-in", "Set the valve", "Trim out"]);

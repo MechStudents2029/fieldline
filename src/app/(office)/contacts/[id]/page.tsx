@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { saveOfficeCertificateAction } from "@/app/actions";
+import { saveVendorTaxAction } from "@/app/(office)/reports/nec/actions";
 import { ActionForm } from "@/components/action-form";
 import { FileButton } from "@/components/file-button";
 import { MissingRecord } from "@/components/missing-record";
@@ -9,6 +10,8 @@ import { formatCalendarDay, formatDate, formatDateTime } from "@/lib/format";
 import { formatMoney } from "@/lib/money";
 import { canSeeMoney } from "@/lib/permissions";
 import { CERT_TYPES } from "@/lib/vendor/compliance";
+import { TAX_CLASSES } from "@/lib/tax/nec";
+import { vendorTaxForm } from "@/lib/services/nec1099";
 import { contactDetail } from "@/lib/services/read";
 import { sourceName } from "@/lib/services/lead-sources";
 import { vendorOffice } from "@/lib/services/vendor-portal";
@@ -26,6 +29,7 @@ export default async function ContactPage({ params, searchParams }: { params: Pr
   const detail = contactDetail(session.orgId, id);
   if (!detail) return <MissingRecord orgName={session.orgName} kind="contact" />;
   const vendor = vendorOffice(session, id);
+  const tax = vendor ? vendorTaxForm(session, id) : null;
   const waivers = canSeeMoney(session.role) ? outstandingWaivers(session, id) : [];
   const credits = canSeeMoney(session.role) ? openCreditBalance(session.orgId, id) : { cents: 0, count: 0 };
   const ownerCredits = canSeeMoney(session.role) && detail.contact.type === "client" ? clientOpenCredit(session.orgId, id) : { cents: 0, count: 0 };
@@ -94,6 +98,46 @@ export default async function ContactPage({ params, searchParams }: { params: Pr
       {vendor ? (
         <section className="flex flex-col gap-3" aria-label="Certificates">
           {vendor.canEdit ? <VendorLink contactId={vendor.contactId} hasPortal={vendor.hasPortal} /> : null}
+          {tax ? (
+            <div className="flex flex-col gap-2">
+              <h2 className="mac-t13 font-semibold">Tax</h2>
+              <p className="mac-t13">
+                {tax.legalName || "—"}
+                {tax.tinMask ? <span className="num"> · {tax.tinMask}</span> : null}
+                {tax.exempt ? <span className="fl-pill ml-2">Exempt</span> : null}
+              </p>
+              {tax.canEdit ? (
+                <ActionForm action={saveVendorTaxAction.bind(null, id)} className="flex flex-wrap items-end gap-2">
+                  <label className="text-sm">
+                    Legal name
+                    <input name="legalName" aria-label="Legal name" defaultValue={tax.legalName} className="field mt-1" />
+                  </label>
+                  <label className="text-sm">
+                    Class
+                    <select name="taxClass" aria-label="Tax classification" className="field mt-1" defaultValue={tax.taxClass}>
+                      <option value=""> </option>
+                      {TAX_CLASSES.map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="text-sm">
+                    TIN
+                    <input name="tin" aria-label="TIN" placeholder={tax.tinMask || "••-•••••••"} className="field mt-1 w-32" />
+                  </label>
+                  <label className="flex items-center gap-2 text-sm">
+                    <input name="exempt" type="checkbox" aria-label="Exempt from 1099" defaultChecked={tax.exempt} />
+                    Exempt
+                  </label>
+                  <button type="submit" className="ctl">
+                    Save
+                  </button>
+                </ActionForm>
+              ) : null}
+            </div>
+          ) : null}
           <h2 className="mac-t13 font-semibold">Certificates</h2>
           <ul className="flex flex-col gap-2">
             {vendor.certificates.map((row) => (
