@@ -24,6 +24,8 @@ import { receiptCodes } from "@/lib/services/cost-receipts";
 import { materialCodes, materialStock } from "@/lib/services/material-requests";
 import { projectPurchaseOrders } from "@/lib/services/purchase-orders";
 import { captionFromMetadata, listPriceBook, listProjects, pipelineBoard, projectDetail } from "@/lib/services/read";
+import { LienPanel } from "@/components/lien-panel";
+import { lienJob } from "@/lib/services/liens";
 import { deliveryHolds } from "@/lib/receiving/facts";
 import { openDeliveries } from "@/lib/services/receiving";
 import { SitePinForm } from "@/components/site-pin-form";
@@ -453,6 +455,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
             ))}
           </GroupedList>
         ) : null}
+        {canSeeMoney(session.role) ? <LienPanel job={lienJob(session, detail.project.id)!} /> : null}
       </div>
       {session.role === "field" ? (
         <section className="flex flex-col gap-3">

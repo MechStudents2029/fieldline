@@ -10,6 +10,7 @@ import { addMonths as addAgreementMonths, sellUnitCents } from "@/lib/agreements
 import { isWorkday } from "@/lib/schedule/workdays";
 import { feeAmount } from "@/lib/fees/late";
 import { addCalendarDays, localDay, localWeek, zonedTimeToUtc } from "@/lib/time/calendar";
+import { SEEDED_LIEN_RULES, addMonths as addLienMonths, recentMonthDay } from "@/lib/liens/deadlines";
 import { evaluateSite, sitePill } from "@/lib/geo/fence";
 import { laborMoney, splitWeek, type OtRules } from "@/lib/time/overtime";
 import { CATALOG_FORMULAS, northlineCatalog, riveraCatalog } from "@/lib/db/catalog";
@@ -64,6 +65,8 @@ import {
   invoices,
   lateFees,
   clientStatements,
+  lienNotices,
+  lienRules,
   laborRates,
   leads,
   leadSources,
@@ -222,7 +225,7 @@ import {
   WEBSITE_FORM_SOURCE,
 } from "@/lib/lead-form/rules";
 
-export const SEED_VERSION = "70";
+export const SEED_VERSION = "71";
 
 const ORG = "org_rivera";
 const NORTH = "org_northline";
@@ -6995,5 +6998,144 @@ function seedTemplates(db: AppDatabase, now: string) {
         { id: `note_book_${userId}`, orgId: ORG, userId, kind: "booking", commentId: null, entityType: "booking", entityId: "book_ellis", projectId: null, actorId: null, actorName: "Nora Ellis", snippet: "Service call · 16:00", readAt: null, createdAt: now },
       ]),
     )
+    .run();
+
+  const today = localDay(Date.now(), "America/New_York");
+  const noticeDay = recentMonthDay(today, 15);
+  const firstTx = addLienMonths(`${noticeDay.slice(0, 8)}01`, -3);
+  const firstCa = addCalendarDays(today, -30);
+  const due = addCalendarDays(today, 14);
+  db.insert(lienRules)
+    .values(
+      SEEDED_LIEN_RULES.map((rule) => ({
+        id: `lien_rule_${rule.state.toLowerCase()}`,
+        orgId: ORG,
+        state: rule.state,
+        role: rule.role,
+        prelimKind: rule.prelimKind,
+        prelimDays: rule.prelimDays,
+        prelimMonths: rule.prelimMonths,
+        prelimDay: rule.prelimDay,
+        noiKind: rule.noiKind,
+        noiDays: rule.noiDays,
+        fileKind: rule.fileKind,
+        fileAnchor: rule.fileAnchor,
+        fileDays: rule.fileDays,
+        fileMonths: rule.fileMonths,
+        fileDay: rule.fileDay,
+        enforceKind: rule.enforceKind,
+        enforceFrom: rule.enforceFrom,
+        enforceDays: rule.enforceDays,
+        prelimLapses: rule.prelimLapses ? 1 : 0,
+        citation: rule.citation,
+        createdAt: now,
+        updatedAt: now,
+      })),
+    )
+    .run();
+  db.insert(contacts)
+    .values([
+      { id: "c_lien_ca", orgId: ORG, type: "client", name: "Ava Lang", company: null, email: "ava.lang@example.com", phone: "(510) 555-0171", address: "9 Brook St", city: "Oakland", state: "CA", zip: "94611", notes: null, deletedAt: null, createdAt: now, updatedAt: now, createdBy: "user_maya" },
+      { id: "c_lien_tx", orgId: ORG, type: "client", name: "Owen Hale", company: null, email: "owen.hale@example.com", phone: "(512) 555-0144", address: "400 Industrial", city: "Austin", state: "TX", zip: "78701", notes: null, deletedAt: null, createdAt: now, updatedAt: now, createdBy: "user_maya" },
+      { id: "c_lien_fl", orgId: ORG, type: "client", name: "Nora Vega", company: null, email: "nora.vega@example.com", phone: "(305) 555-0166", address: "88 Brickell", city: "Miami", state: "FL", zip: "33131", notes: null, deletedAt: null, createdAt: now, updatedAt: now, createdBy: "user_maya" },
+      { id: "c_lien_paid", orgId: ORG, type: "client", name: "Ivy Cho", company: null, email: "ivy.cho@example.com", phone: "(408) 555-0190", address: "12 Oak Ln", city: "San Jose", state: "CA", zip: "95112", notes: null, deletedAt: null, createdAt: now, updatedAt: now, createdBy: "user_maya" },
+    ])
+    .run();
+  const lienJobRows = [
+    { id: "proj_lien_ca", contactId: "c_lien_ca", name: "Lang hall", status: "active", address: "9 Brook St, Oakland, CA", cents: 125_000, token: "demo_portal_lien_ca", state: "CA", first: firstCa, last: today, substantial: today },
+    { id: "proj_lien_tx", contactId: "c_lien_tx", name: "Hale warehouse", status: "active", address: "400 Industrial, Austin, TX", cents: 86_000, token: "demo_portal_lien_tx", state: "TX", first: firstTx, last: today, substantial: null as string | null },
+    { id: "proj_lien_fl", contactId: "c_lien_fl", name: "Vega condo", status: "active", address: "88 Brickell, Miami, FL", cents: 42_000, token: "demo_portal_lien_fl", state: "FL", first: null as string | null, last: null as string | null, substantial: null as string | null },
+    { id: "proj_lien_paid", contactId: "c_lien_paid", name: "Cho patio", status: "complete", address: "12 Oak Ln, San Jose, CA", cents: 50_000, token: "demo_portal_lien_paid", state: "CA", first: addCalendarDays(today, -10), last: today, substantial: today },
+  ];
+  db.insert(projects)
+    .values(
+      lienJobRows.map((job) => ({
+        id: job.id,
+        orgId: ORG,
+        leadId: null,
+        leadSourceId: null,
+        proposalId: null,
+        contactId: job.contactId,
+        name: job.name,
+        status: job.status,
+        address: job.address,
+        contractValueCents: job.cents,
+        originalContractCents: job.cents,
+        startDate: job.first,
+        endDate: null,
+        portalToken: job.token,
+        substantialAt: job.substantial,
+        billingMode: "progress",
+        retainageBps: 0,
+        pmUserId: "user_maya",
+        lienState: job.state,
+        lienRole: "sub",
+        lienFirst: job.first,
+        lienLast: job.last,
+        createdAt: now,
+        updatedAt: now,
+        createdBy: "user_maya",
+      })),
+    )
+    .run();
+  const lienInvoices = [
+    { id: "inv_lien_ca", projectId: "proj_lien_ca", number: "LIEN-3001", status: "open", cents: 125_000, paid: 0, token: "demo_pay_lien_ca" },
+    { id: "inv_lien_tx", projectId: "proj_lien_tx", number: "LIEN-3002", status: "open", cents: 86_000, paid: 0, token: "demo_pay_lien_tx" },
+    { id: "inv_lien_fl", projectId: "proj_lien_fl", number: "LIEN-3003", status: "open", cents: 42_000, paid: 0, token: "demo_pay_lien_fl" },
+    { id: "inv_lien_paid", projectId: "proj_lien_paid", number: "LIEN-3004", status: "paid", cents: 50_000, paid: 50_000, token: "demo_pay_lien_paid" },
+  ];
+  db.insert(invoices)
+    .values(
+      lienInvoices.map((invoice) => ({
+        id: invoice.id,
+        orgId: ORG,
+        projectId: invoice.projectId,
+        changeOrderId: null,
+        number: invoice.number,
+        type: "progress",
+        status: invoice.status,
+        scheduleIndex: null,
+        issueDate: today,
+        dueDate: due,
+        subtotalCents: invoice.cents,
+        taxCents: 0,
+        totalCents: invoice.cents,
+        amountPaidCents: invoice.paid,
+        payToken: invoice.token,
+        applicationNumber: null,
+        retainageCents: 0,
+        presentAs: "grouped",
+        markupDisplay: "baked",
+        createdAt: now,
+        updatedAt: now,
+        createdBy: "user_maya",
+      })),
+    )
+    .run();
+  db.insert(invoiceLines)
+    .values(
+      lienInvoices.map((invoice, index) => ({
+        id: `invl_lien_${index + 1}`,
+        orgId: ORG,
+        invoiceId: invoice.id,
+        description: "Progress",
+        amountCents: invoice.cents,
+        sortOrder: 0,
+      })),
+    )
+    .run();
+  db.insert(lienNotices)
+    .values({
+      id: "lien_note_ca",
+      orgId: ORG,
+      projectId: "proj_lien_ca",
+      kind: "prelim",
+      sentOn: firstCa,
+      method: "certified",
+      documentId: null,
+      createdAt: now,
+      updatedAt: now,
+      createdBy: "user_maya",
+    })
     .run();
 }

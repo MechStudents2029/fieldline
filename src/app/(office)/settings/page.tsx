@@ -87,6 +87,13 @@ export default async function SettingsPage() {
               </Link>
             </li>
           ) : null}
+          {session.role !== "field" ? (
+            <li>
+              <Link href="/settings/liens" className="block py-2 mac-t13 text-[var(--mac-accent)]">
+                Lien rules
+              </Link>
+            </li>
+          ) : null}
           {canManageMoney(session.role) ? (
             <li>
               <Link href="/settings/certifications" className="block py-2 mac-t13 text-[var(--mac-accent)]">

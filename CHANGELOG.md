@@ -2,6 +2,18 @@
 
 ## 2026-10-15
 
+### Lien deadlines
+
+- Settings, Lien rules is one row per state: California, Texas commercial, and Florida. Each row is the company’s role and the day count for a preliminary notice, an optional notice of intent, filing, and enforcement, plus the statute. Owner and admin can edit. New York is not listed. The official Lien Law text was not verified.
+- California Civil Code §§ 8204, 8414, and 8460: a sub’s preliminary notice is 20 days after first furnishing, the claim is 90 days after completion, and a suit is 90 days after the claim is recorded. A late preliminary notice does not end the right while the filing window is open.
+- Texas Property Code §§ 53.056, 53.052, and 53.158, nonresidential: the notice is the 15th day of the third month, the affidavit is the 15th day of the fourth month, and suit is one year after the last day to file.
+- Florida Statutes §§ 713.06, 713.08, and 713.22: the Notice to Owner is 45 days after first furnishing, the claim is 90 days after last furnishing, and the lien lasts one year after recording. A missed Notice to Owner ends the right.
+- A job stores its state, role, first furnish date, and last furnish date. State starts from the address. First and last start from the earliest and latest time entry, delivery, or vendor bill, or from substantial completion. Saving a change writes the audit log. A job is on the list once its state is saved.
+- The job shows each date, the days left, and Protected, Due, At risk, Lapsed, Missing info, or Paid. Paid means the open balance is $0. Mark sent stores the date and certified mail, hand delivery, or other, with an optional proof photo. No message is sent.
+- Preliminary notice and notice of intent print on letter paper. The unpaid amount is the job’s open balance, in cents.
+- Today counts deadlines inside 14 days and anything At risk. Work, Lien deadlines lists the tracked jobs, filters by status and state, and downloads CSV. Field does not see it.
+- Seed: Lang hall in California is Protected. Hale warehouse in Texas is At risk with an open balance. Vega condo in Florida is Missing info. Cho patio is Paid.
+
 ### Late fees and statements
 
 - Settings, Billing is off until the office turns it on. A fee can be a flat amount, a monthly percent of the unpaid balance, or both. Grace is 7 days. A minimum balance and a cap per invoice are optional. Retainage, draws, and agreement invoices can be skipped.

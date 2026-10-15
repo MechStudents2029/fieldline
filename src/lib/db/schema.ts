@@ -519,6 +519,10 @@ export const projects = sqliteTable(
     siteRadiusM: integer("site_radius_m"),
     tags: text("tags").notNull().default(""),
     projectType: text("project_type"),
+    lienState: text("lien_state"),
+    lienRole: text("lien_role"),
+    lienFirst: text("lien_first"),
+    lienLast: text("lien_last"),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
     createdBy: text("created_by"),
@@ -1855,6 +1859,54 @@ export const clientStatements = sqliteTable(
     createdBy: text("created_by"),
   },
   (t) => [uniqueIndex("client_statements_contact").on(t.orgId, t.contactId), index("client_statements_org").on(t.orgId)],
+);
+
+/** One company role per state. Offsets follow the cited statute. */
+export const lienRules = sqliteTable(
+  "lien_rules",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    state: text("state").notNull(),
+    role: text("role").notNull(),
+    prelimKind: text("prelim_kind").notNull(),
+    prelimDays: integer("prelim_days").notNull().default(0),
+    prelimMonths: integer("prelim_months").notNull().default(0),
+    prelimDay: integer("prelim_day").notNull().default(0),
+    noiKind: text("noi_kind").notNull(),
+    noiDays: integer("noi_days").notNull().default(0),
+    fileKind: text("file_kind").notNull(),
+    fileAnchor: text("file_anchor").notNull(),
+    fileDays: integer("file_days").notNull().default(0),
+    fileMonths: integer("file_months").notNull().default(0),
+    fileDay: integer("file_day").notNull().default(0),
+    enforceKind: text("enforce_kind").notNull(),
+    enforceFrom: text("enforce_from").notNull(),
+    enforceDays: integer("enforce_days").notNull().default(0),
+    prelimLapses: integer("prelim_lapses").notNull().default(0),
+    citation: text("citation").notNull(),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (t) => [uniqueIndex("lien_rules_state").on(t.orgId, t.state), index("lien_rules_org").on(t.orgId)],
+);
+
+/** A notice the office already sent. One row per job and kind. */
+export const lienNotices = sqliteTable(
+  "lien_notices",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    projectId: text("project_id").notNull(),
+    kind: text("kind").notNull(),
+    sentOn: text("sent_on").notNull(),
+    method: text("method").notNull(),
+    documentId: text("document_id"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    createdBy: text("created_by"),
+  },
+  (t) => [uniqueIndex("lien_notices_kind").on(t.orgId, t.projectId, t.kind), index("lien_notices_org").on(t.orgId, t.projectId)],
 );
 
 /** One card on a team member. Expired is derived from the date. Revoked is stored. */
