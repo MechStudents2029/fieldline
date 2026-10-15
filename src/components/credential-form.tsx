@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { createCredentialAction, editCredentialAction, type ActionState } from "@/app/actions";
+import { FileButton } from "@/components/file-button";
 import { Button } from "@/components/ui/button";
 
 export type CredentialFormValue = {
@@ -71,10 +72,7 @@ export function CredentialForm({
           <input name="open" type="checkbox" value="1" defaultChecked={credential?.doesNotExpire ?? false} />
           Does not expire
         </label>
-        <label className="text-sm">
-          Card
-          <input name="file" aria-label="Card" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" className="field mt-1" />
-        </label>
+        <FileButton name="file" label="Card" accept="image/jpeg,image/png,image/webp,application/pdf" empty="Card" />
         <Button type="submit" className="h-11">
           Save
         </Button>
