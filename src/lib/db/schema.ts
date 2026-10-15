@@ -1627,6 +1627,36 @@ export const bidPlugs = sqliteTable(
   (t) => [uniqueIndex("bid_plugs_line").on(t.orgId, t.inviteId, t.bidLineId), index("bid_plugs_bid").on(t.orgId, t.bidId)],
 );
 
+/** Office tax profile for 1099. The TIN stays on this money table. */
+export const vendorTax = sqliteTable(
+  "vendor_tax",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    contactId: text("contact_id").notNull(),
+    legalName: text("legal_name").notNull().default(""),
+    tin: text("tin").notNull().default(""),
+    taxClass: text("tax_class").notNull().default(""),
+    exempt: integer("exempt").notNull().default(0),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (t) => [uniqueIndex("vendor_tax_contact").on(t.orgId, t.contactId)],
+);
+
+/** Office marked a W-9 requested. It does not send a message. */
+export const necW9Requests = sqliteTable(
+  "nec_w9_requests",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    contactId: text("contact_id").notNull(),
+    year: integer("year").notNull(),
+    requestedAt: text("requested_at").notNull(),
+    requestedBy: text("requested_by"),
+  },
+  (t) => [uniqueIndex("nec_w9_requests_year").on(t.orgId, t.contactId, t.year)],
+);
+
 /** Job questions. Cost cents stay on the row; the app strips them for field, vendors, and clients. */
 export const rfis = sqliteTable(
   "rfis",

@@ -162,6 +162,7 @@ import {
   timeGeoOverrides,
   users,
   vendorCertificates,
+  vendorTax,
   stockBalances,
   stockItems,
   stockLocations,
@@ -210,7 +211,7 @@ import {
   WEBSITE_FORM_SOURCE,
 } from "@/lib/lead-form/rules";
 
-export const SEED_VERSION = "64";
+export const SEED_VERSION = "65";
 
 const ORG = "org_rivera";
 const NORTH = "org_northline";
@@ -409,6 +410,7 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
     phone?: string;
     address?: string;
     city?: string;
+    zip?: string;
     notes?: string;
   };
 
@@ -432,12 +434,12 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
     { id: "c_wendy", type: "client", name: "Wendy Cho", email: "wendy.cho@example.com", phone: "(510) 555-0138", city: "Alameda" },
     { id: "c_derek", type: "client", name: "Derek Holt", email: "derek.holt@example.com", phone: "(510) 555-0129", city: "Oakland" },
     { id: "c_ana", type: "client", name: "Ana Silva", email: "ana.silva@example.com", phone: "(415) 555-0182", city: "San Francisco" },
-    { id: "c_casa", type: "sub", name: "Imani Brooks", company: "Casa Tile", email: "imani@casatile.example", phone: "(510) 555-0201", notes: "Tile sub. Net 15." },
-    { id: "c_harbor", type: "sub", name: "Pete Alvarez", company: "Harbor Plumbing", email: "pete@harbor.example", phone: "(510) 555-0202" },
-    { id: "c_brighton", type: "sub", name: "Noah Kim", company: "Brighton Electric", email: "noah@brighton.example", phone: "(510) 555-0203" },
-    { id: "c_summit", type: "vendor", name: "Gail Nguyen", company: "Summit Lumber", email: "gail@summit.example", phone: "(510) 555-0301" },
-    { id: "c_slab", type: "vendor", name: "Owen Clarke", company: "Slab House", email: "owen@slabhouse.example", phone: "(510) 555-0302" },
-    { id: "c_mill", type: "vendor", name: "Fran Doyle", company: "Mill & Co Cabinets", email: "fran@millco.example", phone: "(510) 555-0303" },
+    { id: "c_casa", type: "sub", name: "Imani Brooks", company: "Casa Tile", email: "imani@casatile.example", phone: "(510) 555-0201", address: "4100 Telegraph Ave", city: "Oakland", zip: "94609", notes: "Tile sub. Net 15." },
+    { id: "c_harbor", type: "sub", name: "Pete Alvarez", company: "Harbor Plumbing", email: "pete@harbor.example", phone: "(510) 555-0202", address: "1200 8th St", city: "Oakland", zip: "94607" },
+    { id: "c_brighton", type: "sub", name: "Noah Kim", company: "Brighton Electric", email: "noah@brighton.example", phone: "(510) 555-0203", address: "88 Mandela Pkwy", city: "Oakland", zip: "94607" },
+    { id: "c_summit", type: "vendor", name: "Gail Nguyen", company: "Summit Lumber", email: "gail@summit.example", phone: "(510) 555-0301", address: "50 High St", city: "Oakland", zip: "94601" },
+    { id: "c_slab", type: "vendor", name: "Owen Clarke", company: "Slab House", email: "owen@slabhouse.example", phone: "(510) 555-0302", address: "9 Cutting Blvd", city: "Richmond", zip: "94804" },
+    { id: "c_mill", type: "vendor", name: "Fran Doyle", company: "Mill & Co Cabinets", email: "fran@millco.example", phone: "(510) 555-0303", address: "700 Heinz Ave", city: "Berkeley", zip: "94710" },
     { id: "c_ellis", type: "client", name: "Nora Ellis", email: "nora.ellis@example.com", phone: "(510) 555-0194", address: "18 Maple St", city: "Oakland" },
   ];
 
@@ -454,7 +456,7 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
         address: person.address ?? null,
         city: person.city ?? null,
         state: "CA",
-        zip: null,
+        zip: person.zip ?? null,
         notes: person.notes ?? null,
         deletedAt: null,
         createdAt: created,
@@ -4098,6 +4100,74 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
       createdAt: daysAgo(6),
       rotatedAt: null,
     })
+    .run();
+
+  const brightonPortal = "demo_vendor_brighton_k4n2p9qx";
+  db.insert(vendorPortals)
+    .values({
+      id: "vport_brighton",
+      orgId: ORG,
+      contactId: "c_brighton",
+      tokenHash: hashVendorToken(brightonPortal),
+      issuedToken: brightonPortal,
+      createdAt: daysAgo(6),
+      rotatedAt: null,
+    })
+    .run();
+  db.insert(vendorCertificates)
+    .values([
+      { id: "vcert_harbor_w9", orgId: ORG, contactId: "c_harbor", type: "w9", expiresOn: "2027-06-01", documentId: null, createdAt: daysAgo(30), updatedAt: daysAgo(30) },
+      { id: "vcert_casa_w9", orgId: ORG, contactId: "c_casa", type: "w9", expiresOn: "2027-04-01", documentId: null, createdAt: daysAgo(30), updatedAt: daysAgo(30) },
+      { id: "vcert_summit_w9", orgId: ORG, contactId: "c_summit", type: "w9", expiresOn: "2027-03-01", documentId: null, createdAt: daysAgo(30), updatedAt: daysAgo(30) },
+    ])
+    .run();
+  db.insert(vendorTax)
+    .values([
+      { id: "vtax_harbor", orgId: ORG, contactId: "c_harbor", legalName: "Harbor Plumbing LLC", tin: "12-3456789", taxClass: "llc", exempt: 0, updatedAt: daysAgo(20) },
+      { id: "vtax_casa", orgId: ORG, contactId: "c_casa", legalName: "Casa Tile LLC", tin: "23-4567890", taxClass: "llc", exempt: 0, updatedAt: daysAgo(20) },
+      { id: "vtax_brighton", orgId: ORG, contactId: "c_brighton", legalName: "Brighton Electric", tin: "34-5678901", taxClass: "sole_prop", exempt: 0, updatedAt: daysAgo(20) },
+      { id: "vtax_summit", orgId: ORG, contactId: "c_summit", legalName: "Summit Lumber", tin: "45-6789012", taxClass: "partnership", exempt: 0, updatedAt: daysAgo(20) },
+      { id: "vtax_mill", orgId: ORG, contactId: "c_mill", legalName: "Mill & Co Cabinets Inc", tin: "56-7890123", taxClass: "c_corp", exempt: 0, updatedAt: daysAgo(20) },
+      { id: "vtax_slab", orgId: ORG, contactId: "c_slab", legalName: "Slab House", tin: "67-8901234", taxClass: "sole_prop", exempt: 0, updatedAt: daysAgo(20) },
+    ])
+    .run();
+  const necPaid = "2026-06-01T15:00:00.000Z";
+  db.insert(bills)
+    .values([
+      { id: "bill_nec_harbor", orgId: ORG, projectId: "proj_okonkwo", vendorContactId: "c_harbor", billNumber: "HP-1099", billDate: "2026-06-01", amountCents: 252000, dueDate: "2026-06-15", status: "paid", memo: "Rough plumbing", voidReason: null, paidAt: "2026-06-01", payMethod: "check", payReference: "1099", documentId: null, purchaseOrderId: null, approvedAt: necPaid, lowConfidence: 0, createdAt: necPaid, updatedAt: necPaid, createdBy: "user_sam" },
+      { id: "bill_nec_casa", orgId: ORG, projectId: "proj_okonkwo", vendorContactId: "c_casa", billNumber: "CT-1099", billDate: "2026-04-12", amountCents: 320000, dueDate: "2026-04-26", status: "paid", memo: "Tile set", voidReason: null, paidAt: "2026-04-12", payMethod: "check", payReference: "1098", documentId: null, purchaseOrderId: null, approvedAt: necPaid, lowConfidence: 0, createdAt: necPaid, updatedAt: necPaid, createdBy: "user_sam" },
+      { id: "bill_nec_brighton", orgId: ORG, projectId: "proj_brooks", vendorContactId: "c_brighton", billNumber: "BE-1099", billDate: "2026-05-03", amountCents: 250000, dueDate: "2026-05-17", status: "paid", memo: "Trim electrical", voidReason: null, paidAt: "2026-05-03", payMethod: "check", payReference: "1097", documentId: null, purchaseOrderId: null, approvedAt: necPaid, lowConfidence: 0, createdAt: necPaid, updatedAt: necPaid, createdBy: "user_sam" },
+      { id: "bill_nec_mill", orgId: ORG, projectId: "proj_chen", vendorContactId: "c_mill", billNumber: "MC-1099", billDate: "2026-07-01", amountCents: 400000, dueDate: "2026-07-15", status: "paid", memo: "Cabinet boxes", voidReason: null, paidAt: "2026-07-01", payMethod: "check", payReference: "1096", documentId: null, purchaseOrderId: null, approvedAt: necPaid, lowConfidence: 0, createdAt: necPaid, updatedAt: necPaid, createdBy: "user_sam" },
+      { id: "bill_nec_slab", orgId: ORG, projectId: "proj_diaz", vendorContactId: "c_slab", billNumber: "SH-1099", billDate: "2026-08-15", amountCents: 350000, dueDate: "2026-08-29", status: "paid", memo: "Slab deposit", voidReason: null, paidAt: "2026-08-15", payMethod: "card", payReference: "1095", documentId: null, purchaseOrderId: null, approvedAt: necPaid, lowConfidence: 0, createdAt: necPaid, updatedAt: necPaid, createdBy: "user_sam" },
+    ])
+    .run();
+  db.insert(billLines)
+    .values([
+      { id: "bln_nec_harbor", orgId: ORG, billId: "bill_nec_harbor", costCode: "PLB-SHOWER", description: "Rough plumbing", amountCents: 252000, costItemId: null, sortOrder: 0 },
+      { id: "bln_nec_casa", orgId: ORG, billId: "bill_nec_casa", costCode: "TILE-SHOWER", description: "Tile set", amountCents: 320000, costItemId: null, sortOrder: 0 },
+      { id: "bln_nec_brighton", orgId: ORG, billId: "bill_nec_brighton", costCode: "ELE-KIT", description: "Trim electrical", amountCents: 250000, costItemId: null, sortOrder: 0 },
+      { id: "bln_nec_mill", orgId: ORG, billId: "bill_nec_mill", costCode: "CAB-BOX", description: "Cabinet boxes", amountCents: 400000, costItemId: null, sortOrder: 0 },
+      { id: "bln_nec_slab", orgId: ORG, billId: "bill_nec_slab", costCode: "CON-SLAB", description: "Slab deposit", amountCents: 350000, costItemId: null, sortOrder: 0 },
+    ])
+    .run();
+  db.insert(notifications)
+    .values(
+      ["user_maya", "user_sam"].map((userId) => ({
+        id: `note_nec_${userId}`,
+        orgId: ORG,
+        userId,
+        kind: "nec",
+        commentId: null,
+        entityType: "nec_w9",
+        entityId: "2026",
+        projectId: null,
+        actorId: null,
+        actorName: "Fieldline",
+        snippet: "1099 W-9",
+        readAt: null,
+        createdAt: daysAgo(2),
+      })),
+    )
     .run();
 
   const bidDue = addCalendarDays(punchToday, 2);

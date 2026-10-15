@@ -2,6 +2,15 @@
 
 ## 2026-10-15
 
+### 1099 vendor report
+
+- Reports, 1099 is one calendar year of vendor payments. Cash is the paid date on bills already in Fieldline, net of retainage and of vendor credits applied to that bill. Card and third-party processor payments stay off box 1.
+- The threshold is $600 through 2025 and $2,000 from 2026. It lives in code. A C corp or S corp is exempt. An attorney is not. An office flag can exempt anyone else.
+- W-9 is On file, Missing, or Stale. Needs W-9 lists vendors over the threshold without a current W-9. Copy the portal link or mark requested. No message is sent.
+- The table masks the TIN to the last four. CSV carries the full TIN for an owner or admin only. Office and viewer get a blank TIN. Field does not see the report.
+- From December 1 through January 31, Today and Inbox count vendors over the threshold who still need a W-9.
+- Seed for 2026: Harbor and Casa are over $2,000 with a W-9. Brighton is over and missing a W-9. Summit is between $600 and $2,000. Mill & Co is a corporation. Slab House was paid by card.
+
 ### Bid leveling
 
 - On an open bid, a no-bid or blank line can take an internal plug in cents, with a short note. The plug is for leveling only. It is not the vendor’s price, it is not on the vendor portal, and it cannot be awarded.

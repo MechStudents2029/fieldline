@@ -16,6 +16,7 @@ import { WEBSITE_FORM_SOURCE } from "@/lib/lead-form/rules";
 import { unseenWebLeadCount } from "@/lib/services/lead-form";
 import { warrantyQueue } from "@/lib/services/punch";
 import { vendorBillQueue, vendorCertificateQueue } from "@/lib/services/vendor-portal";
+import { necAttention } from "@/lib/services/nec1099";
 import { bidQueues } from "@/lib/services/bids";
 import { readyToBill } from "@/lib/services/draws";
 import { readyToPay, retainageHeldOnClosed } from "@/lib/services/pay-ready";
@@ -294,6 +295,8 @@ export default async function TodayPage() {
   push("warranty", warranty.count, warranty.href, "Warranty requests", String(warranty.count));
   push("vendor-bills", vendorBills.count, vendorBills.href, "Vendor bills", String(vendorBills.count));
   push("certs", vendorCerts.count, vendorCerts.href, "Vendor certificates", String(vendorCerts.count));
+  const nec = canSeeMoney(session.role) ? necAttention(session.orgId) : { count: 0, href: null as string | null };
+  push("nec-w9", nec.count, nec.href, "W-9", String(nec.count));
   push("bids-due", bids.due.count, bids.due.href, "Bids due", String(bids.due.count));
   push("bids-award", bids.award.count, bids.award.href, "Bids to award", String(bids.award.count));
   push("bill", ready.count, ready.href, "Ready to bill", `${ready.count} · ${formatWhole(ready.cents)}`, true);

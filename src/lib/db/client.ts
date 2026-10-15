@@ -101,6 +101,7 @@ export function ensureReady(holder: Holder) {
   ensurePunch(holder);
   ensureVendorPortal(holder);
   ensureBids(holder);
+  ensureVendorTax(holder);
   ensureDraws(holder);
   ensureRfis(holder);
   ensureComments(holder);
@@ -1701,6 +1702,34 @@ function ensureBids(holder: Holder) {
   holder.sqlite.exec("create index if not exists bid_awards_bid on bid_awards (org_id, bid_id)");
   holder.sqlite.exec("create unique index if not exists bid_plugs_line on bid_plugs (org_id, invite_id, bid_line_id)");
   holder.sqlite.exec("create index if not exists bid_plugs_bid on bid_plugs (org_id, bid_id)");
+}
+
+function ensureVendorTax(holder: Holder) {
+  const pk = holder.dialect === "postgres" ? "text primary key" : "text primary key not null";
+  if (!tableExists(holder.sqlite, "vendor_tax", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists vendor_tax (
+      id ${pk},
+      org_id text not null,
+      contact_id text not null,
+      legal_name text not null default '',
+      tin text not null default '',
+      tax_class text not null default '',
+      exempt integer not null default 0,
+      updated_at text not null
+    )`);
+  }
+  if (!tableExists(holder.sqlite, "nec_w9_requests", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists nec_w9_requests (
+      id ${pk},
+      org_id text not null,
+      contact_id text not null,
+      year integer not null,
+      requested_at text not null,
+      requested_by text
+    )`);
+  }
+  holder.sqlite.exec("create unique index if not exists vendor_tax_contact on vendor_tax (org_id, contact_id)");
+  holder.sqlite.exec("create unique index if not exists nec_w9_requests_year on nec_w9_requests (org_id, contact_id, year)");
 }
 
 function ensureTesterFeedback(holder: Holder) {
