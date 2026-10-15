@@ -49,6 +49,8 @@ import {
   costItems,
   costReceiptSplits,
   costReceipts,
+  credentialTypes,
+  crewCredentials,
   documents,
   estimateGroups,
   estimateMeasurements,
@@ -217,7 +219,7 @@ import {
   WEBSITE_FORM_SOURCE,
 } from "@/lib/lead-form/rules";
 
-export const SEED_VERSION = "68";
+export const SEED_VERSION = "69";
 
 const ORG = "org_rivera";
 const NORTH = "org_northline";
@@ -5479,6 +5481,74 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
         createdAt: daysAgo(40),
       })),
     )
+    .run();
+
+  const certAt = daysAgo(2);
+  db.insert(credentialTypes)
+    .values([
+      { id: "ctype_osha10", orgId: ORG, name: "OSHA 10", required: 1, archived: 0, sortOrder: 0, createdAt: certAt, updatedAt: certAt },
+      { id: "ctype_osha30", orgId: ORG, name: "OSHA 30", required: 0, archived: 0, sortOrder: 1, createdAt: certAt, updatedAt: certAt },
+      { id: "ctype_fall", orgId: ORG, name: "Fall protection", required: 1, archived: 0, sortOrder: 2, createdAt: certAt, updatedAt: certAt },
+      { id: "ctype_fork", orgId: ORG, name: "Forklift", required: 0, archived: 0, sortOrder: 3, createdAt: certAt, updatedAt: certAt },
+      { id: "ctype_cpr", orgId: ORG, name: "CPR/First Aid", required: 0, archived: 0, sortOrder: 4, createdAt: certAt, updatedAt: certAt },
+      { id: "ctype_driver", orgId: ORG, name: "Driver license", required: 0, archived: 0, sortOrder: 5, createdAt: certAt, updatedAt: certAt },
+      { id: "ctype_trade", orgId: ORG, name: "Trade license", required: 0, archived: 0, sortOrder: 6, createdAt: certAt, updatedAt: certAt },
+    ])
+    .run();
+  db.insert(crewCredentials)
+    .values([
+      {
+        id: "cred_dana_osha",
+        orgId: ORG,
+        userId: "user_dana",
+        typeId: "ctype_osha10",
+        number: "OSHA-10-4419",
+        issuedOn: "2025-09-01",
+        expiresOn: addCalendarDays(today, -32),
+        doesNotExpire: 0,
+        status: "active",
+        documentId: null,
+        requestedAt: certAt,
+        requestedBy: "user_maya",
+        createdAt: daysAgo(40),
+        updatedAt: certAt,
+        createdBy: "user_maya",
+      },
+      {
+        id: "cred_maya_osha",
+        orgId: ORG,
+        userId: "user_maya",
+        typeId: "ctype_osha30",
+        number: "OSHA-30-2201",
+        issuedOn: "2024-11-01",
+        expiresOn: addCalendarDays(today, 20),
+        doesNotExpire: 0,
+        status: "active",
+        documentId: null,
+        requestedAt: null,
+        requestedBy: null,
+        createdAt: daysAgo(20),
+        updatedAt: daysAgo(20),
+        createdBy: "user_maya",
+      },
+      {
+        id: "cred_luis_fork",
+        orgId: ORG,
+        userId: "user_luis",
+        typeId: "ctype_fork",
+        number: "FL-1884",
+        issuedOn: "2026-02-01",
+        expiresOn: addCalendarDays(today, 400),
+        doesNotExpire: 0,
+        status: "active",
+        documentId: null,
+        requestedAt: null,
+        requestedBy: null,
+        createdAt: daysAgo(30),
+        updatedAt: daysAgo(30),
+        createdBy: "user_sam",
+      },
+    ])
     .run();
 
   db.insert(auditLogs)

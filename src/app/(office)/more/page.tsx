@@ -16,6 +16,7 @@ const links = [
   ["/material-requests", "Materials"],
   ["/equipment", "Equipment"],
   ["/safety", "Safety"],
+  ["/certifications", "Certifications"],
   ["/rfis", "RFIs"],
   ["/submittals", "Submittals"],
   ["/todos", "To-dos"],

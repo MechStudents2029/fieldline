@@ -1791,6 +1791,45 @@ export const materialRequestLines = sqliteTable(
   (t) => [index("material_request_lines_request").on(t.orgId, t.requestId)],
 );
 
+/** Company list of crew cards. Archived types stay on old rows and drop off the add form. */
+export const credentialTypes = sqliteTable(
+  "credential_types",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    name: text("name").notNull(),
+    required: integer("required").notNull().default(0),
+    archived: integer("archived").notNull().default(0),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (t) => [index("credential_types_org").on(t.orgId, t.archived)],
+);
+
+/** One card on a team member. Expired is derived from the date. Revoked is stored. */
+export const crewCredentials = sqliteTable(
+  "crew_credentials",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    userId: text("user_id").notNull(),
+    typeId: text("type_id").notNull(),
+    number: text("number"),
+    issuedOn: text("issued_on").notNull(),
+    expiresOn: text("expires_on"),
+    doesNotExpire: integer("does_not_expire").notNull().default(0),
+    status: text("status").notNull(),
+    documentId: text("document_id"),
+    requestedAt: text("requested_at"),
+    requestedBy: text("requested_by"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    createdBy: text("created_by"),
+  },
+  (t) => [index("crew_credentials_org").on(t.orgId, t.userId)],
+);
+
 /** Job questions. Cost cents stay on the row; the app strips them for field, vendors, and clients. */
 export const rfis = sqliteTable(
   "rfis",

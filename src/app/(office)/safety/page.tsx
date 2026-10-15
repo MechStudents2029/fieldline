@@ -4,6 +4,7 @@ import { Toolbar } from "@/components/mac/toolbar";
 import { requireSession } from "@/lib/auth/session";
 import { formatCalendarDay } from "@/lib/format";
 import { canAddFieldNotes } from "@/lib/permissions";
+import { credentialCounts } from "@/lib/services/certifications";
 import { listSafety, safetyJobs } from "@/lib/services/safety";
 
 function one(value: string | string[] | undefined) {
@@ -17,6 +18,7 @@ export default async function SafetyPage({ searchParams }: { searchParams: Promi
   const status = one(query.status);
   const job = one(query.job);
   const rows = listSafety(session, { type, status, job });
+  const certs = credentialCounts(session);
   const jobs = safetyJobs(session.orgId);
   const params = new URLSearchParams();
   if (type) params.set("type", type);
@@ -46,6 +48,17 @@ export default async function SafetyPage({ searchParams }: { searchParams: Promi
         }
       />
       <SafetyFilters path="/safety" type={type} status={status} job={job} jobs={jobs} />
+      <Link href="/certifications?window=due" className="fl-cell mx-4 mb-2" data-certs>
+        <span className="flex-1">Certs</span>
+        <span className="num">{certs.expired}</span>
+        <span className="fl-pill">Expired</span>
+        <span className="num">{certs.d7}</span>
+        <span className="fl-pill">7</span>
+        <span className="num">{certs.d30}</span>
+        <span className="fl-pill">30</span>
+        <span className="num">{certs.d90}</span>
+        <span className="fl-pill">90</span>
+      </Link>
       <div className="min-h-0 flex-1 overflow-auto px-4">
         {rows.length === 0 ? <p className="mac-t13 text-[var(--mac-secondary)]">No records</p> : null}
         <table className="mac-table hidden w-full md:table" aria-label="Safety">

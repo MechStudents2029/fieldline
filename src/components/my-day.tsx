@@ -32,6 +32,7 @@ import { MaterialRequestForm } from "@/components/material-request-form";
 import { receiptAttention, receiptCodes, receiptJobs } from "@/lib/services/cost-receipts";
 import { mileageAttention, mileageJobs } from "@/lib/services/mileage";
 import { materialAttention, materialCodes, materialJobs, materialStock } from "@/lib/services/material-requests";
+import { credentialAttention } from "@/lib/services/certifications";
 
 function clock(iso: string) {
   const mins = Math.max(0, Math.floor((Date.now() - Date.parse(iso)) / 60000));
@@ -63,6 +64,7 @@ export function MyDay({ actor }: { actor: Actor }) {
   const receipts = receiptAttention(actor);
   const miles = mileageAttention(actor);
   const materials = materialAttention(actor);
+  const certs = credentialAttention(actor);
   const open = day.open;
   return (
     <div className="mx-auto flex max-w-lg flex-col gap-7 md:max-w-none md:px-6">
@@ -199,6 +201,12 @@ export function MyDay({ actor }: { actor: Actor }) {
         </Link>
       ) : null}
       <MaterialRequestForm jobs={materialJobs(actor.orgId)} stock={materialStock(actor.orgId)} codes={materialCodes(actor.orgId)} />
+      {certs.count > 0 && certs.href ? (
+        <Link href={certs.href} className="fl-cell fl-group">
+          <span className="fl-body flex-1">Certs</span>
+          <span className="num">{certs.count}</span>
+        </Link>
+      ) : null}
       {reviews.length > 0 ? (
         <section aria-label="Ask for review" data-testid="ask-review" className="flex flex-col gap-2">
           <h2 className="fl-section">Ask for review</h2>

@@ -170,6 +170,7 @@ import {
   type MaterialInput,
   type MaterialLineInput,
 } from "@/lib/services/material-requests";
+import { certAssignWarning, createCredential, editCredential, markCredentialRequested, revokeCredential, saveCredentialTypes, type CertInput } from "@/lib/services/certifications";
 import { billReceived, parseReceiveLines, receiveDelivery, voidReceipt } from "@/lib/services/receiving";
 import { adjustStock, issueStock, reorderStock, returnStock, transferJobStock, transferStock, voidMovement } from "@/lib/services/inventory";
 import { parseQtyMilli } from "@/lib/receiving/match";
@@ -1191,6 +1192,97 @@ export async function orderMaterialRequestAction(requestId: string, _prev: Actio
     revalidatePath("/purchase-orders");
     revalidatePath("/");
     return { ok: "Ordered." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+function credentialFields(formData: FormData): CertInput {
+  return {
+    userId: String(formData.get("userId") || ""),
+    typeId: String(formData.get("typeId") || ""),
+    number: String(formData.get("number") || ""),
+    issuedOn: String(formData.get("issuedOn") || ""),
+    expiresOn: String(formData.get("expiresOn") || ""),
+    doesNotExpire: formData.get("open") === "1",
+  };
+}
+
+export async function createCredentialAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const fields = credentialFields(formData);
+  let credentialId = "";
+  try {
+    const user = await actor();
+    fields.upload = await namedUpload(formData, "file");
+    credentialId = createCredential(user, fields).id;
+  } catch (error) {
+    return failure(error);
+  }
+  revalidatePath("/certifications");
+  revalidatePath("/");
+  revalidatePath("/safety");
+  redirect(`/certifications/${credentialId}`);
+}
+
+export async function editCredentialAction(credentialId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const fields = credentialFields(formData);
+    fields.upload = await namedUpload(formData, "file");
+    editCredential(user, credentialId, fields);
+    revalidatePath("/certifications");
+    revalidatePath(`/certifications/${credentialId}`);
+    revalidatePath("/");
+    return { ok: "Saved." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function revokeCredentialAction(credentialId: string, _prev: ActionState, _formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    revokeCredential(user, credentialId);
+    revalidatePath("/certifications");
+    revalidatePath(`/certifications/${credentialId}`);
+    revalidatePath("/");
+    return { ok: "Revoked." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function markCredentialRequestedAction(credentialId: string, _prev: ActionState, _formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    markCredentialRequested(user, credentialId);
+    revalidatePath("/certifications");
+    revalidatePath(`/certifications/${credentialId}`);
+    return { ok: "Requested." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function saveCredentialTypesAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const ids = formData.getAll("typeId").map(String);
+    const names = formData.getAll("name").map(String);
+    const required = formData.getAll("required").map(String);
+    const archived = formData.getAll("archived").map(String);
+    saveCredentialTypes(
+      user,
+      ids.map((typeId, index) => ({
+        id: typeId,
+        name: names[index] ?? "",
+        required: required[index] === "1",
+        archived: archived[index] === "1",
+      })),
+    );
+    revalidatePath("/settings/certifications");
+    revalidatePath("/certifications");
+    return { ok: "Saved." };
   } catch (error) {
     return failure(error);
   }
@@ -3183,7 +3275,7 @@ export async function saveScheduleAction(_prev: ActionState, formData: FormData)
     }
     saveScheduleItem(user, { ...input, links: scheduleLinks(formData) }, existing || undefined, delay, formData.get("confirmGate") === "1");
     refreshSchedule(input.projectId);
-    const warning = capacityWarning(user, input.assigneeIds, input.startDate, input.endDate);
+    const warning = [capacityWarning(user, input.assigneeIds, input.startDate, input.endDate), certAssignWarning(user, input.assigneeIds)].filter(Boolean).join(" ");
     return { ok: "Saved.", ...(warning ? { warning } : {}) };
   } catch (error) {
     return failure(error);
@@ -3231,7 +3323,9 @@ export async function moveScheduleAction(input: { id: string; startDate: string;
     if (preview.needsReason && !delay) return { needsReason: true, delayDays: preview.days, confirm: preview.count > 1 || preview.resets.length > 0 ? preview.label : undefined };
     moveScheduleItem(user, input.id, input, delay, Boolean(input.confirmGate));
     refreshSchedule("");
-    const warning = input.assigneeId ? capacityWarning(user, [input.assigneeId], input.startDate, input.endDate) : null;
+    const warning = input.assigneeId
+      ? [capacityWarning(user, [input.assigneeId], input.startDate, input.endDate), certAssignWarning(user, [input.assigneeId])].filter(Boolean).join(" ")
+      : null;
     return { ok: "Saved.", ...(warning ? { warning } : {}) };
   } catch (error) {
     return failure(error);

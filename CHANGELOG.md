@@ -2,6 +2,15 @@
 
 ## 2026-10-15
 
+### Crew certifications
+
+- Settings, Credential types holds OSHA 10, OSHA 30, Fall protection, Forklift, CPR/First Aid, Driver license, and Trade license. A type is Active or Archived, and can be marked required. Field cannot edit the list.
+- A card is a type, an optional number, an issued date, and an expiration, unless it does not expire. A photo or PDF of the card uses the same file checks as other uploads. Status is Active, Expired, or Revoked.
+- Office sees every card. A person sees their own, including the number. Field does not see anyone else’s card or number. A viewer sees the last four.
+- Today, Safety, and Certifications count Expired and cards inside 7, 30, and 90 days. Copy the link or mark requested. The row stores the date and who. No message is sent. Assigning someone with an expired required card warns and still saves.
+- CSV numbers are on the file for an owner or admin. Office, field, and viewer get a blank number column.
+- Seed: Dana’s OSHA 10 expired last month and is marked requested. Maya’s OSHA 30 expires in 20 days. Luis’s forklift is current.
+
 ### Material requests
 
 - Field submits a request from My day or the job. Office submits one from Materials. Job, one or more lines, quantity, Normal or Urgent, and an optional note. A line is an inventory SKU or a description with an optional cost code. No location is read and no vendor is contacted.
