@@ -1609,6 +1609,24 @@ export const bidAwards = sqliteTable(
   (t) => [uniqueIndex("bid_awards_line").on(t.orgId, t.bidLineId), index("bid_awards_bid").on(t.orgId, t.bidId)],
 );
 
+/** Office-only allowance for a no-bid or blank line. Never a vendor price. */
+export const bidPlugs = sqliteTable(
+  "bid_plugs",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    bidId: text("bid_id").notNull(),
+    inviteId: text("invite_id").notNull(),
+    bidLineId: text("bid_line_id").notNull(),
+    amountCents: integer("amount_cents"),
+    note: text("note"),
+    leftOpen: integer("left_open").notNull().default(0),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (t) => [uniqueIndex("bid_plugs_line").on(t.orgId, t.inviteId, t.bidLineId), index("bid_plugs_bid").on(t.orgId, t.bidId)],
+);
+
 /** Job questions. Cost cents stay on the row; the app strips them for field, vendors, and clients. */
 export const rfis = sqliteTable(
   "rfis",

@@ -13,6 +13,57 @@ export function varianceCents(amountCents: number, budgetCents: number | null): 
   return amountCents - budgetCents;
 }
 
+export type LevelQuote = {
+  /** Extended cents from a real submitted price. Null when the vendor no-bid or left the line blank. */
+  submittedCents: number | null;
+  /** Internal plug for a missing line. Ignored when the line has a submitted price. */
+  plugCents: number | null;
+  /** Office left this missing line out of the leveled total on purpose. */
+  leftOpen: boolean;
+};
+
+function plugCentsOf(quote: LevelQuote): number | null {
+  if (quote.submittedCents != null) return null;
+  if (quote.plugCents == null || quote.plugCents <= 0) return null;
+  return quote.plugCents;
+}
+
+/** Submitted prices only. Null when the vendor priced nothing. */
+export function rawTotalCents(quotes: { submittedCents: number | null }[]): number | null {
+  let total = 0;
+  let priced = false;
+  for (const quote of quotes) {
+    if (quote.submittedCents == null) continue;
+    total += quote.submittedCents;
+    priced = true;
+  }
+  if (!priced) return null;
+  if (!Number.isSafeInteger(total)) throw new Error("Line cost is too large.");
+  return total;
+}
+
+/** Raw total plus plugs on that vendor's missing lines. Null when nothing was submitted or plugged. */
+export function leveledTotalCents(quotes: LevelQuote[]): number | null {
+  const raw = rawTotalCents(quotes);
+  let plugs = 0;
+  let plugged = false;
+  for (const quote of quotes) {
+    const plug = plugCentsOf(quote);
+    if (plug == null) continue;
+    plugs += plug;
+    plugged = true;
+  }
+  if (raw == null && !plugged) return null;
+  const total = (raw ?? 0) + plugs;
+  if (!Number.isSafeInteger(total)) throw new Error("Line cost is too large.");
+  return total;
+}
+
+/** A missing line that is neither plugged nor left open. */
+export function scopeIncomplete(quotes: LevelQuote[]): boolean {
+  return quotes.some((quote) => quote.submittedCents == null && plugCentsOf(quote) == null && !quote.leftOpen);
+}
+
 export type LowQuote = {
   vendorId: string;
   unitPriceCents: number | null;

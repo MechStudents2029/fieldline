@@ -171,6 +171,7 @@ import {
   vendorPortals,
   bidInvites,
   bidLines,
+  bidPlugs,
   bidPrices,
   bidRequests,
   draws,
@@ -209,7 +210,7 @@ import {
   WEBSITE_FORM_SOURCE,
 } from "@/lib/lead-form/rules";
 
-export const SEED_VERSION = "63";
+export const SEED_VERSION = "64";
 
 const ORG = "org_rivera";
 const NORTH = "org_northline";
@@ -4132,10 +4133,24 @@ export function seedDatabase(db: AppDatabase, sqlite: Database.Database, dialect
   db.insert(bidPrices)
     .values([
       { id: "bpr_h_plb", orgId: ORG, inviteId: "binv_harbor", bidLineId: "bln_ok_plb", unitPriceCents: 480000, noBid: 0 },
-      { id: "bpr_h_glass", orgId: ORG, inviteId: "binv_harbor", bidLineId: "bln_ok_glass", unitPriceCents: 340000, noBid: 0 },
+      { id: "bpr_h_glass", orgId: ORG, inviteId: "binv_harbor", bidLineId: "bln_ok_glass", unitPriceCents: null, noBid: 1 },
       { id: "bpr_c_plb", orgId: ORG, inviteId: "binv_casa", bidLineId: "bln_ok_plb", unitPriceCents: 610000, noBid: 0 },
       { id: "bpr_c_glass", orgId: ORG, inviteId: "binv_casa", bidLineId: "bln_ok_glass", unitPriceCents: 290000, noBid: 0 },
     ])
+    .run();
+  db.insert(bidPlugs)
+    .values({
+      id: "bplug_h_glass",
+      orgId: ORG,
+      bidId: "bid_ok_valve",
+      inviteId: "binv_harbor",
+      bidLineId: "bln_ok_glass",
+      amountCents: 360000,
+      note: "Glass allowance",
+      leftOpen: 0,
+      createdAt: daysAgo(1),
+      updatedAt: daysAgo(1),
+    })
     .run();
 
   const rfiYesterday = addCalendarDays(punchToday, -1);

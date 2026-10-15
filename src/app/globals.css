@@ -1637,6 +1637,8 @@ html.mac-inspector-off .mac-inspector { display: none; }
   .vendor-strip { grid-template-columns: repeat(5, minmax(0, 1fr)); }
 }
 .bid-low { font-weight: 600; box-shadow: inset 0 0 0 1px var(--separator); }
+input.bid-plug { width: 6.5rem; }
+input.bid-plug-note { width: 8rem; }
 @media print {
   .no-print { display: none; }
 }

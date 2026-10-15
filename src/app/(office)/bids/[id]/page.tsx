@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { awardBidAction, referencePlanAction, saveBidLinesAction } from "@/app/actions";
+import { awardBidAction, referencePlanAction, saveBidLinesAction, saveBidPlugAction } from "@/app/actions";
 import { ActionForm } from "@/components/action-form";
 import { MissingRecord } from "@/components/missing-record";
 import { LinkedRfis } from "@/components/linked-rfis";
@@ -15,6 +15,12 @@ function signed(cents: number) {
   if (cents === 0) return formatWhole(0);
   const text = formatWhole(Math.abs(cents));
   return cents > 0 ? `+${text}` : `−${text}`;
+}
+
+function dollars(cents: number | null) {
+  if (cents == null) return "";
+  const text = (cents / 100).toFixed(2);
+  return text.endsWith(".00") ? text.slice(0, -3) : text;
 }
 
 export default async function BidPage({ params }: { params: Promise<{ id: string }> }) {
@@ -79,7 +85,6 @@ export default async function BidPage({ params }: { params: Promise<{ id: string
             ))}
           </ul>
         ) : null}
-        <ActionForm action={awardBidAction.bind(null, bid.id)} className="flex flex-col gap-4">
         <div className="overflow-x-auto">
           <table className="mac-table w-full text-left" aria-label="Comparison" data-status={bid.statusLabel}>
             <thead>
@@ -93,7 +98,27 @@ export default async function BidPage({ params }: { params: Promise<{ id: string
                     <span className="fl-pill" data-compliance={vendor.compliance.state}>
                       {vendor.compliance.label}
                     </span>
-                    {bid.showMoney && vendor.totalCents != null ? <span className="num mt-1 block">{formatMoney(vendor.totalCents)}</span> : null}
+                    {vendor.incomplete ? (
+                      <span className="fl-pill ml-1" data-incomplete="1">
+                        Incomplete
+                      </span>
+                    ) : null}
+                    {bid.showMoney ? (
+                      <>
+                        <span className="mt-1 block">
+                          <span className="mac-t11 text-[var(--mac-secondary)]">Raw</span>
+                          <span className="num block" data-raw={vendor.totalCents ?? ""}>
+                            {vendor.totalCents == null ? "—" : formatMoney(vendor.totalCents)}
+                          </span>
+                        </span>
+                        <span className="block">
+                          <span className="mac-t11 text-[var(--mac-secondary)]">Level</span>
+                          <span className="num block" data-leveled={vendor.leveledCents ?? ""}>
+                            {vendor.leveledCents == null ? "—" : formatMoney(vendor.leveledCents)}
+                          </span>
+                        </span>
+                      </>
+                    ) : null}
                   </th>
                 ))}
               </tr>
@@ -112,12 +137,37 @@ export default async function BidPage({ params }: { params: Promise<{ id: string
                   {bid.vendors.map((vendor) => {
                     const price = vendor.prices.find((row) => row.lineId === line.id);
                     return (
-                      <td key={vendor.contactId} className={price?.low ? "bid-low num text-right" : "num text-right"} data-vendor={vendor.name} data-low={price?.low ? "1" : undefined} data-price={price?.amountCents ?? ""}>
+                      <td key={vendor.contactId} className={price?.low ? "bid-low num align-top text-right" : "num align-top text-right"} data-vendor={vendor.name} data-line={line.costCode} data-low={price?.low ? "1" : undefined} data-price={price?.amountCents ?? ""}>
                         {price?.noBid ? "No bid" : price?.amountCents == null ? "—" : formatMoney(price.amountCents)}
                         {price?.varianceCents != null ? <span className="block mac-t11 text-[var(--mac-secondary)]">{signed(price.varianceCents)}</span> : null}
+                        {price?.plugCents != null ? (
+                          <span className="num block text-[var(--mac-accent)]" data-plug={price.plugCents}>
+                            {formatMoney(price.plugCents)}
+                          </span>
+                        ) : null}
+                        {price?.plugNote ? <span className="block mac-t11 text-[var(--mac-secondary)]">{price.plugNote}</span> : null}
+                        {price?.leftOpen ? (
+                          <span className="block mac-t11 text-[var(--mac-secondary)]" data-open="1">
+                            Open
+                          </span>
+                        ) : null}
+                        {bid.canEdit && price?.missing ? (
+                          <ActionForm action={saveBidPlugAction.bind(null, bid.id)} className="mt-1 flex flex-wrap items-center justify-end gap-1 font-normal">
+                            <input type="hidden" name="inviteId" value={vendor.inviteId} />
+                            <input type="hidden" name="lineId" value={line.id} />
+                            <input name="amount" inputMode="decimal" defaultValue={dollars(price.plugCents)} aria-label={`Plug ${line.costCode} ${vendor.name}`} className="ctl bid-plug" />
+                            <input name="note" defaultValue={price.plugNote} aria-label={`Plug note ${line.costCode} ${vendor.name}`} className="ctl bid-plug-note" />
+                            <label className="text-sm">
+                              <input type="checkbox" name="open" defaultChecked={price.leftOpen} aria-label={`Leave open ${line.costCode} ${vendor.name}`} /> Open
+                            </label>
+                            <button type="submit" className="ctl">
+                              Plug
+                            </button>
+                          </ActionForm>
+                        ) : null}
                         {bid.canEdit && vendor.status === "submitted" && !vendor.blocked && price && !price.noBid && price.amountCents != null ? (
                           <label className="mt-1 block text-left font-normal">
-                            <input type="radio" name={`award_${line.id}`} value={vendor.contactId} aria-label={`Award ${line.costCode} ${vendor.name}`} />
+                            <input type="radio" name={`award_${line.id}`} value={vendor.contactId} form="bid-award" aria-label={`Award ${line.costCode} ${vendor.name}`} />
                           </label>
                         ) : null}
                       </td>
@@ -126,22 +176,34 @@ export default async function BidPage({ params }: { params: Promise<{ id: string
                 </tr>
               ))}
               {bid.showMoney ? (
-                <tr>
-                  <th scope="row">Total</th>
-                  <td />
-                  <td />
-                  {bid.vendors.map((vendor) => (
-                    <td key={vendor.contactId} className="num text-right font-semibold">
-                      {vendor.totalCents == null ? "—" : formatMoney(vendor.totalCents)}
-                    </td>
-                  ))}
-                </tr>
+                <>
+                  <tr>
+                    <th scope="row">Raw</th>
+                    <td />
+                    <td />
+                    {bid.vendors.map((vendor) => (
+                      <td key={vendor.contactId} className="num text-right font-semibold">
+                        {vendor.totalCents == null ? "—" : formatMoney(vendor.totalCents)}
+                      </td>
+                    ))}
+                  </tr>
+                  <tr>
+                    <th scope="row">Level</th>
+                    <td />
+                    <td />
+                    {bid.vendors.map((vendor) => (
+                      <td key={vendor.contactId} className="num text-right font-semibold">
+                        {vendor.leveledCents == null ? "—" : formatMoney(vendor.leveledCents)}
+                      </td>
+                    ))}
+                  </tr>
+                </>
               ) : null}
             </tbody>
           </table>
         </div>
         {bid.canEdit ? (
-          <div className="flex flex-wrap items-center gap-4">
+          <ActionForm id="bid-award" action={awardBidAction.bind(null, bid.id)} className="flex flex-wrap items-center gap-4">
             {bid.lines.map((line) => (
               <input key={line.id} type="hidden" name="lineId" value={line.id} />
             ))}
@@ -154,9 +216,8 @@ export default async function BidPage({ params }: { params: Promise<{ id: string
             <button type="submit" className="mac-primary">
               Award
             </button>
-          </div>
+          </ActionForm>
         ) : null}
-        </ActionForm>
         {bid.canEdit ? (
           <ActionForm action={saveBidLinesAction.bind(null, bid.id)} className="flex flex-col gap-2">
             {bid.lines.map((line) => (

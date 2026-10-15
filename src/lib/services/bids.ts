@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { and, eq } from "drizzle-orm";
-import { dueWithinThreeDays, extendCents, lowVendorIds, requestStatusLabel, varianceCents, vendorCanRevise } from "@/lib/bids/math";
+import { dueWithinThreeDays, extendCents, leveledTotalCents, lowVendorIds, rawTotalCents, requestStatusLabel, scopeIncomplete, varianceCents, vendorCanRevise } from "@/lib/bids/math";
 import { dataDir, getDb, type AppDatabase } from "@/lib/db/client";
 import { officeDb } from "@/lib/db/office";
 import {
@@ -11,6 +11,7 @@ import {
   bidFiles,
   bidInvites,
   bidLines,
+  bidPlugs,
   bidPrices,
   bidRequests,
   budgetLines,
@@ -80,6 +81,8 @@ export type BidVendorColumn = {
   compliance: CertStatus;
   blocked: boolean;
   totalCents: number | null;
+  leveledCents: number | null;
+  incomplete: boolean;
   prices: {
     lineId: string;
     unitPriceCents: number | null;
@@ -87,6 +90,10 @@ export type BidVendorColumn = {
     noBid: boolean;
     low: boolean;
     varianceCents: number | null;
+    missing: boolean;
+    plugCents: number | null;
+    plugNote: string;
+    leftOpen: boolean;
   }[];
 };
 
@@ -558,6 +565,7 @@ export function saveBidLines(actor: Actor, bidId: string, lines: BidLineInput[])
     for (const inviteId of inviteIds) {
       tx.delete(bidPrices).where(and(eq(bidPrices.orgId, actor.orgId), eq(bidPrices.inviteId, inviteId))).run();
     }
+    tx.delete(bidPlugs).where(and(eq(bidPlugs.orgId, actor.orgId), eq(bidPlugs.bidId, bid.id))).run();
     tx.delete(bidLines).where(and(eq(bidLines.orgId, actor.orgId), eq(bidLines.bidId, bid.id))).run();
     insertLines(tx, actor.orgId, bid.id, cleaned);
     if (reset) {
@@ -613,7 +621,11 @@ export function bidComparison(actor: Actor, bidId: string): BidComparison | null
       .all()
       .map((row) => [row.id, row]),
   );
+  const leveling = showMoney && bid.status === "out";
   const prices = showMoney ? pricesFor(db, actor.orgId, invites.map((row) => row.id)) : [];
+  const plugs = leveling
+    ? db.select().from(bidPlugs).where(and(eq(bidPlugs.orgId, actor.orgId), eq(bidPlugs.bidId, bid.id))).all()
+    : [];
   const budget = showMoney
     ? new Map(
         db
@@ -691,6 +703,9 @@ export function bidComparison(actor: Actor, bidId: string): BidComparison | null
                 };
               }),
             );
+            const missing = quote.noBid || amount == null;
+            const plug = missing ? plugs.find((row) => row.inviteId === column.invite.id && row.bidLineId === quote.line.id) : undefined;
+            const plugCents = plug?.amountCents != null && plug.amountCents > 0 ? plug.amountCents : null;
             return {
               lineId: quote.line.id,
               unitPriceCents: quote.unitPriceCents,
@@ -698,11 +713,19 @@ export function bidComparison(actor: Actor, bidId: string): BidComparison | null
               noBid: quote.noBid,
               low: lows.includes(column.invite.contactId),
               varianceCents: amount == null ? null : varianceCents(amount, quote.line.budgetLineId ? (budget.get(quote.line.budgetLineId) ?? null) : null),
+              missing,
+              plugCents,
+              plugNote: plugCents != null ? (plug?.note ?? "") : "",
+              leftOpen: Boolean(plug?.leftOpen) && plugCents == null,
             };
           })
         : [];
-      const total = pricesOut.reduce((sum, row) => sum + (row.noBid || row.amountCents == null ? 0 : row.amountCents), 0);
-      const priced = pricesOut.some((row) => row.amountCents != null);
+      const levelQuotes = pricesOut.map((row) => ({
+        submittedCents: row.amountCents,
+        plugCents: row.plugCents,
+        leftOpen: row.leftOpen,
+      }));
+      const total = rawTotalCents(levelQuotes);
       return {
         inviteId: column.invite.id,
         contactId: column.invite.contactId,
@@ -711,7 +734,9 @@ export function bidComparison(actor: Actor, bidId: string): BidComparison | null
         statusLabel: inviteLabel(column.invite.status),
         compliance: column.cert.rollup,
         blocked: column.cert.blocked,
-        totalCents: showMoney && priced ? total : null,
+        totalCents: total,
+        leveledCents: leveling ? leveledTotalCents(levelQuotes) : total,
+        incomplete: leveling ? scopeIncomplete(levelQuotes) : false,
         prices: pricesOut,
       };
     }),
@@ -854,6 +879,7 @@ export function awardBid(
       const next = winners.has(invite.id) ? "awarded" : invite.status === "declined" ? "declined" : "lost";
       tx.update(bidInvites).set({ status: next }).where(and(eq(bidInvites.id, invite.id), eq(bidInvites.orgId, actor.orgId))).run();
     }
+    tx.delete(bidPlugs).where(and(eq(bidPlugs.orgId, actor.orgId), eq(bidPlugs.bidId, bid.id))).run();
     tx.update(bidRequests)
       .set({ status: "awarded", awardedAt: now, updatedAt: now })
       .where(and(eq(bidRequests.id, bid.id), eq(bidRequests.orgId, actor.orgId)))
@@ -878,6 +904,72 @@ export function awardBid(
     });
   });
   return { id: bid.id, purchaseOrders: created.map((row) => row.number), warning: warnings[0] ?? null };
+}
+
+function cleanPlugNote(value: string) {
+  const text = value.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, "").trim();
+  if (text.length > 80) throw new ServiceError("Keep the note shorter.");
+  return text;
+}
+
+/** Internal leveling allowance. Does not write the vendor's price. */
+export function saveBidPlug(
+  actor: Actor,
+  input: { bidId: string; inviteId: string; bidLineId: string; amountCents: number | null; note: string; leftOpen: boolean },
+) {
+  assertOffice(actor);
+  const db = dbFor(actor);
+  const bid = loadBid(db, actor.orgId, input.bidId);
+  if (!bid) throw new ServiceError("Bid not found.");
+  if (bid.status !== "out") throw new ServiceError("This bid is not out for prices.");
+  const line = linesFor(db, actor.orgId, bid.id).find((row) => row.id === input.bidLineId);
+  const invite = invitesFor(db, actor.orgId, bid.id).find((row) => row.id === input.inviteId);
+  if (!line || !invite) throw new ServiceError("Bid not found.");
+  const price = pricesFor(db, actor.orgId, [invite.id]).find((row) => row.bidLineId === line.id);
+  const missing = !price || Boolean(price.noBid) || price.unitPriceCents == null;
+  if (!missing) throw new ServiceError("That line has a price.");
+  const note = cleanPlugNote(input.note);
+  const amount = input.amountCents;
+  if (amount != null) {
+    const moneyError = positiveMoneyError(amount);
+    if (moneyError) throw new ServiceError(moneyError);
+  }
+  const now = nowIso();
+  const existing = db
+    .select()
+    .from(bidPlugs)
+    .where(and(eq(bidPlugs.orgId, actor.orgId), eq(bidPlugs.inviteId, invite.id), eq(bidPlugs.bidLineId, line.id)))
+    .get();
+  if (amount == null && !input.leftOpen && !existing) return { id: bid.id };
+  db.transaction((tx) => {
+    if (amount != null) {
+      const values = { amountCents: amount, note: note || null, leftOpen: 0, updatedAt: now };
+      if (existing) {
+        tx.update(bidPlugs).set(values).where(and(eq(bidPlugs.id, existing.id), eq(bidPlugs.orgId, actor.orgId))).run();
+      } else {
+        tx.insert(bidPlugs)
+          .values({ id: id("bplug"), orgId: actor.orgId, bidId: bid.id, inviteId: invite.id, bidLineId: line.id, createdAt: now, ...values })
+          .run();
+      }
+    } else if (input.leftOpen) {
+      const values = { amountCents: null, note: note || null, leftOpen: 1, updatedAt: now };
+      if (existing) {
+        tx.update(bidPlugs).set(values).where(and(eq(bidPlugs.id, existing.id), eq(bidPlugs.orgId, actor.orgId))).run();
+      } else {
+        tx.insert(bidPlugs)
+          .values({ id: id("bplug"), orgId: actor.orgId, bidId: bid.id, inviteId: invite.id, bidLineId: line.id, createdAt: now, ...values })
+          .run();
+      }
+    } else if (existing) {
+      tx.delete(bidPlugs).where(and(eq(bidPlugs.id, existing.id), eq(bidPlugs.orgId, actor.orgId))).run();
+    }
+    writeAudit(tx, actor.orgId, actor.userId, "bid.plug", bid.id, {
+      costCode: line.costCode,
+      amountCents: amount,
+      leftOpen: amount == null && input.leftOpen,
+    });
+  });
+  return { id: bid.id };
 }
 
 export function bidQueues(orgId: string): { due: { count: number; href: string | null }; award: { count: number; href: string | null } } {

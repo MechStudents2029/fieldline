@@ -118,7 +118,7 @@ import {
   setVendorCompliance,
   submitVendorBill,
 } from "@/lib/services/vendor-portal";
-import { awardBid, createBid, declineVendorBid, saveBidLines, submitVendorBid } from "@/lib/services/bids";
+import { awardBid, createBid, declineVendorBid, saveBidLines, saveBidPlug, submitVendorBid } from "@/lib/services/bids";
 import { answerClientRfi, answerRfi, answerVendorRfi, closeRfi, createRfi, draftChangeFromRfi, shiftRfiSchedule, voidRfi } from "@/lib/services/rfis";
 import { clientReviewSubmittal, createSubmittal, reviewSubmittal, submitSubmittal, vendorCreateSubmittal, vendorSubmitSubmittal } from "@/lib/services/submittals";
 import { requestUnconditional, requestUnconditionals, requestWaiver, requestWaivers, saveLienSettings, signVendorWaiver, uploadPaperWaiver, voidWaiver } from "@/lib/services/waivers";
@@ -3722,6 +3722,27 @@ export async function saveBidLinesAction(bidId: string, _prev: ActionState, form
     const result = saveBidLines(user, bidId, lines);
     revalidatePath(`/bids/${bidId}`);
     return { ok: result.warning ? `Saved. ${result.warning}` : "Saved." };
+  } catch (error) {
+    return failure(error);
+  }
+}
+
+export async function saveBidPlugAction(bidId: string, _prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    const user = await actor();
+    const raw = String(formData.get("amount") || "").trim();
+    const amountCents = raw ? parseMoneyToCents(raw) : null;
+    if (raw && amountCents == null) return { error: "Enter an amount greater than zero and under $10,000,000." };
+    saveBidPlug(user, {
+      bidId,
+      inviteId: String(formData.get("inviteId") || ""),
+      bidLineId: String(formData.get("lineId") || ""),
+      amountCents,
+      note: String(formData.get("note") || ""),
+      leftOpen: formData.get("open") != null,
+    });
+    revalidatePath(`/bids/${bidId}`);
+    return { ok: "Saved." };
   } catch (error) {
     return failure(error);
   }
