@@ -80,6 +80,13 @@ export default async function SettingsPage() {
               </Link>
             </li>
           ) : null}
+          {canManageMoney(session.role) ? (
+            <li>
+              <Link href="/settings/certifications" className="block py-2 mac-t13 text-[var(--mac-accent)]">
+                Credential types
+              </Link>
+            </li>
+          ) : null}
           {canManageSettings(session.role) ? (
             <li>
               <Link href="/settings/time" className="block py-2 mac-t13 text-[var(--mac-accent)]">
@@ -382,6 +389,9 @@ export default async function SettingsPage() {
       <section className="flex flex-col gap-4">
         <div>
           <h2 className="font-medium">Team</h2>
+          <Link href="/certifications" className="mac-t13 text-[var(--mac-accent)]">
+            Certifications
+          </Link>
           <p className="mt-1 text-sm text-muted-foreground">
             {canManageSettings(session.role)
               ? "Invite an admin, an office person, or a field lead. Fieldline does not email the link. Copy it into a text."

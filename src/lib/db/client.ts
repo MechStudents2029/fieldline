@@ -105,6 +105,7 @@ export function ensureReady(holder: Holder) {
   ensureCostReceipts(holder);
   ensureMileage(holder);
   ensureMaterialRequests(holder);
+  ensureCredentials(holder);
   ensureDraws(holder);
   ensureRfis(holder);
   ensureComments(holder);
@@ -1863,6 +1864,43 @@ function ensureMaterialRequests(holder: Holder) {
   }
   holder.sqlite.exec("create index if not exists material_requests_org on material_requests (org_id, status)");
   holder.sqlite.exec("create index if not exists material_request_lines_request on material_request_lines (org_id, request_id)");
+}
+
+function ensureCredentials(holder: Holder) {
+  const pk = holder.dialect === "postgres" ? "text primary key" : "text primary key not null";
+  if (!tableExists(holder.sqlite, "credential_types", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists credential_types (
+      id ${pk},
+      org_id text not null,
+      name text not null,
+      required integer not null default 0,
+      archived integer not null default 0,
+      sort_order integer not null default 0,
+      created_at text not null,
+      updated_at text not null
+    )`);
+  }
+  if (!tableExists(holder.sqlite, "crew_credentials", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists crew_credentials (
+      id ${pk},
+      org_id text not null,
+      user_id text not null,
+      type_id text not null,
+      number text,
+      issued_on text not null,
+      expires_on text,
+      does_not_expire integer not null default 0,
+      status text not null,
+      document_id text,
+      requested_at text,
+      requested_by text,
+      created_at text not null,
+      updated_at text not null,
+      created_by text
+    )`);
+  }
+  holder.sqlite.exec("create index if not exists credential_types_org on credential_types (org_id, archived)");
+  holder.sqlite.exec("create index if not exists crew_credentials_org on crew_credentials (org_id, user_id)");
 }
 
 function ensureTesterFeedback(holder: Holder) {

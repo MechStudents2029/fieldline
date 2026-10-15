@@ -20,6 +20,7 @@ import { necAttention } from "@/lib/services/nec1099";
 import { receiptAttention } from "@/lib/services/cost-receipts";
 import { mileageAttention } from "@/lib/services/mileage";
 import { materialAttention } from "@/lib/services/material-requests";
+import { credentialAttention } from "@/lib/services/certifications";
 import { bidQueues } from "@/lib/services/bids";
 import { readyToBill } from "@/lib/services/draws";
 import { readyToPay, retainageHeldOnClosed } from "@/lib/services/pay-ready";
@@ -306,6 +307,8 @@ export default async function TodayPage() {
   push("miles", milesDue.count, milesDue.href, "Miles", String(milesDue.count));
   const materialsDue = materialAttention(session);
   push("materials", materialsDue.count, materialsDue.href, "Materials", String(materialsDue.count));
+  const certsDue = credentialAttention(session);
+  push("crew-certs", certsDue.count, certsDue.href, "Certs", String(certsDue.count));
   push("bids-due", bids.due.count, bids.due.href, "Bids due", String(bids.due.count));
   push("bids-award", bids.award.count, bids.award.href, "Bids to award", String(bids.award.count));
   push("bill", ready.count, ready.href, "Ready to bill", `${ready.count} · ${formatWhole(ready.cents)}`, true);

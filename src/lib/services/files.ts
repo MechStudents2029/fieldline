@@ -958,6 +958,7 @@ export function clientPortalFiles(token: string): { projectName: string; folders
 export function fieldMayReadDocument(db: AppDatabase, orgId: string, documentId: string): boolean {
   const document = db.select().from(documents).where(and(eq(documents.id, documentId), eq(documents.orgId, orgId))).get();
   if (!document || document.deletedAt) return false;
+  if (document.type === "credential") return false;
   if (MONEY_DOC_TYPES.has(document.type)) return false;
   const bill = db.select().from(bills).where(and(eq(bills.orgId, orgId), eq(bills.documentId, documentId))).get();
   if (bill) return false;
@@ -973,6 +974,7 @@ export function fieldMayReadDocument(db: AppDatabase, orgId: string, documentId:
 export function clientMayReadDocument(db: AppDatabase, documentId: string): boolean {
   const document = db.select().from(documents).where(eq(documents.id, documentId)).get();
   if (!document || document.deletedAt) return false;
+  if (document.type === "credential") return false;
   if (document.type === "markup" || document.type === "plan_crop") return clientMayReadVisual(db, documentId);
   if (document.type === "equipment") return false;
   if (MONEY_DOC_TYPES.has(document.type)) return false;

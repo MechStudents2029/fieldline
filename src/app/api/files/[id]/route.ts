@@ -5,6 +5,7 @@ import { dataDir, getDb } from "@/lib/db/client";
 import { officeDb } from "@/lib/db/office";
 import { documents, projects } from "@/lib/db/schema";
 import { demoAssetPath, fileResponseHeaders, fileVisible, resolveInside } from "@/lib/security";
+import { fieldOwnsCredentialFile } from "@/lib/services/certifications";
 import { clientMayReadDocument, fieldMayReadDocument } from "@/lib/services/files";
 import { vendorFileAllowed } from "@/lib/services/vendor-portal";
 
@@ -37,7 +38,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
   if (!vendorMatch && !fileVisible({ sessionOrgId: session?.orgId ?? null, documentOrgId: document.orgId, portalMatch })) {
     return new Response("Not found", { status: 404 });
   }
-  if (session?.role === "field" && !vendorMatch && !fieldMayReadDocument(db, session.orgId, document.id)) {
+  if (session?.role === "field" && !vendorMatch && !fieldMayReadDocument(db, session.orgId, document.id) && !fieldOwnsCredentialFile(session.orgId, session.userId, document.id)) {
     return new Response("Not found", { status: 404 });
   }
   if (portalMatch && !vendorMatch && !clientMayReadDocument(db, document.id)) {

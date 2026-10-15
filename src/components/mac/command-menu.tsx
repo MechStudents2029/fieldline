@@ -72,6 +72,7 @@ export function CommandMenu({ chrome, role }: { chrome: OfficeChrome; role: stri
             <Command.Item onSelect={() => go("/mileage")}>Mileage</Command.Item>
             <Command.Item onSelect={() => go("/material-requests")}>Materials</Command.Item>
             <Command.Item onSelect={() => go("/equipment")}>Equipment</Command.Item>
+            <Command.Item onSelect={() => go("/certifications")}>Certifications</Command.Item>
             {field ? null : <Command.Item onSelect={() => go("/invoices")}>Invoices</Command.Item>}
             {field ? null : <Command.Item onSelect={() => go("/bills")}>Bills</Command.Item>}
             {canEditCrm(role as Role) ? <Command.Item onSelect={() => go("/reports/wip")}>WIP</Command.Item> : null}
