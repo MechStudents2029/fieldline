@@ -43,10 +43,10 @@ test("submits a material request, approves it, and issues it from the yard", asy
   await form.getByLabel("SKU", { exact: true }).selectOption("stk_tile");
   await form.getByLabel("Qty", { exact: true }).fill("1");
   await page.emulateMedia({ colorScheme: "light" });
-  await form.evaluate((el) => el.scrollIntoView({ block: "start" }));
-  await shot(page, "material-requests-capture-light");
+  await form.evaluate((el) => el.scrollIntoView({ block: "center" }));
+  await shot(page, "material-requests-capture-light", form);
   await page.emulateMedia({ colorScheme: "dark" });
-  await shot(page, "material-requests-capture-dark");
+  await shot(page, "material-requests-capture-dark", form);
   await page.emulateMedia({ colorScheme: "light" });
   await form.getByRole("button", { name: "Submit" }).click();
   await page.waitForURL(/\/material-requests\/mrq_/);
