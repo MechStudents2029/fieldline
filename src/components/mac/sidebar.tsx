@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, Boxes, Briefcase, Calendar, CircleDollarSign, ClipboardList, Clock, Columns2, Copy, FileMinus, FileText, HardHat, IdCard, Inbox, ListChecks, ListTodo, MessageSquare, Package, PackagePlus, PenLine, Percent, Receipt, Repeat, Route, Scale, Star, Sun, Ticket, Undo2, Users, Wallet, Wrench } from "lucide-react";
+import { BarChart3, Boxes, Briefcase, Calendar, CalendarOff, CircleDollarSign, ClipboardList, Clock, Columns2, Copy, FileMinus, FileText, HardHat, IdCard, Inbox, ListChecks, ListTodo, MessageSquare, Package, PackagePlus, PenLine, Percent, Presentation, Receipt, Repeat, Route, Scale, ScrollText, Star, Sun, Ticket, Undo2, Users, Wallet, Wrench } from "lucide-react";
 import { SignOutButton } from "@/components/sign-out-button";
 import type { OfficeChrome } from "@/lib/services/read";
 
@@ -106,6 +106,8 @@ export function Sidebar({
           {item("/rfis", "RFIs", <MessageSquare size={16} strokeWidth={1.6} />)}
           {role === "owner" || role === "admin" || role === "estimator" ? item("/submittals", "Submittals", <ClipboardList size={16} strokeWidth={1.6} />) : null}
           {item("/time", "Time", <Clock size={16} strokeWidth={1.6} />)}
+          {item("/time-off", "Time off", <CalendarOff size={16} strokeWidth={1.6} />)}
+          {item("/meetings", "Meetings", <Presentation size={16} strokeWidth={1.6} />)}
           {item("/receipts", "Receipts", <Receipt size={16} strokeWidth={1.6} />)}
           {item("/reimbursements", "Reimbursements", <CircleDollarSign size={16} strokeWidth={1.6} />)}
           {item("/mileage", "Mileage", <Route size={16} strokeWidth={1.6} />)}
@@ -116,6 +118,7 @@ export function Sidebar({
           {field ? null : item("/liens", "Lien deadlines", <Scale size={16} strokeWidth={1.6} />)}
           {item("/forms", "Form submissions", <ClipboardList size={16} strokeWidth={1.6} />)}
           {item("/signatures", "Signatures", <PenLine size={16} strokeWidth={1.6} />)}
+          {item("/specs", "Specifications", <ScrollText size={16} strokeWidth={1.6} />)}
           {field ? null : (
             <>
               <p className="px-2 pb-1 pt-3 mac-t11 font-semibold text-[var(--mac-secondary)]">Money</p>

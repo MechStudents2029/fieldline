@@ -2,6 +2,36 @@
 
 ## 2026-10-15
 
+### Project meetings
+
+- A job meeting is OAC, Sub coordination, Pre-con, or Internal, with a date, time, location, and attendees from the team, vendors, and the client. Each person is Present or Absent.
+- Agenda items stay in order. An item can link an RFI, a change order, a submittal, a selection, or a schedule item on that job. Notes and a decision sit on the item. Action items have an assignee, a due date, and Open or Done.
+- Agenda, then Minutes, then Approved. Approved minutes stay locked. Revise copies them into a new version and keeps the approved copy. The audit stores who acted and when.
+- An action can become a to-do on the job. Marking the action done marks the to-do done, and marking the to-do done marks the action done.
+- Follow-up opens the next meeting in the series, copies the attendees, and carries every open item and open action. The carried row says which meeting it came from.
+- Agenda and minutes print. Copy link and Mark distributed store who and when. No message is sent.
+- Work, Meetings lists upcoming, needs minutes, and open actions, with CSV at `/api/export/meetings`. The job tab is Meetings. Today counts overdue actions under Meeting due. Field and viewer can read. Office edits. A vendor or client portal shows approved minutes for meetings they attended, and only their own actions.
+- Seed: Okonkwo’s weekly OAC has an approved meeting and an upcoming agenda that carries the open item. Brooks sub coordination has an overdue action.
+
+### Crew time off
+
+- My day takes a time off request: a date range, full day or hours, and Vacation, Sick, Personal, or Unpaid, with an optional note. Office approves or declines it. A decline needs a reason. The requester can cancel while it is pending. Pending, Approved, Declined, or Cancelled. The audit stores who acted and when.
+- Approved time off lowers that person’s capacity on Crew workload for those workdays and marks Out on the dispatch board and the schedule. Assigning them on an approved day warns and still saves. A company holiday is not counted twice.
+- Vacation, sick, and personal post as PTO hours on a non-job line in time review and the payroll CSV. They are not job cost. Unpaid shows Out and 0 hours.
+- A yearly allowance in hours is optional, off until office sets it. The row shows used and remaining. There is no accrual.
+- Work, Time off filters by person, status, and dates. CSV is `/api/export/time-off`. Today counts pending requests under Time off due. No message is sent.
+- A person sees their own requests. Office sees all. Field cannot approve.
+- Seed: Dana is approved off on the window delivery day. Luis has a pending request. Sam’s request is declined.
+
+### Job specifications
+
+- Work, Specifications and the job tab pull lines from that job’s budget. A line keeps the cost code, the description, and notes. Office can add a line, edit it, and reorder it. A cut sheet or a plan attaches to the line. Draft or Published. Revise copies the published pack and keeps the older version.
+- Copy link and a QR code open the public page. Mark sent stores the date and who. No message is sent. Print is on the public page. The link shows only the latest published version.
+- The public page uses the same IP and company rate limit as the lead form.
+- When a linked budget line’s name or amount changes, the spec line shows Budget changed. Refresh copies the budget text. Keep leaves the spec text and clears the flag. Nothing is rewritten on its own, and nothing is sent.
+- Today counts jobs with a past-due draft or a Budget changed line under Spec due. CSV is `/api/export/specs`. Field reads published specs for jobs they can open. A viewer can read and cannot edit.
+- Seed: Okonkwo’s shower specs are published, with the A-101 plan on the niche line. Brooks framing specs are published and flagged Budget changed.
+
 ### Document signatures
 
 - Work, Signatures requests a signature on a PDF or image, or on a vendor trade agreement. Pick a client, a vendor, or a teammate. A second signer and a signing order are optional. A due date and a short note are optional. Office can create a request. Owner and admin can void it, with a reason.

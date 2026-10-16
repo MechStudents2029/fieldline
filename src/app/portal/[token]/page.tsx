@@ -26,6 +26,7 @@ import { portalBilling } from "@/lib/services/draws";
 import { portalAgreements } from "@/lib/services/agreements";
 import { portalClientCredits } from "@/lib/services/client-credits";
 import { policyLineForOrg, portalFeeLines } from "@/lib/services/late-fees";
+import { portalMeetingsForClient } from "@/lib/services/meetings";
 import { portalByToken } from "@/lib/services/read";
 import { portalWarranty } from "@/lib/services/punch";
 import { RfiPortal } from "@/components/rfi-portal";
@@ -108,6 +109,7 @@ export default async function PortalPage({ params }: { params: Promise<{ token: 
   const creditMemos = portalClientCredits(token);
   const latePolicy = policyLineForOrg(data.project.orgId);
   const lateFees = portalFeeLines(data.project.orgId, data.invoices.map((invoice) => invoice.id));
+  const portalMeetings = portalMeetingsForClient(token);
   const creditByInvoice = new Map<string, number>();
   for (const payment of data.payments) {
     if (payment.status === "succeeded" && payment.method === "credit_memo") {
@@ -556,6 +558,33 @@ export default async function PortalPage({ params }: { params: Promise<{ token: 
               <div className="home-stack">
                 {selections.map((selection) => (
                   <SelectionCard key={selection.id} token={token} selection={selection} due={dueSelections.has(selection.id)} />
+                ))}
+              </div>
+            </section>
+          ) : null}
+
+          {portalMeetings.length > 0 ? (
+            <section aria-label="Meetings">
+              <h2>Meetings</h2>
+              <div className="home-stack">
+                {portalMeetings.map((meeting) => (
+                  <article key={meeting.id} className="home-card">
+                    <p className="home-strong">
+                      {meeting.title} · {formatCalendarDay(meeting.meetOn)}
+                    </p>
+                    {meeting.items.map((item) => (
+                      <p key={item.id} className="home-sub">
+                        {item.title}
+                        {item.decision ? ` · ${item.decision}` : ""}
+                      </p>
+                    ))}
+                    {meeting.actions.map((action) => (
+                      <p key={action.id}>
+                        {action.title}
+                        {action.dueOn ? ` · ${formatCalendarDay(action.dueOn)}` : ""} · {action.status === "done" ? "Done" : "Open"}
+                      </p>
+                    ))}
+                  </article>
                 ))}
               </div>
             </section>

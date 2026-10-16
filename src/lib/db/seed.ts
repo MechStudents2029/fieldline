@@ -73,6 +73,15 @@ import {
   formTemplates,
   docSignRequests,
   docSigners,
+  jobSpecs,
+  jobSpecLines,
+  jobSpecFiles,
+  timeOffRequests,
+  timeOffDays,
+  meetings,
+  meetingAttendees,
+  meetingItems,
+  meetingActions,
   laborRates,
   leads,
   leadSources,
@@ -231,7 +240,7 @@ import {
   WEBSITE_FORM_SOURCE,
 } from "@/lib/lead-form/rules";
 
-export const SEED_VERSION = "73";
+export const SEED_VERSION = "76";
 
 const ORG = "org_rivera";
 const NORTH = "org_northline";
@@ -7459,6 +7468,323 @@ function seedTemplates(db: AppDatabase, now: string) {
         ip: null,
         userAgent: null,
       },
+    ])
+    .run();
+
+  db.insert(jobSpecs)
+    .values([
+      {
+        id: "spec_ok_shower",
+        orgId: ORG,
+        projectId: "proj_okonkwo",
+        title: "Shower specs",
+        status: "published",
+        version: 1,
+        replacesId: null,
+        shareToken: "demo_spec_ok_a1",
+        dueOn: null,
+        sentAt: daysAgo(1),
+        sentBy: "user_maya",
+        publishedAt: daysAgo(1),
+        createdAt: daysAgo(2),
+        updatedAt: daysAgo(1),
+        createdBy: "user_maya",
+      },
+      {
+        id: "spec_br_frame",
+        orgId: ORG,
+        projectId: "proj_brooks",
+        title: "Framing specs",
+        status: "published",
+        version: 1,
+        replacesId: null,
+        shareToken: "demo_spec_br_b2",
+        dueOn: null,
+        sentAt: daysAgo(1),
+        sentBy: "user_maya",
+        publishedAt: daysAgo(1),
+        createdAt: daysAgo(2),
+        updatedAt: daysAgo(1),
+        createdBy: "user_maya",
+      },
+    ])
+    .run();
+  db.insert(jobSpecLines)
+    .values([
+      {
+        id: "spec_ok_line_niche",
+        orgId: ORG,
+        specId: "spec_ok_shower",
+        budgetLineId: "bud_co_1",
+        groupLabel: "TILE-NICHE",
+        costCode: "TILE-NICHE",
+        description: "Shower niche, tiled",
+        notes: "Wet wall.",
+        sortOrder: 0,
+        sourceName: "Shower niche, tiled",
+        sourceCents: 180000,
+      },
+      {
+        id: "spec_ok_line_tile",
+        orgId: ORG,
+        specId: "spec_ok_shower",
+        budgetLineId: "bud_proj_okonkwo_1",
+        groupLabel: "TILE-SHOWER",
+        costCode: "TILE-SHOWER",
+        description: "Shower tile",
+        notes: "",
+        sortOrder: 1,
+        sourceName: "Shower tile",
+        sourceCents: 1480000,
+      },
+      {
+        id: "spec_br_line_frame",
+        orgId: ORG,
+        specId: "spec_br_frame",
+        budgetLineId: "bud_proj_brooks_1",
+        groupLabel: "FRM-WALL",
+        costCode: "FRM-WALL",
+        description: "Framing",
+        notes: "2x6 exterior.",
+        sortOrder: 0,
+        sourceName: "Framing",
+        sourceCents: 2700000,
+      },
+    ])
+    .run();
+  db.insert(jobSpecFiles)
+    .values({ id: "spec_ok_file_a101", orgId: ORG, lineId: "spec_ok_line_niche", documentId: "doc_ok_a101_r2" })
+    .run();
+
+  const offZone = "America/New_York";
+  const offWeek = localWeek(Date.now(), { timeZone: offZone, weekStartsOn: 1 }).startDay;
+  const approvedOn = addCalendarDays(offWeek, 10);
+  const pendingOn = addCalendarDays(offWeek, 21);
+  const declinedOn = addCalendarDays(offWeek, 28);
+  const offAt = (day: string, hour: number) => {
+    const [year, month, date] = day.split("-").map(Number);
+    return new Date(zonedTimeToUtc(year, month, date, hour, 0, 0, offZone)).toISOString();
+  };
+  const approvedIn = offAt(approvedOn, 8);
+  const approvedOut = offAt(approvedOn, 16);
+  db.insert(timeOffRequests)
+    .values([
+      {
+        id: "toff_dana_out",
+        orgId: ORG,
+        userId: "user_dana",
+        startOn: approvedOn,
+        endOn: approvedOn,
+        dayMinutes: 8 * 60,
+        kind: "vacation",
+        status: "approved",
+        note: "Window delivery",
+        decisionReason: "",
+        decidedAt: daysAgo(1),
+        decidedBy: "user_maya",
+        createdAt: daysAgo(2),
+        updatedAt: daysAgo(1),
+        createdBy: "user_dana",
+      },
+      {
+        id: "toff_luis_pending",
+        orgId: ORG,
+        userId: "user_luis",
+        startOn: pendingOn,
+        endOn: pendingOn,
+        dayMinutes: 8 * 60,
+        kind: "personal",
+        status: "pending",
+        note: "",
+        decisionReason: "",
+        decidedAt: null,
+        decidedBy: null,
+        createdAt: daysAgo(1),
+        updatedAt: daysAgo(1),
+        createdBy: "user_luis",
+      },
+      {
+        id: "toff_sam_declined",
+        orgId: ORG,
+        userId: "user_sam",
+        startOn: declinedOn,
+        endOn: declinedOn,
+        dayMinutes: 8 * 60,
+        kind: "sick",
+        status: "declined",
+        note: "",
+        decisionReason: "Coverage",
+        decidedAt: daysAgo(1),
+        decidedBy: "user_maya",
+        createdAt: daysAgo(3),
+        updatedAt: daysAgo(1),
+        createdBy: "user_sam",
+      },
+    ])
+    .run();
+  db.insert(timeOffDays)
+    .values({ id: "toff_day_dana", orgId: ORG, requestId: "toff_dana_out", day: approvedOn, minutes: 8 * 60, entryId: "time_dana_off" })
+    .run();
+  db.insert(timeEntries)
+    .values({
+      id: "time_dana_off",
+      orgId: ORG,
+      userId: "user_dana",
+      projectId: "",
+      costCode: "PTO",
+      shiftType: "pto",
+      status: "approved",
+      clockInAt: approvedIn,
+      clockOutAt: approvedOut,
+      breakMinutes: 0,
+      breakStartedAt: null,
+      note: "Window delivery",
+      clockInLatE6: null,
+      clockInLngE6: null,
+      clockOutLatE6: null,
+      clockOutLngE6: null,
+      source: "manual",
+      createdAt: approvedIn,
+      updatedAt: approvedOut,
+      createdBy: "user_maya",
+    })
+    .run();
+  db.insert(timeApprovals)
+    .values({
+      id: "tap_dana_off",
+      orgId: ORG,
+      entryId: "time_dana_off",
+      rateCents: 5200,
+      minutes: 8 * 60,
+      amountCents: 0,
+      costItemId: null,
+      regularMinutes: 0,
+      otMinutes: 0,
+      dtMinutes: 0,
+      nonjobMinutes: 8 * 60,
+      baseCents: 0,
+      premiumCents: 0,
+      burdenCents: 0,
+      premiumCostItemId: null,
+      burdenCostItemId: null,
+      status: "active",
+      reason: null,
+      createdAt: approvedIn,
+      createdBy: "user_maya",
+    })
+    .run();
+  db.insert(auditLogs)
+    .values([
+      { id: "aud_toff_dana_req", orgId: ORG, actorId: "user_dana", action: "timeoff.request", entityType: "time_off", entityId: "toff_dana_out", payloadJson: "{}", ip: null, createdAt: daysAgo(2) },
+      { id: "aud_toff_dana", orgId: ORG, actorId: "user_maya", action: "timeoff.approve", entityType: "time_off", entityId: "toff_dana_out", payloadJson: "{}", ip: null, createdAt: daysAgo(1) },
+      { id: "aud_toff_luis", orgId: ORG, actorId: "user_luis", action: "timeoff.request", entityType: "time_off", entityId: "toff_luis_pending", payloadJson: "{}", ip: null, createdAt: daysAgo(1) },
+      { id: "aud_toff_sam", orgId: ORG, actorId: "user_maya", action: "timeoff.decline", entityType: "time_off", entityId: "toff_sam_declined", payloadJson: "{}", ip: null, createdAt: daysAgo(1) },
+    ])
+    .run();
+
+  const meetPast = addCalendarDays(today, -7);
+  const meetNext = addCalendarDays(today, 7);
+  const meetDue = addCalendarDays(today, 14);
+  const meetOver = addCalendarDays(today, -1);
+  const meetStamp = { distributedAt: null, distributedBy: null, createdBy: "user_maya" };
+  db.insert(meetings)
+    .values([
+      {
+        ...meetStamp,
+        id: "mtg_ok_oac_1",
+        orgId: ORG,
+        projectId: "proj_okonkwo",
+        seriesId: "series_ok_oac",
+        number: 1,
+        title: "OAC",
+        kind: "oac",
+        meetOn: meetPast,
+        startTime: "09:00",
+        location: "Job trailer",
+        status: "approved",
+        version: 1,
+        replacesId: null,
+        shareToken: "demo_mtg_ok_1",
+        approvedAt: daysAgo(6),
+        approvedBy: "user_maya",
+        createdAt: daysAgo(8),
+        updatedAt: daysAgo(6),
+      },
+      {
+        ...meetStamp,
+        id: "mtg_ok_oac_2",
+        orgId: ORG,
+        projectId: "proj_okonkwo",
+        seriesId: "series_ok_oac",
+        number: 2,
+        title: "OAC",
+        kind: "oac",
+        meetOn: meetNext,
+        startTime: "09:00",
+        location: "Job trailer",
+        status: "agenda",
+        version: 1,
+        replacesId: null,
+        shareToken: "demo_mtg_ok_2",
+        approvedAt: null,
+        approvedBy: null,
+        createdAt: daysAgo(6),
+        updatedAt: daysAgo(6),
+      },
+      {
+        ...meetStamp,
+        id: "mtg_br_sub",
+        orgId: ORG,
+        projectId: "proj_brooks",
+        seriesId: "series_br_sub",
+        number: 1,
+        title: "Sub coordination",
+        kind: "sub",
+        meetOn: meetOver,
+        startTime: "10:00",
+        location: "Brooks",
+        status: "minutes",
+        version: 1,
+        replacesId: null,
+        shareToken: "demo_mtg_br_1",
+        approvedAt: null,
+        approvedBy: null,
+        createdAt: daysAgo(2),
+        updatedAt: daysAgo(1),
+      },
+    ])
+    .run();
+  db.insert(meetingAttendees)
+    .values([
+      { id: "matt_ok_1_maya", orgId: ORG, meetingId: "mtg_ok_oac_1", kind: "user", userId: "user_maya", contactId: null, presence: "present" },
+      { id: "matt_ok_1_amara", orgId: ORG, meetingId: "mtg_ok_oac_1", kind: "client", userId: null, contactId: "c_okonkwo", presence: "present" },
+      { id: "matt_ok_2_maya", orgId: ORG, meetingId: "mtg_ok_oac_2", kind: "user", userId: "user_maya", contactId: null, presence: "present" },
+      { id: "matt_ok_2_amara", orgId: ORG, meetingId: "mtg_ok_oac_2", kind: "client", userId: null, contactId: "c_okonkwo", presence: "present" },
+      { id: "matt_br_luis", orgId: ORG, meetingId: "mtg_br_sub", kind: "user", userId: "user_luis", contactId: null, presence: "present" },
+      { id: "matt_br_harbor", orgId: ORG, meetingId: "mtg_br_sub", kind: "vendor", userId: null, contactId: "c_harbor", presence: "present" },
+    ])
+    .run();
+  db.insert(meetingItems)
+    .values([
+      { id: "mitm_ok_closed", orgId: ORG, meetingId: "mtg_ok_oac_1", sortOrder: 0, title: "Valve spec", notes: "", decision: "Use the specified valve", itemStatus: "closed", linkType: "", linkId: null, carriedFromItemId: null, sourceLabel: "" },
+      { id: "mitm_ok_open", orgId: ORG, meetingId: "mtg_ok_oac_1", sortOrder: 1, title: "Tile niche", notes: "Wet wall", decision: "", itemStatus: "open", linkType: "rfi", linkId: "rfi_ok_niche", carriedFromItemId: null, sourceLabel: "" },
+      { id: "mitm_ok_carried", orgId: ORG, meetingId: "mtg_ok_oac_2", sortOrder: 0, title: "Tile niche", notes: "Wet wall", decision: "", itemStatus: "open", linkType: "rfi", linkId: "rfi_ok_niche", carriedFromItemId: "mitm_ok_open", sourceLabel: "from meeting #1" },
+      { id: "mitm_br_valve", orgId: ORG, meetingId: "mtg_br_sub", sortOrder: 0, title: "Valve delivery", notes: "", decision: "", itemStatus: "open", linkType: "", linkId: null, carriedFromItemId: null, sourceLabel: "" },
+    ])
+    .run();
+  db.insert(meetingActions)
+    .values([
+      { id: "mact_ok_open", orgId: ORG, meetingId: "mtg_ok_oac_1", itemId: "mitm_ok_open", title: "Confirm niche depth", assigneeKind: "user", userId: "user_maya", contactId: null, dueOn: meetDue, status: "open", todoId: null, carriedFromActionId: null, sourceLabel: "", createdAt: daysAgo(6), updatedAt: daysAgo(6) },
+      { id: "mact_ok_carried", orgId: ORG, meetingId: "mtg_ok_oac_2", itemId: "mitm_ok_carried", title: "Confirm niche depth", assigneeKind: "user", userId: "user_maya", contactId: null, dueOn: meetDue, status: "open", todoId: null, carriedFromActionId: "mact_ok_open", sourceLabel: "from meeting #1", createdAt: daysAgo(6), updatedAt: daysAgo(6) },
+      { id: "mact_br_over", orgId: ORG, meetingId: "mtg_br_sub", itemId: "mitm_br_valve", title: "Confirm the valve delivery", assigneeKind: "vendor", userId: null, contactId: "c_harbor", dueOn: meetOver, status: "open", todoId: null, carriedFromActionId: null, sourceLabel: "", createdAt: daysAgo(1), updatedAt: daysAgo(1) },
+    ])
+    .run();
+  db.insert(auditLogs)
+    .values([
+      { id: "aud_mtg_ok_1", orgId: ORG, actorId: "user_maya", action: "meeting.create", entityType: "meeting", entityId: "mtg_ok_oac_1", payloadJson: "{}", ip: null, createdAt: daysAgo(8) },
+      { id: "aud_mtg_ok_appr", orgId: ORG, actorId: "user_maya", action: "meeting.approve", entityType: "meeting", entityId: "mtg_ok_oac_1", payloadJson: "{}", ip: null, createdAt: daysAgo(6) },
+      { id: "aud_mtg_ok_2", orgId: ORG, actorId: "user_maya", action: "meeting.followup", entityType: "meeting", entityId: "mtg_ok_oac_2", payloadJson: "{}", ip: null, createdAt: daysAgo(6) },
+      { id: "aud_mtg_br", orgId: ORG, actorId: "user_luis", action: "meeting.create", entityType: "meeting", entityId: "mtg_br_sub", payloadJson: "{}", ip: null, createdAt: daysAgo(2) },
     ])
     .run();
 }

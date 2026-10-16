@@ -67,6 +67,8 @@ export function CommandMenu({ chrome, role }: { chrome: OfficeChrome; role: stri
             <Command.Item onSelect={() => go("/rfis")}>RFIs</Command.Item>
             {canEditCrm(role as Role) ? <Command.Item onSelect={() => go("/submittals")}>Submittals</Command.Item> : null}
             <Command.Item onSelect={() => go("/time")}>Time</Command.Item>
+            <Command.Item onSelect={() => go("/time-off")}>Time off</Command.Item>
+            <Command.Item onSelect={() => go("/meetings")}>Meetings</Command.Item>
             <Command.Item onSelect={() => go("/receipts")}>Receipts</Command.Item>
             <Command.Item onSelect={() => go("/reimbursements")}>Reimbursements</Command.Item>
             <Command.Item onSelect={() => go("/mileage")}>Mileage</Command.Item>
@@ -76,6 +78,7 @@ export function CommandMenu({ chrome, role }: { chrome: OfficeChrome; role: stri
             {field ? null : <Command.Item onSelect={() => go("/liens")}>Lien deadlines</Command.Item>}
             <Command.Item onSelect={() => go("/forms")}>Form submissions</Command.Item>
             <Command.Item onSelect={() => go("/signatures")}>Signatures</Command.Item>
+            <Command.Item onSelect={() => go("/specs")}>Specifications</Command.Item>
             {field ? null : <Command.Item onSelect={() => go("/invoices")}>Invoices</Command.Item>}
             {field ? null : <Command.Item onSelect={() => go("/fees")}>Fees</Command.Item>}
             {field ? null : <Command.Item onSelect={() => go("/statements")}>Statements</Command.Item>}

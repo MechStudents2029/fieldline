@@ -26,6 +26,7 @@ import { id, nowIso } from "@/lib/ids";
 import { canAddFieldNotes, canEditCrm, type Role } from "@/lib/permissions";
 import { checklistFraction, linkedDeadline, reminderDay, type DeadlineEdge } from "@/lib/todos/deadline";
 import { photoExtension, photoUploadError, rasterImageType } from "@/lib/security";
+import { markActionsDoneForTodos } from "@/lib/meetings/sync";
 import { ServiceError } from "@/lib/services/errors";
 import type { Actor } from "@/lib/services/read";
 import type { WorkdayCalendar } from "@/lib/schedule/workdays";
@@ -567,6 +568,7 @@ export function completeTodos(actor: Actor, taskIds: string[]) {
       tx.update(tasks).set({ status: "done", updatedAt: now }).where(and(eq(tasks.id, taskId), eq(tasks.orgId, actor.orgId))).run();
       audit(tx as unknown as AppDatabase, actor.orgId, actor.userId, "todo.complete", taskId, { who: actor.userId, when: now });
     }
+    markActionsDoneForTodos(tx as unknown as AppDatabase, actor.orgId, taskIds);
   });
 }
 

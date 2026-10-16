@@ -10,6 +10,7 @@ import { canEditSchedule, type Role } from "@/lib/permissions";
 import { todayKey } from "@/lib/receiving/facts";
 import { ServiceError } from "@/lib/services/errors";
 import type { Actor } from "@/lib/services/read";
+import { approvedOffDays, timeOffWarning } from "@/lib/services/time-off";
 import { capacityWarning } from "@/lib/services/workload";
 
 type Writer = Pick<AppDatabase, "insert" | "select" | "update" | "delete" | "transaction">;
@@ -46,7 +47,7 @@ export type DispatchBoard = {
   canEdit: boolean;
   open: number;
   people: { id: string; name: string }[];
-  columns: { id: string; name: string }[];
+  columns: { id: string; name: string; out: boolean }[];
   cards: BoardCard[];
 };
 
@@ -215,7 +216,8 @@ export function dispatchBoard(actor: Actor, on?: string): DispatchBoard {
   if (field) cards = cards.filter((card) => card.assigneeId === actor.userId);
   const busy = new Set(cards.filter((card) => card.assigneeId && card.dueOn === day && windowOf(card.startMin, card.endMin)).map((card) => card.assigneeId as string));
   const shown = field ? loaded.people.filter((person) => person.id === actor.userId) : loaded.people.filter((person) => person.role === "field" || busy.has(person.id));
-  const columns = shown.map((person) => ({ id: person.id, name: person.name }));
+  const outIds = new Set(approvedOffDays(actor.orgId, day, day).map((row) => row.userId));
+  const columns = shown.map((person) => ({ id: person.id, name: person.name, out: outIds.has(person.id) }));
   return {
     day,
     prev: addDays(day, -1),
@@ -322,7 +324,7 @@ export function assignDispatch(actor: Actor, input: { cardId: string; assigneeId
         })
         .run();
     });
-    return { id: input.cardId, warning: assigneeId ? capacityWarning(actor, [assigneeId], day, day) : null };
+    return { id: input.cardId, warning: assigneeId ? [capacityWarning(actor, [assigneeId], day, day), timeOffWarning(actor, [assigneeId], day, day)].filter(Boolean).join(" ") || null : null };
   }
   const visit = parsed.kind === "visit" ? db.select().from(agreementVisits).where(and(eq(agreementVisits.orgId, actor.orgId), eq(agreementVisits.id, parsed.rawId))).get() : null;
   const itemId = parsed.kind === "item" ? parsed.rawId : visit?.scheduleItemId ?? null;
@@ -377,5 +379,5 @@ export function assignDispatch(actor: Actor, input: { cardId: string; assigneeId
       spanEnd = saved.endDate;
     }
   }
-  return { id: input.cardId, warning: assigneeId ? capacityWarning(actor, [assigneeId], spanStart, spanEnd) : null };
+  return { id: input.cardId, warning: assigneeId ? [capacityWarning(actor, [assigneeId], spanStart, spanEnd), timeOffWarning(actor, [assigneeId], spanStart, spanEnd)].filter(Boolean).join(" ") || null : null };
 }

@@ -22,6 +22,7 @@ import type { VendorBidCard } from "@/lib/services/bids";
 import type { PortalRfi } from "@/lib/services/rfis";
 import type { VendorPortalHome } from "@/lib/services/vendor-portal";
 import { submitVendorBidAction, declineVendorBidAction, vendorTickAction } from "@/app/actions";
+import type { PortalMeeting } from "@/lib/services/meetings";
 import type { VendorTodo } from "@/lib/services/todos";
 import type { PortalWaiver } from "@/lib/services/waivers";
 import type { VendorFileJob } from "@/lib/services/files";
@@ -42,6 +43,7 @@ export function VendorPortalView({
   bids,
   rfis = [],
   todos = [],
+  meetings = [],
   inspections = [],
   submittals = { items: [], jobs: [] },
   waivers = [],
@@ -54,6 +56,7 @@ export function VendorPortalView({
   bids: VendorBidCard[];
   rfis?: PortalRfi[];
   todos?: VendorTodo[];
+  meetings?: PortalMeeting[];
   inspections?: { name: string; date: string; result: string }[];
   submittals?: { items: PortalSubmittal[]; jobs: { id: string; name: string }[] };
   waivers?: PortalWaiver[];
@@ -111,6 +114,35 @@ export function VendorPortalView({
           </p>
         </div>
       </section>
+      {meetings.length > 0 ? (
+        <section className="mt-7" aria-label="Meetings">
+          <h2>Meetings</h2>
+          <ul className="home-stack">
+            {meetings.map((meeting) => (
+              <li key={meeting.id} className="home-card">
+                <p className="home-copy">
+                  {meeting.title} · {meeting.job}
+                </p>
+                <p className="home-sub">
+                  {meeting.kindLabel} · {formatCalendarDay(meeting.meetOn)}
+                </p>
+                {meeting.items.map((item) => (
+                  <p key={item.id} className="home-sub">
+                    {item.title}
+                    {item.decision ? ` · ${item.decision}` : ""}
+                  </p>
+                ))}
+                {meeting.actions.map((action) => (
+                  <p key={action.id} data-action={action.title}>
+                    {action.title}
+                    {action.dueOn ? ` · ${formatCalendarDay(action.dueOn)}` : ""} · {action.status === "done" ? "Done" : "Open"}
+                  </p>
+                ))}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
       <section className="mt-7" aria-label="To-dos">
         <h2>To-dos</h2>
         {todos.length === 0 ? <p className="home-sub">No to-dos</p> : null}

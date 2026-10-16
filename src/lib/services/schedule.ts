@@ -22,6 +22,7 @@ import { buildSchedulePlan, replaceScheduleLinks, writeScheduleShifts, type Sche
 import type { Actor } from "@/lib/services/read";
 import { floatForItem } from "@/lib/services/gantt";
 import { calendarForOrg } from "@/lib/services/time";
+import { approvedOffDays } from "@/lib/services/time-off";
 import { workCalendarFor } from "@/lib/services/work-calendar";
 import { addCalendarDays, localDay, zonedTimeToUtc } from "@/lib/time/calendar";
 import { dayHeading, rangeLabel } from "@/lib/time/grid";
@@ -84,7 +85,7 @@ export type ScheduleBoard = {
     userId: string | null;
     name: string;
     initials: string;
-    cells: { date: string; items: ScheduleChip[]; marks: { id: string; title: string }[] }[];
+    cells: { date: string; items: ScheduleChip[]; marks: { id: string; title: string }[]; out: boolean }[];
   }[];
   counts: { items: number; people: number; conflicts: number };
   jobs: { id: string; name: string }[];
@@ -337,6 +338,13 @@ export function scheduleBoard(actor: Actor, query: { on?: string; span?: string 
         return mine && base && base.end === date && (date < row.startDate || date > row.endDate);
       })
       .map((row) => ({ id: row.id, title: `Baseline ${baselineOf.get(row.id)?.label ?? "0 wd"}` }));
+  const offDays = approvedOffDays(actor.orgId, window.days[0] ?? "", window.days[window.days.length - 1] ?? "");
+  const outByUser = new Map<string, Set<string>>();
+  for (const row of offDays) {
+    const set = outByUser.get(row.userId) ?? new Set<string>();
+    set.add(row.day);
+    outByUser.set(row.userId, set);
+  }
   const cellsFor = (userId: string | null) =>
     window.days.map((date) => ({
       date,
@@ -351,6 +359,7 @@ export function scheduleBoard(actor: Actor, query: { on?: string; span?: string 
         ...milestoneChips(userId, date),
       ],
       marks: marksFor(userId, date),
+      out: userId != null && (outByUser.get(userId)?.has(date) ?? false) && isWorkday(date, companyCalendar),
     }));
   const rows = [
     ...crew.map((person) => ({

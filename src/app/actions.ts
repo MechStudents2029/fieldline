@@ -51,6 +51,7 @@ import {
 import { addNonJobShift, saveOvertimeSettings, setBillLaborBurden } from "@/lib/time/post";
 import type { TimeUndo } from "@/lib/services/time";
 import { moveScheduleItem, rotateCalendarFeed, saveScheduleItem, type ScheduleStatus } from "@/lib/services/schedule";
+import { timeOffWarning } from "@/lib/services/time-off";
 import { capacityWarning, saveCapacity } from "@/lib/services/workload";
 import { attachRecordFile, enforceScheduleGate, inspectionTodos, requestReinspection, saveInspection, savePermit, scheduleGateStatus, setInspectionGateMode } from "@/lib/services/permits";
 import { setScheduleBaseline } from "@/lib/services/schedule-plan";
@@ -3279,7 +3280,7 @@ export async function saveScheduleAction(_prev: ActionState, formData: FormData)
     }
     saveScheduleItem(user, { ...input, links: scheduleLinks(formData) }, existing || undefined, delay, formData.get("confirmGate") === "1");
     refreshSchedule(input.projectId);
-    const warning = [capacityWarning(user, input.assigneeIds, input.startDate, input.endDate), certAssignWarning(user, input.assigneeIds)].filter(Boolean).join(" ");
+    const warning = [capacityWarning(user, input.assigneeIds, input.startDate, input.endDate), timeOffWarning(user, input.assigneeIds, input.startDate, input.endDate), certAssignWarning(user, input.assigneeIds)].filter(Boolean).join(" ");
     return { ok: "Saved.", ...(warning ? { warning } : {}) };
   } catch (error) {
     return failure(error);
@@ -3328,7 +3329,7 @@ export async function moveScheduleAction(input: { id: string; startDate: string;
     moveScheduleItem(user, input.id, input, delay, Boolean(input.confirmGate));
     refreshSchedule("");
     const warning = input.assigneeId
-      ? [capacityWarning(user, [input.assigneeId], input.startDate, input.endDate), certAssignWarning(user, [input.assigneeId])].filter(Boolean).join(" ")
+      ? [capacityWarning(user, [input.assigneeId], input.startDate, input.endDate), timeOffWarning(user, [input.assigneeId], input.startDate, input.endDate), certAssignWarning(user, [input.assigneeId])].filter(Boolean).join(" ")
       : null;
     return { ok: "Saved.", ...(warning ? { warning } : {}) };
   } catch (error) {
