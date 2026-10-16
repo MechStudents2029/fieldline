@@ -214,6 +214,11 @@ export function PunchSection({
               <li key={request.id} className="flex flex-col gap-2">
                 <div className="flex flex-wrap items-center gap-2">
                   <p className="mac-t13 font-semibold">{request.title}</p>
+                  {request.itemTitle ? (
+                    <span className="fl-pill" data-item={request.itemTitle}>
+                      {request.itemTitle}
+                    </span>
+                  ) : null}
                   <Pill>{request.statusLabel}</Pill>
                   <span className="mac-t11 text-[var(--mac-secondary)]">{request.urgencyLabel}</span>
                 </div>

@@ -82,6 +82,9 @@ import {
   meetingAttendees,
   meetingItems,
   meetingActions,
+  handoverPackages,
+  handoverSections,
+  handoverItems,
   laborRates,
   leads,
   leadSources,
@@ -240,7 +243,7 @@ import {
   WEBSITE_FORM_SOURCE,
 } from "@/lib/lead-form/rules";
 
-export const SEED_VERSION = "76";
+export const SEED_VERSION = "77";
 
 const ORG = "org_rivera";
 const NORTH = "org_northline";
@@ -7785,6 +7788,120 @@ function seedTemplates(db: AppDatabase, now: string) {
       { id: "aud_mtg_ok_appr", orgId: ORG, actorId: "user_maya", action: "meeting.approve", entityType: "meeting", entityId: "mtg_ok_oac_1", payloadJson: "{}", ip: null, createdAt: daysAgo(6) },
       { id: "aud_mtg_ok_2", orgId: ORG, actorId: "user_maya", action: "meeting.followup", entityType: "meeting", entityId: "mtg_ok_oac_2", payloadJson: "{}", ip: null, createdAt: daysAgo(6) },
       { id: "aud_mtg_br", orgId: ORG, actorId: "user_luis", action: "meeting.create", entityType: "meeting", entityId: "mtg_br_sub", payloadJson: "{}", ip: null, createdAt: daysAgo(2) },
+    ])
+    .run();
+
+  const careInstall = addCalendarDays(today, -76);
+  const careDue = addCalendarDays(careInstall, 90);
+  const lightInstall = addMonths(today, -11);
+  const lightEnd = addMonths(lightInstall, 12);
+  const hoAt = daysAgo(2);
+  const installed = (
+    itemId: string,
+    packageId: string,
+    sectionId: string,
+    sortOrder: number,
+    title: string,
+    extra: Partial<{
+      manufacturer: string;
+      model: string;
+      serial: string;
+      installOn: string | null;
+      warrantyMonths: number | null;
+      warrantyEndsOn: string | null;
+      documentId: string | null;
+      intervalDays: number | null;
+      intervalLabel: string;
+      nextDueOn: string | null;
+    }>,
+  ) => ({
+    id: itemId,
+    orgId: ORG,
+    packageId,
+    sectionId,
+    sortOrder,
+    title,
+    manufacturer: extra.manufacturer ?? "",
+    model: extra.model ?? "",
+    serial: extra.serial ?? "",
+    finish: "",
+    installOn: extra.installOn ?? null,
+    warrantyMonths: extra.warrantyMonths ?? null,
+    warrantyEndsOn: extra.warrantyEndsOn ?? null,
+    documentId: extra.documentId === undefined ? "doc_d1" : extra.documentId,
+    intervalDays: extra.intervalDays ?? null,
+    intervalLabel: extra.intervalLabel ?? "",
+    nextDueOn: extra.nextDueOn ?? null,
+    sourceType: "",
+    sourceId: null,
+    vendorName: "",
+    trade: "",
+    phone: "",
+  });
+  db.insert(handoverPackages)
+    .values([
+      {
+        id: "ho_diaz",
+        orgId: ORG,
+        projectId: "proj_diaz",
+        status: "delivered",
+        shareToken: "demo_ho_diaz",
+        publishedAt: hoAt,
+        publishedBy: "user_maya",
+        deliveredAt: hoAt,
+        deliveredBy: "user_maya",
+        copiedAt: hoAt,
+        copiedBy: "user_maya",
+        createdAt: hoAt,
+        updatedAt: hoAt,
+        createdBy: "user_maya",
+      },
+      {
+        id: "ho_lang",
+        orgId: ORG,
+        projectId: "proj_lien_ca",
+        status: "draft",
+        shareToken: "demo_ho_lang",
+        publishedAt: null,
+        publishedBy: null,
+        deliveredAt: null,
+        deliveredBy: null,
+        copiedAt: null,
+        copiedBy: null,
+        createdAt: hoAt,
+        updatedAt: hoAt,
+        createdBy: "user_maya",
+      },
+    ])
+    .run();
+  db.insert(handoverSections)
+    .values([
+      { id: "hsec_dz_inst", orgId: ORG, packageId: "ho_diaz", kind: "installed", title: "Installed items", sortOrder: 0 },
+      { id: "hsec_dz_trades", orgId: ORG, packageId: "ho_diaz", kind: "trades", title: "Trades", sortOrder: 1 },
+      { id: "hsec_lang_inst", orgId: ORG, packageId: "ho_lang", kind: "installed", title: "Installed items", sortOrder: 0 },
+    ])
+    .run();
+  db.insert(handoverItems)
+    .values([
+      installed("hit_dz_boards", "ho_diaz", "hsec_dz_inst", 0, "Composite boards", { manufacturer: "Trex", model: "Transcend", serial: "TB-100", installOn: addCalendarDays(today, -40), warrantyMonths: 300, warrantyEndsOn: addMonths(addCalendarDays(today, -40), 300), documentId: "doc_d1" }),
+      installed("hit_dz_rail", "ho_diaz", "hsec_dz_inst", 1, "Railing", { manufacturer: "Trex", model: "Select", serial: "RL-12", installOn: addCalendarDays(today, -40), warrantyMonths: 120, warrantyEndsOn: addMonths(addCalendarDays(today, -40), 120), documentId: "doc_d2" }),
+      installed("hit_dz_caps", "ho_diaz", "hsec_dz_inst", 2, "Post caps", { manufacturer: "Azek", model: "Pyramid", serial: "PC-3", installOn: addCalendarDays(today, -40), warrantyMonths: 60, warrantyEndsOn: addMonths(addCalendarDays(today, -40), 60), documentId: "doc_d1" }),
+      installed("hit_dz_stairs", "ho_diaz", "hsec_dz_inst", 3, "Stair stringer", { manufacturer: "Trex", model: "Transcend", serial: "ST-8", installOn: addCalendarDays(today, -40), warrantyMonths: 120, warrantyEndsOn: addMonths(addCalendarDays(today, -40), 120), documentId: "doc_d2" }),
+      installed("hit_dz_foot", "ho_diaz", "hsec_dz_inst", 4, "Footing hardware", { manufacturer: "Simpson", model: "DTT2Z", serial: "FH-2", installOn: addCalendarDays(today, -20), warrantyMonths: 12, warrantyEndsOn: addMonths(addCalendarDays(today, -20), 12), documentId: "doc_d1" }),
+      installed("hit_dz_light", "ho_diaz", "hsec_dz_inst", 5, "Deck light", { manufacturer: "Kichler", model: "15005", serial: "LT-9", installOn: lightInstall, warrantyMonths: 12, warrantyEndsOn: lightEnd, documentId: "doc_d2" }),
+      installed("hit_dz_filter", "ho_diaz", "hsec_dz_inst", 6, "HVAC filter", { manufacturer: "Aprilaire", model: "213", serial: "HV-1", installOn: careInstall, intervalDays: 90, intervalLabel: "HVAC filter", nextDueOn: careDue, documentId: "doc_d1" }),
+      installed("hit_dz_fascia", "ho_diaz", "hsec_dz_inst", 7, "Fascia", { manufacturer: "Trex", model: "Fascia", serial: "FA-4", installOn: addCalendarDays(today, -40), warrantyMonths: 240, warrantyEndsOn: addMonths(addCalendarDays(today, -40), 240), documentId: "doc_d2" }),
+      { id: "hit_dz_summit", orgId: ORG, packageId: "ho_diaz", sectionId: "hsec_dz_trades", sortOrder: 0, title: "Summit Lumber", manufacturer: "", model: "", serial: "", finish: "", installOn: null, warrantyMonths: null, warrantyEndsOn: null, documentId: null, intervalDays: null, intervalLabel: "", nextDueOn: null, sourceType: "trade", sourceId: "c_summit", vendorName: "Summit Lumber", trade: "DECK-BOARD", phone: "(510) 555-0301" },
+      { id: "hit_dz_slab", orgId: ORG, packageId: "ho_diaz", sectionId: "hsec_dz_trades", sortOrder: 1, title: "Slab House", manufacturer: "", model: "", serial: "", finish: "", installOn: null, warrantyMonths: null, warrantyEndsOn: null, documentId: null, intervalDays: null, intervalLabel: "", nextDueOn: null, sourceType: "trade", sourceId: "c_slab", vendorName: "Slab House", trade: "CON-SLAB", phone: "(510) 555-0302" },
+      installed("hit_lang_paint", "ho_lang", "hsec_lang_inst", 0, "Hall paint", { documentId: null }),
+      installed("hit_lang_light", "ho_lang", "hsec_lang_inst", 1, "Hall light", { documentId: null }),
+    ])
+    .run();
+  db.insert(auditLogs)
+    .values([
+      { id: "aud_ho_diaz", orgId: ORG, actorId: "user_maya", action: "handover.create", entityType: "handover", entityId: "ho_diaz", payloadJson: "{}", ip: null, createdAt: hoAt },
+      { id: "aud_ho_diaz_del", orgId: ORG, actorId: "user_maya", action: "handover.deliver", entityType: "handover", entityId: "ho_diaz", payloadJson: "{}", ip: null, createdAt: hoAt },
+      { id: "aud_ho_lang", orgId: ORG, actorId: "user_maya", action: "handover.create", entityType: "handover", entityId: "ho_lang", payloadJson: "{}", ip: null, createdAt: hoAt },
     ])
     .run();
 }

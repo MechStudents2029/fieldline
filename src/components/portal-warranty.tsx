@@ -13,11 +13,13 @@ export function PortalWarrantySection({
   home,
   startedAt,
   visuals = {},
+  items = [],
 }: {
   token: string;
   home: PortalWarranty;
   startedAt: number;
   visuals?: Record<string, { cropDocumentId: string | null; flatDocumentId: string | null }>;
+  items?: { id: string; title: string }[];
 }) {
   return (
     <>
@@ -77,6 +79,19 @@ export function PortalWarrantySection({
             Description
             <textarea name="description" rows={3} className="home-input" />
           </label>
+          {items.length > 0 ? (
+            <label className="text-sm">
+              Item
+              <select name="itemId" aria-label="Item" defaultValue="" className="home-input">
+                <option value="">Item</option>
+                {items.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.title}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
           <label className="text-sm">
             Urgency
             <select name="urgency" className="home-input" defaultValue="normal">

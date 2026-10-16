@@ -113,6 +113,7 @@ export function ensureReady(holder: Holder) {
   ensureJobSpecs(holder);
   ensureTimeOff(holder);
   ensureMeetings(holder);
+  ensureHandover(holder);
   ensureDraws(holder);
   ensureRfis(holder);
   ensureComments(holder);
@@ -2305,6 +2306,70 @@ function ensureMeetings(holder: Holder) {
   holder.sqlite.exec("create index if not exists meeting_items_meeting on meeting_items (org_id, meeting_id)");
   holder.sqlite.exec("create index if not exists meeting_actions_meeting on meeting_actions (org_id, meeting_id)");
   holder.sqlite.exec("create index if not exists meeting_actions_todo on meeting_actions (org_id, todo_id)");
+}
+
+function ensureHandover(holder: Holder) {
+  const pk = holder.dialect === "postgres" ? "text primary key" : "text primary key not null";
+  ensureColumn(holder, "warranty_requests", "handover_item_id", "text");
+  if (!tableExists(holder.sqlite, "handover_packages", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists handover_packages (
+      id ${pk},
+      org_id text not null,
+      project_id text not null,
+      status text not null,
+      share_token text not null,
+      published_at text,
+      published_by text,
+      delivered_at text,
+      delivered_by text,
+      copied_at text,
+      copied_by text,
+      created_at text not null,
+      updated_at text not null,
+      created_by text
+    )`);
+  }
+  if (!tableExists(holder.sqlite, "handover_sections", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists handover_sections (
+      id ${pk},
+      org_id text not null,
+      package_id text not null,
+      kind text not null,
+      title text not null,
+      sort_order integer not null
+    )`);
+  }
+  if (!tableExists(holder.sqlite, "handover_items", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists handover_items (
+      id ${pk},
+      org_id text not null,
+      package_id text not null,
+      section_id text not null,
+      sort_order integer not null,
+      title text not null,
+      manufacturer text not null default '',
+      model text not null default '',
+      serial text not null default '',
+      finish text not null default '',
+      install_on text,
+      warranty_months integer,
+      warranty_ends_on text,
+      document_id text,
+      interval_days integer,
+      interval_label text not null default '',
+      next_due_on text,
+      source_type text not null default '',
+      source_id text,
+      vendor_name text not null default '',
+      trade text not null default '',
+      phone text not null default ''
+    )`);
+  }
+  holder.sqlite.exec("create unique index if not exists handover_packages_project on handover_packages (org_id, project_id)");
+  holder.sqlite.exec("create unique index if not exists handover_packages_token on handover_packages (share_token)");
+  holder.sqlite.exec("create index if not exists handover_sections_package on handover_sections (org_id, package_id)");
+  holder.sqlite.exec("create index if not exists handover_items_package on handover_items (org_id, package_id)");
+  holder.sqlite.exec("create index if not exists handover_items_section on handover_items (org_id, section_id)");
 }
 
 function ensureTesterFeedback(holder: Holder) {
