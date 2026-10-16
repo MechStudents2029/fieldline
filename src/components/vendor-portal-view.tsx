@@ -23,6 +23,7 @@ import type { PortalRfi } from "@/lib/services/rfis";
 import type { VendorPortalHome } from "@/lib/services/vendor-portal";
 import { submitVendorBidAction, declineVendorBidAction, vendorTickAction } from "@/app/actions";
 import type { PortalMeeting } from "@/lib/services/meetings";
+import type { PortalTransmittal } from "@/lib/services/transmittals";
 import type { VendorTodo } from "@/lib/services/todos";
 import type { PortalWaiver } from "@/lib/services/waivers";
 import type { VendorFileJob } from "@/lib/services/files";
@@ -44,6 +45,7 @@ export function VendorPortalView({
   rfis = [],
   todos = [],
   meetings = [],
+  transmittals = [],
   inspections = [],
   submittals = { items: [], jobs: [] },
   waivers = [],
@@ -57,6 +59,7 @@ export function VendorPortalView({
   rfis?: PortalRfi[];
   todos?: VendorTodo[];
   meetings?: PortalMeeting[];
+  transmittals?: PortalTransmittal[];
   inspections?: { name: string; date: string; result: string }[];
   submittals?: { items: PortalSubmittal[]; jobs: { id: string; name: string }[] };
   waivers?: PortalWaiver[];
@@ -138,6 +141,24 @@ export function VendorPortalView({
                     {action.dueOn ? ` · ${formatCalendarDay(action.dueOn)}` : ""} · {action.status === "done" ? "Done" : "Open"}
                   </p>
                 ))}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+      {transmittals.length > 0 ? (
+        <section className="mt-7" aria-label="Transmittals">
+          <h2>Transmittals</h2>
+          <ul className="home-stack">
+            {transmittals.map((row) => (
+              <li key={row.id} className="home-card">
+                <p className="home-copy">
+                  <a href={row.href}>{row.subject}</a>
+                </p>
+                <p className="home-sub">
+                  {row.job} · {row.number} · {row.statusLabel}
+                  {row.dueOn ? ` · ${formatCalendarDay(row.dueOn)}` : ""}
+                </p>
               </li>
             ))}
           </ul>

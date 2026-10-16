@@ -85,6 +85,9 @@ import {
   handoverPackages,
   handoverSections,
   handoverItems,
+  transmittals,
+  transmittalCcs,
+  transmittalLines,
   laborRates,
   leads,
   leadSources,
@@ -243,7 +246,7 @@ import {
   WEBSITE_FORM_SOURCE,
 } from "@/lib/lead-form/rules";
 
-export const SEED_VERSION = "77";
+export const SEED_VERSION = "78";
 
 const ORG = "org_rivera";
 const NORTH = "org_northline";
@@ -7902,6 +7905,127 @@ function seedTemplates(db: AppDatabase, now: string) {
       { id: "aud_ho_diaz", orgId: ORG, actorId: "user_maya", action: "handover.create", entityType: "handover", entityId: "ho_diaz", payloadJson: "{}", ip: null, createdAt: hoAt },
       { id: "aud_ho_diaz_del", orgId: ORG, actorId: "user_maya", action: "handover.deliver", entityType: "handover", entityId: "ho_diaz", payloadJson: "{}", ip: null, createdAt: hoAt },
       { id: "aud_ho_lang", orgId: ORG, actorId: "user_maya", action: "handover.create", entityType: "handover", entityId: "ho_lang", payloadJson: "{}", ip: null, createdAt: hoAt },
+    ])
+    .run();
+
+  const txDue = addCalendarDays(today, -1);
+  const txSent = daysAgo(2);
+  const txAck = daysAgo(1);
+  db.insert(transmittals)
+    .values([
+      {
+        id: "tx_ok_due",
+        orgId: ORG,
+        projectId: "proj_okonkwo",
+        number: 1,
+        subject: "Valve cut sheet",
+        toKind: "vendor",
+        toContactId: "c_harbor",
+        toUserId: null,
+        purpose: "approval",
+        dueOn: txDue,
+        status: "sent",
+        shareToken: "demo_tx_ok_due",
+        sentAt: txSent,
+        sentBy: "user_maya",
+        copiedAt: txSent,
+        copiedBy: "user_maya",
+        ackName: null,
+        ackNote: null,
+        ackAt: null,
+        ackIp: null,
+        declineReason: null,
+        declinedAt: null,
+        closedAt: null,
+        closedBy: null,
+        voidReason: null,
+        voidedAt: null,
+        voidedBy: null,
+        createdAt: txSent,
+        updatedAt: txSent,
+        createdBy: "user_maya",
+      },
+      {
+        id: "tx_ok_ack",
+        orgId: ORG,
+        projectId: "proj_okonkwo",
+        number: 2,
+        subject: "Finish schedule",
+        toKind: "client",
+        toContactId: "c_okonkwo",
+        toUserId: null,
+        purpose: "information",
+        dueOn: null,
+        status: "acknowledged",
+        shareToken: "demo_tx_ok_ack",
+        sentAt: daysAgo(3),
+        sentBy: "user_maya",
+        copiedAt: daysAgo(3),
+        copiedBy: "user_maya",
+        ackName: "Amara Okonkwo",
+        ackNote: "Received.",
+        ackAt: txAck,
+        ackIp: "seed",
+        declineReason: null,
+        declinedAt: null,
+        closedAt: null,
+        closedBy: null,
+        voidReason: null,
+        voidedAt: null,
+        voidedBy: null,
+        createdAt: daysAgo(3),
+        updatedAt: txAck,
+        createdBy: "user_maya",
+      },
+      {
+        id: "tx_chen_draft",
+        orgId: ORG,
+        projectId: "proj_chen",
+        number: 1,
+        subject: "Vanity dimensions",
+        toKind: "user",
+        toContactId: null,
+        toUserId: "user_luis",
+        purpose: "construction",
+        dueOn: null,
+        status: "draft",
+        shareToken: "demo_tx_chen_draft",
+        sentAt: null,
+        sentBy: null,
+        copiedAt: null,
+        copiedBy: null,
+        ackName: null,
+        ackNote: null,
+        ackAt: null,
+        ackIp: null,
+        declineReason: null,
+        declinedAt: null,
+        closedAt: null,
+        closedBy: null,
+        voidReason: null,
+        voidedAt: null,
+        voidedBy: null,
+        createdAt: txAck,
+        updatedAt: txAck,
+        createdBy: "user_maya",
+      },
+    ])
+    .run();
+  db.insert(transmittalCcs).values({ id: "txcc_ok_due_sam", orgId: ORG, transmittalId: "tx_ok_due", userId: "user_sam" }).run();
+  db.insert(transmittalLines)
+    .values([
+      { id: "txl_ok_due_plan", orgId: ORG, transmittalId: "tx_ok_due", sortOrder: 0, kind: "plan", title: "A-101 floor plan", note: "", sourceId: "jf_ok_a101_r2", documentId: "doc_ok_a101_r2", returnRequired: 1 },
+      { id: "txl_ok_due_note", orgId: ORG, transmittalId: "tx_ok_due", sortOrder: 1, kind: "note", title: "Confirm the trim height", note: "", sourceId: null, documentId: null, returnRequired: 0 },
+      { id: "txl_ok_ack_note", orgId: ORG, transmittalId: "tx_ok_ack", sortOrder: 0, kind: "note", title: "Finish schedule for the primary bath", note: "", sourceId: null, documentId: null, returnRequired: 0 },
+      { id: "txl_chen_note", orgId: ORG, transmittalId: "tx_chen_draft", sortOrder: 0, kind: "note", title: "Measure the niche before the vanity order", note: "", sourceId: null, documentId: null, returnRequired: 0 },
+    ])
+    .run();
+  db.insert(auditLogs)
+    .values([
+      { id: "aud_tx_ok_due", orgId: ORG, actorId: "user_maya", action: "transmittal.create", entityType: "transmittal", entityId: "tx_ok_due", payloadJson: "{}", ip: null, createdAt: txSent },
+      { id: "aud_tx_ok_due_sent", orgId: ORG, actorId: "user_maya", action: "transmittal.send", entityType: "transmittal", entityId: "tx_ok_due", payloadJson: "{}", ip: null, createdAt: txSent },
+      { id: "aud_tx_ok_ack", orgId: ORG, actorId: "user_maya", action: "transmittal.ack", entityType: "transmittal", entityId: "tx_ok_ack", payloadJson: "{}", ip: "seed", createdAt: txAck },
+      { id: "aud_tx_chen", orgId: ORG, actorId: "user_maya", action: "transmittal.create", entityType: "transmittal", entityId: "tx_chen_draft", payloadJson: "{}", ip: null, createdAt: txAck },
     ])
     .run();
 }

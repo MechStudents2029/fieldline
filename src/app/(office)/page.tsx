@@ -28,6 +28,7 @@ import { formAttention } from "@/lib/services/forms";
 import { signatureAttention } from "@/lib/services/doc-signatures";
 import { specAttention } from "@/lib/services/job-specs";
 import { handoverAttention } from "@/lib/services/handover";
+import { transmittalAttention } from "@/lib/services/transmittals";
 import { meetingAttention } from "@/lib/services/meetings";
 import { timeOffAttention } from "@/lib/services/time-off";
 import { bidQueues } from "@/lib/services/bids";
@@ -344,6 +345,8 @@ export default async function TodayPage() {
   push("meeting-due", meetingDue.count, meetingDue.href, "Meeting due", String(meetingDue.count));
   const careDue = handoverAttention(session);
   push("care-due", careDue.count, careDue.href, "Care due", String(careDue.count));
+  const transmittalDue = transmittalAttention(session);
+  push("transmittal-due", transmittalDue.count, transmittalDue.href, "Transmittal due", String(transmittalDue.count));
   const careRow = attention.find((row) => row.key === "care-due");
   if (careRow && careDue.note) careRow.copy = careDue.note;
   push("bids-due", bids.due.count, bids.due.href, "Bids due", String(bids.due.count));

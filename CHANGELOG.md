@@ -2,6 +2,14 @@
 
 ## 2026-10-15
 
+### Document transmittals
+
+- Work, Transmittals and the job tab hold a numbered package: subject, recipient, optional CC, purpose, and an optional due date. The recipient is a vendor on the job, the client, or a teammate. Lines are job files, plans, published specs, approved submittals, or a note, in order, and a line can require a return.
+- Office edits a draft. Copy link and Mark sent store who and when. No message is sent. The public link uses the same rate limit as the lead form. The recipient can open the files and acknowledge with a typed name, or decline with a reason.
+- Void needs a reason and an owner or admin. Close is available after the package is sent. Print is a cover, the contents, and the acknowledgment. CSV is `/api/export/transmittals`.
+- Today counts a sent package past its due date under Transmittal due. A vendor or client portal shows only packages addressed to them. Field can read packages on jobs they can open. Office edits.
+- Seed: Okonkwo has a sent valve package to Harbor Plumbing that is past due, and an acknowledged finish schedule for Amara. Chen powder room has a draft for Luis.
+
 ### Homeowner handover
 
 - Each job has a Handover tab. Starting a package fills sections from chosen selections, approved submittals, the latest published spec lines, plan and manual files, and the trades on the job’s bills, purchase orders, and schedule.

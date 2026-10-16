@@ -4154,3 +4154,84 @@ export const handoverItems = sqliteTable(
   },
   (t) => [index("handover_items_package").on(t.orgId, t.packageId), index("handover_items_section").on(t.orgId, t.sectionId)],
 );
+
+export const transmittals = sqliteTable(
+  "transmittals",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    projectId: text("project_id").notNull(),
+    number: integer("number").notNull(),
+    subject: text("subject").notNull(),
+    toKind: text("to_kind").notNull(),
+    toContactId: text("to_contact_id"),
+    toUserId: text("to_user_id"),
+    purpose: text("purpose").notNull(),
+    dueOn: text("due_on"),
+    status: text("status").notNull(),
+    shareToken: text("share_token").notNull(),
+    sentAt: text("sent_at"),
+    sentBy: text("sent_by"),
+    copiedAt: text("copied_at"),
+    copiedBy: text("copied_by"),
+    ackName: text("ack_name"),
+    ackNote: text("ack_note"),
+    ackAt: text("ack_at"),
+    ackIp: text("ack_ip"),
+    declineReason: text("decline_reason"),
+    declinedAt: text("declined_at"),
+    closedAt: text("closed_at"),
+    closedBy: text("closed_by"),
+    voidReason: text("void_reason"),
+    voidedAt: text("voided_at"),
+    voidedBy: text("voided_by"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    createdBy: text("created_by"),
+  },
+  (t) => [
+    uniqueIndex("transmittals_number").on(t.orgId, t.projectId, t.number),
+    uniqueIndex("transmittals_token").on(t.shareToken),
+    index("transmittals_org").on(t.orgId, t.projectId),
+  ],
+);
+
+export const transmittalCcs = sqliteTable(
+  "transmittal_ccs",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    transmittalId: text("transmittal_id").notNull(),
+    userId: text("user_id").notNull(),
+  },
+  (t) => [uniqueIndex("transmittal_ccs_user").on(t.orgId, t.transmittalId, t.userId)],
+);
+
+export const transmittalLines = sqliteTable(
+  "transmittal_lines",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    transmittalId: text("transmittal_id").notNull(),
+    sortOrder: integer("sort_order").notNull(),
+    kind: text("kind").notNull(),
+    title: text("title").notNull(),
+    note: text("note").notNull().default(""),
+    sourceId: text("source_id"),
+    documentId: text("document_id"),
+    returnRequired: integer("return_required").notNull().default(0),
+  },
+  (t) => [index("transmittal_lines_tx").on(t.orgId, t.transmittalId)],
+);
+
+export const transmittalAttempts = sqliteTable(
+  "transmittal_attempts",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    transmittalId: text("transmittal_id").notNull(),
+    ip: text("ip").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [index("transmittal_attempts_org").on(t.orgId, t.createdAt)],
+);
