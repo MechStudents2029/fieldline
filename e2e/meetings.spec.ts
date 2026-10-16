@@ -32,8 +32,9 @@ test("meeting minutes carry forward and the vendor sees their action", async ({ 
   await page.getByRole("button", { name: "Approve" }).click();
   await expect(page.locator("[data-status='approved']")).toBeVisible();
   await page.getByRole("button", { name: "Follow-up" }).click();
-  await expect(page.getByText("from meeting #1")).toBeVisible();
-  await expect(page.getByText("E2E niche")).toBeVisible();
+  const carried = page.locator("[data-item='E2E niche']");
+  await expect(carried).toContainText("from meeting #1");
+  await expect(carried).toContainText("E2E valve check");
 
   await page.getByRole("button", { name: "Sign out" }).click();
   await page.goto("/v/demo_vendor_harbor_m3p8qx7k");
