@@ -112,6 +112,7 @@ export function ensureReady(holder: Holder) {
   ensureDocSignatures(holder);
   ensureJobSpecs(holder);
   ensureTimeOff(holder);
+  ensureMeetings(holder);
   ensureDraws(holder);
   ensureRfis(holder);
   ensureComments(holder);
@@ -2223,6 +2224,87 @@ function ensureTimeOff(holder: Holder) {
   holder.sqlite.exec("create index if not exists time_off_requests_org on time_off_requests (org_id, status)");
   holder.sqlite.exec("create index if not exists time_off_days_request on time_off_days (org_id, request_id)");
   holder.sqlite.exec("create index if not exists time_off_days_day on time_off_days (org_id, day)");
+}
+
+function ensureMeetings(holder: Holder) {
+  const pk = holder.dialect === "postgres" ? "text primary key" : "text primary key not null";
+  if (!tableExists(holder.sqlite, "meetings", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists meetings (
+      id ${pk},
+      org_id text not null,
+      project_id text not null,
+      series_id text not null,
+      number integer not null,
+      title text not null,
+      kind text not null,
+      meet_on text not null,
+      start_time text not null default '',
+      location text not null default '',
+      status text not null,
+      version integer not null default 1,
+      replaces_id text,
+      share_token text not null,
+      distributed_at text,
+      distributed_by text,
+      approved_at text,
+      approved_by text,
+      created_at text not null,
+      updated_at text not null,
+      created_by text
+    )`);
+  }
+  if (!tableExists(holder.sqlite, "meeting_attendees", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists meeting_attendees (
+      id ${pk},
+      org_id text not null,
+      meeting_id text not null,
+      kind text not null,
+      user_id text,
+      contact_id text,
+      presence text not null
+    )`);
+  }
+  if (!tableExists(holder.sqlite, "meeting_items", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists meeting_items (
+      id ${pk},
+      org_id text not null,
+      meeting_id text not null,
+      sort_order integer not null,
+      title text not null,
+      notes text not null default '',
+      decision text not null default '',
+      item_status text not null default 'open',
+      link_type text not null default '',
+      link_id text,
+      carried_from_item_id text,
+      source_label text not null default ''
+    )`);
+  }
+  if (!tableExists(holder.sqlite, "meeting_actions", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists meeting_actions (
+      id ${pk},
+      org_id text not null,
+      meeting_id text not null,
+      item_id text not null,
+      title text not null,
+      assignee_kind text not null,
+      user_id text,
+      contact_id text,
+      due_on text,
+      status text not null,
+      todo_id text,
+      carried_from_action_id text,
+      source_label text not null default '',
+      created_at text not null,
+      updated_at text not null
+    )`);
+  }
+  holder.sqlite.exec("create unique index if not exists meetings_token on meetings (share_token)");
+  holder.sqlite.exec("create index if not exists meetings_org on meetings (org_id, project_id)");
+  holder.sqlite.exec("create index if not exists meeting_attendees_meeting on meeting_attendees (org_id, meeting_id)");
+  holder.sqlite.exec("create index if not exists meeting_items_meeting on meeting_items (org_id, meeting_id)");
+  holder.sqlite.exec("create index if not exists meeting_actions_meeting on meeting_actions (org_id, meeting_id)");
+  holder.sqlite.exec("create index if not exists meeting_actions_todo on meeting_actions (org_id, todo_id)");
 }
 
 function ensureTesterFeedback(holder: Holder) {

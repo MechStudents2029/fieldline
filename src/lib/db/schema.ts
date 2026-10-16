@@ -4007,3 +4007,86 @@ export const timeOffDays = sqliteTable(
   },
   (t) => [index("time_off_days_request").on(t.orgId, t.requestId), index("time_off_days_day").on(t.orgId, t.day)],
 );
+
+export const meetings = sqliteTable(
+  "meetings",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    projectId: text("project_id").notNull(),
+    seriesId: text("series_id").notNull(),
+    number: integer("number").notNull(),
+    title: text("title").notNull(),
+    kind: text("kind").notNull(),
+    meetOn: text("meet_on").notNull(),
+    startTime: text("start_time").notNull().default(""),
+    location: text("location").notNull().default(""),
+    status: text("status").notNull(),
+    version: integer("version").notNull().default(1),
+    replacesId: text("replaces_id"),
+    shareToken: text("share_token").notNull(),
+    distributedAt: text("distributed_at"),
+    distributedBy: text("distributed_by"),
+    approvedAt: text("approved_at"),
+    approvedBy: text("approved_by"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    createdBy: text("created_by"),
+  },
+  (t) => [index("meetings_org").on(t.orgId, t.projectId), uniqueIndex("meetings_token").on(t.shareToken)],
+);
+
+export const meetingAttendees = sqliteTable(
+  "meeting_attendees",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    meetingId: text("meeting_id").notNull(),
+    kind: text("kind").notNull(),
+    userId: text("user_id"),
+    contactId: text("contact_id"),
+    presence: text("presence").notNull(),
+  },
+  (t) => [index("meeting_attendees_meeting").on(t.orgId, t.meetingId)],
+);
+
+export const meetingItems = sqliteTable(
+  "meeting_items",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    meetingId: text("meeting_id").notNull(),
+    sortOrder: integer("sort_order").notNull(),
+    title: text("title").notNull(),
+    notes: text("notes").notNull().default(""),
+    decision: text("decision").notNull().default(""),
+    itemStatus: text("item_status").notNull().default("open"),
+    linkType: text("link_type").notNull().default(""),
+    linkId: text("link_id"),
+    carriedFromItemId: text("carried_from_item_id"),
+    sourceLabel: text("source_label").notNull().default(""),
+  },
+  (t) => [index("meeting_items_meeting").on(t.orgId, t.meetingId)],
+);
+
+export const meetingActions = sqliteTable(
+  "meeting_actions",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    meetingId: text("meeting_id").notNull(),
+    itemId: text("item_id").notNull(),
+    title: text("title").notNull(),
+    assigneeKind: text("assignee_kind").notNull(),
+    userId: text("user_id"),
+    contactId: text("contact_id"),
+    dueOn: text("due_on"),
+    status: text("status").notNull(),
+    todoId: text("todo_id"),
+    carriedFromActionId: text("carried_from_action_id"),
+    sourceLabel: text("source_label").notNull().default(""),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+  },
+  (t) => [index("meeting_actions_meeting").on(t.orgId, t.meetingId), index("meeting_actions_todo").on(t.orgId, t.todoId)],
+);

@@ -2,6 +2,17 @@
 
 ## 2026-10-15
 
+### Project meetings
+
+- A job meeting is OAC, Sub coordination, Pre-con, or Internal, with a date, time, location, and attendees from the team, vendors, and the client. Each person is Present or Absent.
+- Agenda items stay in order. An item can link an RFI, a change order, a submittal, a selection, or a schedule item on that job. Notes and a decision sit on the item. Action items have an assignee, a due date, and Open or Done.
+- Agenda, then Minutes, then Approved. Approved minutes stay locked. Revise copies them into a new version and keeps the approved copy. The audit stores who acted and when.
+- An action can become a to-do on the job. Marking the action done marks the to-do done, and marking the to-do done marks the action done.
+- Follow-up opens the next meeting in the series, copies the attendees, and carries every open item and open action. The carried row says which meeting it came from.
+- Agenda and minutes print. Copy link and Mark distributed store who and when. No message is sent.
+- Work, Meetings lists upcoming, needs minutes, and open actions, with CSV at `/api/export/meetings`. The job tab is Meetings. Today counts overdue actions under Meeting due. Field and viewer can read. Office edits. A vendor or client portal shows approved minutes for meetings they attended, and only their own actions.
+- Seed: Okonkwo’s weekly OAC has an approved meeting and an upcoming agenda that carries the open item. Brooks sub coordination has an overdue action.
+
 ### Crew time off
 
 - My day takes a time off request: a date range, full day or hours, and Vacation, Sick, Personal, or Unpaid, with an optional note. Office approves or declines it. A decline needs a reason. The requester can cancel while it is pending. Pending, Approved, Declined, or Cancelled. The audit stores who acted and when.
