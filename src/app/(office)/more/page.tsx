@@ -18,6 +18,7 @@ const links = [
   ["/safety", "Safety"],
   ["/certifications", "Certifications"],
   ["/liens", "Lien deadlines"],
+  ["/forms", "Form submissions"],
   ["/rfis", "RFIs"],
   ["/submittals", "Submittals"],
   ["/todos", "To-dos"],

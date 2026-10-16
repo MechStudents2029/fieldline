@@ -108,6 +108,7 @@ export function ensureReady(holder: Holder) {
   ensureCredentials(holder);
   ensureLateFees(holder);
   ensureLiens(holder);
+  ensureForms(holder);
   ensureDraws(holder);
   ensureRfis(holder);
   ensureComments(holder);
@@ -2006,6 +2007,56 @@ function ensureLiens(holder: Holder) {
   holder.sqlite.exec("create index if not exists lien_rules_org on lien_rules (org_id)");
   holder.sqlite.exec("create unique index if not exists lien_notices_kind on lien_notices (org_id, project_id, kind)");
   holder.sqlite.exec("create index if not exists lien_notices_org on lien_notices (org_id, project_id)");
+}
+
+function ensureForms(holder: Holder) {
+  const pk = holder.dialect === "postgres" ? "text primary key" : "text primary key not null";
+  if (!tableExists(holder.sqlite, "form_templates", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists form_templates (
+      id ${pk},
+      org_id text not null,
+      title text not null,
+      description text not null default '',
+      audiences_json text not null,
+      fields_json text not null,
+      status text not null,
+      token text not null,
+      sent_at text,
+      sent_by text,
+      created_at text not null,
+      updated_at text not null,
+      created_by text
+    )`);
+  }
+  if (!tableExists(holder.sqlite, "form_submissions", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists form_submissions (
+      id ${pk},
+      org_id text not null,
+      template_id text not null,
+      status text not null,
+      project_id text,
+      contact_id text,
+      submitter_id text,
+      channel text not null,
+      answers_json text not null,
+      reviewed_at text,
+      reviewed_by text,
+      created_at text not null
+    )`);
+  }
+  if (!tableExists(holder.sqlite, "form_attempts", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists form_attempts (
+      id ${pk},
+      org_id text not null,
+      template_id text not null,
+      ip text not null,
+      created_at text not null
+    )`);
+  }
+  holder.sqlite.exec("create unique index if not exists form_templates_token on form_templates (token)");
+  holder.sqlite.exec("create index if not exists form_templates_org on form_templates (org_id, status)");
+  holder.sqlite.exec("create index if not exists form_submissions_org on form_submissions (org_id, template_id, status)");
+  holder.sqlite.exec("create index if not exists form_attempts_org on form_attempts (org_id, created_at)");
 }
 
 function ensureTesterFeedback(holder: Holder) {

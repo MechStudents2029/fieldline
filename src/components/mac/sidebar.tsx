@@ -114,6 +114,7 @@ export function Sidebar({
           {item("/safety", "Safety", <HardHat size={16} strokeWidth={1.6} />)}
           {item("/certifications", "Certifications", <IdCard size={16} strokeWidth={1.6} />)}
           {field ? null : item("/liens", "Lien deadlines", <Scale size={16} strokeWidth={1.6} />)}
+          {item("/forms", "Form submissions", <ClipboardList size={16} strokeWidth={1.6} />)}
           {field ? null : (
             <>
               <p className="px-2 pb-1 pt-3 mac-t11 font-semibold text-[var(--mac-secondary)]">Money</p>

@@ -3790,3 +3790,54 @@ export const commissionLines = sqliteTable(
   },
   (t) => [uniqueIndex("commission_lines_key").on(t.orgId, t.sourceKey), index("commission_lines_org").on(t.orgId, t.status)],
 );
+
+export const formTemplates = sqliteTable(
+  "form_templates",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    title: text("title").notNull(),
+    description: text("description").notNull().default(""),
+    audiencesJson: text("audiences_json").notNull(),
+    fieldsJson: text("fields_json").notNull(),
+    status: text("status").notNull(),
+    token: text("token").notNull(),
+    sentAt: text("sent_at"),
+    sentBy: text("sent_by"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    createdBy: text("created_by"),
+  },
+  (t) => [uniqueIndex("form_templates_token").on(t.token), index("form_templates_org").on(t.orgId, t.status)],
+);
+
+export const formSubmissions = sqliteTable(
+  "form_submissions",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    templateId: text("template_id").notNull(),
+    status: text("status").notNull(),
+    projectId: text("project_id"),
+    contactId: text("contact_id"),
+    submitterId: text("submitter_id"),
+    channel: text("channel").notNull(),
+    answersJson: text("answers_json").notNull(),
+    reviewedAt: text("reviewed_at"),
+    reviewedBy: text("reviewed_by"),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [index("form_submissions_org").on(t.orgId, t.templateId, t.status)],
+);
+
+export const formAttempts = sqliteTable(
+  "form_attempts",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    templateId: text("template_id").notNull(),
+    ip: text("ip").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [index("form_attempts_org").on(t.orgId, t.createdAt)],
+);
