@@ -172,11 +172,6 @@ function todayFor(orgId: string): string {
   return localDay(Date.now(), org?.timeZone || "America/New_York");
 }
 
-function zoneFor(orgId: string): string {
-  const org = getDb().select().from(organizations).where(eq(organizations.id, orgId)).get();
-  return org?.timeZone || "America/New_York";
-}
-
 function dayLabel(iso: string | null, zone: string): string {
   if (!iso) return "";
   const ms = Date.parse(iso);
@@ -856,7 +851,7 @@ export function publicTransmittal(shareToken: string): PublicTransmittal {
   return { state: "done", ...body };
 }
 
-export function acknowledgeByToken(input: { token: string; name: string; note: string; startedAt: string; companyUrl: string; ip: string; nowMs?: number }): { id: string } | { dropped: "honeypot" } {
+export function acknowledgeByToken(input: { token: string; name: string; note?: string; startedAt: string; companyUrl: string; ip: string; nowMs?: number }): { id: string } | { dropped: "honeypot" } {
   const db = getDb();
   const guarded = guardPublic(input.token, input);
   if (guarded.dropped) return { dropped: "honeypot" };
