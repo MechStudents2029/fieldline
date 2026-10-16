@@ -2,6 +2,14 @@
 
 ## 2026-10-15
 
+### Custom forms
+
+- Settings, Forms holds reusable templates. A field is text, number, date, select, checkbox, photo, file, or signature, and can be required. The audience is office, field, client, vendor, or a mix. Office can create a template. Owner and admin can edit or archive it. Field and viewer cannot edit templates. Archiving keeps every submission.
+- Copy link shows the fill page. Mark sent stores the date and who. No message is sent.
+- The fill page uses the same wait and rate limit as the lead form. A client or vendor audience can be filled from the link. Office and field fill while signed in.
+- Work, Form submissions is New, then Reviewed. A submission can be attached to a job or a contact. Open it for the answers, photo, file, or signature. CSV is `/api/export/forms`. Field sees only their own. Today counts New under Forms.
+- Seed: Site walkthrough is reviewed, with a photo, a checkbox, and notes. PTO request is for field. Vendor info update is New, from the vendor link.
+
 ### Lien deadlines
 
 - Settings, Lien rules is one row per state: California, Texas commercial, and Florida. Each row is the company’s role and the day count for a preliminary notice, an optional notice of intent, filing, and enforcement, plus the statute. Owner and admin can edit. New York is not listed. The official Lien Law text was not verified.

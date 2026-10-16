@@ -23,6 +23,7 @@ import { materialAttention } from "@/lib/services/material-requests";
 import { credentialAttention } from "@/lib/services/certifications";
 import { lateFeeAttention } from "@/lib/services/late-fees";
 import { lienAttention } from "@/lib/services/liens";
+import { formAttention } from "@/lib/services/forms";
 import { bidQueues } from "@/lib/services/bids";
 import { readyToBill } from "@/lib/services/draws";
 import { readyToPay, retainageHeldOnClosed } from "@/lib/services/pay-ready";
@@ -315,6 +316,8 @@ export default async function TodayPage() {
   push("late-fees", feesDue.count, feesDue.href, "Fees", formatMoney(feesDue.cents), true);
   const liensDue = lienAttention(session);
   push("liens", liensDue.count, liensDue.href, "Liens", String(liensDue.count));
+  const formsDue = formAttention(session);
+  push("forms", formsDue.count, formsDue.href, "Forms", String(formsDue.count));
   push("bids-due", bids.due.count, bids.due.href, "Bids due", String(bids.due.count));
   push("bids-award", bids.award.count, bids.award.href, "Bids to award", String(bids.award.count));
   push("bill", ready.count, ready.href, "Ready to bill", `${ready.count} · ${formatWhole(ready.cents)}`, true);

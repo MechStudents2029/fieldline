@@ -67,6 +67,8 @@ import {
   clientStatements,
   lienNotices,
   lienRules,
+  formSubmissions,
+  formTemplates,
   laborRates,
   leads,
   leadSources,
@@ -225,7 +227,7 @@ import {
   WEBSITE_FORM_SOURCE,
 } from "@/lib/lead-form/rules";
 
-export const SEED_VERSION = "71";
+export const SEED_VERSION = "72";
 
 const ORG = "org_rivera";
 const NORTH = "org_northline";
@@ -7160,5 +7162,140 @@ function seedTemplates(db: AppDatabase, now: string) {
         createdBy: "user_maya",
       })),
     )
+    .run();
+
+  const formPng = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64");
+  fs.writeFileSync(path.join(uploadDir, "doc_form_walk.png"), formPng);
+  db.insert(documents)
+    .values({
+      id: "doc_form_walk",
+      orgId: ORG,
+      projectId: null,
+      leadId: null,
+      contactId: null,
+      type: "form",
+      filename: "walk.png",
+      storagePath: path.join("uploads", ORG, "doc_form_walk.png"),
+      metadataJson: null,
+      deletedAt: null,
+      createdAt: now,
+      createdBy: "user_dana",
+    })
+    .run();
+  db.insert(formTemplates)
+    .values([
+      {
+        id: "ft_walk",
+        orgId: ORG,
+        title: "Site walkthrough",
+        description: "Photos and notes from the site.",
+        audiencesJson: JSON.stringify(["office", "field"]),
+        fieldsJson: JSON.stringify([
+          { id: "fw_photo", label: "Photo", type: "photo", required: true, options: [] },
+          { id: "fw_safe", label: "Site is safe", type: "checkbox", required: true, options: [] },
+          { id: "fw_notes", label: "Notes", type: "text", required: false, options: [] },
+        ]),
+        status: "active",
+        token: "demo_form_walk_a1",
+        sentAt: null,
+        sentBy: null,
+        createdAt: now,
+        updatedAt: now,
+        createdBy: "user_maya",
+      },
+      {
+        id: "ft_pto",
+        orgId: ORG,
+        title: "PTO request",
+        description: "Dates and a reason.",
+        audiencesJson: JSON.stringify(["field"]),
+        fieldsJson: JSON.stringify([
+          { id: "start", label: "Start", type: "date", required: true, options: [] },
+          { id: "end", label: "End", type: "date", required: true, options: [] },
+          { id: "reason", label: "Reason", type: "text", required: true, options: [] },
+        ]),
+        status: "active",
+        token: "demo_form_pto_b2",
+        sentAt: null,
+        sentBy: null,
+        createdAt: now,
+        updatedAt: now,
+        createdBy: "user_maya",
+      },
+      {
+        id: "ft_vendor",
+        orgId: ORG,
+        title: "Vendor info update",
+        description: "Company and trade.",
+        audiencesJson: JSON.stringify(["vendor"]),
+        fieldsJson: JSON.stringify([
+          { id: "fv_company", label: "Company", type: "text", required: true, options: [] },
+          { id: "fv_trade", label: "Trade", type: "select", required: true, options: ["Electrical", "Plumbing", "Other"] },
+        ]),
+        status: "active",
+        token: "demo_form_vendor_c3",
+        sentAt: null,
+        sentBy: null,
+        createdAt: now,
+        updatedAt: now,
+        createdBy: "user_maya",
+      },
+    ])
+    .run();
+  db.insert(formSubmissions)
+    .values([
+      {
+        id: "fsub_walk",
+        orgId: ORG,
+        templateId: "ft_walk",
+        status: "reviewed",
+        projectId: null,
+        contactId: null,
+        submitterId: "user_dana",
+        channel: "field",
+        answersJson: JSON.stringify([
+          { fieldId: "fw_photo", text: null, documentId: "doc_form_walk" },
+          { fieldId: "fw_safe", text: "yes", documentId: null },
+          { fieldId: "fw_notes", text: "Gate latched.", documentId: null },
+        ]),
+        reviewedAt: now,
+        reviewedBy: "user_maya",
+        createdAt: daysAgo(2),
+      },
+      {
+        id: "fsub_vendor",
+        orgId: ORG,
+        templateId: "ft_vendor",
+        status: "new",
+        projectId: null,
+        contactId: null,
+        submitterId: null,
+        channel: "link",
+        answersJson: JSON.stringify([
+          { fieldId: "fv_company", text: "Harbor Electric", documentId: null },
+          { fieldId: "fv_trade", text: "Electrical", documentId: null },
+        ]),
+        reviewedAt: null,
+        reviewedBy: null,
+        createdAt: daysAgo(1),
+      },
+    ])
+    .run();
+  db.insert(notifications)
+    .values({
+      id: "note_form_maya",
+      orgId: ORG,
+      userId: "user_maya",
+      kind: "form",
+      commentId: null,
+      entityType: "form_submission",
+      entityId: "fsub_vendor",
+      projectId: null,
+      actorId: null,
+      actorName: "Fieldline",
+      snippet: "Vendor info update",
+      readAt: null,
+      createdAt: daysAgo(40),
+    })
     .run();
 }
