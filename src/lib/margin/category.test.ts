@@ -56,6 +56,16 @@ describe("category budget alerts", () => {
     });
     const covered = assessCategories(both, [{ status: "draft", costCode: "PLB-TOILET", costCents: 2_000 }]);
     expect(covered[0]).toMatchObject({ level: "over", covered: true, suggestDraft: false, draftCostCents: 0 });
+    const pending = assessCategories([{ code: "BATH-GLASS", budgetCents: 10_000, actualCents: 1_000, committedOpenCents: 0, pendingCents: 2_500 }]);
+    expect(pending[0]).toMatchObject({
+      actualCents: 1_000,
+      exposureCents: 1_000,
+      pendingCents: 2_500,
+      projectedCents: 12_500,
+      level: "ok",
+      percentOfBudget: 10,
+      suggestDraft: false,
+    });
   });
 
   it("rolls uncoded costs into one bucket and suggests a draft only when uncovered", () => {

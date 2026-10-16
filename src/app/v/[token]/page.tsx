@@ -9,6 +9,7 @@ import { vendorPortal } from "@/lib/services/vendor-portal";
 import { vendorPortalPins } from "@/lib/services/markup";
 import { vendorInspectionRows } from "@/lib/services/permits";
 import { portalMeetingsForVendor } from "@/lib/services/meetings";
+import { portalChangeQuotesForVendor } from "@/lib/services/change-events";
 import { portalTransmittalsForVendor } from "@/lib/services/transmittals";
 import { vendorTodos } from "@/lib/services/todos";
 
@@ -30,6 +31,7 @@ export default async function VendorPortalPage({ params, searchParams }: { param
       todos={vendorTodos(token)}
       meetings={portalMeetingsForVendor(token)}
       transmittals={portalTransmittalsForVendor(token)}
+      changeQuotes={portalChangeQuotesForVendor(token)}
       inspections={vendorInspectionRows(token)}
       submittals={vendorPortalSubmittals(token)}
       waivers={vendorPortalWaivers(token) ?? []}

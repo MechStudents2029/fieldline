@@ -4235,3 +4235,87 @@ export const transmittalAttempts = sqliteTable(
   },
   (t) => [index("transmittal_attempts_org").on(t.orgId, t.createdAt)],
 );
+
+export const changeEvents = sqliteTable(
+  "change_events",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    projectId: text("project_id").notNull(),
+    number: integer("number").notNull(),
+    title: text("title").notNull(),
+    reason: text("reason").notNull(),
+    sourceKind: text("source_kind").notNull().default(""),
+    sourceId: text("source_id"),
+    scheduleDays: integer("schedule_days").notNull().default(0),
+    status: text("status").notNull(),
+    changeOrderId: text("change_order_id"),
+    voidReason: text("void_reason"),
+    voidedAt: text("voided_at"),
+    voidedBy: text("voided_by"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    createdBy: text("created_by"),
+  },
+  (t) => [uniqueIndex("change_events_number").on(t.orgId, t.projectId, t.number), index("change_events_org").on(t.orgId, t.projectId)],
+);
+
+export const changeEventCodes = sqliteTable(
+  "change_event_codes",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    eventId: text("event_id").notNull(),
+    costCode: text("cost_code").notNull(),
+    romCostCents: integer("rom_cost_cents").notNull().default(0),
+    romPriceCents: integer("rom_price_cents").notNull().default(0),
+    sortOrder: integer("sort_order").notNull().default(0),
+  },
+  (t) => [index("change_event_codes_event").on(t.orgId, t.eventId)],
+);
+
+export const changeEventQuotes = sqliteTable(
+  "change_event_quotes",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    eventId: text("event_id").notNull(),
+    contactId: text("contact_id").notNull(),
+    status: text("status").notNull(),
+    amountCents: integer("amount_cents"),
+    days: integer("days"),
+    note: text("note").notNull().default(""),
+    dueOn: text("due_on"),
+    shareToken: text("share_token").notNull(),
+    requestedAt: text("requested_at"),
+    requestedBy: text("requested_by"),
+    copiedAt: text("copied_at"),
+    copiedBy: text("copied_by"),
+    pricedAt: text("priced_at"),
+    chosen: integer("chosen").notNull().default(0),
+  },
+  (t) => [uniqueIndex("change_event_quotes_vendor").on(t.orgId, t.eventId, t.contactId), uniqueIndex("change_event_quotes_token").on(t.shareToken)],
+);
+
+export const changeEventFiles = sqliteTable(
+  "change_event_files",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    eventId: text("event_id").notNull(),
+    documentId: text("document_id").notNull(),
+  },
+  (t) => [uniqueIndex("change_event_files_doc").on(t.orgId, t.eventId, t.documentId)],
+);
+
+export const changeEventCommitments = sqliteTable(
+  "change_event_commitments",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    eventId: text("event_id").notNull(),
+    quoteId: text("quote_id"),
+    purchaseOrderId: text("purchase_order_id").notNull(),
+  },
+  (t) => [index("change_event_commitments_event").on(t.orgId, t.eventId)],
+);

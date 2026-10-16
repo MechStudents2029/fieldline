@@ -115,6 +115,7 @@ export function ensureReady(holder: Holder) {
   ensureMeetings(holder);
   ensureHandover(holder);
   ensureTransmittals(holder);
+  ensureChangeEvents(holder);
   ensureDraws(holder);
   ensureRfis(holder);
   ensureComments(holder);
@@ -2446,6 +2447,86 @@ function ensureTransmittals(holder: Holder) {
   holder.sqlite.exec("create unique index if not exists transmittal_ccs_user on transmittal_ccs (org_id, transmittal_id, user_id)");
   holder.sqlite.exec("create index if not exists transmittal_lines_tx on transmittal_lines (org_id, transmittal_id)");
   holder.sqlite.exec("create index if not exists transmittal_attempts_org on transmittal_attempts (org_id, created_at)");
+}
+
+function ensureChangeEvents(holder: Holder) {
+  const pk = holder.dialect === "postgres" ? "text primary key" : "text primary key not null";
+  if (!tableExists(holder.sqlite, "change_events", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists change_events (
+      id ${pk},
+      org_id text not null,
+      project_id text not null,
+      number integer not null,
+      title text not null,
+      reason text not null,
+      source_kind text not null default '',
+      source_id text,
+      schedule_days integer not null default 0,
+      status text not null,
+      change_order_id text,
+      void_reason text,
+      voided_at text,
+      voided_by text,
+      created_at text not null,
+      updated_at text not null,
+      created_by text
+    )`);
+  }
+  if (!tableExists(holder.sqlite, "change_event_codes", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists change_event_codes (
+      id ${pk},
+      org_id text not null,
+      event_id text not null,
+      cost_code text not null,
+      rom_cost_cents integer not null default 0,
+      rom_price_cents integer not null default 0,
+      sort_order integer not null default 0
+    )`);
+  }
+  if (!tableExists(holder.sqlite, "change_event_quotes", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists change_event_quotes (
+      id ${pk},
+      org_id text not null,
+      event_id text not null,
+      contact_id text not null,
+      status text not null,
+      amount_cents integer,
+      days integer,
+      note text not null default '',
+      due_on text,
+      share_token text not null,
+      requested_at text,
+      requested_by text,
+      copied_at text,
+      copied_by text,
+      priced_at text,
+      chosen integer not null default 0
+    )`);
+  }
+  if (!tableExists(holder.sqlite, "change_event_files", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists change_event_files (
+      id ${pk},
+      org_id text not null,
+      event_id text not null,
+      document_id text not null
+    )`);
+  }
+  if (!tableExists(holder.sqlite, "change_event_commitments", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists change_event_commitments (
+      id ${pk},
+      org_id text not null,
+      event_id text not null,
+      quote_id text,
+      purchase_order_id text not null
+    )`);
+  }
+  holder.sqlite.exec("create unique index if not exists change_events_number on change_events (org_id, project_id, number)");
+  holder.sqlite.exec("create index if not exists change_events_org on change_events (org_id, project_id)");
+  holder.sqlite.exec("create index if not exists change_event_codes_event on change_event_codes (org_id, event_id)");
+  holder.sqlite.exec("create unique index if not exists change_event_quotes_vendor on change_event_quotes (org_id, event_id, contact_id)");
+  holder.sqlite.exec("create unique index if not exists change_event_quotes_token on change_event_quotes (share_token)");
+  holder.sqlite.exec("create unique index if not exists change_event_files_doc on change_event_files (org_id, event_id, document_id)");
+  holder.sqlite.exec("create index if not exists change_event_commitments_event on change_event_commitments (org_id, event_id)");
 }
 
 function ensureTesterFeedback(holder: Holder) {

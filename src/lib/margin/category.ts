@@ -9,6 +9,8 @@ export type CostCodeSpend = {
   actualCents: number;
   /** Issued purchase-order remainder on this code. Omit it and the code is treated as uncommitted. */
   committedOpenCents?: number;
+  /** Open change-event ROM cost. Omit it and nothing is pending. */
+  pendingCents?: number;
 };
 
 export type CoveringLine = {
@@ -23,8 +25,9 @@ export type CategoryAssessment = CostCodeSpend & {
   committedOpenCents: number;
   /** Actual plus open commitment. The 80% watch and the overrun use this, not the floored projection. */
   exposureCents: number;
-  /** Greatest of the budget and exposure. This is the column on the job cost table. */
+  /** Greatest of the budget and exposure, plus pending ROM. This is the column on the job cost table. */
   projectedCents: number;
+  pendingCents: number;
   costToCompleteCents: number;
   /** Budget minus projected. Zero while the projection is still the budget. */
   varianceCents: number;
@@ -79,8 +82,9 @@ export function assessCategories(rows: CostCodeSpend[], covers: CoveringLine[] =
   return rows
     .map((row) => {
       const committedOpenCents = Math.max(0, row.committedOpenCents ?? 0);
+      const pendingCents = Math.max(0, row.pendingCents ?? 0);
       const exposureCents = row.actualCents + committedOpenCents;
-      const projectedCents = Math.max(row.budgetCents, exposureCents);
+      const projectedCents = Math.max(row.budgetCents, exposureCents) + pendingCents;
       const level = levelFor(row.budgetCents, exposureCents);
       const overageCents = row.budgetCents > 0 ? Math.max(0, exposureCents - row.budgetCents) : 0;
       const coveredCents = covers
@@ -91,6 +95,7 @@ export function assessCategories(rows: CostCodeSpend[], covers: CoveringLine[] =
       return {
         ...row,
         committedOpenCents,
+        pendingCents,
         exposureCents,
         projectedCents,
         costToCompleteCents: projectedCents - row.actualCents,

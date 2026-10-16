@@ -23,6 +23,8 @@ import type { PortalRfi } from "@/lib/services/rfis";
 import type { VendorPortalHome } from "@/lib/services/vendor-portal";
 import { submitVendorBidAction, declineVendorBidAction, vendorTickAction } from "@/app/actions";
 import type { PortalMeeting } from "@/lib/services/meetings";
+import type { PortalChangeQuote } from "@/lib/services/change-events";
+import { submitChangeQuoteAction } from "@/app/(office)/change-events/actions";
 import type { PortalTransmittal } from "@/lib/services/transmittals";
 import type { VendorTodo } from "@/lib/services/todos";
 import type { PortalWaiver } from "@/lib/services/waivers";
@@ -46,6 +48,7 @@ export function VendorPortalView({
   todos = [],
   meetings = [],
   transmittals = [],
+  changeQuotes = [],
   inspections = [],
   submittals = { items: [], jobs: [] },
   waivers = [],
@@ -60,6 +63,7 @@ export function VendorPortalView({
   todos?: VendorTodo[];
   meetings?: PortalMeeting[];
   transmittals?: PortalTransmittal[];
+  changeQuotes?: PortalChangeQuote[];
   inspections?: { name: string; date: string; result: string }[];
   submittals?: { items: PortalSubmittal[]; jobs: { id: string; name: string }[] };
   waivers?: PortalWaiver[];
@@ -141,6 +145,50 @@ export function VendorPortalView({
                     {action.dueOn ? ` · ${formatCalendarDay(action.dueOn)}` : ""} · {action.status === "done" ? "Done" : "Open"}
                   </p>
                 ))}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+      {changeQuotes.length > 0 ? (
+        <section className="mt-7" aria-label="Change prices">
+          <h2>Change prices</h2>
+          <ul className="home-stack">
+            {changeQuotes.map((quote) => (
+              <li key={quote.id} className="home-card" data-quote={quote.title}>
+                <p className="home-copy">{quote.title}</p>
+                <p className="home-sub">
+                  {quote.job} · {quote.number} · {quote.scope}
+                  {quote.dueOn ? ` · ${formatCalendarDay(quote.dueOn)}` : ""}
+                </p>
+                {quote.files.map((file) => (
+                  <p key={file.id} className="home-sub">
+                    <a href={file.href}>{file.filename}</a>
+                  </p>
+                ))}
+                {quote.status === "priced" ? (
+                  <p className="home-sub num">
+                    {quote.amountCents == null ? "" : formatWhole(quote.amountCents)} · {quote.days ?? 0}d {quote.note}
+                  </p>
+                ) : (
+                  <ActionForm action={submitChangeQuoteAction.bind(null, token, quote.id)} className="home-form">
+                    <label className="text-sm">
+                      Amount
+                      <input name="amount" aria-label={`Amount ${quote.title}`} inputMode="decimal" className="field mt-1" />
+                    </label>
+                    <label className="text-sm">
+                      Days
+                      <input name="days" aria-label={`Days ${quote.title}`} inputMode="numeric" className="field mt-1" />
+                    </label>
+                    <label className="text-sm">
+                      Note
+                      <input name="note" aria-label={`Note ${quote.title}`} className="field mt-1" />
+                    </label>
+                    <button type="submit" className="h-11 rounded-lg bg-[var(--fl-accent)] text-sm font-semibold text-white">
+                      Send price
+                    </button>
+                  </ActionForm>
+                )}
               </li>
             ))}
           </ul>
