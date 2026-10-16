@@ -2,6 +2,14 @@
 
 ## 2026-10-15
 
+### Change events
+
+- A job can log a change event with a number, title, reason, optional source, cost codes, ROM cost and price, and schedule days. Status runs Open, Pricing, Ready, then Converted or Void. Field logs one from the job and from My day. Office prices and converts.
+- Office asks one or more vendors. Copy link and Mark requested store who and when. No message is sent. The vendor portal shows only that vendor’s request, with the scope and files. The vendor enters an amount, days, and a note.
+- Convert from Ready writes a draft client change order and, for each chosen vendor, a draft commitment on the same cost codes. Both link back. A converted event cannot convert again. Void keeps a reason.
+- Work, Change events lists Open, Pricing, Ready, and Converted, with a totals row and CSV at `/api/export/change-events`. The job tab is Changes. Today counts an open event older than 7 days under Event age, and a vendor price past due under Price due. Open ROM cost shows as Pending on the cost code and is included in projected. Actual is unchanged. The client portal does not show change events.
+- Seed: Okonkwo has an open valve-height event from the RFI, and a pricing event with Harbor’s price and Casa’s past-due request. Chen powder room has a converted vanity-blocking event with a draft change order and a draft commitment.
+
 ### Document transmittals
 
 - Work, Transmittals and the job tab hold a numbered package: subject, recipient, optional CC, purpose, and an optional due date. The recipient is a vendor on the job, the client, or a teammate. Lines are job files, plans, published specs, approved submittals, or a note, in order, and a line can require a return.

@@ -36,6 +36,11 @@ import {
   budgetLines,
   changeOrderLines,
   changeOrders,
+  changeEventCodes,
+  changeEventCommitments,
+  changeEventFiles,
+  changeEventQuotes,
+  changeEvents,
   clientCreditApplications,
   clientCreditMemoLines,
   clientCreditMemos,
@@ -246,7 +251,7 @@ import {
   WEBSITE_FORM_SOURCE,
 } from "@/lib/lead-form/rules";
 
-export const SEED_VERSION = "78";
+export const SEED_VERSION = "79";
 
 const ORG = "org_rivera";
 const NORTH = "org_northline";
@@ -8026,6 +8031,219 @@ function seedTemplates(db: AppDatabase, now: string) {
       { id: "aud_tx_ok_due_sent", orgId: ORG, actorId: "user_maya", action: "transmittal.send", entityType: "transmittal", entityId: "tx_ok_due", payloadJson: "{}", ip: null, createdAt: txSent },
       { id: "aud_tx_ok_ack", orgId: ORG, actorId: "user_maya", action: "transmittal.ack", entityType: "transmittal", entityId: "tx_ok_ack", payloadJson: "{}", ip: "seed", createdAt: txAck },
       { id: "aud_tx_chen", orgId: ORG, actorId: "user_maya", action: "transmittal.create", entityType: "transmittal", entityId: "tx_chen_draft", payloadJson: "{}", ip: null, createdAt: txAck },
+    ])
+    .run();
+
+  const ceOld = daysAgo(10);
+  const ceNew = daysAgo(2);
+  const cePriced = daysAgo(1);
+  const ceDue = addCalendarDays(today, -1);
+  const ceSoon = addCalendarDays(today, 5);
+  db.insert(changeEvents)
+    .values([
+      {
+        id: "ce_ok_rfi",
+        orgId: ORG,
+        projectId: "proj_okonkwo",
+        number: 1,
+        title: "Valve height gap",
+        reason: "design",
+        sourceKind: "rfi",
+        sourceId: "rfi_ok_valve",
+        scheduleDays: 1,
+        status: "open",
+        changeOrderId: null,
+        voidReason: null,
+        voidedAt: null,
+        voidedBy: null,
+        createdAt: ceOld,
+        updatedAt: ceOld,
+        createdBy: "user_dana",
+      },
+      {
+        id: "ce_ok_prices",
+        orgId: ORG,
+        projectId: "proj_okonkwo",
+        number: 2,
+        title: "Niche tile extra",
+        reason: "field",
+        sourceKind: "",
+        sourceId: null,
+        scheduleDays: 0,
+        status: "pricing",
+        changeOrderId: null,
+        voidReason: null,
+        voidedAt: null,
+        voidedBy: null,
+        createdAt: ceNew,
+        updatedAt: ceNew,
+        createdBy: "user_maya",
+      },
+      {
+        id: "ce_chen_conv",
+        orgId: ORG,
+        projectId: "proj_chen",
+        number: 1,
+        title: "Vanity blocking",
+        reason: "unforeseen",
+        sourceKind: "",
+        sourceId: null,
+        scheduleDays: 1,
+        status: "converted",
+        changeOrderId: "co_chen_ce",
+        voidReason: null,
+        voidedAt: null,
+        voidedBy: null,
+        createdAt: ceNew,
+        updatedAt: cePriced,
+        createdBy: "user_luis",
+      },
+    ])
+    .run();
+  db.insert(changeEventCodes)
+    .values([
+      { id: "cec_ok_rfi", orgId: ORG, eventId: "ce_ok_rfi", costCode: "BATH-GLASS", romCostCents: 22_000, romPriceCents: 31_000, sortOrder: 0 },
+      { id: "cec_ok_prices", orgId: ORG, eventId: "ce_ok_prices", costCode: "DEMO-GUT", romCostCents: 15_000, romPriceCents: 21_000, sortOrder: 0 },
+      { id: "cec_chen_conv", orgId: ORG, eventId: "ce_chen_conv", costCode: "TILE-FLR", romCostCents: 40_000, romPriceCents: 54_000, sortOrder: 0 },
+    ])
+    .run();
+  db.insert(changeEventQuotes)
+    .values([
+      {
+        id: "ceq_ok_harbor",
+        orgId: ORG,
+        eventId: "ce_ok_prices",
+        contactId: "c_harbor",
+        status: "priced",
+        amountCents: 48_000,
+        days: 2,
+        note: "Move the valve",
+        dueOn: ceSoon,
+        shareToken: "demo_ceq_harbor",
+        requestedAt: ceNew,
+        requestedBy: "user_maya",
+        copiedAt: ceNew,
+        copiedBy: "user_maya",
+        pricedAt: cePriced,
+        chosen: 0,
+      },
+      {
+        id: "ceq_ok_casa",
+        orgId: ORG,
+        eventId: "ce_ok_prices",
+        contactId: "c_casa",
+        status: "requested",
+        amountCents: null,
+        days: null,
+        note: "",
+        dueOn: ceDue,
+        shareToken: "demo_ceq_casa",
+        requestedAt: ceNew,
+        requestedBy: "user_maya",
+        copiedAt: null,
+        copiedBy: null,
+        pricedAt: null,
+        chosen: 0,
+      },
+      {
+        id: "ceq_chen_mill",
+        orgId: ORG,
+        eventId: "ce_chen_conv",
+        contactId: "c_mill",
+        status: "priced",
+        amountCents: 40_000,
+        days: 1,
+        note: "Blocking",
+        dueOn: ceSoon,
+        shareToken: "demo_ceq_mill",
+        requestedAt: ceNew,
+        requestedBy: "user_luis",
+        copiedAt: null,
+        copiedBy: null,
+        pricedAt: cePriced,
+        chosen: 1,
+      },
+    ])
+    .run();
+  db.insert(changeEventFiles).values({ id: "cef_ok_plan", orgId: ORG, eventId: "ce_ok_prices", documentId: "doc_ok_a101_r2" }).run();
+  db.insert(changeOrders)
+    .values({
+      id: "co_chen_ce",
+      orgId: ORG,
+      projectId: "proj_chen",
+      number: 1,
+      title: "Vanity blocking",
+      status: "draft",
+      description: "Vanity blocking",
+      priceDeltaCents: 40_000,
+      costDeltaCents: 40_000,
+      publicToken: "demo_co_chen_ce",
+      sentAt: null,
+      approvedAt: null,
+      createdAt: cePriced,
+      updatedAt: cePriced,
+      createdBy: "user_luis",
+    })
+    .run();
+  db.insert(changeOrderLines)
+    .values({
+      id: "col_chen_ce",
+      orgId: ORG,
+      changeOrderId: "co_chen_ce",
+      name: "Vanity blocking",
+      qtyMilli: 1000,
+      unit: "ea",
+      unitCostCents: 40_000,
+      markupBps: 0,
+      priceCents: 40_000,
+      costCode: "TILE-FLR",
+      sortOrder: 0,
+    })
+    .run();
+  db.insert(purchaseOrders)
+    .values({
+      id: "po_chen_ce",
+      orgId: ORG,
+      projectId: "proj_chen",
+      vendorContactId: "c_mill",
+      changeOrderId: "co_chen_ce",
+      number: "PO-1043",
+      scope: "CE 1 Vanity blocking",
+      status: "draft",
+      voidReason: null,
+      issuedAt: null,
+      closedAt: null,
+      createdAt: cePriced,
+      updatedAt: cePriced,
+      createdBy: "user_luis",
+      retainageBps: 0,
+      kind: "purchase",
+    })
+    .run();
+  db.insert(purchaseOrderLines)
+    .values({
+      id: "pol_chen_ce",
+      orgId: ORG,
+      purchaseOrderId: "po_chen_ce",
+      costCode: "TILE-FLR",
+      description: "Vanity blocking",
+      amountCents: 40_000,
+      sortOrder: 0,
+      qtyMilli: 1000,
+      unitCostCents: 40_000,
+      sourceKind: "change_event",
+      sourceId: "ce_chen_conv",
+      note: null,
+    })
+    .run();
+  db.insert(changeEventCommitments)
+    .values({ id: "ceco_chen", orgId: ORG, eventId: "ce_chen_conv", quoteId: "ceq_chen_mill", purchaseOrderId: "po_chen_ce" })
+    .run();
+  db.insert(auditLogs)
+    .values([
+      { id: "aud_ce_ok_rfi", orgId: ORG, actorId: "user_dana", action: "change_event.create", entityType: "change_event", entityId: "ce_ok_rfi", payloadJson: "{}", ip: null, createdAt: ceOld },
+      { id: "aud_ce_ok_ask", orgId: ORG, actorId: "user_maya", action: "change_event.request", entityType: "change_event", entityId: "ce_ok_prices", payloadJson: "{}", ip: null, createdAt: ceNew },
+      { id: "aud_ce_chen", orgId: ORG, actorId: "user_luis", action: "change_event.convert", entityType: "change_event", entityId: "ce_chen_conv", payloadJson: "{}", ip: null, createdAt: cePriced },
     ])
     .run();
 }

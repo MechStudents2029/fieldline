@@ -306,6 +306,9 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
         <Link href={`/projects/${detail.project.id}/transmittals`} className="py-1.5 text-center fl-footnote text-[var(--fl-secondary)]">
           Transmittals
         </Link>
+        <Link href={`/projects/${detail.project.id}/changes`} className="py-1.5 text-center fl-footnote text-[var(--fl-secondary)]">
+          Changes
+        </Link>
       </nav>
       {money ? (
         <div id="budget">
@@ -347,6 +350,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
                   <th className="px-2 text-right">Budget</th>
                   <th className="mac-budget-extra px-2 text-right">Committed</th>
                   <th className="px-2 text-right">Spent</th>
+                  <th className="mac-budget-extra px-2 text-right">Pending</th>
                   <th className="mac-budget-extra px-2 text-right">Projected</th>
                   <th className="mac-budget-extra px-2 text-right">To complete</th>
                   <th className="mac-budget-extra px-2 text-right">Variance</th>
@@ -363,6 +367,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
                     <td className="px-2 text-right num" data-kind="budget">{formatWhole(row.budgetCents)}</td>
                     <td className="mac-budget-extra px-2 text-right num" data-kind="committed">{formatWhole(row.committedOpenCents)}</td>
                     <td className="px-2 text-right num" data-kind="actual">{formatWhole(row.actualCents)}</td>
+                    <td className="mac-budget-extra px-2 text-right num" data-kind="pending">{formatWhole(row.pendingCents)}</td>
                     <td className="mac-budget-extra px-2 text-right num" data-kind="projected">{formatWhole(row.projectedCents)}</td>
                     <td className="mac-budget-extra px-2 text-right num" data-kind="remaining">{formatWhole(row.costToCompleteCents)}</td>
                     <td className="mac-budget-extra px-2 text-right num" data-kind="variance">{formatWhole(row.varianceCents)}</td>

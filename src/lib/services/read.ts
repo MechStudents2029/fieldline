@@ -42,7 +42,8 @@ import {
 } from "@/lib/db/schema";
 import { countsTowardTotal, type Billing } from "@/lib/estimate/pricing";
 import { marginBps, lineAmounts } from "@/lib/money";
-import { assessCategories, costCodeKey, rollupCostCodes, type CategoryAssessment, type CoveringLine } from "@/lib/margin/category";
+import { assessCategories, costCodeKey, rollupCostCodes, type CategoryAssessment, type CostCodeSpend, type CoveringLine } from "@/lib/margin/category";
+import { pendingCostByCode } from "@/lib/services/change-events";
 import { openCommitments } from "@/lib/services/purchase-orders";
 import { canSeeMoney, type Role } from "@/lib/permissions";
 import { verifyPassword } from "@/lib/auth/password";
@@ -412,7 +413,7 @@ export function projectDetail(orgId: string, projectId: string, role: Role) {
   const actual = costs.reduce((sum, cost) => sum + cost.amountCents, 0);
   const bps = marginBps(project.contractValueCents, actual);
   const byCode = assessCategories(
-    rollupCostCodes(budget, costs, openCommitments(orgId, [projectId])),
+    withPending(rollupCostCodes(budget, costs, openCommitments(orgId, [projectId])), pendingCostByCode(orgId, projectId)),
     coverLines(orders, orderLines, budget),
   );
   const money = canSeeMoney(role);
@@ -698,6 +699,16 @@ export function listCategoryAlerts(orgId: string): CategoryAlert[] {
     }
   }
   return alerts.sort((a, b) => b.overageCents - a.overageCents || (b.percentOfBudget ?? 0) - (a.percentOfBudget ?? 0));
+}
+
+function withPending(rows: CostCodeSpend[], pending: Map<string, number>): CostCodeSpend[] {
+  const next = rows.map((row) => ({ ...row, pendingCents: pending.get(row.code) ?? 0 }));
+  for (const [code, cents] of pending) {
+    if (cents > 0 && !next.some((row) => row.code === code)) {
+      next.push({ code, budgetCents: 0, actualCents: 0, committedOpenCents: 0, pendingCents: cents });
+    }
+  }
+  return next;
 }
 
 function coverLines(
