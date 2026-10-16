@@ -33,6 +33,8 @@ import { receiptAttention, receiptCodes, receiptJobs } from "@/lib/services/cost
 import { mileageAttention, mileageJobs } from "@/lib/services/mileage";
 import { materialAttention, materialCodes, materialJobs, materialStock } from "@/lib/services/material-requests";
 import { credentialAttention } from "@/lib/services/certifications";
+import { listTimeOff } from "@/lib/services/time-off";
+import { cancelTimeOffAction, requestTimeOffAction } from "@/app/(office)/time-off/actions";
 
 function clock(iso: string) {
   const mins = Math.max(0, Math.floor((Date.now() - Date.parse(iso)) / 60000));
@@ -65,6 +67,7 @@ export function MyDay({ actor }: { actor: Actor }) {
   const miles = mileageAttention(actor);
   const materials = materialAttention(actor);
   const certs = credentialAttention(actor);
+  const timeOff = actor.role === "viewer" ? [] : listTimeOff(actor);
   const open = day.open;
   return (
     <div className="mx-auto flex max-w-lg flex-col gap-7 md:max-w-none md:px-6">
@@ -363,6 +366,58 @@ export function MyDay({ actor }: { actor: Actor }) {
           ))}
         </ul>
       </section>
+      {actor.role !== "viewer" ? (
+        <section className="flex flex-col gap-3" aria-label="Time off">
+          <h2 className="fl-section">Time off</h2>
+          <ActionForm action={requestTimeOffAction} className="grid gap-2">
+            <label className="text-sm">
+              Start
+              <input type="date" name="startOn" aria-label="Time off start" required className="field mt-1" />
+            </label>
+            <label className="text-sm">
+              End
+              <input type="date" name="endOn" aria-label="Time off end" required className="field mt-1" />
+            </label>
+            <label className="text-sm">
+              Hours
+              <input name="hours" aria-label="Time off hours" inputMode="decimal" className="field mt-1" />
+            </label>
+            <label className="text-sm">
+              Type
+              <select name="kind" aria-label="Time off type" defaultValue="vacation" className="field mt-1">
+                <option value="vacation">Vacation</option>
+                <option value="sick">Sick</option>
+                <option value="personal">Personal</option>
+                <option value="unpaid">Unpaid</option>
+              </select>
+            </label>
+            <label className="text-sm">
+              Note
+              <input name="note" aria-label="Time off note" className="field mt-1" />
+            </label>
+            <Button type="submit">Request</Button>
+          </ActionForm>
+          <ul className="fl-group">
+            {timeOff.map((row) => (
+              <li key={row.id} className="fl-cell" data-request={row.id}>
+                <span className="fl-body min-w-0 flex-1 truncate">
+                  {row.startOn} · {row.kindLabel}
+                </span>
+                <span className="fl-pill" data-status={row.status}>
+                  {row.statusLabel}
+                </span>
+                {row.status === "pending" ? (
+                  <ActionForm action={cancelTimeOffAction.bind(null, row.id)}>
+                    <Button type="submit" variant="secondary">
+                      Cancel
+                    </Button>
+                  </ActionForm>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
     </div>
   );
 }

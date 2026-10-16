@@ -111,6 +111,7 @@ export function ensureReady(holder: Holder) {
   ensureForms(holder);
   ensureDocSignatures(holder);
   ensureJobSpecs(holder);
+  ensureTimeOff(holder);
   ensureDraws(holder);
   ensureRfis(holder);
   ensureComments(holder);
@@ -2185,6 +2186,43 @@ function ensureJobSpecs(holder: Holder) {
   holder.sqlite.exec("create index if not exists job_spec_lines_spec on job_spec_lines (org_id, spec_id)");
   holder.sqlite.exec("create index if not exists job_spec_files_line on job_spec_files (org_id, line_id)");
   holder.sqlite.exec("create index if not exists job_spec_attempts_org on job_spec_attempts (org_id, created_at)");
+}
+
+function ensureTimeOff(holder: Holder) {
+  const pk = holder.dialect === "postgres" ? "text primary key" : "text primary key not null";
+  ensureColumn(holder, "memberships", "pto_allowance_minutes", "integer");
+  if (!tableExists(holder.sqlite, "time_off_requests", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists time_off_requests (
+      id ${pk},
+      org_id text not null,
+      user_id text not null,
+      start_on text not null,
+      end_on text not null,
+      day_minutes integer not null,
+      kind text not null,
+      status text not null,
+      note text not null default '',
+      decision_reason text not null default '',
+      decided_at text,
+      decided_by text,
+      created_at text not null,
+      updated_at text not null,
+      created_by text
+    )`);
+  }
+  if (!tableExists(holder.sqlite, "time_off_days", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists time_off_days (
+      id ${pk},
+      org_id text not null,
+      request_id text not null,
+      day text not null,
+      minutes integer not null,
+      entry_id text
+    )`);
+  }
+  holder.sqlite.exec("create index if not exists time_off_requests_org on time_off_requests (org_id, status)");
+  holder.sqlite.exec("create index if not exists time_off_days_request on time_off_days (org_id, request_id)");
+  holder.sqlite.exec("create index if not exists time_off_days_day on time_off_days (org_id, day)");
 }
 
 function ensureTesterFeedback(holder: Holder) {

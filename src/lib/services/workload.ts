@@ -13,6 +13,8 @@ import {
   scheduleItems,
   serviceAgreements,
   timeEntries,
+  timeOffDays,
+  timeOffRequests,
   users,
 } from "@/lib/db/schema";
 import { id, nowIso } from "@/lib/ids";
@@ -36,7 +38,7 @@ import {
   type PtoBlock,
   type WeekSpan,
 } from "@/lib/workload/hours";
-import type { WorkdayCalendar } from "@/lib/schedule/workdays";
+import { isWorkday, type WorkdayCalendar } from "@/lib/schedule/workdays";
 
 const OFFICE = new Set(["owner", "admin", "estimator"]);
 
@@ -244,6 +246,17 @@ function gather(orgId: string, rangeStart: string, rangeEnd: string): Gathered {
     const day = localDay(Date.parse(entry.clockInAt), calendar.timeZone);
     if (day < rangeStart || day > rangeEnd) continue;
     pto.push({ personId: entry.userId, day, minutes });
+  }
+  for (const day of db
+    .select({ userId: timeOffRequests.userId, day: timeOffDays.day, minutes: timeOffDays.minutes, entryId: timeOffDays.entryId })
+    .from(timeOffDays)
+    .innerJoin(timeOffRequests, eq(timeOffRequests.id, timeOffDays.requestId))
+    .where(and(eq(timeOffDays.orgId, orgId), eq(timeOffRequests.orgId, orgId), eq(timeOffRequests.status, "approved")))
+    .all()) {
+    if (day.entryId || day.minutes <= 0) continue;
+    if (day.day < rangeStart || day.day > rangeEnd) continue;
+    if (!isWorkday(day.day, companyCalendar)) continue;
+    pto.push({ personId: day.userId, day: day.day, minutes: day.minutes });
   }
   const vendorIds = [...new Set(items.map((item) => item.vendorContactId).filter((id): id is string => Boolean(id)))];
   const vendorRows = vendorIds.length

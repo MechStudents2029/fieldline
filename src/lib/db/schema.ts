@@ -119,6 +119,7 @@ export const memberships = sqliteTable(
     requireLocation: integer("require_location").notNull().default(0),
     bookable: integer("bookable").notNull().default(0),
     capacityMinutes: integer("capacity_minutes"),
+    ptoAllowanceMinutes: integer("pto_allowance_minutes"),
     createdAt: text("created_at").notNull(),
   },
   (t) => [uniqueIndex("memberships_org_user").on(t.orgId, t.userId)],
@@ -3970,4 +3971,39 @@ export const jobSpecAttempts = sqliteTable(
     createdAt: text("created_at").notNull(),
   },
   (t) => [index("job_spec_attempts_org").on(t.orgId, t.createdAt)],
+);
+
+export const timeOffRequests = sqliteTable(
+  "time_off_requests",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    userId: text("user_id").notNull(),
+    startOn: text("start_on").notNull(),
+    endOn: text("end_on").notNull(),
+    dayMinutes: integer("day_minutes").notNull(),
+    kind: text("kind").notNull(),
+    status: text("status").notNull(),
+    note: text("note").notNull().default(""),
+    decisionReason: text("decision_reason").notNull().default(""),
+    decidedAt: text("decided_at"),
+    decidedBy: text("decided_by"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    createdBy: text("created_by"),
+  },
+  (t) => [index("time_off_requests_org").on(t.orgId, t.status)],
+);
+
+export const timeOffDays = sqliteTable(
+  "time_off_days",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    requestId: text("request_id").notNull(),
+    day: text("day").notNull(),
+    minutes: integer("minutes").notNull(),
+    entryId: text("entry_id"),
+  },
+  (t) => [index("time_off_days_request").on(t.orgId, t.requestId), index("time_off_days_day").on(t.orgId, t.day)],
 );

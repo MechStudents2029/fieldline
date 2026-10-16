@@ -76,6 +76,8 @@ import {
   jobSpecs,
   jobSpecLines,
   jobSpecFiles,
+  timeOffRequests,
+  timeOffDays,
   laborRates,
   leads,
   leadSources,
@@ -234,7 +236,7 @@ import {
   WEBSITE_FORM_SOURCE,
 } from "@/lib/lead-form/rules";
 
-export const SEED_VERSION = "74";
+export const SEED_VERSION = "75";
 
 const ORG = "org_rivera";
 const NORTH = "org_northline";
@@ -7548,5 +7550,131 @@ function seedTemplates(db: AppDatabase, now: string) {
     .run();
   db.insert(jobSpecFiles)
     .values({ id: "spec_ok_file_a101", orgId: ORG, lineId: "spec_ok_line_niche", documentId: "doc_ok_a101_r2" })
+    .run();
+
+  const offZone = "America/New_York";
+  const offWeek = localWeek(Date.now(), { timeZone: offZone, weekStartsOn: 1 }).startDay;
+  const approvedOn = addCalendarDays(offWeek, 10);
+  const pendingOn = addCalendarDays(offWeek, 21);
+  const declinedOn = addCalendarDays(offWeek, 28);
+  const offAt = (day: string, hour: number) => {
+    const [year, month, date] = day.split("-").map(Number);
+    return new Date(zonedTimeToUtc(year, month, date, hour, 0, 0, offZone)).toISOString();
+  };
+  const approvedIn = offAt(approvedOn, 8);
+  const approvedOut = offAt(approvedOn, 16);
+  db.insert(timeOffRequests)
+    .values([
+      {
+        id: "toff_dana_out",
+        orgId: ORG,
+        userId: "user_dana",
+        startOn: approvedOn,
+        endOn: approvedOn,
+        dayMinutes: 8 * 60,
+        kind: "vacation",
+        status: "approved",
+        note: "Window delivery",
+        decisionReason: "",
+        decidedAt: daysAgo(1),
+        decidedBy: "user_maya",
+        createdAt: daysAgo(2),
+        updatedAt: daysAgo(1),
+        createdBy: "user_dana",
+      },
+      {
+        id: "toff_luis_pending",
+        orgId: ORG,
+        userId: "user_luis",
+        startOn: pendingOn,
+        endOn: pendingOn,
+        dayMinutes: 8 * 60,
+        kind: "personal",
+        status: "pending",
+        note: "",
+        decisionReason: "",
+        decidedAt: null,
+        decidedBy: null,
+        createdAt: daysAgo(1),
+        updatedAt: daysAgo(1),
+        createdBy: "user_luis",
+      },
+      {
+        id: "toff_sam_declined",
+        orgId: ORG,
+        userId: "user_sam",
+        startOn: declinedOn,
+        endOn: declinedOn,
+        dayMinutes: 8 * 60,
+        kind: "sick",
+        status: "declined",
+        note: "",
+        decisionReason: "Coverage",
+        decidedAt: daysAgo(1),
+        decidedBy: "user_maya",
+        createdAt: daysAgo(3),
+        updatedAt: daysAgo(1),
+        createdBy: "user_sam",
+      },
+    ])
+    .run();
+  db.insert(timeOffDays)
+    .values({ id: "toff_day_dana", orgId: ORG, requestId: "toff_dana_out", day: approvedOn, minutes: 8 * 60, entryId: "time_dana_off" })
+    .run();
+  db.insert(timeEntries)
+    .values({
+      id: "time_dana_off",
+      orgId: ORG,
+      userId: "user_dana",
+      projectId: "",
+      costCode: "PTO",
+      shiftType: "pto",
+      status: "approved",
+      clockInAt: approvedIn,
+      clockOutAt: approvedOut,
+      breakMinutes: 0,
+      breakStartedAt: null,
+      note: "Window delivery",
+      clockInLatE6: null,
+      clockInLngE6: null,
+      clockOutLatE6: null,
+      clockOutLngE6: null,
+      source: "manual",
+      createdAt: approvedIn,
+      updatedAt: approvedOut,
+      createdBy: "user_maya",
+    })
+    .run();
+  db.insert(timeApprovals)
+    .values({
+      id: "tap_dana_off",
+      orgId: ORG,
+      entryId: "time_dana_off",
+      rateCents: 5200,
+      minutes: 8 * 60,
+      amountCents: 0,
+      costItemId: null,
+      regularMinutes: 0,
+      otMinutes: 0,
+      dtMinutes: 0,
+      nonjobMinutes: 8 * 60,
+      baseCents: 0,
+      premiumCents: 0,
+      burdenCents: 0,
+      premiumCostItemId: null,
+      burdenCostItemId: null,
+      status: "active",
+      reason: null,
+      createdAt: approvedIn,
+      createdBy: "user_maya",
+    })
+    .run();
+  db.insert(auditLogs)
+    .values([
+      { id: "aud_toff_dana_req", orgId: ORG, actorId: "user_dana", action: "timeoff.request", entityType: "time_off", entityId: "toff_dana_out", payloadJson: "{}", ip: null, createdAt: daysAgo(2) },
+      { id: "aud_toff_dana", orgId: ORG, actorId: "user_maya", action: "timeoff.approve", entityType: "time_off", entityId: "toff_dana_out", payloadJson: "{}", ip: null, createdAt: daysAgo(1) },
+      { id: "aud_toff_luis", orgId: ORG, actorId: "user_luis", action: "timeoff.request", entityType: "time_off", entityId: "toff_luis_pending", payloadJson: "{}", ip: null, createdAt: daysAgo(1) },
+      { id: "aud_toff_sam", orgId: ORG, actorId: "user_maya", action: "timeoff.decline", entityType: "time_off", entityId: "toff_sam_declined", payloadJson: "{}", ip: null, createdAt: daysAgo(1) },
+    ])
     .run();
 }

@@ -234,7 +234,7 @@ export function DispatchBoard({ board }: { board: Board }) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      {notice ? <p role="status" className="px-4 py-1 text-[12px] text-[var(--mac-accent)]">{notice}</p> : null}
+      {notice ? <p data-notice role="status" className="px-4 py-1 text-[12px] text-[var(--mac-accent)]">{notice}</p> : null}
       {error ? <p role="alert" className="px-4 py-1 text-[12px] text-[var(--mac-danger)]">{error}</p> : null}
       <div className="flex flex-col gap-3 px-4 pb-4 md:hidden">
         <div className="flex gap-2 overflow-x-auto">
@@ -278,8 +278,11 @@ export function DispatchBoard({ board }: { board: Board }) {
               const lanes = lanesOf(rows);
               return (
                 <section key={column.id} aria-label={column.name} className="flex min-w-[180px] flex-1 flex-col border-l border-[var(--mac-separator)]">
-                  <header className="flex h-12 shrink-0 flex-col justify-center bg-[var(--mac-window)] px-2">
-                    <h2 className="truncate text-[13px] leading-4">{column.name}</h2>
+                  <header className="flex h-12 shrink-0 flex-col justify-center bg-[var(--mac-window)] px-2" data-out={column.out ? "1" : undefined}>
+                    <h2 className="truncate text-[13px] leading-4">
+                      {column.name}
+                      {column.out ? <span className="fl-pill fl-pill-sm ml-1">Out</span> : null}
+                    </h2>
                     <p className="num text-[11px] leading-4 text-[var(--mac-secondary)]">{bookedLabel(rows)}</p>
                   </header>
                   <div data-slot data-column={column.id} className="relative shrink-0" style={{ height: GRID }}>

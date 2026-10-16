@@ -2,6 +2,16 @@
 
 ## 2026-10-15
 
+### Crew time off
+
+- My day takes a time off request: a date range, full day or hours, and Vacation, Sick, Personal, or Unpaid, with an optional note. Office approves or declines it. A decline needs a reason. The requester can cancel while it is pending. Pending, Approved, Declined, or Cancelled. The audit stores who acted and when.
+- Approved time off lowers that person’s capacity on Crew workload for those workdays and marks Out on the dispatch board and the schedule. Assigning them on an approved day warns and still saves. A company holiday is not counted twice.
+- Vacation, sick, and personal post as PTO hours on a non-job line in time review and the payroll CSV. They are not job cost. Unpaid shows Out and 0 hours.
+- A yearly allowance in hours is optional, off until office sets it. The row shows used and remaining. There is no accrual.
+- Work, Time off filters by person, status, and dates. CSV is `/api/export/time-off`. Today counts pending requests under Time off due. No message is sent.
+- A person sees their own requests. Office sees all. Field cannot approve.
+- Seed: Dana is approved off on the window delivery day. Luis has a pending request. Sam’s request is declined.
+
 ### Job specifications
 
 - Work, Specifications and the job tab pull lines from that job’s budget. A line keeps the cost code, the description, and notes. Office can add a line, edit it, and reorder it. A cut sheet or a plan attaches to the line. Draft or Published. Revise copies the published pack and keeps the older version.

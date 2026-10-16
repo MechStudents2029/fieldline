@@ -357,6 +357,7 @@ export function ScheduleBoard({ board, openJobId }: { board: Board; openJobId: s
                         <button type="button" aria-label={`Add ${row.name} ${cell.date}`} className="absolute inset-0" onClick={() => openCreate(row.userId, cell.date)} />
                       ) : null}
                       <div className="relative z-10 flex flex-col gap-1 p-1">
+                        {cell.out ? <span className="fl-pill fl-pill-sm" data-out="1">Out</span> : null}
                         {cell.marks.map((mark) => (
                           <span key={mark.id} className="baseline-tick" title={mark.title} />
                         ))}
@@ -442,7 +443,7 @@ export function ScheduleBoard({ board, openJobId }: { board: Board; openJobId: s
           </span>
         ) : null}
         {notice ? (
-          <span role="status" className="text-[var(--mac-accent)]">
+          <span data-notice role="status" className="text-[var(--mac-accent)]">
             {notice}
           </span>
         ) : null}
