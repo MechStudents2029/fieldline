@@ -30,7 +30,7 @@ export default async function TransmittalDetailPage({ params }: { params: Promis
       <div className="hidden md:block">
         <Toolbar title={pack.subject} subtitle={String(pack.number)} search={false} leading={<Link href={`/projects/${pack.projectId}/transmittals`}>‹</Link>} />
       </div>
-      <div className="flex flex-col gap-4 px-1 py-2 md:px-6 md:py-4" data-share={pack.shareUrl} data-status={pack.status}>
+      <div className="flex flex-col gap-4 px-1 py-2 md:px-6 md:py-4" data-share={pack.shareUrl}>
         <h1 className="fl-large-title md:hidden">{pack.subject}</h1>
         <p className="text-sm">
           <span className="num">{pack.number}</span>

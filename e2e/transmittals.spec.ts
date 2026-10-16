@@ -18,7 +18,7 @@ test("transmittal link is acknowledged and a second package can be declined", as
   await expect(page.locator("[data-line='Valve heights']")).toBeVisible();
   await page.getByRole("button", { name: "Copy link" }).click();
   await page.getByRole("button", { name: "Mark sent" }).click();
-  await expect(page.locator("[data-status=sent]")).toBeVisible();
+  await expect(page.locator(".fl-pill[data-status=sent]")).toBeVisible();
   const officeUrl = page.url();
   const share = await page.locator("[data-share]").getAttribute("data-share");
   const csv = await page.evaluate(async () => {
@@ -49,7 +49,7 @@ test("transmittal link is acknowledged and a second package can be declined", as
   await page.getByLabel("Note").fill("Old drawing");
   await page.getByRole("button", { name: "Add line" }).click();
   await page.getByRole("button", { name: "Mark sent" }).click();
-  await expect(page.locator("[data-status=sent]")).toBeVisible();
+  await expect(page.locator(".fl-pill[data-status=sent]")).toBeVisible();
   const declineOffice = page.url();
   const declineShare = await page.locator("[data-share]").getAttribute("data-share");
   await page.context().clearCookies();
@@ -60,6 +60,6 @@ test("transmittal link is acknowledged and a second package can be declined", as
   await expect(page.locator("[data-decline='Wrong revision']")).toBeVisible();
   await signIn(page);
   await page.goto(declineOffice);
-  await expect(page.locator("[data-status=declined]")).toBeVisible();
+  await expect(page.locator(".fl-pill[data-status=declined]")).toBeVisible();
   await expect(page.locator("[data-decline='Wrong revision']")).toBeVisible();
 });
