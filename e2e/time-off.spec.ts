@@ -22,8 +22,8 @@ test("field requests time off, office approves, capacity drops, and payroll show
   await expect(page.locator("a:visible", { hasText: "Time off due" })).toContainText("1");
 
   await signInAs(page, "dana@rivera.demo");
-  await page.getByLabel("Time off start").fill("2026-11-02");
-  await page.getByLabel("Time off end").fill("2026-11-02");
+  await page.getByLabel("Time off start").fill("2026-11-16");
+  await page.getByLabel("Time off end").fill("2026-11-16");
   await page.getByLabel("Time off type").selectOption("vacation");
   await page.getByLabel("Time off note").fill("Shop day");
   await page.getByRole("button", { name: "Request" }).click();
@@ -33,22 +33,24 @@ test("field requests time off, office approves, capacity drops, and payroll show
 
   await signInAs(page, "maya@rivera.demo");
   await page.goto("/time-off?status=pending");
-  const row = page.locator("tr", { hasText: "2026-11-02" });
+  const row = page.locator("tr", { hasText: "Dana Cho" }).filter({ hasText: "2026-11-16" });
   await row.getByRole("button", { name: "Approve" }).click();
-  await expect(row.locator("[data-status='approved']")).toBeVisible();
+  await expect(row).toHaveCount(0);
+  await page.goto("/time-off?status=approved");
+  await expect(page.locator("tr", { hasText: "Dana Cho" }).filter({ hasText: "2026-11-16" }).locator("[data-status='approved']")).toBeVisible();
 
-  await page.goto("/schedule/workload?on=2026-11-02");
-  await expect(page.locator("[data-person='user_dana'][data-week='2026-11-02']")).toContainText("0h / 32h");
+  await page.goto("/schedule/workload?on=2026-11-16");
+  await expect(page.locator("[data-person='user_dana'][data-week='2026-11-16']")).toContainText("0h / 32h");
 
-  await page.goto("/schedule?view=grid&on=2026-11-02");
-  await page.getByRole("button", { name: "Add Unassigned 2026-11-02" }).click();
+  await page.goto("/schedule?view=grid&on=2026-11-16");
+  await page.getByRole("button", { name: "Add Unassigned 2026-11-16" }).click();
   const item = page.getByRole("dialog", { name: "Schedule item" });
   await item.getByLabel("Title").fill("E2E call");
   await item.getByLabel("Start time").fill("10:00");
   await item.getByRole("button", { name: "Save" }).click();
   await expect(page.getByRole("button", { name: /E2E call/ })).toBeVisible();
 
-  await page.goto("/dispatch?on=2026-11-02");
+  await page.goto("/dispatch?on=2026-11-16");
   await expect(page.getByRole("region", { name: "Dana Cho" }).locator("[data-out='1']")).toBeVisible();
   await page.getByRole("complementary", { name: "Open" }).getByRole("button", { name: "E2E call" }).click();
   const dialog = page.getByRole("dialog", { name: "E2E call" });
@@ -59,7 +61,7 @@ test("field requests time off, office approves, capacity drops, and payroll show
   await expect(page.locator("[data-notice]")).toContainText("Dana Cho is out");
   await expect(page.getByRole("region", { name: "Dana Cho" }).getByRole("button", { name: "E2E call" })).toBeVisible();
 
-  await page.goto("/time?view=week&on=2026-11-02");
+  await page.goto("/time?view=week&on=2026-11-16");
   const dana = page.getByRole("row", { name: /Dana Cho/ });
   await expect(dana).toContainText("8.0");
 });
