@@ -114,6 +114,7 @@ export function ensureReady(holder: Holder) {
   ensureTimeOff(holder);
   ensureMeetings(holder);
   ensureHandover(holder);
+  ensureTransmittals(holder);
   ensureDraws(holder);
   ensureRfis(holder);
   ensureComments(holder);
@@ -2370,6 +2371,81 @@ function ensureHandover(holder: Holder) {
   holder.sqlite.exec("create index if not exists handover_sections_package on handover_sections (org_id, package_id)");
   holder.sqlite.exec("create index if not exists handover_items_package on handover_items (org_id, package_id)");
   holder.sqlite.exec("create index if not exists handover_items_section on handover_items (org_id, section_id)");
+}
+
+function ensureTransmittals(holder: Holder) {
+  const pk = holder.dialect === "postgres" ? "text primary key" : "text primary key not null";
+  if (!tableExists(holder.sqlite, "transmittals", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists transmittals (
+      id ${pk},
+      org_id text not null,
+      project_id text not null,
+      number integer not null,
+      subject text not null,
+      to_kind text not null,
+      to_contact_id text,
+      to_user_id text,
+      purpose text not null,
+      due_on text,
+      status text not null,
+      share_token text not null,
+      sent_at text,
+      sent_by text,
+      copied_at text,
+      copied_by text,
+      ack_name text,
+      ack_note text,
+      ack_at text,
+      ack_ip text,
+      decline_reason text,
+      declined_at text,
+      closed_at text,
+      closed_by text,
+      void_reason text,
+      voided_at text,
+      voided_by text,
+      created_at text not null,
+      updated_at text not null,
+      created_by text
+    )`);
+  }
+  if (!tableExists(holder.sqlite, "transmittal_ccs", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists transmittal_ccs (
+      id ${pk},
+      org_id text not null,
+      transmittal_id text not null,
+      user_id text not null
+    )`);
+  }
+  if (!tableExists(holder.sqlite, "transmittal_lines", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists transmittal_lines (
+      id ${pk},
+      org_id text not null,
+      transmittal_id text not null,
+      sort_order integer not null,
+      kind text not null,
+      title text not null,
+      note text not null default '',
+      source_id text,
+      document_id text,
+      return_required integer not null default 0
+    )`);
+  }
+  if (!tableExists(holder.sqlite, "transmittal_attempts", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists transmittal_attempts (
+      id ${pk},
+      org_id text not null,
+      transmittal_id text not null,
+      ip text not null,
+      created_at text not null
+    )`);
+  }
+  holder.sqlite.exec("create unique index if not exists transmittals_number on transmittals (org_id, project_id, number)");
+  holder.sqlite.exec("create unique index if not exists transmittals_token on transmittals (share_token)");
+  holder.sqlite.exec("create index if not exists transmittals_org on transmittals (org_id, project_id)");
+  holder.sqlite.exec("create unique index if not exists transmittal_ccs_user on transmittal_ccs (org_id, transmittal_id, user_id)");
+  holder.sqlite.exec("create index if not exists transmittal_lines_tx on transmittal_lines (org_id, transmittal_id)");
+  holder.sqlite.exec("create index if not exists transmittal_attempts_org on transmittal_attempts (org_id, created_at)");
 }
 
 function ensureTesterFeedback(holder: Holder) {

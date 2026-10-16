@@ -20,6 +20,7 @@ import {
   sentenceStatus,
 } from "@/lib/portal/summary";
 import { PortalHandoverSection } from "@/components/portal-handover";
+import { PortalTransmittalSection } from "@/components/portal-transmittals";
 import { PortalWarrantySection } from "@/components/portal-warranty";
 import { portalRows } from "@/lib/services/custom-fields";
 import { portalCostInvoices } from "@/lib/services/cost-plus";
@@ -28,6 +29,7 @@ import { portalAgreements } from "@/lib/services/agreements";
 import { portalClientCredits } from "@/lib/services/client-credits";
 import { policyLineForOrg, portalFeeLines } from "@/lib/services/late-fees";
 import { portalHandover } from "@/lib/services/handover";
+import { portalTransmittalsForClient } from "@/lib/services/transmittals";
 import { portalMeetingsForClient } from "@/lib/services/meetings";
 import { portalByToken } from "@/lib/services/read";
 import { portalWarranty } from "@/lib/services/punch";
@@ -113,6 +115,7 @@ export default async function PortalPage({ params }: { params: Promise<{ token: 
   const lateFees = portalFeeLines(data.project.orgId, data.invoices.map((invoice) => invoice.id));
   const portalMeetings = portalMeetingsForClient(token);
   const handover = portalHandover(token);
+  const transmittals = portalTransmittalsForClient(token);
   const handoverItems = handover?.sections.find((section) => section.kind === "installed")?.items.map((item) => ({ id: item.id, title: item.title })) ?? [];
   const creditByInvoice = new Map<string, number>();
   for (const payment of data.payments) {
@@ -246,6 +249,7 @@ export default async function PortalPage({ params }: { params: Promise<{ token: 
             <PortalWarrantySection token={token} home={warranty} startedAt={portalStarted()} visuals={punchVisuals} items={handoverItems} />
           ) : null}
           {handover ? <PortalHandoverSection token={token} pack={handover} /> : null}
+          <PortalTransmittalSection rows={transmittals} />
           {agreements.length > 0 ? (
             <section aria-label="Agreements">
               <h2>Agreements</h2>
