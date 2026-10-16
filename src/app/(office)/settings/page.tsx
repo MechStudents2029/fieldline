@@ -293,6 +293,10 @@ export default async function SettingsPage() {
               <option value="block">Block</option>
             </select>
           </label>
+          <label className="flex items-center gap-2 text-sm">
+            <input name="tradeWarn" type="checkbox" aria-label="Trade agreements" defaultChecked={org.tradeWarn === 1} />
+            Trade agreements
+          </label>
           <fieldset className="flex flex-col gap-1">
             <legend className="text-sm">Required certificates</legend>
             {CERT_TYPES.filter((type) => type.id !== "other").map((type) => (

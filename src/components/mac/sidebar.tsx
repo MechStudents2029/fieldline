@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, Boxes, Briefcase, Calendar, CircleDollarSign, ClipboardList, Clock, Columns2, Copy, FileMinus, FileText, HardHat, IdCard, Inbox, ListChecks, ListTodo, MessageSquare, Package, PackagePlus, Percent, Receipt, Repeat, Route, Scale, Star, Sun, Ticket, Undo2, Users, Wallet, Wrench } from "lucide-react";
+import { BarChart3, Boxes, Briefcase, Calendar, CircleDollarSign, ClipboardList, Clock, Columns2, Copy, FileMinus, FileText, HardHat, IdCard, Inbox, ListChecks, ListTodo, MessageSquare, Package, PackagePlus, PenLine, Percent, Receipt, Repeat, Route, Scale, Star, Sun, Ticket, Undo2, Users, Wallet, Wrench } from "lucide-react";
 import { SignOutButton } from "@/components/sign-out-button";
 import type { OfficeChrome } from "@/lib/services/read";
 
@@ -115,6 +115,7 @@ export function Sidebar({
           {item("/certifications", "Certifications", <IdCard size={16} strokeWidth={1.6} />)}
           {field ? null : item("/liens", "Lien deadlines", <Scale size={16} strokeWidth={1.6} />)}
           {item("/forms", "Form submissions", <ClipboardList size={16} strokeWidth={1.6} />)}
+          {item("/signatures", "Signatures", <PenLine size={16} strokeWidth={1.6} />)}
           {field ? null : (
             <>
               <p className="px-2 pb-1 pt-3 mac-t11 font-semibold text-[var(--mac-secondary)]">Money</p>

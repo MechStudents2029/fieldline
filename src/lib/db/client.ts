@@ -109,6 +109,7 @@ export function ensureReady(holder: Holder) {
   ensureLateFees(holder);
   ensureLiens(holder);
   ensureForms(holder);
+  ensureDocSignatures(holder);
   ensureDraws(holder);
   ensureRfis(holder);
   ensureComments(holder);
@@ -2057,6 +2058,72 @@ function ensureForms(holder: Holder) {
   holder.sqlite.exec("create index if not exists form_templates_org on form_templates (org_id, status)");
   holder.sqlite.exec("create index if not exists form_submissions_org on form_submissions (org_id, template_id, status)");
   holder.sqlite.exec("create index if not exists form_attempts_org on form_attempts (org_id, created_at)");
+}
+
+function ensureDocSignatures(holder: Holder) {
+  const pk = holder.dialect === "postgres" ? "text primary key" : "text primary key not null";
+  ensureColumn(holder, "organizations", "trade_warn", "integer not null default 0");
+  if (!tableExists(holder.sqlite, "doc_sign_requests", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists doc_sign_requests (
+      id ${pk},
+      org_id text not null,
+      title text not null,
+      note text not null default '',
+      status text not null,
+      kind text not null,
+      project_id text,
+      job_file_id text,
+      vendor_contact_id text,
+      document_id text,
+      doc_hash text,
+      due_on text,
+      ordered integer not null default 0,
+      version integer not null default 1,
+      replaces_id text,
+      sent_at text,
+      sent_by text,
+      void_reason text,
+      voided_at text,
+      voided_by text,
+      decline_reason text,
+      created_at text not null,
+      updated_at text not null,
+      created_by text
+    )`);
+  }
+  if (!tableExists(holder.sqlite, "doc_signers", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists doc_signers (
+      id ${pk},
+      org_id text not null,
+      request_id text not null,
+      role text not null,
+      contact_id text,
+      user_id text,
+      sort_order integer not null default 0,
+      token text not null,
+      status text not null,
+      typed_name text,
+      signature_document_id text,
+      signed_at text,
+      declined_at text,
+      decline_reason text,
+      ip text,
+      user_agent text
+    )`);
+  }
+  if (!tableExists(holder.sqlite, "doc_sign_attempts", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists doc_sign_attempts (
+      id ${pk},
+      org_id text not null,
+      request_id text not null,
+      ip text not null,
+      created_at text not null
+    )`);
+  }
+  holder.sqlite.exec("create index if not exists doc_sign_requests_org on doc_sign_requests (org_id, status)");
+  holder.sqlite.exec("create unique index if not exists doc_signers_token on doc_signers (token)");
+  holder.sqlite.exec("create index if not exists doc_signers_request on doc_signers (org_id, request_id)");
+  holder.sqlite.exec("create index if not exists doc_sign_attempts_org on doc_sign_attempts (org_id, created_at)");
 }
 
 function ensureTesterFeedback(holder: Holder) {

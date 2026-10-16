@@ -2,6 +2,16 @@
 
 ## 2026-10-15
 
+### Document signatures
+
+- Work, Signatures requests a signature on a PDF or image, or on a vendor trade agreement. Pick a client, a vendor, or a teammate. A second signer and a signing order are optional. A due date and a short note are optional. Office can create a request. Owner and admin can void it, with a reason.
+- Copy link shows the signer page. Mark sent stores the date and who. No message is sent.
+- The signer page uses the same wait and rate limit as the lead form. The signer types a name and draws a signature, or declines with a reason. Status is Draft, Out for signature, Signed, Declined, or Voided.
+- The certificate shows the document name, the SHA-256 of the file, each signer, the time in the company time zone, the IP, the user agent, and the audit trail. The original file is not changed.
+- A vendor can have a trade agreement. Send it, and replace it. The old version stays. The vendor row shows Pending or Approved. Settings can warn when a purchase order or a bill is saved for a vendor with no approved agreement. The warning is off until an owner turns it on, and the save still goes through.
+- The list filters by status, job, signer type, and overdue. CSV is `/api/export/signatures`. Today counts Out for signature past due under Sign due. Field sees only requests where they are a signer.
+- Seed: Brighton Electric’s subcontract is signed. A client change order is out for signature and past due. Harbor Plumbing’s trade agreement is Pending.
+
 ### Custom forms
 
 - Settings, Forms holds reusable templates. A field is text, number, date, select, checkbox, photo, file, or signature, and can be required. The audience is office, field, client, vendor, or a mix. Office can create a template. Owner and admin can edit or archive it. Field and viewer cannot edit templates. Archiving keeps every submission.

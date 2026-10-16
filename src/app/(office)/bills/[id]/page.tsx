@@ -16,6 +16,7 @@ import { billCreditApplied, creditsForVendor } from "@/lib/services/vendor-credi
 import { CreditPaySheet } from "@/components/credit-pay-sheet";
 import { companyToday } from "@/lib/services/receiving";
 import { WAIVER_TYPES, waiverTypeLabel } from "@/lib/waivers/format";
+import { tradeWarning } from "@/lib/services/doc-signatures";
 
 export default async function BillPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -29,8 +30,10 @@ export default async function BillPage({ params }: { params: Promise<{ id: strin
   const office = canManageMoney(session.role);
   const appliedCredits = billCreditApplied(session.orgId, bill.id);
   const waivers = billWaiverPanel(session, bill.id);
+  const trade = tradeWarning(session.orgId, bill.vendorContactId);
   return (
     <div className="flex flex-col gap-4">
+      {trade ? <p className="px-4 pt-3 text-sm" data-trade-warning>{trade}</p> : null}
       <DetailHeader
         title={bill.billNumber}
         status={bill.status}

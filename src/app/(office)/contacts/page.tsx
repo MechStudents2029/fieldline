@@ -12,6 +12,7 @@ import { LIST_FILTERS, listSavedViews, viewHref } from "@/lib/services/saved-vie
 import { fieldList } from "@/lib/lists/fields";
 import { customFilters } from "@/lib/services/custom-fields";
 import { complianceByContact } from "@/lib/services/vendor-portal";
+import { tradePills } from "@/lib/services/doc-signatures";
 
 export default async function ContactsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const session = await requireSession();
@@ -29,6 +30,7 @@ export default async function ContactsPage({ searchParams }: { searchParams: Pro
   const sourceName = new Map(sources.map((source) => [source.id, source.name]));
   const rows = listContacts(session.orgId, filters.q, filters.type, filters.source).filter((contact) => (contact.type === "client" ? clients : vendors).match(contact.id));
   const compliance = complianceByContact(session.orgId);
+  const trades = tradePills(session.orgId);
   const filtered = Boolean(filters.q || filters.type || filters.source);
   return (
     <div className="flex flex-col gap-4">
@@ -82,6 +84,7 @@ export default async function ContactsPage({ searchParams }: { searchParams: Pro
               <th className="px-2">Type</th>
               <th className="px-2">Source</th>
               <th className="px-2">Compliance</th>
+              <th className="px-2">Agreement</th>
               {visible.map((column) => (
                 <th key={column.key} className="px-2">{column.label}</th>
               ))}
@@ -106,6 +109,9 @@ export default async function ContactsPage({ searchParams }: { searchParams: Pro
                   ) : (
                     "—"
                   )}
+                </td>
+                <td className="fit px-2" data-fit="status">
+                  {trades[contact.id] ? <span className="fl-pill" data-trade={trades[contact.id]}>{trades[contact.id]}</span> : "—"}
                 </td>
                 {visible.map((column) => (
                   <td key={column.key} className="px-2">{(contact.type === "client" ? clients : vendors).cell(contact.id, column.key).text}</td>

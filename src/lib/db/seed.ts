@@ -10,6 +10,8 @@ import { addMonths as addAgreementMonths, sellUnitCents } from "@/lib/agreements
 import { isWorkday } from "@/lib/schedule/workdays";
 import { feeAmount } from "@/lib/fees/late";
 import { addCalendarDays, localDay, localWeek, zonedTimeToUtc } from "@/lib/time/calendar";
+import { simplePdf } from "@/lib/esign/pdf";
+import { fileSha256 } from "@/lib/signatures/request";
 import { SEEDED_LIEN_RULES, addMonths as addLienMonths, recentMonthDay } from "@/lib/liens/deadlines";
 import { evaluateSite, sitePill } from "@/lib/geo/fence";
 import { laborMoney, splitWeek, type OtRules } from "@/lib/time/overtime";
@@ -69,6 +71,8 @@ import {
   lienRules,
   formSubmissions,
   formTemplates,
+  docSignRequests,
+  docSigners,
   laborRates,
   leads,
   leadSources,
@@ -227,7 +231,7 @@ import {
   WEBSITE_FORM_SOURCE,
 } from "@/lib/lead-form/rules";
 
-export const SEED_VERSION = "72";
+export const SEED_VERSION = "73";
 
 const ORG = "org_rivera";
 const NORTH = "org_northline";
@@ -7297,5 +7301,164 @@ function seedTemplates(db: AppDatabase, now: string) {
       readAt: null,
       createdAt: daysAgo(40),
     })
+    .run();
+
+  const signToday = localDay(Date.now(), "America/New_York");
+  const signDue = addCalendarDays(signToday, -1);
+  const subcontractPdf = simplePdf(["Brighton Electric subcontract", "Rough and finish."]);
+  const changePdf = simplePdf(["Change order", "Added canopy light."]);
+  const tradePdf = simplePdf(["Harbor Plumbing trade agreement", "Payment terms."]);
+  const signPng = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==", "base64");
+  fs.writeFileSync(path.join(uploadDir, "doc_sign_brighton.pdf"), subcontractPdf);
+  fs.writeFileSync(path.join(uploadDir, "doc_sign_brighton_ink.png"), signPng);
+  fs.writeFileSync(path.join(uploadDir, "doc_sign_co.pdf"), changePdf);
+  fs.writeFileSync(path.join(uploadDir, "doc_sign_harbor.pdf"), tradePdf);
+  db.insert(documents)
+    .values([
+      { id: "doc_sign_brighton", orgId: ORG, projectId: null, leadId: null, contactId: "c_brighton", type: "sign", filename: "subcontract.pdf", storagePath: path.join("uploads", ORG, "doc_sign_brighton.pdf"), metadataJson: null, deletedAt: null, createdAt: daysAgo(4), createdBy: "user_maya" },
+      { id: "doc_sign_brighton_ink", orgId: ORG, projectId: null, leadId: null, contactId: "c_brighton", type: "sign_ink", filename: "signature.png", storagePath: path.join("uploads", ORG, "doc_sign_brighton_ink.png"), metadataJson: null, deletedAt: null, createdAt: daysAgo(3), createdBy: null },
+      { id: "doc_sign_co", orgId: ORG, projectId: "proj_brooks_bath", leadId: null, contactId: "c_brooks", type: "sign", filename: "change-order.pdf", storagePath: path.join("uploads", ORG, "doc_sign_co.pdf"), metadataJson: null, deletedAt: null, createdAt: daysAgo(2), createdBy: "user_maya" },
+      { id: "doc_sign_harbor", orgId: ORG, projectId: null, leadId: null, contactId: "c_harbor", type: "sign", filename: "trade-agreement.pdf", storagePath: path.join("uploads", ORG, "doc_sign_harbor.pdf"), metadataJson: null, deletedAt: null, createdAt: daysAgo(1), createdBy: "user_maya" },
+    ])
+    .run();
+  db.insert(docSignRequests)
+    .values([
+      {
+        id: "dsr_brighton",
+        orgId: ORG,
+        title: "Subcontract",
+        note: "",
+        status: "signed",
+        kind: "file",
+        projectId: null,
+        jobFileId: null,
+        vendorContactId: "c_brighton",
+        documentId: "doc_sign_brighton",
+        docHash: fileSha256(subcontractPdf),
+        dueOn: null,
+        ordered: 0,
+        version: 1,
+        replacesId: null,
+        sentAt: daysAgo(4),
+        sentBy: "user_maya",
+        voidReason: null,
+        voidedAt: null,
+        voidedBy: null,
+        declineReason: null,
+        createdAt: daysAgo(4),
+        updatedAt: daysAgo(3),
+        createdBy: "user_maya",
+      },
+      {
+        id: "dsr_co",
+        orgId: ORG,
+        title: "Change order",
+        note: "",
+        status: "out",
+        kind: "file",
+        projectId: "proj_brooks_bath",
+        jobFileId: null,
+        vendorContactId: null,
+        documentId: "doc_sign_co",
+        docHash: fileSha256(changePdf),
+        dueOn: signDue,
+        ordered: 0,
+        version: 1,
+        replacesId: null,
+        sentAt: daysAgo(2),
+        sentBy: "user_maya",
+        voidReason: null,
+        voidedAt: null,
+        voidedBy: null,
+        declineReason: null,
+        createdAt: daysAgo(2),
+        updatedAt: daysAgo(2),
+        createdBy: "user_maya",
+      },
+      {
+        id: "dsr_harbor",
+        orgId: ORG,
+        title: "Trade agreement",
+        note: "",
+        status: "out",
+        kind: "trade",
+        projectId: null,
+        jobFileId: null,
+        vendorContactId: "c_harbor",
+        documentId: "doc_sign_harbor",
+        docHash: fileSha256(tradePdf),
+        dueOn: null,
+        ordered: 0,
+        version: 1,
+        replacesId: null,
+        sentAt: daysAgo(1),
+        sentBy: "user_maya",
+        voidReason: null,
+        voidedAt: null,
+        voidedBy: null,
+        declineReason: null,
+        createdAt: daysAgo(1),
+        updatedAt: daysAgo(1),
+        createdBy: "user_maya",
+      },
+    ])
+    .run();
+  db.insert(docSigners)
+    .values([
+      {
+        id: "dss_brighton",
+        orgId: ORG,
+        requestId: "dsr_brighton",
+        role: "vendor",
+        contactId: "c_brighton",
+        userId: null,
+        sortOrder: 0,
+        token: "demo_sign_brighton_s1",
+        status: "signed",
+        typedName: "Noah Kim",
+        signatureDocumentId: "doc_sign_brighton_ink",
+        signedAt: daysAgo(3),
+        declinedAt: null,
+        declineReason: null,
+        ip: "203.0.113.10",
+        userAgent: "Seed",
+      },
+      {
+        id: "dss_co",
+        orgId: ORG,
+        requestId: "dsr_co",
+        role: "client",
+        contactId: "c_brooks",
+        userId: null,
+        sortOrder: 0,
+        token: "demo_sign_co_d1",
+        status: "waiting",
+        typedName: null,
+        signatureDocumentId: null,
+        signedAt: null,
+        declinedAt: null,
+        declineReason: null,
+        ip: null,
+        userAgent: null,
+      },
+      {
+        id: "dss_harbor",
+        orgId: ORG,
+        requestId: "dsr_harbor",
+        role: "vendor",
+        contactId: "c_harbor",
+        userId: null,
+        sortOrder: 0,
+        token: "demo_sign_trade_h1",
+        status: "waiting",
+        typedName: null,
+        signatureDocumentId: null,
+        signedAt: null,
+        declinedAt: null,
+        declineReason: null,
+        ip: null,
+        userAgent: null,
+      },
+    ])
     .run();
 }

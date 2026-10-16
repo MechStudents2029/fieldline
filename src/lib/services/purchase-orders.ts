@@ -20,6 +20,7 @@ import { openCommitmentByCode } from "@/lib/margin/commitment";
 import { positiveMoneyError } from "@/lib/money";
 import { canManageMoney, canSeeMoney, type Role } from "@/lib/permissions";
 import { ServiceError } from "@/lib/services/errors";
+import { tradeWarning } from "@/lib/services/doc-signatures";
 import { assertVendorPoIssue } from "@/lib/services/vendor-portal";
 import type { Actor } from "@/lib/services/read";
 import { addCalendarDays, localDay } from "@/lib/time/calendar";
@@ -350,7 +351,7 @@ export function createPurchaseOrder(actor: Actor, input: PoInput) {
     insertLines(tx, actor.orgId, poId, lines);
     writeEvent(tx, actor.orgId, poId, actor.userId, "created", null, null, JSON.stringify({ number, scope, lines: lineSnapshot(lines) }));
   });
-  return { id: poId, number };
+  return { id: poId, number, warning: tradeWarning(actor.orgId, vendor.id) };
 }
 
 export function savePurchaseOrder(actor: Actor, poId: string, input: PoInput) {

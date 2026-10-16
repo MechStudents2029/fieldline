@@ -84,6 +84,7 @@ export const organizations = sqliteTable("organizations", {
   lateExcludeDraws: integer("late_exclude_draws").notNull().default(0),
   lateExcludeAgreements: integer("late_exclude_agreements").notNull().default(0),
   lateMode: text("late_mode").notNull().default("review"),
+  tradeWarn: integer("trade_warn").notNull().default(0),
   createdAt: text("created_at").notNull(),
   updatedAt: text("updated_at").notNull(),
 });
@@ -3840,4 +3841,70 @@ export const formAttempts = sqliteTable(
     createdAt: text("created_at").notNull(),
   },
   (t) => [index("form_attempts_org").on(t.orgId, t.createdAt)],
+);
+
+export const docSignRequests = sqliteTable(
+  "doc_sign_requests",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    title: text("title").notNull(),
+    note: text("note").notNull().default(""),
+    status: text("status").notNull(),
+    kind: text("kind").notNull(),
+    projectId: text("project_id"),
+    jobFileId: text("job_file_id"),
+    vendorContactId: text("vendor_contact_id"),
+    documentId: text("document_id"),
+    docHash: text("doc_hash"),
+    dueOn: text("due_on"),
+    ordered: integer("ordered").notNull().default(0),
+    version: integer("version").notNull().default(1),
+    replacesId: text("replaces_id"),
+    sentAt: text("sent_at"),
+    sentBy: text("sent_by"),
+    voidReason: text("void_reason"),
+    voidedAt: text("voided_at"),
+    voidedBy: text("voided_by"),
+    declineReason: text("decline_reason"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    createdBy: text("created_by"),
+  },
+  (t) => [index("doc_sign_requests_org").on(t.orgId, t.status)],
+);
+
+export const docSigners = sqliteTable(
+  "doc_signers",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    requestId: text("request_id").notNull(),
+    role: text("role").notNull(),
+    contactId: text("contact_id"),
+    userId: text("user_id"),
+    sortOrder: integer("sort_order").notNull().default(0),
+    token: text("token").notNull(),
+    status: text("status").notNull(),
+    typedName: text("typed_name"),
+    signatureDocumentId: text("signature_document_id"),
+    signedAt: text("signed_at"),
+    declinedAt: text("declined_at"),
+    declineReason: text("decline_reason"),
+    ip: text("ip"),
+    userAgent: text("user_agent"),
+  },
+  (t) => [uniqueIndex("doc_signers_token").on(t.token), index("doc_signers_request").on(t.orgId, t.requestId)],
+);
+
+export const docSignAttempts = sqliteTable(
+  "doc_sign_attempts",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    requestId: text("request_id").notNull(),
+    ip: text("ip").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [index("doc_sign_attempts_org").on(t.orgId, t.createdAt)],
 );

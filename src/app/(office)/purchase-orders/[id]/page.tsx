@@ -13,6 +13,7 @@ import { relatedRfis } from "@/lib/services/rfis";
 import { listContacts, listPriceBook, listProjects } from "@/lib/services/read";
 import { creditableReceiptIds, poFactsFor } from "@/lib/services/vendor-credits";
 import { stockPlaces } from "@/lib/services/inventory";
+import { tradeWarning } from "@/lib/services/doc-signatures";
 
 export default async function PurchaseOrderPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -31,10 +32,12 @@ export default async function PurchaseOrderPage({ params }: { params: Promise<{ 
   const billed = detail.lines.reduce((sum, line) => sum + line.billedCents, 0);
   const facts = poFactsFor(session.orgId, detail.po, billed);
   const creditable = [...creditableReceiptIds(session.orgId)];
+  const trade = tradeWarning(session.orgId, detail.po.vendorContactId);
   return (
     <div className="flex flex-col gap-4">
       <div className="px-4 pt-3">
         <LinkedRfis rows={relatedRfis(session, "purchase_order", detail.po.id)} />
+        {trade ? <p className="mt-2 text-sm" data-trade-warning>{trade}</p> : null}
       </div>
       <PurchaseOrderDetail
         po={detail.po}
