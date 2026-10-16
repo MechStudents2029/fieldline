@@ -26,7 +26,8 @@ export default async function ProjectSpecsPage({ params }: { params: Promise<{ i
         <div className="flex items-center justify-between gap-3">
           <h1 className="fl-large-title md:hidden">Specifications</h1>
           {canEditCrm(session.role) ? (
-            <ActionForm action={createSpecFromBudgetAction.bind(null, id)}>
+            <ActionForm action={createSpecFromBudgetAction.bind(null, id)} className="flex items-center gap-2">
+              <input name="title" aria-label="Spec title" placeholder="Specifications" className="field w-40" />
               <button type="submit" className="text-[var(--mac-accent)]">
                 From budget
               </button>

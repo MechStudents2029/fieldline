@@ -22,6 +22,7 @@ test("publish a spec from the budget and keep the prior version", async ({ page,
   await expect(page.locator("a:visible", { hasText: "Spec due" })).toContainText("1");
 
   await page.goto("/projects/proj_chen/specs");
+  await page.getByLabel("Spec title").fill("Chen specs");
   await page.getByRole("button", { name: "From budget" }).click();
   await expect(page.getByText("Vanity and top")).toBeVisible();
   await page.getByLabel("Notes Vanity and top").fill("Quartz top");
