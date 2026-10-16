@@ -27,6 +27,7 @@ import { positiveMoneyError } from "@/lib/money";
 import { canManageMoney, canSeeMoney, type Role } from "@/lib/permissions";
 import { assertBillFree } from "@/lib/services/cost-plus";
 import { ServiceError } from "@/lib/services/errors";
+import { tradeWarning } from "@/lib/services/doc-signatures";
 import { assessBill } from "@/lib/services/pay-ready";
 import { vendorCommitmentTotals } from "@/lib/services/purchase-orders";
 import { planBillApplications, recordApplicationsOnBill } from "@/lib/services/vendor-credits";
@@ -399,7 +400,8 @@ export function createBill(actor: Actor, input: BillInput) {
     }
     throw error;
   }
-  return { id: billId, warning: billWarnings(db, actor.orgId, order?.id, lines).text };
+  const warning = [billWarnings(db, actor.orgId, order?.id, lines).text, tradeWarning(actor.orgId, vendor.id)].filter(Boolean).join(" ") || null;
+  return { id: billId, warning };
 }
 
 export function updateDraft(actor: Actor, billId: string, input: BillInput) {

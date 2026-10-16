@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { saveOfficeCertificateAction } from "@/app/actions";
+import { replaceTradeAction, saveVendorTradeAction } from "@/app/(office)/signatures/actions";
 import { saveVendorTaxAction } from "@/app/(office)/reports/nec/actions";
 import { ActionForm } from "@/components/action-form";
 import { FileButton } from "@/components/file-button";
@@ -15,6 +16,7 @@ import { vendorTaxForm } from "@/lib/services/nec1099";
 import { contactDetail } from "@/lib/services/read";
 import { sourceName } from "@/lib/services/lead-sources";
 import { vendorOffice } from "@/lib/services/vendor-portal";
+import { vendorTrades } from "@/lib/services/doc-signatures";
 import { outstandingWaivers } from "@/lib/services/waivers";
 import { clientAgreements } from "@/lib/services/agreements";
 import { clientOpenCredit } from "@/lib/services/client-credits";
@@ -29,6 +31,7 @@ export default async function ContactPage({ params, searchParams }: { params: Pr
   const detail = contactDetail(session.orgId, id);
   if (!detail) return <MissingRecord orgName={session.orgName} kind="contact" />;
   const vendor = vendorOffice(session, id);
+  const trades = vendor ? vendorTrades(session, id) : null;
   const tax = vendor ? vendorTaxForm(session, id) : null;
   const waivers = canSeeMoney(session.role) ? outstandingWaivers(session, id) : [];
   const credits = canSeeMoney(session.role) ? openCreditBalance(session.orgId, id) : { cents: 0, count: 0 };
@@ -166,6 +169,34 @@ export default async function ContactPage({ params, searchParams }: { params: Pr
               <FileButton name="file" label="Certificate file" accept="image/jpeg,image/png,image/webp" empty="Certificate" />
               <button type="submit" className="mac-primary w-fit">
                 Save certificate
+              </button>
+            </ActionForm>
+          ) : null}
+          <h2 className="mac-t13 font-semibold">Trade agreement</h2>
+          <ul className="flex flex-col gap-2">
+            {(trades?.rows ?? []).map((row) => (
+              <li key={row.id} className="flex items-center justify-between gap-3" data-trade-version={row.version}>
+                <Link href={`/signatures/${row.id}`} className="text-sm">
+                  v{row.version}
+                </Link>
+                <span className="fl-pill">{row.status === "signed" ? "Approved" : "Pending"}</span>
+              </li>
+            ))}
+          </ul>
+          {trades?.canSend ? (
+            <ActionForm action={saveVendorTradeAction.bind(null, id)} className="flex flex-col gap-2">
+              <input type="hidden" name="title" value="Trade agreement" />
+              <FileButton name="file" label="Agreement file" accept="image/jpeg,image/png,image/webp,application/pdf" empty="Agreement" />
+              <button type="submit" className="ctl h-9 w-fit">
+                Send
+              </button>
+            </ActionForm>
+          ) : null}
+          {trades?.canSend && trades.rows[0] ? (
+            <ActionForm action={replaceTradeAction.bind(null, trades.rows[0].id)} className="flex flex-col gap-2">
+              <FileButton name="file" label="Replacement file" accept="image/jpeg,image/png,image/webp,application/pdf" empty="Replacement" />
+              <button type="submit" className="ctl h-9 w-fit">
+                Replace
               </button>
             </ActionForm>
           ) : null}

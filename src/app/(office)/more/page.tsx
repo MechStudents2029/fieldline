@@ -19,6 +19,7 @@ const links = [
   ["/certifications", "Certifications"],
   ["/liens", "Lien deadlines"],
   ["/forms", "Form submissions"],
+  ["/signatures", "Signatures"],
   ["/rfis", "RFIs"],
   ["/submittals", "Submittals"],
   ["/todos", "To-dos"],

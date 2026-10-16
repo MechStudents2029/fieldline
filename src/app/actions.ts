@@ -108,6 +108,7 @@ import {
   verifyPunch,
 } from "@/lib/services/punch";
 import { MAX_PHOTOS } from "@/lib/lead-form/rules";
+import { setTradeWarn } from "@/lib/services/doc-signatures";
 import {
   acceptVendorPo,
   declineVendorPo,
@@ -1519,7 +1520,10 @@ export async function settingsAction(_prev: ActionState, formData: FormData): Pr
     const warrantyMonths = formData.get("warrantyMonths");
     if (warrantyMonths != null && String(warrantyMonths).trim()) setWarrantyMonths(user, Number(warrantyMonths));
     const vendorMode = formData.get("vendorComplianceMode");
-    if (vendorMode != null) setVendorCompliance(user, String(vendorMode), formData.getAll("requiredType").map(String));
+    if (vendorMode != null) {
+      setVendorCompliance(user, String(vendorMode), formData.getAll("requiredType").map(String));
+      setTradeWarn(user, formData.get("tradeWarn") === "on");
+    }
     const inspectionGate = formData.get("inspectionGate");
     if (inspectionGate != null) setInspectionGateMode(user, String(inspectionGate));
     const drawTitles = formData.getAll("drawTitle").map(String);
