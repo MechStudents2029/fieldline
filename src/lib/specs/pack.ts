@@ -50,7 +50,8 @@ export function kept(live: { name: string; priceCents: number }) {
 }
 
 export function draftPastDue(status: string, dueOn: string | null, today: string): boolean {
-  return status === "draft" && Boolean(dueOn) && dueOn < today;
+  if (status !== "draft" || !dueOn) return false;
+  return dueOn < today;
 }
 
 export function latestByToken<T extends { shareToken: string; version: number }>(rows: T[]): T[] {
