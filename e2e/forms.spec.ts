@@ -75,7 +75,7 @@ test("create a form, fill the link, review it, and export CSV", async ({ page, r
 
   await signInAs(page, "dana@rivera.demo");
   await page.goto("/forms");
-  await expect(page.getByRole("link", { name: "Site walkthrough" })).toBeVisible();
+  await expect(page.getByRole("table", { name: "Form submissions" }).getByRole("link", { name: "Site walkthrough" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Vendor info update" })).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Closeout notes" })).toHaveCount(0);
   await page.goto("/settings/forms");
