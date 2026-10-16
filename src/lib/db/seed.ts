@@ -73,6 +73,9 @@ import {
   formTemplates,
   docSignRequests,
   docSigners,
+  jobSpecs,
+  jobSpecLines,
+  jobSpecFiles,
   laborRates,
   leads,
   leadSources,
@@ -231,7 +234,7 @@ import {
   WEBSITE_FORM_SOURCE,
 } from "@/lib/lead-form/rules";
 
-export const SEED_VERSION = "73";
+export const SEED_VERSION = "74";
 
 const ORG = "org_rivera";
 const NORTH = "org_northline";
@@ -7460,5 +7463,90 @@ function seedTemplates(db: AppDatabase, now: string) {
         userAgent: null,
       },
     ])
+    .run();
+
+  db.insert(jobSpecs)
+    .values([
+      {
+        id: "spec_ok_shower",
+        orgId: ORG,
+        projectId: "proj_okonkwo",
+        title: "Shower specs",
+        status: "published",
+        version: 1,
+        replacesId: null,
+        shareToken: "demo_spec_ok_a1",
+        dueOn: null,
+        sentAt: daysAgo(1),
+        sentBy: "user_maya",
+        publishedAt: daysAgo(1),
+        createdAt: daysAgo(2),
+        updatedAt: daysAgo(1),
+        createdBy: "user_maya",
+      },
+      {
+        id: "spec_br_frame",
+        orgId: ORG,
+        projectId: "proj_brooks",
+        title: "Framing specs",
+        status: "published",
+        version: 1,
+        replacesId: null,
+        shareToken: "demo_spec_br_b2",
+        dueOn: null,
+        sentAt: daysAgo(1),
+        sentBy: "user_maya",
+        publishedAt: daysAgo(1),
+        createdAt: daysAgo(2),
+        updatedAt: daysAgo(1),
+        createdBy: "user_maya",
+      },
+    ])
+    .run();
+  db.insert(jobSpecLines)
+    .values([
+      {
+        id: "spec_ok_line_niche",
+        orgId: ORG,
+        specId: "spec_ok_shower",
+        budgetLineId: "bud_co_1",
+        groupLabel: "TILE-NICHE",
+        costCode: "TILE-NICHE",
+        description: "Shower niche, tiled",
+        notes: "Wet wall.",
+        sortOrder: 0,
+        sourceName: "Shower niche, tiled",
+        sourceCents: 180000,
+      },
+      {
+        id: "spec_ok_line_tile",
+        orgId: ORG,
+        specId: "spec_ok_shower",
+        budgetLineId: "bud_proj_okonkwo_1",
+        groupLabel: "TILE-SHOWER",
+        costCode: "TILE-SHOWER",
+        description: "Shower tile",
+        notes: "",
+        sortOrder: 1,
+        sourceName: "Shower tile",
+        sourceCents: 1480000,
+      },
+      {
+        id: "spec_br_line_frame",
+        orgId: ORG,
+        specId: "spec_br_frame",
+        budgetLineId: "bud_proj_brooks_1",
+        groupLabel: "FRM-WALL",
+        costCode: "FRM-WALL",
+        description: "Framing",
+        notes: "2x6 exterior.",
+        sortOrder: 0,
+        sourceName: "Framing",
+        sourceCents: 2700000,
+      },
+    ])
+    .run();
+  db.insert(jobSpecFiles)
+    .values({ id: "spec_ok_file_a101", orgId: ORG, lineId: "spec_ok_line_niche", documentId: "doc_ok_a101_r2" })
     .run();
 }

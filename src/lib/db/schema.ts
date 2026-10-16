@@ -3908,3 +3908,66 @@ export const docSignAttempts = sqliteTable(
   },
   (t) => [index("doc_sign_attempts_org").on(t.orgId, t.createdAt)],
 );
+
+export const jobSpecs = sqliteTable(
+  "job_specs",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    projectId: text("project_id").notNull(),
+    title: text("title").notNull(),
+    status: text("status").notNull(),
+    version: integer("version").notNull().default(1),
+    replacesId: text("replaces_id"),
+    shareToken: text("share_token").notNull(),
+    dueOn: text("due_on"),
+    sentAt: text("sent_at"),
+    sentBy: text("sent_by"),
+    publishedAt: text("published_at"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    createdBy: text("created_by"),
+  },
+  (t) => [index("job_specs_org").on(t.orgId, t.projectId), index("job_specs_token").on(t.shareToken)],
+);
+
+export const jobSpecLines = sqliteTable(
+  "job_spec_lines",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    specId: text("spec_id").notNull(),
+    budgetLineId: text("budget_line_id"),
+    groupLabel: text("group_label").notNull(),
+    costCode: text("cost_code").notNull().default(""),
+    description: text("description").notNull(),
+    notes: text("notes").notNull().default(""),
+    sortOrder: integer("sort_order").notNull().default(0),
+    sourceName: text("source_name"),
+    sourceCents: integer("source_cents"),
+  },
+  (t) => [index("job_spec_lines_spec").on(t.orgId, t.specId)],
+);
+
+export const jobSpecFiles = sqliteTable(
+  "job_spec_files",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    lineId: text("line_id").notNull(),
+    documentId: text("document_id").notNull(),
+  },
+  (t) => [index("job_spec_files_line").on(t.orgId, t.lineId)],
+);
+
+export const jobSpecAttempts = sqliteTable(
+  "job_spec_attempts",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    specId: text("spec_id").notNull(),
+    ip: text("ip").notNull(),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [index("job_spec_attempts_org").on(t.orgId, t.createdAt)],
+);

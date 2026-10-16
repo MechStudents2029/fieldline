@@ -110,6 +110,7 @@ export function ensureReady(holder: Holder) {
   ensureLiens(holder);
   ensureForms(holder);
   ensureDocSignatures(holder);
+  ensureJobSpecs(holder);
   ensureDraws(holder);
   ensureRfis(holder);
   ensureComments(holder);
@@ -2124,6 +2125,66 @@ function ensureDocSignatures(holder: Holder) {
   holder.sqlite.exec("create unique index if not exists doc_signers_token on doc_signers (token)");
   holder.sqlite.exec("create index if not exists doc_signers_request on doc_signers (org_id, request_id)");
   holder.sqlite.exec("create index if not exists doc_sign_attempts_org on doc_sign_attempts (org_id, created_at)");
+}
+
+function ensureJobSpecs(holder: Holder) {
+  const pk = holder.dialect === "postgres" ? "text primary key" : "text primary key not null";
+  if (!tableExists(holder.sqlite, "job_specs", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists job_specs (
+      id ${pk},
+      org_id text not null,
+      project_id text not null,
+      title text not null,
+      status text not null,
+      version integer not null default 1,
+      replaces_id text,
+      share_token text not null,
+      due_on text,
+      sent_at text,
+      sent_by text,
+      published_at text,
+      created_at text not null,
+      updated_at text not null,
+      created_by text
+    )`);
+  }
+  if (!tableExists(holder.sqlite, "job_spec_lines", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists job_spec_lines (
+      id ${pk},
+      org_id text not null,
+      spec_id text not null,
+      budget_line_id text,
+      group_label text not null,
+      cost_code text not null default '',
+      description text not null,
+      notes text not null default '',
+      sort_order integer not null default 0,
+      source_name text,
+      source_cents integer
+    )`);
+  }
+  if (!tableExists(holder.sqlite, "job_spec_files", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists job_spec_files (
+      id ${pk},
+      org_id text not null,
+      line_id text not null,
+      document_id text not null
+    )`);
+  }
+  if (!tableExists(holder.sqlite, "job_spec_attempts", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists job_spec_attempts (
+      id ${pk},
+      org_id text not null,
+      spec_id text not null,
+      ip text not null,
+      created_at text not null
+    )`);
+  }
+  holder.sqlite.exec("create index if not exists job_specs_org on job_specs (org_id, project_id)");
+  holder.sqlite.exec("create index if not exists job_specs_token on job_specs (share_token)");
+  holder.sqlite.exec("create index if not exists job_spec_lines_spec on job_spec_lines (org_id, spec_id)");
+  holder.sqlite.exec("create index if not exists job_spec_files_line on job_spec_files (org_id, line_id)");
+  holder.sqlite.exec("create index if not exists job_spec_attempts_org on job_spec_attempts (org_id, created_at)");
 }
 
 function ensureTesterFeedback(holder: Holder) {

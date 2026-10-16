@@ -294,6 +294,9 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
         <Link href={`/projects/${detail.project.id}/selections`} className="py-1.5 text-center fl-footnote text-[var(--fl-secondary)]">
           Selections
         </Link>
+        <Link href={`/projects/${detail.project.id}/specs`} className="py-1.5 text-center fl-footnote text-[var(--fl-secondary)]">
+          Specs
+        </Link>
       </nav>
       {money ? (
         <div id="budget">

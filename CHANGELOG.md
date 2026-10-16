@@ -2,6 +2,15 @@
 
 ## 2026-10-15
 
+### Job specifications
+
+- Work, Specifications and the job tab pull lines from that job’s budget. A line keeps the cost code, the description, and notes. Office can add a line, edit it, and reorder it. A cut sheet or a plan attaches to the line. Draft or Published. Revise copies the published pack and keeps the older version.
+- Copy link and a QR code open the public page. Mark sent stores the date and who. No message is sent. Print is on the public page. The link shows only the latest published version.
+- The public page uses the same IP and company rate limit as the lead form.
+- When a linked budget line’s name or amount changes, the spec line shows Budget changed. Refresh copies the budget text. Keep leaves the spec text and clears the flag. Nothing is rewritten on its own, and nothing is sent.
+- Today counts jobs with a past-due draft or a Budget changed line under Spec due. CSV is `/api/export/specs`. Field reads published specs for jobs they can open. A viewer can read and cannot edit.
+- Seed: Okonkwo’s shower specs are published, with the A-101 plan on the niche line. Brooks framing specs are published and flagged Budget changed.
+
 ### Document signatures
 
 - Work, Signatures requests a signature on a PDF or image, or on a vendor trade agreement. Pick a client, a vendor, or a teammate. A second signer and a signing order are optional. A due date and a short note are optional. Office can create a request. Owner and admin can void it, with a reason.
