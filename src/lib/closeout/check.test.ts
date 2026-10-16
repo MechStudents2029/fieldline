@@ -15,6 +15,7 @@ const clear: CloseoutFacts = {
   talksMissed: 0,
   checksOpen: 0,
   incidentsOpen: 0,
+  handoverOpen: 0,
 };
 
 describe("closeout checklist", () => {
@@ -33,6 +34,7 @@ describe("closeout checklist", () => {
       talksMissed: 0,
       checksOpen: 0,
       incidentsOpen: 0,
+      handoverOpen: 0,
     });
     expect(rows.map((row) => [row.key, row.count])).toEqual([
       ["punch", 3],
@@ -47,6 +49,7 @@ describe("closeout checklist", () => {
       ["talks", 0],
       ["checks", 0],
       ["incidents", 0],
+      ["handover", 0],
     ]);
     expect(openBlockers(clear)).toEqual([]);
   });
@@ -64,6 +67,12 @@ describe("closeout checklist", () => {
   it("keeps a verified-only punch list clear", () => {
     expect(closeoutChecklist({ ...clear, punchOpen: 0, punchDone: 0 }).find((row) => row.key === "punch")?.count).toBe(0);
     expect(closeoutChecklist({ ...clear, punchOpen: 1, punchDone: 0 }).find((row) => row.key === "punch")?.count).toBe(1);
+  });
+
+  it("counts a draft handover package and clears a ready one", () => {
+    expect(closeoutChecklist({ ...clear, handoverOpen: 1 }).find((row) => row.key === "handover")?.count).toBe(1);
+    expect(closeoutChecklist({ ...clear, handoverOpen: 0 }).find((row) => row.key === "handover")?.count).toBe(0);
+    expect(openBlockers({ ...clear, handoverOpen: 1 }).map((row) => row.key)).toEqual(["handover"]);
   });
 });
 

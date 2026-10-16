@@ -3974,6 +3974,7 @@ export async function submitWarrantyAction(token: string, _prev: ActionState, fo
       title: String(formData.get("title") || ""),
       description: String(formData.get("description") || ""),
       urgency: String(formData.get("urgency") || ""),
+      itemId: String(formData.get("itemId") || ""),
       photos,
     });
     if ("id" in result) revalidatePath(`/portal/${token}`);

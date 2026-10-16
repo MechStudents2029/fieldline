@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, Boxes, Briefcase, Calendar, CalendarOff, CircleDollarSign, ClipboardList, Clock, Columns2, Copy, FileMinus, FileText, HardHat, IdCard, Inbox, ListChecks, ListTodo, MessageSquare, Package, PackagePlus, PenLine, Percent, Presentation, Receipt, Repeat, Route, Scale, ScrollText, Star, Sun, Ticket, Undo2, Users, Wallet, Wrench } from "lucide-react";
+import { BarChart3, BookOpen, Boxes, Briefcase, Calendar, CalendarOff, CircleDollarSign, ClipboardList, Clock, Columns2, Copy, FileMinus, FileText, HardHat, IdCard, Inbox, ListChecks, ListTodo, MessageSquare, Package, PackagePlus, PenLine, Percent, Presentation, Receipt, Repeat, Route, Scale, ScrollText, Star, Sun, Ticket, Undo2, Users, Wallet, Wrench } from "lucide-react";
 import { SignOutButton } from "@/components/sign-out-button";
 import type { OfficeChrome } from "@/lib/services/read";
 
@@ -108,6 +108,7 @@ export function Sidebar({
           {item("/time", "Time", <Clock size={16} strokeWidth={1.6} />)}
           {item("/time-off", "Time off", <CalendarOff size={16} strokeWidth={1.6} />)}
           {item("/meetings", "Meetings", <Presentation size={16} strokeWidth={1.6} />)}
+          {item("/handover", "Handover", <BookOpen size={16} strokeWidth={1.6} />)}
           {item("/receipts", "Receipts", <Receipt size={16} strokeWidth={1.6} />)}
           {item("/reimbursements", "Reimbursements", <CircleDollarSign size={16} strokeWidth={1.6} />)}
           {item("/mileage", "Mileage", <Route size={16} strokeWidth={1.6} />)}

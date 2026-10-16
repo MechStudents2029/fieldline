@@ -1464,6 +1464,7 @@ export const warrantyRequests = sqliteTable(
     costItemId: text("cost_item_id"),
     clientNote: text("client_note"),
     internalNote: text("internal_note"),
+    handoverItemId: text("handover_item_id"),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
   },
@@ -4089,4 +4090,67 @@ export const meetingActions = sqliteTable(
     updatedAt: text("updated_at").notNull(),
   },
   (t) => [index("meeting_actions_meeting").on(t.orgId, t.meetingId), index("meeting_actions_todo").on(t.orgId, t.todoId)],
+);
+
+export const handoverPackages = sqliteTable(
+  "handover_packages",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    projectId: text("project_id").notNull(),
+    status: text("status").notNull(),
+    shareToken: text("share_token").notNull(),
+    publishedAt: text("published_at"),
+    publishedBy: text("published_by"),
+    deliveredAt: text("delivered_at"),
+    deliveredBy: text("delivered_by"),
+    copiedAt: text("copied_at"),
+    copiedBy: text("copied_by"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    createdBy: text("created_by"),
+  },
+  (t) => [uniqueIndex("handover_packages_project").on(t.orgId, t.projectId), uniqueIndex("handover_packages_token").on(t.shareToken)],
+);
+
+export const handoverSections = sqliteTable(
+  "handover_sections",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    packageId: text("package_id").notNull(),
+    kind: text("kind").notNull(),
+    title: text("title").notNull(),
+    sortOrder: integer("sort_order").notNull(),
+  },
+  (t) => [index("handover_sections_package").on(t.orgId, t.packageId)],
+);
+
+export const handoverItems = sqliteTable(
+  "handover_items",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    packageId: text("package_id").notNull(),
+    sectionId: text("section_id").notNull(),
+    sortOrder: integer("sort_order").notNull(),
+    title: text("title").notNull(),
+    manufacturer: text("manufacturer").notNull().default(""),
+    model: text("model").notNull().default(""),
+    serial: text("serial").notNull().default(""),
+    finish: text("finish").notNull().default(""),
+    installOn: text("install_on"),
+    warrantyMonths: integer("warranty_months"),
+    warrantyEndsOn: text("warranty_ends_on"),
+    documentId: text("document_id"),
+    intervalDays: integer("interval_days"),
+    intervalLabel: text("interval_label").notNull().default(""),
+    nextDueOn: text("next_due_on"),
+    sourceType: text("source_type").notNull().default(""),
+    sourceId: text("source_id"),
+    vendorName: text("vendor_name").notNull().default(""),
+    trade: text("trade").notNull().default(""),
+    phone: text("phone").notNull().default(""),
+  },
+  (t) => [index("handover_items_package").on(t.orgId, t.packageId), index("handover_items_section").on(t.orgId, t.sectionId)],
 );

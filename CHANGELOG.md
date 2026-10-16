@@ -2,6 +2,16 @@
 
 ## 2026-10-15
 
+### Homeowner handover
+
+- Each job has a Handover tab. Starting a package fills sections from chosen selections, approved submittals, the latest published spec lines, plan and manual files, and the trades on the job’s bills, purchase orders, and schedule.
+- Installed items keep a manufacturer, model, serial, install date, and warranty length. The warranty end is the install date plus those months. A manual or warranty file can be attached. An optional care interval stores the next due date.
+- Office can add, reorder, and remove items and sections. An installed item with no file shows Missing doc. The count is the number still missing. Ready is refused while that count is above zero. A draft package is a closeout blocker. Close still accepts a reason.
+- Publish shows the package on that job’s client portal: items, warranty ends, the care schedule, documents, trade contacts, and the company warranty end. The homeowner’s warranty form can name an installed item. Vendors do not see the package. Another job’s portal does not either.
+- Print is a binder: cover, contents, and sections. Copy link and Mark delivered store who and when. No message is sent.
+- Work, Handover lists Draft, Ready, and Delivered, with CSV at `/api/export/handover`. Today counts care due in the next 30 days on closed jobs under Care due. Copy note only. Field can read and cannot edit.
+- Seed: Diaz deck replacement has a delivered package, including an HVAC filter due inside 30 days and a deck light whose manufacturer warranty is near its end. Lang hall is in closeout with a draft package missing two files.
+
 ### Project meetings
 
 - A job meeting is OAC, Sub coordination, Pre-con, or Internal, with a date, time, location, and attendees from the team, vendors, and the client. Each person is Present or Absent.

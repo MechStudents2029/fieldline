@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { completeTaskAction } from "@/app/actions";
 import { EmptyState } from "@/components/empty-state";
+import { CopyNote } from "@/components/copy-note";
 import { GroupedList, GroupedRow, LargeTitle, PlusLink } from "@/components/ios";
 import { Toolbar } from "@/components/mac/toolbar";
 import { FirstProposal, SetupRow } from "@/components/setup-checklist";
@@ -26,6 +27,7 @@ import { lienAttention } from "@/lib/services/liens";
 import { formAttention } from "@/lib/services/forms";
 import { signatureAttention } from "@/lib/services/doc-signatures";
 import { specAttention } from "@/lib/services/job-specs";
+import { handoverAttention } from "@/lib/services/handover";
 import { meetingAttention } from "@/lib/services/meetings";
 import { timeOffAttention } from "@/lib/services/time-off";
 import { bidQueues } from "@/lib/services/bids";
@@ -106,15 +108,25 @@ function shortJob(name: string) {
   return name.split(" ").slice(0, 2).join(" ");
 }
 
-type AttentionRow = { key: string; href: string; title: string; count: number; money: boolean; trailing: string; danger?: boolean };
+type AttentionRow = { key: string; href: string; title: string; count: number; money: boolean; trailing: string; danger?: boolean; copy?: string };
 
 function Attention({ rows }: { rows: AttentionRow[] }) {
   const primary = rows.filter((row) => row.money || row.count > 1);
   const rest = rows.filter((row) => !row.money && row.count <= 1);
   if (rows.length === 0) return null;
-  const item = (row: AttentionRow) => (
-    <GroupedRow key={row.key} href={row.href} title={row.title} trailing={<span className={row.danger ? "num text-[var(--mac-danger)]" : "num"}>{row.trailing}</span>} />
-  );
+  const item = (row: AttentionRow) =>
+    row.copy ? (
+      <li key={row.key} className="flex items-center gap-2">
+        <div className="min-w-0 flex-1">
+          <ul className="fl-group">
+            <GroupedRow href={row.href} title={row.title} trailing={<span className={row.danger ? "num text-[var(--mac-danger)]" : "num"}>{row.trailing}</span>} />
+          </ul>
+        </div>
+        <CopyNote text={row.copy} />
+      </li>
+    ) : (
+      <GroupedRow key={row.key} href={row.href} title={row.title} trailing={<span className={row.danger ? "num text-[var(--mac-danger)]" : "num"}>{row.trailing}</span>} />
+    );
   return (
     <div className="flex flex-col gap-2">
       {primary.length > 0 ? <ul className="fl-group">{primary.map(item)}</ul> : null}
@@ -330,6 +342,10 @@ export default async function TodayPage() {
   push("time-off", timeOffDue.count, timeOffDue.href, "Time off due", String(timeOffDue.count));
   const meetingDue = meetingAttention(session);
   push("meeting-due", meetingDue.count, meetingDue.href, "Meeting due", String(meetingDue.count));
+  const careDue = handoverAttention(session);
+  push("care-due", careDue.count, careDue.href, "Care due", String(careDue.count));
+  const careRow = attention.find((row) => row.key === "care-due");
+  if (careRow && careDue.note) careRow.copy = careDue.note;
   push("bids-due", bids.due.count, bids.due.href, "Bids due", String(bids.due.count));
   push("bids-award", bids.award.count, bids.award.href, "Bids to award", String(bids.award.count));
   push("bill", ready.count, ready.href, "Ready to bill", `${ready.count} · ${formatWhole(ready.cents)}`, true);

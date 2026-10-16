@@ -23,10 +23,13 @@ import {
   timeEntries,
   users,
   warrantyAttempts,
+  handoverItems,
+  handoverPackages,
   warrantyPhotos,
   warrantyRequests,
 } from "@/lib/db/schema";
 import { addMonths, closeoutChecklist, finalInvoiceState, openBlockers, warrantyOpen, type CloseoutBlocker } from "@/lib/closeout/check";
+import { closeoutHandover } from "@/lib/handover/package";
 import { equipmentOnJob } from "@/lib/services/equipment";
 import { closeoutPermitFacts } from "@/lib/services/permits";
 import { safetyCounts } from "@/lib/services/safety";
@@ -99,6 +102,7 @@ export type WarrantyRequestView = {
   amountCents: number | null;
   photos: string[];
   visitNote: string | null;
+  itemTitle: string;
 };
 
 export type CloseoutView = {
@@ -329,6 +333,13 @@ function factsFor(db: AppDatabase, orgId: string, projectId: string) {
     talksMissed: safety.talks,
     checksOpen: safety.checks,
     incidentsOpen: safety.incidents,
+    handoverOpen: closeoutHandover(
+      db
+        .select({ status: handoverPackages.status })
+        .from(handoverPackages)
+        .where(and(eq(handoverPackages.orgId, orgId), eq(handoverPackages.projectId, projectId)))
+        .get()?.status,
+    ),
   };
 }
 
@@ -363,6 +374,14 @@ function warrantyViews(db: AppDatabase, orgId: string, projectId: string, money:
     ? db.select().from(costItems).where(and(eq(costItems.orgId, orgId), eq(costItems.projectId, projectId), eq(costItems.source, "warranty"))).all()
     : [];
   const { crew } = namesFor(db, orgId);
+  const itemTitles = new Map(
+    db
+      .select({ id: handoverItems.id, title: handoverItems.title })
+      .from(handoverItems)
+      .where(eq(handoverItems.orgId, orgId))
+      .all()
+      .map((item) => [item.id, item.title]),
+  );
   return rows.map((row) => {
     const cost = row.costItemId ? costs.find((item) => item.id === row.costItemId) : undefined;
     return {
@@ -382,6 +401,7 @@ function warrantyViews(db: AppDatabase, orgId: string, projectId: string, money:
       amountCents: money && cost ? cost.amountCents : null,
       photos: photos.filter((photo) => photo.requestId === row.id).sort((a, b) => a.sortOrder - b.sortOrder).map((photo) => photo.documentId),
       visitNote: visitNote(row.title, row.visitDate),
+      itemTitle: row.handoverItemId ? itemTitles.get(row.handoverItemId) ?? "" : "",
     };
   });
 }
@@ -900,6 +920,7 @@ export function submitWarranty(input: {
   description: string;
   urgency: string;
   photos: PhotoUpload[];
+  itemId?: string;
   now?: number;
 }): { id: string } | { dropped: "honeypot" } {
   const nowMs = input.now ?? Date.now();
@@ -936,6 +957,16 @@ export function submitWarranty(input: {
     const error = photoUploadError(photo.filename, photo.bytes);
     if (error) throw new ServiceError(error);
   }
+  const requestedItem = (input.itemId ?? "").trim();
+  let handoverItemId: string | null = null;
+  if (requestedItem) {
+    const item = db.select().from(handoverItems).where(and(eq(handoverItems.id, requestedItem), eq(handoverItems.orgId, orgId))).get();
+    const pack = item
+      ? db.select().from(handoverPackages).where(and(eq(handoverPackages.id, item.packageId), eq(handoverPackages.orgId, orgId))).get()
+      : undefined;
+    if (!item || !pack || pack.projectId !== project.id || !pack.publishedAt) throw new ServiceError("That item is not on this job.");
+    handoverItemId = item.id;
+  }
   const requestId = id("wr");
   const stamp = nowIso();
   const stored = photos.map((photo) => storePhoto(orgId, project.id, photo, null, db));
@@ -956,6 +987,7 @@ export function submitWarranty(input: {
         costItemId: null,
         clientNote: null,
         internalNote: null,
+        handoverItemId,
         createdAt: stamp,
         updatedAt: stamp,
       })

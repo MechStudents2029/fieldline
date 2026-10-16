@@ -300,6 +300,9 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
         <Link href={`/projects/${detail.project.id}/meetings`} className="py-1.5 text-center fl-footnote text-[var(--fl-secondary)]">
           Meetings
         </Link>
+        <Link href={`/projects/${detail.project.id}/handover`} className="py-1.5 text-center fl-footnote text-[var(--fl-secondary)]">
+          Handover
+        </Link>
       </nav>
       {money ? (
         <div id="budget">
