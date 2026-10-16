@@ -19,7 +19,7 @@ test("logs a change event, prices it, and converts once", async ({ page }) => {
   await page.getByRole("button", { name: "Log" }).click();
   await expect(page.locator(".fl-pill[data-status=open]")).toBeVisible();
 
-  await page.getByLabel("Vendor").selectOption({ label: "Harbor Plumbing" });
+  await page.getByLabel("Vendor", { exact: true }).selectOption({ label: "Harbor Plumbing" });
   await page.getByLabel("Quote due").fill("2026-12-01");
   await page.getByRole("button", { name: "Ask" }).click();
   await page.getByRole("button", { name: "Copy link" }).click();
