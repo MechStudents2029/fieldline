@@ -19,6 +19,7 @@ import {
   auditLogs,
 } from "@/lib/db/schema";
 import { poOverageMessage } from "@/lib/bills/from-po";
+import { assertFlatBillAllowed } from "@/lib/pay-apps/lock";
 import { receiveGap } from "@/lib/receiving/facts";
 import { netPayableCents, retainedCents } from "@/lib/bills/retainage";
 import { id, nowIso } from "@/lib/ids";
@@ -345,6 +346,7 @@ export function createBill(actor: Actor, input: BillInput) {
   const vendor = requireVendor(db, actor.orgId, input.vendorContactId);
   requireProject(db, actor.orgId, input.projectId);
   const order = linkedPurchaseOrder(db, actor.orgId, input.purchaseOrderId, input.projectId, vendor.id);
+  if (order) assertFlatBillAllowed(db, actor.orgId, order.id);
   if (input.documentId) {
     const document = db
       .select()
@@ -415,6 +417,7 @@ export function updateDraft(actor: Actor, billId: string, input: BillInput) {
   const vendor = requireVendor(db, actor.orgId, input.vendorContactId);
   requireProject(db, actor.orgId, input.projectId);
   const order = linkedPurchaseOrder(db, actor.orgId, input.purchaseOrderId, input.projectId, vendor.id);
+  if (order) assertFlatBillAllowed(db, actor.orgId, order.id);
   const duplicate = duplicateBill(actor.orgId, vendor.id, billNumber, bill.id);
   if (duplicate) throw new ServiceError(`${vendorLabel(vendor)} already has bill ${billNumber}.`);
   const now = nowIso();

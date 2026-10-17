@@ -18,6 +18,7 @@ import { overBudgetPercent } from "@/lib/margin/category";
 import { formatMoney, formatPercent, formatWhole } from "@/lib/money";
 import { setBudgetLineKindAction } from "@/app/(office)/budget-changes/actions";
 import { BUDGET_LINE_KINDS, contingencyFor, approvedNetByCode } from "@/lib/services/budget-changes";
+import { jobPaySummary } from "@/lib/services/pay-applications";
 import { canEditCrm, canEditSchedule, canManageMoney, canSeeMoney } from "@/lib/permissions";
 import { OrderPicker } from "@/components/order-picker";
 import { budgetCandidates, orderDesk } from "@/lib/services/order-from";
@@ -87,6 +88,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
   const costCodes = detail.money ? listPriceBook(session.orgId).map((item) => item.code) : [];
   const jobBills = detail.money ? projectBills(session.orgId, detail.project.id, session.role) : [];
   const jobOrders = detail.money ? projectPurchaseOrders(session.orgId, detail.project.id, session.role) : [];
+  const paySummary = detail.money ? jobPaySummary(session.orgId, detail.project.id, session.role) : null;
   const money = detail.financials;
   const pin = canManageMoney(session.role) ? sitePinView(session, detail.project.id) : null;
   const unbilledTm = jobUnbilledTm(session, detail.project.id);
@@ -600,7 +602,17 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
         </>
       ) : null}
       {money ? (
-        <GroupedList label="Costs">
+        <>
+          {paySummary && paySummary.count > 0 ? (
+            <GroupedList label="Pay applications">
+              <GroupedRow
+                href={`/pay-applications?project=${detail.project.id}`}
+                title="Pay applications"
+                trailing={<span className="num" data-pay-apps={paySummary.count}>{`${paySummary.count} · ${formatWhole(paySummary.netCents)}`}</span>}
+              />
+            </GroupedList>
+          ) : null}
+          <GroupedList label="Costs">
           {jobOrders.map((order) => (
             <GroupedRow
               key={order.id}
@@ -627,6 +639,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
             </li>
           ))}
         </GroupedList>
+        </>
       ) : null}
       <div className={full ? "hidden" : "flex flex-col gap-7 md:hidden"}>
       {money ? (

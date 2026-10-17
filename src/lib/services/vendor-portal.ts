@@ -41,6 +41,7 @@ import { targetPlans, vendorMayReadJobFile } from "@/lib/services/files";
 import { scheduleGateLabels } from "@/lib/services/permits";
 import { vendorMayReadVisual } from "@/lib/services/markup";
 import { ServiceError } from "@/lib/services/errors";
+import { portalPayApplications, portalSavePayApplication, portalSubmitPayApplication } from "@/lib/services/pay-applications";
 import { portalCredits, respondVendorCredit } from "@/lib/services/vendor-credits";
 import type { Actor } from "@/lib/services/read";
 import { localDay } from "@/lib/time/calendar";
@@ -74,6 +75,7 @@ export type VendorOrder = {
   amountCents: number;
   lines: { costCode: string; description: string; amountCents: number }[];
   plans: { documentId: string; name: string }[];
+  progress: boolean;
 };
 
 export type VendorPortalHome = {
@@ -128,6 +130,28 @@ export type VendorPortalHome = {
   }[];
   certificates: { type: string; label: string; statusLabel: string; state: string; expiresOn: string; documentId: string | null }[];
   fields: { label: string; value: string }[];
+  payApps: {
+    id: string;
+    number: number;
+    purchaseOrderId: string;
+    poNumber: string;
+    status: string;
+    statusLabel: string;
+    periodEnd: string;
+    editable: boolean;
+    lines: {
+      id: string;
+      purchaseOrderLineId: string;
+      costCode: string;
+      description: string;
+      scheduledCents: number;
+      previousCents: number;
+      thisPeriodCents: number;
+      storedCents: number;
+      releasedCents: number;
+      rejectNote: string;
+    }[];
+  }[];
 };
 
 export type VendorOffice = {
@@ -573,6 +597,7 @@ export function vendorPortal(token: string): VendorPortalHome | null {
         kind: order.kind === "work" ? "work" : "purchase",
         response: responseOf(order),
         amountCents: poLines.filter((line) => line.purchaseOrderId === order.id).reduce((sum, line) => sum + line.amountCents, 0),
+        progress: order.billingMethod === "progress",
         lines: poLines
           .filter((line) => line.purchaseOrderId === order.id)
           .sort((a, b) => a.sortOrder - b.sortOrder)
@@ -624,6 +649,7 @@ export function vendorPortal(token: string): VendorPortalHome | null {
         paidOn: row.status === "paid" ? row.paidAt?.slice(0, 10) ?? null : null,
       })),
     certificates: presentCerts(certs, today, ctx.required),
+    payApps: portalPayApplications(orgId, contactId),
   };
 }
 
@@ -709,6 +735,7 @@ export function submitVendorBill(input: {
 }): { id: string; warning: string | null } {
   const ctx = requirePortal(input.token, input.ip);
   const order = issuedOrder(ctx, input.purchaseOrderId);
+  if (order.billingMethod === "progress") throw new ServiceError("This purchase order bills by progress.");
   if (order.declinedAt) throw new ServiceError("This purchase order was declined.");
   if (!order.acceptedAt) throw new ServiceError("Accept the purchase order first.");
   const billNumber = normalizeBillNumber(input.billNumber);
@@ -803,6 +830,17 @@ export function submitVendorBill(input: {
     writeAudit(tx, ctx.orgId, null, "vendor.bill", "bill", billId, { number: billNumber, purchaseOrderId: order.id, status: "draft" }, input.ip);
   });
   return { id: billId, warning };
+}
+
+export function submitPortalPayApp(input: {
+  token: string;
+  ip: string;
+  applicationId: string;
+  lines: { purchaseOrderLineId: string; thisPeriodCents: number; storedCents: number; releasedCents: number }[];
+}) {
+  const ctx = requirePortal(input.token, input.ip);
+  portalSavePayApplication({ tokenOrgId: ctx.orgId, contactId: ctx.contactId, applicationId: input.applicationId, lines: input.lines });
+  return portalSubmitPayApplication(ctx.orgId, ctx.contactId, input.applicationId);
 }
 
 export function markVendorPunch(input: { token: string; ip: string; itemId: string; photo?: VendorUpload | null }) {

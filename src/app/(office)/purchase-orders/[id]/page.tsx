@@ -8,12 +8,19 @@ import { poReceiving } from "@/lib/receiving/facts";
 import { canBillReceived, companyToday, receiveChoices } from "@/lib/services/receiving";
 import { changeOrderChoices, purchaseOrderDetail } from "@/lib/services/purchase-orders";
 import { poRetainage } from "@/lib/services/pay-ready";
+import { poPayApplications } from "@/lib/services/pay-applications";
+import { hasFlatBill } from "@/lib/pay-apps/lock";
+import { getDb } from "@/lib/db/client";
+import { setProgressBillingAction } from "@/app/(office)/pay-applications/actions";
+import { ActionForm } from "@/components/action-form";
+import Link from "next/link";
 import { officeTargetPlans, planChoices } from "@/lib/services/files";
 import { relatedRfis } from "@/lib/services/rfis";
 import { listContacts, listPriceBook, listProjects } from "@/lib/services/read";
 import { creditableReceiptIds, poFactsFor } from "@/lib/services/vendor-credits";
 import { stockPlaces } from "@/lib/services/inventory";
 import { tradeWarning } from "@/lib/services/doc-signatures";
+import { formatWhole } from "@/lib/money";
 
 export default async function PurchaseOrderPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -33,6 +40,9 @@ export default async function PurchaseOrderPage({ params }: { params: Promise<{ 
   const facts = poFactsFor(session.orgId, detail.po, billed);
   const creditable = [...creditableReceiptIds(session.orgId)];
   const trade = tradeWarning(session.orgId, detail.po.vendorContactId);
+  const payApps = poPayApplications(session.orgId, detail.po.id, session.role);
+  const progress = detail.po.billingMethod === "progress";
+  const flatLocked = hasFlatBill(getDb(), session.orgId, detail.po.id);
   return (
     <div className="flex flex-col gap-4">
       <div className="px-4 pt-3">
@@ -96,6 +106,30 @@ export default async function PurchaseOrderPage({ params }: { params: Promise<{ 
         facts={facts}
         creditableReceipts={creditable}
       />
+      <section className="px-4" aria-label="Pay apps">
+        <h2 className="text-sm font-medium">Pay apps</h2>
+        {payApps.length === 0 ? <p className="num text-sm text-[var(--mac-secondary)]">0</p> : null}
+        <ul>
+          {payApps.map((app) => (
+            <li key={app.id}>
+              <Link href={`/pay-applications/${app.id}`} className="text-[var(--mac-accent)]">
+                {app.number}
+              </Link>
+              <span className="fl-pill ml-2" data-status={app.status}>
+                {app.statusLabel}
+              </span>
+              <span className="num ml-2">{formatWhole(app.netCents)}</span>
+            </li>
+          ))}
+        </ul>
+        {office && detail.po.status === "issued" && !progress && !flatLocked ? (
+          <ActionForm action={setProgressBillingAction.bind(null, detail.po.id)} className="mt-2">
+            <button type="submit" className="mac-glass-btn">
+              Bill by progress
+            </button>
+          </ActionForm>
+        ) : null}
+      </section>
       <div className="max-w-md px-4">
         <CommentThread entityType="purchase_order" entityId={detail.po.id} />
       </div>

@@ -36,6 +36,9 @@ import {
   budgetLines,
   budgetChangeLines,
   budgetChanges,
+  payApplicationLines,
+  payApplicationVersions,
+  payApplications,
   changeOrderLines,
   changeOrders,
   changeEventCodes,
@@ -257,7 +260,7 @@ import {
   WEBSITE_FORM_SOURCE,
 } from "@/lib/lead-form/rules";
 
-export const SEED_VERSION = "81";
+export const SEED_VERSION = "82";
 
 const ORG = "org_rivera";
 const NORTH = "org_northline";
@@ -8433,6 +8436,227 @@ function seedTemplates(db: AppDatabase, now: string) {
     .values([
       { id: "aud_bc_chen_draw", orgId: ORG, actorId: "user_maya", action: "budget_change.approve", entityType: "budget_change", entityId: "bc_chen_draw", payloadJson: "{}", ip: null, createdAt: budgetStamp },
       { id: "aud_bc_chen_xfer", orgId: ORG, actorId: "user_luis", action: "budget_change.create", entityType: "budget_change", entityId: "bc_chen_xfer", payloadJson: "{}", ip: null, createdAt: `${draftDay}T08:00` },
+    ])
+    .run();
+
+  const payStart = addCalendarDays(today, -20);
+  const payEnd = addCalendarDays(today, -12);
+  const payNextStart = addCalendarDays(today, -11);
+  const paySubmittedDay = addCalendarDays(today, -6);
+  const payDue = addCalendarDays(today, 14);
+  const payStamp = `${payEnd}T15:00:00.000Z`;
+  const paySubmittedAt = `${paySubmittedDay}T15:00:00.000Z`;
+  db.insert(purchaseOrders)
+    .values([
+      {
+        id: "po_br_brighton",
+        orgId: ORG,
+        projectId: "proj_brooks",
+        vendorContactId: "c_brighton",
+        changeOrderId: null,
+        number: "SC-1048",
+        scope: "Electrical subcontract",
+        status: "issued",
+        voidReason: null,
+        issuedAt: daysAgo(21),
+        closedAt: null,
+        createdAt: daysAgo(22),
+        updatedAt: daysAgo(21),
+        createdBy: "user_sam",
+        retainageBps: 1000,
+        kind: "purchase",
+        billingMethod: "progress",
+      },
+      {
+        id: "po_hb_prog",
+        orgId: ORG,
+        projectId: "proj_brooks",
+        vendorContactId: "c_harbor",
+        changeOrderId: null,
+        number: "SC-1049",
+        scope: "Plumbing subcontract",
+        status: "issued",
+        voidReason: null,
+        issuedAt: daysAgo(8),
+        closedAt: null,
+        createdAt: daysAgo(8),
+        updatedAt: daysAgo(8),
+        createdBy: "user_sam",
+        retainageBps: 1000,
+        kind: "purchase",
+        billingMethod: "progress",
+      },
+    ])
+    .run();
+  db.insert(purchaseOrderLines)
+    .values([
+      { id: "pol_br_pa_a", orgId: ORG, purchaseOrderId: "po_br_brighton", costCode: "ELE-PA", description: "Rough", amountCents: 120_000, sortOrder: 0 },
+      { id: "pol_br_pa_b", orgId: ORG, purchaseOrderId: "po_br_brighton", costCode: "ELE-PA2", description: "Trim", amountCents: 80_000, sortOrder: 1 },
+      { id: "pol_hb_pa", orgId: ORG, purchaseOrderId: "po_hb_prog", costCode: "PLB-PA", description: "Rough plumbing", amountCents: 100_000, sortOrder: 0 },
+    ])
+    .run();
+  db.insert(bills)
+    .values({
+      id: "bill_pa_br",
+      orgId: ORG,
+      projectId: "proj_brooks",
+      vendorContactId: "c_brighton",
+      billNumber: "BE-PA1",
+      billDate: payEnd,
+      amountCents: 40_000,
+      dueDate: payDue,
+      status: "approved",
+      memo: "Pay application 1 on SC-1048",
+      voidReason: null,
+      paidAt: null,
+      payMethod: null,
+      payReference: null,
+      documentId: null,
+      purchaseOrderId: "po_br_brighton",
+      approvedAt: payStamp,
+      lowConfidence: 0,
+      createdAt: payStamp,
+      updatedAt: payStamp,
+      createdBy: "user_maya",
+      portalSubmitted: 0,
+      retainageCents: 4_000,
+      kind: "standard",
+    })
+    .run();
+  db.insert(billLines)
+    .values({ id: "bln_pa_br", orgId: ORG, billId: "bill_pa_br", costCode: "ELE-PA", description: "Rough", amountCents: 40_000, costItemId: "cost_pa_br", sortOrder: 0 })
+    .run();
+  db.insert(costItems)
+    .values({
+      id: "cost_pa_br",
+      orgId: ORG,
+      projectId: "proj_brooks",
+      budgetLineId: null,
+      costCode: "ELE-PA",
+      amountCents: 40_000,
+      vendorName: "Brighton Electric",
+      memo: "Bill BE-PA1 · Rough",
+      source: "bill",
+      aiExtracted: 0,
+      documentId: null,
+      createdAt: payStamp,
+      updatedAt: payStamp,
+      createdBy: "user_maya",
+    })
+    .run();
+  db.insert(payApplications)
+    .values([
+      {
+        id: "pa_br_1",
+        orgId: ORG,
+        purchaseOrderId: "po_br_brighton",
+        projectId: "proj_brooks",
+        vendorContactId: "c_brighton",
+        number: 1,
+        periodStart: payStart,
+        periodEnd: payEnd,
+        status: "approved",
+        billId: "bill_pa_br",
+        note: "",
+        voidReason: null,
+        voidedAt: null,
+        submittedAt: payStamp,
+        reviewedAt: payStamp,
+        approvedAt: payStamp,
+        approvedBy: "user_maya",
+        version: 1,
+        requestedAt: null,
+        requestedBy: null,
+        copiedAt: null,
+        copiedBy: null,
+        createdAt: payStamp,
+        updatedAt: payStamp,
+        createdBy: "user_maya",
+      },
+      {
+        id: "pa_br_2",
+        orgId: ORG,
+        purchaseOrderId: "po_br_brighton",
+        projectId: "proj_brooks",
+        vendorContactId: "c_brighton",
+        number: 2,
+        periodStart: payNextStart,
+        periodEnd: paySubmittedDay,
+        status: "submitted",
+        billId: null,
+        note: "",
+        voidReason: null,
+        voidedAt: null,
+        submittedAt: paySubmittedAt,
+        reviewedAt: null,
+        approvedAt: null,
+        approvedBy: null,
+        version: 1,
+        requestedAt: null,
+        requestedBy: null,
+        copiedAt: null,
+        copiedBy: null,
+        createdAt: paySubmittedAt,
+        updatedAt: paySubmittedAt,
+        createdBy: "user_sam",
+      },
+      {
+        id: "pa_hb_1",
+        orgId: ORG,
+        purchaseOrderId: "po_hb_prog",
+        projectId: "proj_brooks",
+        vendorContactId: "c_harbor",
+        number: 1,
+        periodStart: today,
+        periodEnd: payDue,
+        status: "draft",
+        billId: null,
+        note: "",
+        voidReason: null,
+        voidedAt: null,
+        submittedAt: null,
+        reviewedAt: null,
+        approvedAt: null,
+        approvedBy: null,
+        version: 1,
+        requestedAt: null,
+        requestedBy: null,
+        copiedAt: null,
+        copiedBy: null,
+        createdAt: now,
+        updatedAt: now,
+        createdBy: "user_sam",
+      },
+    ])
+    .run();
+  db.insert(payApplicationLines)
+    .values([
+      { id: "pal_br_1a", orgId: ORG, applicationId: "pa_br_1", purchaseOrderLineId: "pol_br_pa_a", thisPeriodCents: 40_000, storedCents: 0, releasedCents: 0, retainageBps: 1000, rejectNote: "", sortOrder: 0 },
+      { id: "pal_br_1b", orgId: ORG, applicationId: "pa_br_1", purchaseOrderLineId: "pol_br_pa_b", thisPeriodCents: 0, storedCents: 0, releasedCents: 0, retainageBps: 1000, rejectNote: "", sortOrder: 1 },
+      { id: "pal_br_2a", orgId: ORG, applicationId: "pa_br_2", purchaseOrderLineId: "pol_br_pa_a", thisPeriodCents: 10_000, storedCents: 0, releasedCents: 0, retainageBps: 1000, rejectNote: "", sortOrder: 0 },
+      { id: "pal_br_2b", orgId: ORG, applicationId: "pa_br_2", purchaseOrderLineId: "pol_br_pa_b", thisPeriodCents: 8_000, storedCents: 0, releasedCents: 0, retainageBps: 1000, rejectNote: "Check the percent", sortOrder: 1 },
+      { id: "pal_hb_1", orgId: ORG, applicationId: "pa_hb_1", purchaseOrderLineId: "pol_hb_pa", thisPeriodCents: 5_000, storedCents: 1_000, releasedCents: 0, retainageBps: 1000, rejectNote: "", sortOrder: 0 },
+    ])
+    .run();
+  db.insert(payApplicationVersions)
+    .values({
+      id: "pav_br_2",
+      orgId: ORG,
+      applicationId: "pa_br_2",
+      version: 1,
+      linesJson: JSON.stringify([
+        { purchaseOrderLineId: "pol_br_pa_a", thisPeriodCents: 10_000, storedCents: 0, releasedCents: 0, retainageBps: 1000, rejectNote: "" },
+        { purchaseOrderLineId: "pol_br_pa_b", thisPeriodCents: 8_000, storedCents: 0, releasedCents: 0, retainageBps: 1000, rejectNote: "Check the percent" },
+      ]),
+      createdAt: paySubmittedAt,
+      createdBy: "user_sam",
+    })
+    .run();
+  db.insert(auditLogs)
+    .values([
+      { id: "aud_pa_br_1", orgId: ORG, actorId: "user_maya", action: "pay_application.approve", entityType: "pay_application", entityId: "pa_br_1", payloadJson: "{}", ip: null, createdAt: payStamp },
+      { id: "aud_pa_br_2", orgId: ORG, actorId: "user_sam", action: "pay_application.submit", entityType: "pay_application", entityId: "pa_br_2", payloadJson: "{}", ip: null, createdAt: paySubmittedAt },
+      { id: "aud_pa_hb_1", orgId: ORG, actorId: "user_sam", action: "pay_application.create", entityType: "pay_application", entityId: "pa_hb_1", payloadJson: "{}", ip: null, createdAt: now },
     ])
     .run();
 }

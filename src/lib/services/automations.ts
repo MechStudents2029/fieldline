@@ -21,6 +21,7 @@ import {
   projects,
   proposals,
   purchaseOrders,
+  payApplications,
   punchItems,
   safetyCheckItems,
   safetyChecks,
@@ -106,7 +107,9 @@ export type Trigger =
   | { kind: "client_credit_applied" }
   | { kind: "client_credit_voided" }
   | { kind: "commission_owed" }
-  | { kind: "commission_marked_paid" };
+  | { kind: "commission_marked_paid" }
+  | { kind: "pay_application_submitted" }
+  | { kind: "pay_application_approved" };
 
 export type Condition =
   | { kind: "job_type"; value: string }
@@ -228,6 +231,8 @@ export function parseTrigger(raw: string): Trigger | null {
   if (row.kind === "client_credit_voided") return { kind: "client_credit_voided" };
   if (row.kind === "commission_owed") return { kind: "commission_owed" };
   if (row.kind === "commission_marked_paid") return { kind: "commission_marked_paid" };
+  if (row.kind === "pay_application_submitted") return { kind: "pay_application_submitted" };
+  if (row.kind === "pay_application_approved") return { kind: "pay_application_approved" };
   return null;
 }
 
@@ -322,6 +327,8 @@ export function triggerLabel(trigger: Trigger): string {
   if (trigger.kind === "client_credit_voided") return "Client credit memo voided";
   if (trigger.kind === "commission_owed") return "Commission owed";
   if (trigger.kind === "commission_marked_paid") return "Commission marked paid";
+  if (trigger.kind === "pay_application_submitted") return "Pay application submitted";
+  if (trigger.kind === "pay_application_approved") return "Pay application approved";
   return "Equipment overdue";
 }
 
@@ -469,6 +476,7 @@ function hrefFor(event: AutomationEvent) {
   if (event.kind === "selection_followup_created" || event.kind === "selection_followup_marked_sent") return `/selection-followups/${event.recordId}`;
   if (event.kind === "client_credit_created" || event.kind === "client_credit_applied" || event.kind === "client_credit_voided") return `/credit-memos/${event.recordId}`;
   if (event.kind === "commission_owed" || event.kind === "commission_marked_paid") return `/commissions/${event.recordId}`;
+  if (event.kind === "pay_application_submitted" || event.kind === "pay_application_approved") return `/pay-applications/${event.recordId}`;
   if (event.kind === "equipment_overdue") return "/equipment";
   if ((event.kind === "incident_logged" || event.kind === "checklist_failed") && event.projectId) return `/projects/${event.projectId}/safety`;
   if (event.kind === "vendor_expiring") return "/contacts";
@@ -1150,6 +1158,7 @@ export function previewRecordLabel(trigger: Trigger) {
   if (trigger.kind === "selection_followup_created" || trigger.kind === "selection_followup_marked_sent") return "Selection";
   if (trigger.kind === "client_credit_created" || trigger.kind === "client_credit_applied" || trigger.kind === "client_credit_voided") return "Credit memo";
   if (trigger.kind === "commission_owed" || trigger.kind === "commission_marked_paid") return "Commission";
+  if (trigger.kind === "pay_application_submitted" || trigger.kind === "pay_application_approved") return "Pay application";
   return "Checklist item";
 }
 
@@ -1265,6 +1274,15 @@ export function previewChoices(orgId: string, trigger: Trigger) {
   if (trigger.kind === "commission_owed" || trigger.kind === "commission_marked_paid") {
     const names = new Map(db.select().from(projects).where(eq(projects.orgId, orgId)).all().map((row) => [row.id, row.name]));
     return db.select().from(commissionLines).where(eq(commissionLines.orgId, orgId)).all().map((row) => ({ id: row.id, label: names.get(row.projectId) || "Commission" }));
+  }
+  if (trigger.kind === "pay_application_submitted" || trigger.kind === "pay_application_approved") {
+    const numbers = new Map(db.select().from(purchaseOrders).where(eq(purchaseOrders.orgId, orgId)).all().map((row) => [row.id, row.number]));
+    return db
+      .select()
+      .from(payApplications)
+      .where(eq(payApplications.orgId, orgId))
+      .all()
+      .map((row) => ({ id: row.id, label: `${numbers.get(row.purchaseOrderId) || "PO"} ${row.number}` }));
   }
   if (trigger.kind === "clock_outside") {
     const names = new Map(db.select({ id: users.id, name: users.name }).from(users).all().map((row) => [row.id, row.name]));
@@ -1611,6 +1629,20 @@ function eventFromRecord(orgId: string, trigger: Trigger, recordId: string): Aut
       amountCents: memo.amountCents,
     };
   }
+  if (trigger.kind === "pay_application_submitted" || trigger.kind === "pay_application_approved") {
+    const app = db.select().from(payApplications).where(and(eq(payApplications.orgId, orgId), eq(payApplications.id, recordId))).get();
+    if (!app) return null;
+    const order = db.select().from(purchaseOrders).where(and(eq(purchaseOrders.orgId, orgId), eq(purchaseOrders.id, app.purchaseOrderId))).get();
+    return {
+      orgId,
+      kind: trigger.kind,
+      recordType: "pay_application",
+      recordId: app.id,
+      recordLabel: `${order?.number || "PO"} ${app.number}`,
+      projectId: app.projectId,
+      name: `${order?.number || "PO"} ${app.number}`,
+    };
+  }
   if (trigger.kind === "commission_owed" || trigger.kind === "commission_marked_paid") {
     const line = db.select().from(commissionLines).where(and(eq(commissionLines.orgId, orgId), eq(commissionLines.id, recordId))).get();
     if (!line) return null;
@@ -1737,6 +1769,8 @@ export function ruleFromForm(formData: FormData): RuleDraft {
   else if (kind === "client_credit_voided") trigger = { kind: "client_credit_voided" };
   else if (kind === "commission_owed") trigger = { kind: "commission_owed" };
   else if (kind === "commission_marked_paid") trigger = { kind: "commission_marked_paid" };
+  else if (kind === "pay_application_submitted") trigger = { kind: "pay_application_submitted" };
+  else if (kind === "pay_application_approved") trigger = { kind: "pay_application_approved" };
   if (!trigger) throw new ServiceError("Pick a trigger.");
   const conditions: Condition[] = [];
   const conditionSlots = formSlots(formData, "c");

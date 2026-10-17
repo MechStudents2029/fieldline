@@ -118,6 +118,7 @@ export function ensureReady(holder: Holder) {
   ensureChangeEvents(holder);
   ensureDelayClaims(holder);
   ensureBudgetChanges(holder);
+  ensurePayApplications(holder);
   ensureDraws(holder);
   ensureRfis(holder);
   ensureComments(holder);
@@ -2639,6 +2640,69 @@ function ensureBudgetChanges(holder: Holder) {
   holder.sqlite.exec("create unique index if not exists budget_changes_number on budget_changes (org_id, project_id, number)");
   holder.sqlite.exec("create index if not exists budget_changes_org on budget_changes (org_id, project_id)");
   holder.sqlite.exec("create index if not exists budget_change_lines_change on budget_change_lines (org_id, change_id)");
+}
+
+function ensurePayApplications(holder: Holder) {
+  const pk = holder.dialect === "postgres" ? "text primary key" : "text primary key not null";
+  ensureColumn(holder, "purchase_orders", "billing_method", "text not null default 'flat'");
+  if (!tableExists(holder.sqlite, "pay_applications", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists pay_applications (
+      id ${pk},
+      org_id text not null,
+      purchase_order_id text not null,
+      project_id text not null,
+      vendor_contact_id text not null,
+      number integer not null,
+      period_start text not null,
+      period_end text not null,
+      status text not null,
+      bill_id text,
+      note text not null default '',
+      void_reason text,
+      voided_at text,
+      submitted_at text,
+      reviewed_at text,
+      approved_at text,
+      approved_by text,
+      version integer not null default 1,
+      requested_at text,
+      requested_by text,
+      copied_at text,
+      copied_by text,
+      created_at text not null,
+      updated_at text not null,
+      created_by text
+    )`);
+  }
+  if (!tableExists(holder.sqlite, "pay_application_lines", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists pay_application_lines (
+      id ${pk},
+      org_id text not null,
+      application_id text not null,
+      purchase_order_line_id text not null,
+      this_period_cents integer not null default 0,
+      stored_cents integer not null default 0,
+      released_cents integer not null default 0,
+      retainage_bps integer not null default 0,
+      reject_note text not null default '',
+      sort_order integer not null default 0
+    )`);
+  }
+  if (!tableExists(holder.sqlite, "pay_application_versions", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists pay_application_versions (
+      id ${pk},
+      org_id text not null,
+      application_id text not null,
+      version integer not null,
+      lines_json text not null,
+      created_at text not null,
+      created_by text
+    )`);
+  }
+  holder.sqlite.exec("create unique index if not exists pay_applications_number on pay_applications (org_id, purchase_order_id, number)");
+  holder.sqlite.exec("create index if not exists pay_applications_org on pay_applications (org_id, project_id)");
+  holder.sqlite.exec("create index if not exists pay_application_lines_app on pay_application_lines (org_id, application_id)");
+  holder.sqlite.exec("create unique index if not exists pay_application_versions_ver on pay_application_versions (org_id, application_id, version)");
 }
 
 function ensureTesterFeedback(holder: Holder) {

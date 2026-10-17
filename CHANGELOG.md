@@ -2,6 +2,16 @@
 
 ## 2026-10-15
 
+### Subcontractor pay applications
+
+- An issued purchase order can bill by progress. The schedule of values is the purchase order lines, plus lines copied from an approved change order on that order. A purchase order that already has a flat bill stays on flat bills. A purchase order set to progress refuses a flat bill.
+- A pay application is numbered on the purchase order and covers one period. Each line shows scheduled value, previous, this period, materials stored, total completed and stored, percent, balance to finish, retainage this period, released, and held to date. A line cannot pass 100%. Retainage starts from the purchase order and the office can change it on a line. A later application can release retainage. A release that takes held to date to zero follows the company lien waiver Block setting.
+- Draft, Submitted, Under review, then Approved. Revise and resubmit needs a note on a line. The prior version stays. Void is the latest application, and voiding an approved one voids its bill so previous drops back.
+- Approval writes one bill for the net after retainage, on the purchase order cost codes. A second approval returns that bill. The bill follows the same duplicate check, over-purchase-order check, waiver, ready to pay, job cost, cash, WIP, and 1099 rules as any other bill.
+- The vendor portal submits one application on that vendor’s progress purchase orders. The office can start one too. Copy link and Mark requested store who and when. No message is sent.
+- Work, Pay applications lists the rows, with filters and a totals row. CSV is `/api/export/pay-applications`. The purchase order shows Pay apps. The job shows the count and the approved net. Print uses the schedule columns. Today counts a submitted application waiting more than 5 days under Pay app age. Submitting and approving can run an automation. Field does not see the list. The client portal does not show it.
+- Seed: Brighton Electric’s subcontract on Brooks has an approved application and a submitted application with a note on one line. Harbor Plumbing has a draft.
+
 ### Budget changes
 
 - A budget line can be marked Contingency or Allowance. The original amount stays. A budget change is numbered on the job: Draft, then Approved or Void. Types are Transfer, Contingency drawdown, Allowance reconcile, and Buy-out savings. One source line funds one or more lines, in cents, and the amounts net to zero.
