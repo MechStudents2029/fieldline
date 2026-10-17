@@ -117,6 +117,7 @@ export function ensureReady(holder: Holder) {
   ensureTransmittals(holder);
   ensureChangeEvents(holder);
   ensureDelayClaims(holder);
+  ensureBudgetChanges(holder);
   ensureDraws(holder);
   ensureRfis(holder);
   ensureComments(holder);
@@ -2465,6 +2466,7 @@ function ensureChangeEvents(holder: Holder) {
       schedule_days integer not null default 0,
       status text not null,
       change_order_id text,
+      budget_change_id text,
       void_reason text,
       voided_at text,
       voided_by text,
@@ -2595,6 +2597,48 @@ function ensureDelayClaims(holder: Holder) {
   holder.sqlite.exec("create index if not exists delay_labor_claim on delay_labor (org_id, claim_id)");
   holder.sqlite.exec("create unique index if not exists delay_items_item on delay_items (org_id, claim_id, schedule_item_id)");
   holder.sqlite.exec("create unique index if not exists delay_files_doc on delay_files (org_id, claim_id, document_id)");
+}
+
+function ensureBudgetChanges(holder: Holder) {
+  const pk = holder.dialect === "postgres" ? "text primary key" : "text primary key not null";
+  ensureColumn(holder, "budget_lines", "kind", "text not null default ''");
+  ensureColumn(holder, "change_events", "budget_change_id", "text");
+  if (!tableExists(holder.sqlite, "budget_changes", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists budget_changes (
+      id ${pk},
+      org_id text not null,
+      project_id text not null,
+      number integer not null,
+      title text not null,
+      type text not null,
+      status text not null,
+      from_budget_line_id text not null,
+      from_cents integer not null,
+      change_event_id text,
+      note text not null default '',
+      override_note text,
+      void_reason text,
+      voided_at text,
+      voided_by text,
+      approved_at text,
+      approved_by text,
+      created_at text not null,
+      updated_at text not null,
+      created_by text
+    )`);
+  }
+  if (!tableExists(holder.sqlite, "budget_change_lines", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists budget_change_lines (
+      id ${pk},
+      org_id text not null,
+      change_id text not null,
+      budget_line_id text not null,
+      amount_cents integer not null
+    )`);
+  }
+  holder.sqlite.exec("create unique index if not exists budget_changes_number on budget_changes (org_id, project_id, number)");
+  holder.sqlite.exec("create index if not exists budget_changes_org on budget_changes (org_id, project_id)");
+  holder.sqlite.exec("create index if not exists budget_change_lines_change on budget_change_lines (org_id, change_id)");
 }
 
 function ensureTesterFeedback(holder: Holder) {

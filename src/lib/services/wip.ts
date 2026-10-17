@@ -28,6 +28,7 @@ import { canEditCrm, type Role } from "@/lib/permissions";
 import { ServiceError } from "@/lib/services/errors";
 import type { Actor } from "@/lib/services/read";
 import { localDay } from "@/lib/time/calendar";
+import { approvedNetByCode } from "@/lib/services/budget-changes";
 import { invoiceBilledCents, jobFigures, projectedCostCents, sumFigures, type JobFigures } from "@/lib/wip/math";
 
 const LIMIT = 20;
@@ -253,6 +254,7 @@ export function wipReport(actor: Actor, query: WipQuery = {}): WipReport {
     return onOrBefore(item.createdAt, asOf);
   }
 
+  const revision = approvedNetByCode(actor.orgId);
   const rows = jobs.map((project) => {
     const codeActual = new Map<string, number>();
     const codeBudget = new Map<string, number>();
@@ -260,6 +262,9 @@ export function wipReport(actor: Actor, query: WipQuery = {}): WipReport {
     for (const line of budgets.filter((row) => row.projectId === project.id)) {
       const code = costCodeKey(line.costCode);
       codeBudget.set(code, (codeBudget.get(code) ?? 0) + line.budgetCostCents);
+    }
+    for (const [code, cents] of revision.get(project.id) ?? []) {
+      codeBudget.set(code, (codeBudget.get(code) ?? 0) + cents);
     }
     for (const item of costs.filter((row) => row.projectId === project.id && costDated(row))) {
       const code = costCodeKey(item.costCode);

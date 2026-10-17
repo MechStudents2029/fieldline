@@ -11,6 +11,7 @@ import {
   saveChangeEventAction,
   voidChangeEventAction,
 } from "@/app/(office)/change-events/actions";
+import { fundFromContingencyAction } from "@/app/(office)/budget-changes/actions";
 import { ActionForm } from "@/components/action-form";
 import { CopyChangeLink } from "@/components/copy-change-link";
 import { Button } from "@/components/ui/button";
@@ -57,6 +58,13 @@ export default async function ChangeEventPage({ params }: { params: Promise<{ id
               {row.number}
             </Link>
           ))}
+        </p>
+      ) : null}
+      {detail.budgetChangeHref ? (
+        <p className="text-sm">
+          <Link href={detail.budgetChangeHref} className="text-[var(--mac-accent)]" data-budget={detail.budgetChangeNumber ?? ""}>
+            BC {detail.budgetChangeNumber}
+          </Link>
         </p>
       ) : null}
       {detail.voidReason ? <p className="text-sm">{detail.voidReason}</p> : null}
@@ -234,6 +242,12 @@ export default async function ChangeEventPage({ params }: { params: Promise<{ id
           <ActionForm action={convertChangeEventAction.bind(null, detail.id)}>
             <input type="hidden" name="projectId" value={detail.projectId} />
             <Button type="submit">Convert</Button>
+          </ActionForm>
+        ) : null}
+        {detail.canFund ? (
+          <ActionForm action={fundFromContingencyAction.bind(null, detail.id)}>
+            <input type="hidden" name="projectId" value={detail.projectId} />
+            <Button type="submit">Fund from contingency</Button>
           </ActionForm>
         ) : null}
       </div>

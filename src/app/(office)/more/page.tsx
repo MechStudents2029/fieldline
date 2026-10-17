@@ -16,6 +16,7 @@ const links = [
   ["/transmittals", "Transmittals"],
   ["/change-events", "Change events"],
   ["/delays", "Delays"],
+  ["/budget-changes", "Budget changes"],
   ["/receipts", "Receipts"],
   ["/reimbursements", "Reimbursements"],
   ["/mileage", "Mileage"],
@@ -57,7 +58,7 @@ const links = [
   ["/leads/new", "New lead"],
 ];
 
-const fieldHidden = new Set(["/invoices", "/fees", "/statements", "/reports/ar", "/bills", "/purchase-orders", "/price-book", "/copilot", "/follow-ups", "/reviews", "/collections", "/selection-followups", "/liens"]);
+const fieldHidden = new Set(["/invoices", "/fees", "/statements", "/reports/ar", "/bills", "/purchase-orders", "/price-book", "/copilot", "/follow-ups", "/reviews", "/collections", "/selection-followups", "/liens", "/budget-changes"]);
 
 export default async function MorePage() {
   const session = await requireSession();

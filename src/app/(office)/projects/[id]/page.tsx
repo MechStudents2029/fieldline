@@ -16,6 +16,8 @@ import { formatCalendarDay, formatDateTime, formatWarrantyDay } from "@/lib/form
 import { formatWorkdayVariance } from "@/lib/schedule/delays";
 import { overBudgetPercent } from "@/lib/margin/category";
 import { formatMoney, formatPercent, formatWhole } from "@/lib/money";
+import { setBudgetLineKindAction } from "@/app/(office)/budget-changes/actions";
+import { BUDGET_LINE_KINDS, contingencyFor, approvedNetByCode } from "@/lib/services/budget-changes";
 import { canEditCrm, canEditSchedule, canManageMoney, canSeeMoney } from "@/lib/permissions";
 import { OrderPicker } from "@/components/order-picker";
 import { budgetCandidates, orderDesk } from "@/lib/services/order-from";
@@ -113,6 +115,8 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
   const billing = detail.money && detail.project.billingMode !== "cost_plus" ? drawSchedule(session, detail.project.id)?.billing : null;
   const costPlus = detail.money && detail.project.billingMode === "cost_plus" ? costPlusSummary(session.orgId, detail.project.id) : null;
   const ranked = money ? [...money.byCode].sort((a, b) => (b.percentOfBudget ?? 0) - (a.percentOfBudget ?? 0)).slice(0, 2) : [];
+  const revisions = money ? (approvedNetByCode(session.orgId).get(detail.project.id) ?? new Map<string, number>()) : new Map<string, number>();
+  const hold = money ? contingencyFor(session.orgId, detail.project.id) : null;
   const paid = detail.invoices.reduce((sum, invoice) => sum + invoice.amountPaidCents, 0);
   const projectRows = listProjects(session.orgId);
   const openLeads = pipelineBoard(session.orgId).cards.filter((card) => card.stage.kind === "open");
@@ -333,6 +337,7 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
           <div id="codes" className="mt-4 overflow-x-auto md:mt-0">
             <div className="mb-2 hidden items-center justify-between gap-2 md:flex">
               <p className="mac-t11 font-semibold text-[var(--mac-secondary)]">Budget by cost code</p>
+              {hold && hold.originalCents > 0 ? <p className="num mac-t11" data-contingency={hold.revisedCents}>{formatWhole(hold.revisedCents)}</p> : null}
               {canManageMoney(session.role) ? (
                 <SheetButton label="Order">
                   <OrderPicker
@@ -350,7 +355,9 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
                 <tr>
                   <th className="px-2">Cost code</th>
                   <th className="px-2">Code</th>
-                  <th className="px-2 text-right">Budget</th>
+                  <th className="px-2 text-right">Original</th>
+                  <th className="px-2 text-right">Approved changes</th>
+                  <th className="px-2 text-right">Revised</th>
                   <th className="mac-budget-extra px-2 text-right">Committed</th>
                   <th className="px-2 text-right">Spent</th>
                   <th className="mac-budget-extra px-2 text-right">Pending</th>
@@ -368,6 +375,8 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
                     </th>
                     <td className="px-2 text-[var(--mac-secondary)]" title={row.code}>{row.code}</td>
                     <td className="px-2 text-right num" data-kind="budget">{formatWhole(row.budgetCents)}</td>
+                    <td className="px-2 text-right num" data-kind="changes">{formatWhole(revisions.get(row.code) ?? 0)}</td>
+                    <td className="px-2 text-right num" data-kind="revised">{formatWhole(row.budgetCents + (revisions.get(row.code) ?? 0))}</td>
                     <td className="mac-budget-extra px-2 text-right num" data-kind="committed">{formatWhole(row.committedOpenCents)}</td>
                     <td className="px-2 text-right num" data-kind="actual">{formatWhole(row.actualCents)}</td>
                     <td className="mac-budget-extra px-2 text-right num" data-kind="pending">{formatWhole(row.pendingCents)}</td>
@@ -392,6 +401,34 @@ export default async function ProjectPage({ params, searchParams }: { params: Pr
                 ))}
               </tbody>
             </table>
+            {canEditCrm(session.role) && detail.budget.length > 0 ? (
+              <ActionForm action={setBudgetLineKindAction} className="mt-3 flex flex-wrap items-end gap-2">
+                <input type="hidden" name="projectId" value={detail.project.id} />
+                <label className="text-sm">
+                  Line
+                  <select name="lineId" aria-label="Budget line" className="field mt-1" defaultValue={detail.budget[0]?.id}>
+                    {detail.budget.map((line) => (
+                      <option key={line.id} value={line.id}>
+                        {line.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="text-sm">
+                  Kind
+                  <select name="kind" aria-label="Line kind" className="field mt-1" defaultValue="">
+                    {BUDGET_LINE_KINDS.map((kind) => (
+                      <option key={kind.value || "budget"} value={kind.value}>
+                        {kind.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <Button type="submit" variant="outline">
+                  Mark
+                </Button>
+              </ActionForm>
+            ) : null}
             {(() => {
               const sum = (source: string) => detail.costs.filter((cost) => cost.source === source).reduce((total, cost) => total + cost.amountCents, 0);
               const labor = sum("labor");

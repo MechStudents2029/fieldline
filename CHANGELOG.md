@@ -2,6 +2,15 @@
 
 ## 2026-10-15
 
+### Budget changes
+
+- A budget line can be marked Contingency or Allowance. The original amount stays. A budget change is numbered on the job: Draft, then Approved or Void. Types are Transfer, Contingency drawdown, Allowance reconcile, and Buy-out savings. One source line funds one or more lines, in cents, and the amounts net to zero.
+- A source line cannot drop below what is already committed and spent unless an owner or admin adds a note. Approved changes are locked. Void needs a reason, then a new draft corrects it. Original budget amounts do not change.
+- The job cost table shows Original, Approved changes, Revised, and Pending. Contingency remaining is a number on the job and on WIP. WIP and the cost codes use the revised budget. Invoices, draws, the client portal, and published specs do not show internal budget changes. Contingency lines stay off the spec.
+- Fund from contingency, on a ready change event, writes a draft budget change into that cost code. It does not write a client change order. A second fund, or Convert, is refused while that change is open. Approving it marks the event converted.
+- Work, Budget changes lists the rows, with filters and CSV at `/api/export/budget-changes`. Today counts a draft older than 3 days under Budget age, and a job under 25% contingency remaining under Low contingency. Office creates and approves. Field does not see it. Viewer is read-only.
+- Seed: Chen powder room has a contingency line, an approved drawdown tied to a change event, and a draft transfer.
+
 ### Weather delays
 
 - A job can log a delay claim with a number, title, cause, impact, start and end, a typed weather note, lost labor hours, idle equipment hours, linked schedule items, and photos. Causes match the schedule delay list: Weather, Client decision, Change order, Material, Sub, Inspection, Other. Impact is Full day, Partial, or No work impact.

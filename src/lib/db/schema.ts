@@ -542,6 +542,8 @@ export const budgetLines = sqliteTable("budget_lines", {
   budgetCostCents: integer("budget_cost_cents").notNull(),
   budgetPriceCents: integer("budget_price_cents").notNull(),
   sourceLineId: text("source_line_id"),
+  /** '' | contingency | allowance. Marking a line does not change its amounts. */
+  kind: text("kind").notNull().default(""),
   createdAt: text("created_at").notNull(),
 });
 
@@ -4250,6 +4252,7 @@ export const changeEvents = sqliteTable(
     scheduleDays: integer("schedule_days").notNull().default(0),
     status: text("status").notNull(),
     changeOrderId: text("change_order_id"),
+    budgetChangeId: text("budget_change_id"),
     voidReason: text("void_reason"),
     voidedAt: text("voided_at"),
     voidedBy: text("voided_by"),
@@ -4387,4 +4390,43 @@ export const delayFiles = sqliteTable(
     documentId: text("document_id").notNull(),
   },
   (t) => [uniqueIndex("delay_files_doc").on(t.orgId, t.claimId, t.documentId)],
+);
+
+export const budgetChanges = sqliteTable(
+  "budget_changes",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    projectId: text("project_id").notNull(),
+    number: integer("number").notNull(),
+    title: text("title").notNull(),
+    type: text("type").notNull(),
+    status: text("status").notNull(),
+    fromBudgetLineId: text("from_budget_line_id").notNull(),
+    fromCents: integer("from_cents").notNull(),
+    changeEventId: text("change_event_id"),
+    note: text("note").notNull().default(""),
+    overrideNote: text("override_note"),
+    voidReason: text("void_reason"),
+    voidedAt: text("voided_at"),
+    voidedBy: text("voided_by"),
+    approvedAt: text("approved_at"),
+    approvedBy: text("approved_by"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    createdBy: text("created_by"),
+  },
+  (t) => [uniqueIndex("budget_changes_number").on(t.orgId, t.projectId, t.number), index("budget_changes_org").on(t.orgId, t.projectId)],
+);
+
+export const budgetChangeLines = sqliteTable(
+  "budget_change_lines",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    changeId: text("change_id").notNull(),
+    budgetLineId: text("budget_line_id").notNull(),
+    amountCents: integer("amount_cents").notNull(),
+  },
+  (t) => [index("budget_change_lines_change").on(t.orgId, t.changeId)],
 );
