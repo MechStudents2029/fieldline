@@ -465,6 +465,7 @@ export const BUILTINS: BuiltinReport[] = [
 export const PAGE_REPORTS = [
   { id: "wip", name: "WIP", href: "/reports/wip", field: false },
   { id: "variance", name: "Variance", href: "/reports/schedule", field: false },
+  { id: "delays", name: "Delays", href: "/reports/delays", field: false },
   { id: "cash", name: "Cash", href: "/reports/cash", field: false },
   { id: "nec", name: "1099", href: "/reports/nec", field: false },
   { id: "client_ar", name: "Client AR", href: "/reports/ar", field: false },

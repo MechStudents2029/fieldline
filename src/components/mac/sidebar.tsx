@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, BookOpen, Boxes, Briefcase, Calendar, CalendarOff, CircleDollarSign, ClipboardList, Clock, Columns2, Copy, FileMinus, FileOutput, FileText, GitPullRequest, HardHat, IdCard, Inbox, ListChecks, ListTodo, MessageSquare, Package, PackagePlus, PenLine, Percent, Presentation, Receipt, Repeat, Route, Scale, ScrollText, Star, Sun, Ticket, Undo2, Users, Wallet, Wrench } from "lucide-react";
+import { BarChart3, BookOpen, Boxes, Briefcase, Calendar, CalendarOff, CircleDollarSign, ClipboardList, Clock, CloudRain, Columns2, Copy, FileMinus, FileOutput, FileText, GitPullRequest, HardHat, IdCard, Inbox, ListChecks, ListTodo, MessageSquare, Package, PackagePlus, PenLine, Percent, Presentation, Receipt, Repeat, Route, Scale, ScrollText, Star, Sun, Ticket, Undo2, Users, Wallet, Wrench } from "lucide-react";
 import { SignOutButton } from "@/components/sign-out-button";
 import type { OfficeChrome } from "@/lib/services/read";
 
@@ -111,6 +111,7 @@ export function Sidebar({
           {item("/handover", "Handover", <BookOpen size={16} strokeWidth={1.6} />)}
           {item("/transmittals", "Transmittals", <FileOutput size={16} strokeWidth={1.6} />)}
           {item("/change-events", "Change events", <GitPullRequest size={16} strokeWidth={1.6} />)}
+          {item("/delays", "Delays", <CloudRain size={16} strokeWidth={1.6} />)}
           {item("/receipts", "Receipts", <Receipt size={16} strokeWidth={1.6} />)}
           {item("/reimbursements", "Reimbursements", <CircleDollarSign size={16} strokeWidth={1.6} />)}
           {item("/mileage", "Mileage", <Route size={16} strokeWidth={1.6} />)}
@@ -135,6 +136,7 @@ export function Sidebar({
           {item("/reports", "Reports", <BarChart3 size={16} strokeWidth={1.6} />)}
           {role === "owner" || role === "admin" || role === "estimator" ? item("/reports/wip", "WIP", <BarChart3 size={16} strokeWidth={1.6} />) : null}
           {role === "owner" || role === "admin" || role === "estimator" ? item("/reports/schedule", "Variance", <Calendar size={16} strokeWidth={1.6} />) : null}
+          {role === "owner" || role === "admin" || role === "estimator" ? item("/reports/delays", "Delays", <CloudRain size={16} strokeWidth={1.6} />) : null}
           {role === "owner" || role === "admin" || role === "estimator" ? item("/reports/cash", "Cash", <Wallet size={16} strokeWidth={1.6} />) : null}
           {role !== "field" ? item("/reports/ar", "AR aging", <BarChart3 size={16} strokeWidth={1.6} />) : null}
           {role !== "field" ? item("/reports/nec", "1099", <FileText size={16} strokeWidth={1.6} />) : null}

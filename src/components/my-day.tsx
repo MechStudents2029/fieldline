@@ -36,6 +36,9 @@ import { credentialAttention } from "@/lib/services/certifications";
 import { listTimeOff } from "@/lib/services/time-off";
 import { createChangeEventAction } from "@/app/(office)/change-events/actions";
 import { CHANGE_REASONS } from "@/lib/services/change-events";
+import { createDelayAction } from "@/app/(office)/delays/actions";
+import { DELAY_IMPACTS } from "@/lib/services/delays";
+import { DELAY_REASONS } from "@/lib/schedule/delays";
 import { cancelTimeOffAction, requestTimeOffAction } from "@/app/(office)/time-off/actions";
 
 function clock(iso: string) {
@@ -454,6 +457,65 @@ export function MyDay({ actor }: { actor: Actor }) {
               <input name="costCode" aria-label="Change event cost code" className="field mt-1" />
             </label>
             <Button type="submit">Log</Button>
+          </ActionForm>
+        </section>
+      ) : null}
+      {actor.role !== "viewer" ? (
+        <section className="flex flex-col gap-3" aria-label="Delay">
+          <h2 className="fl-section">Delay</h2>
+          <ActionForm action={createDelayAction} className="grid gap-2">
+            <label className="text-sm">
+              Job
+              <select name="projectId" aria-label="Delay job" className="field mt-1" defaultValue="">
+                <option value="">Select</option>
+                {receiptJobs(actor.orgId).map((job) => (
+                  <option key={job.id} value={job.id}>
+                    {job.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="text-sm">
+              Title
+              <input name="title" aria-label="Delay title" className="field mt-1" />
+            </label>
+            <label className="text-sm">
+              Cause
+              <select name="cause" aria-label="Delay cause" defaultValue="weather" className="field mt-1">
+                {DELAY_REASONS.map((row) => (
+                  <option key={row.id} value={row.id}>
+                    {row.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="text-sm">
+              Impact
+              <select name="impact" aria-label="Delay impact" defaultValue="partial" className="field mt-1">
+                {DELAY_IMPACTS.map((row) => (
+                  <option key={row.value} value={row.value}>
+                    {row.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="text-sm">
+              Started
+              <input name="startedAt" aria-label="Delay start" type="datetime-local" className="field mt-1" />
+            </label>
+            <label className="text-sm">
+              Ended
+              <input name="endedAt" aria-label="Delay end" type="datetime-local" className="field mt-1" />
+            </label>
+            <label className="text-sm">
+              Cost code
+              <input name="costCode" aria-label="Delay cost code" className="field mt-1" />
+            </label>
+            <label className="text-sm">
+              Hours
+              <input name="hours" aria-label="Delay hours" className="field mt-1" />
+            </label>
+            <Button type="submit">Log delay</Button>
           </ActionForm>
         </section>
       ) : null}

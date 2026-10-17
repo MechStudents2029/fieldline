@@ -29,6 +29,7 @@ import { signatureAttention } from "@/lib/services/doc-signatures";
 import { specAttention } from "@/lib/services/job-specs";
 import { handoverAttention } from "@/lib/services/handover";
 import { changeEventAttention } from "@/lib/services/change-events";
+import { delayAttention } from "@/lib/services/delays";
 import { transmittalAttention } from "@/lib/services/transmittals";
 import { meetingAttention } from "@/lib/services/meetings";
 import { timeOffAttention } from "@/lib/services/time-off";
@@ -351,6 +352,9 @@ export default async function TodayPage() {
   const changeEventsDue = changeEventAttention(session);
   push("event-age", changeEventsDue.age.count, changeEventsDue.age.href, "Event age", String(changeEventsDue.age.count));
   push("price-due", changeEventsDue.due.count, changeEventsDue.due.href, "Price due", String(changeEventsDue.due.count));
+  const delaysDue = delayAttention(session);
+  push("delay-age", delaysDue.age.count, delaysDue.age.href, "Delay age", String(delaysDue.age.count));
+  push("weather-delays", delaysDue.weather.count, delaysDue.weather.href, "Weather delays", String(delaysDue.weather.count));
   const careRow = attention.find((row) => row.key === "care-due");
   if (careRow && careDue.note) careRow.copy = careDue.note;
   push("bids-due", bids.due.count, bids.due.href, "Bids due", String(bids.due.count));
