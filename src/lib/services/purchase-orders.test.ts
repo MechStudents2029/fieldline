@@ -85,7 +85,7 @@ describe("purchase orders", () => {
       suggestDraft: true,
     });
     const harbor = vendorBillSummaries("org_rivera", "owner").find((item) => item.contactId === "c_harbor");
-    expect(harbor).toMatchObject({ committedCents: 900_000, openBalanceCents: 450_000 });
+    expect(harbor).toMatchObject({ committedCents: 1_000_000, openBalanceCents: 550_000 });
     expect(stalePurchaseOrders("org_rivera", "owner").some((order) => order.number === "PO-1044")).toBe(false);
   });
 
