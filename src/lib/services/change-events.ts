@@ -22,6 +22,7 @@ import {
   punchItems,
   purchaseOrderEvents,
   purchaseOrderLines,
+  delayClaims,
   purchaseOrders,
   rfis,
   scheduleItems,
@@ -54,7 +55,7 @@ const STATUS_LABEL: Record<string, string> = {
   converted: "Converted",
   voided: "Void",
 };
-const SOURCE_KINDS = new Set(["rfi", "meeting_action", "daily_log", "punch", "inspection"]);
+const SOURCE_KINDS = new Set(["rfi", "meeting_action", "daily_log", "punch", "inspection", "delay"]);
 const PENDING = new Set(["open", "pricing", "ready"]);
 const LOCKED = new Set(["converted", "voided"]);
 
@@ -275,6 +276,9 @@ function sourceOf(orgId: string, projectId: string, kindRaw: string | undefined,
   } else if (kind === "inspection") {
     const row = db.select().from(inspections).where(and(eq(inspections.id, sourceId), eq(inspections.orgId, orgId), eq(inspections.projectId, projectId))).get();
     if (!row) throw new ServiceError("That source is not on this job.");
+  } else if (kind === "delay") {
+    const row = db.select().from(delayClaims).where(and(eq(delayClaims.id, sourceId), eq(delayClaims.orgId, orgId), eq(delayClaims.projectId, projectId))).get();
+    if (!row) throw new ServiceError("That source is not on this job.");
   } else {
     const action = db.select().from(meetingActions).where(and(eq(meetingActions.id, sourceId), eq(meetingActions.orgId, orgId))).get();
     const meeting = action
@@ -295,6 +299,10 @@ function sourceLabel(orgId: string, kind: string, sourceId: string | null): stri
   if (kind === "daily_log") return "Daily log";
   if (kind === "punch") return "Punch";
   if (kind === "inspection") return "Inspection";
+  if (kind === "delay") {
+    const row = db.select().from(delayClaims).where(and(eq(delayClaims.id, sourceId), eq(delayClaims.orgId, orgId))).get();
+    return row ? `Delay ${row.number}` : "Delay";
+  }
   return "Meeting";
 }
 

@@ -41,6 +41,10 @@ import {
   changeEventFiles,
   changeEventQuotes,
   changeEvents,
+  delayClaims,
+  delayFiles,
+  delayItems,
+  delayLabor,
   clientCreditApplications,
   clientCreditMemoLines,
   clientCreditMemos,
@@ -251,7 +255,7 @@ import {
   WEBSITE_FORM_SOURCE,
 } from "@/lib/lead-form/rules";
 
-export const SEED_VERSION = "79";
+export const SEED_VERSION = "80";
 
 const ORG = "org_rivera";
 const NORTH = "org_northline";
@@ -8244,6 +8248,85 @@ function seedTemplates(db: AppDatabase, now: string) {
       { id: "aud_ce_ok_rfi", orgId: ORG, actorId: "user_dana", action: "change_event.create", entityType: "change_event", entityId: "ce_ok_rfi", payloadJson: "{}", ip: null, createdAt: ceOld },
       { id: "aud_ce_ok_ask", orgId: ORG, actorId: "user_maya", action: "change_event.request", entityType: "change_event", entityId: "ce_ok_prices", payloadJson: "{}", ip: null, createdAt: ceNew },
       { id: "aud_ce_chen", orgId: ORG, actorId: "user_luis", action: "change_event.convert", entityType: "change_event", entityId: "ce_chen_conv", payloadJson: "{}", ip: null, createdAt: cePriced },
+    ])
+    .run();
+
+  const rainDay = addCalendarDays(today, -5);
+  const fullDay = today;
+  db.insert(delayClaims)
+    .values([
+      {
+        id: "dc_ok_rain",
+        orgId: ORG,
+        projectId: "proj_okonkwo",
+        number: 1,
+        title: "Rain on tile",
+        cause: "weather",
+        impact: "partial",
+        startedAt: `${rainDay}T07:00`,
+        endedAt: `${rainDay}T11:00`,
+        weatherNote: "48 F rain",
+        idleHoursMilli: 2_000,
+        scheduleDays: 1,
+        status: "open",
+        changeEventId: null,
+        shareToken: "dc_ok_rain_token",
+        sharedAt: null,
+        sharedBy: null,
+        copiedAt: null,
+        copiedBy: null,
+        voidReason: null,
+        voidedAt: null,
+        voidedBy: null,
+        createdAt: `${rainDay}T07:00`,
+        updatedAt: `${rainDay}T07:00`,
+        createdBy: "user_dana",
+      },
+      {
+        id: "dc_ok_full",
+        orgId: ORG,
+        projectId: "proj_okonkwo",
+        number: 2,
+        title: "Site closed for rain",
+        cause: "weather",
+        impact: "full",
+        startedAt: `${fullDay}T07:00`,
+        endedAt: `${fullDay}T15:00`,
+        weatherNote: "41 F heavy rain",
+        idleHoursMilli: 8_000,
+        scheduleDays: 1,
+        status: "documented",
+        changeEventId: null,
+        shareToken: "dc_ok_full_token",
+        sharedAt: null,
+        sharedBy: null,
+        copiedAt: null,
+        copiedBy: null,
+        voidReason: null,
+        voidedAt: null,
+        voidedBy: null,
+        createdAt: `${fullDay}T07:00`,
+        updatedAt: `${fullDay}T07:00`,
+        createdBy: "user_maya",
+      },
+    ])
+    .run();
+  db.insert(delayLabor)
+    .values([
+      { id: "dcl_ok_rain", orgId: ORG, claimId: "dc_ok_rain", costCode: "BATH-GLASS", trade: "Tile", hoursMilli: 4_000, sortOrder: 0 },
+      { id: "dcl_ok_full", orgId: ORG, claimId: "dc_ok_full", costCode: "DEMO-GUT", trade: "", hoursMilli: 8_000, sortOrder: 0 },
+    ])
+    .run();
+  db.insert(delayItems)
+    .values({ id: "dci_ok_rain", orgId: ORG, claimId: "dc_ok_rain", scheduleItemId: "sch_ok_tile", daysClaimed: 1 })
+    .run();
+  db.insert(delayFiles)
+    .values({ id: "dcf_ok_full", orgId: ORG, claimId: "dc_ok_full", documentId: "doc_ok_harbor" })
+    .run();
+  db.insert(auditLogs)
+    .values([
+      { id: "aud_dc_ok_rain", orgId: ORG, actorId: "user_dana", action: "delay.create", entityType: "delay_claim", entityId: "dc_ok_rain", payloadJson: "{}", ip: null, createdAt: `${rainDay}T07:00` },
+      { id: "aud_dc_ok_full", orgId: ORG, actorId: "user_maya", action: "delay.document", entityType: "delay_claim", entityId: "dc_ok_full", payloadJson: "{}", ip: null, createdAt: `${fullDay}T07:00` },
     ])
     .run();
 }

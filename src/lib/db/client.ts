@@ -116,6 +116,7 @@ export function ensureReady(holder: Holder) {
   ensureHandover(holder);
   ensureTransmittals(holder);
   ensureChangeEvents(holder);
+  ensureDelayClaims(holder);
   ensureDraws(holder);
   ensureRfis(holder);
   ensureComments(holder);
@@ -2527,6 +2528,73 @@ function ensureChangeEvents(holder: Holder) {
   holder.sqlite.exec("create unique index if not exists change_event_quotes_token on change_event_quotes (share_token)");
   holder.sqlite.exec("create unique index if not exists change_event_files_doc on change_event_files (org_id, event_id, document_id)");
   holder.sqlite.exec("create index if not exists change_event_commitments_event on change_event_commitments (org_id, event_id)");
+}
+
+function ensureDelayClaims(holder: Holder) {
+  const pk = holder.dialect === "postgres" ? "text primary key" : "text primary key not null";
+  if (!tableExists(holder.sqlite, "delay_claims", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists delay_claims (
+      id ${pk},
+      org_id text not null,
+      project_id text not null,
+      number integer not null,
+      title text not null,
+      cause text not null,
+      impact text not null,
+      started_at text not null,
+      ended_at text not null,
+      weather_note text not null default '',
+      idle_hours_milli integer not null default 0,
+      schedule_days integer not null default 0,
+      status text not null,
+      change_event_id text,
+      share_token text not null,
+      shared_at text,
+      shared_by text,
+      copied_at text,
+      copied_by text,
+      void_reason text,
+      voided_at text,
+      voided_by text,
+      created_at text not null,
+      updated_at text not null,
+      created_by text
+    )`);
+  }
+  if (!tableExists(holder.sqlite, "delay_labor", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists delay_labor (
+      id ${pk},
+      org_id text not null,
+      claim_id text not null,
+      cost_code text not null default '',
+      trade text not null default '',
+      hours_milli integer not null default 0,
+      sort_order integer not null default 0
+    )`);
+  }
+  if (!tableExists(holder.sqlite, "delay_items", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists delay_items (
+      id ${pk},
+      org_id text not null,
+      claim_id text not null,
+      schedule_item_id text not null,
+      days_claimed integer not null default 0
+    )`);
+  }
+  if (!tableExists(holder.sqlite, "delay_files", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists delay_files (
+      id ${pk},
+      org_id text not null,
+      claim_id text not null,
+      document_id text not null
+    )`);
+  }
+  holder.sqlite.exec("create unique index if not exists delay_claims_number on delay_claims (org_id, project_id, number)");
+  holder.sqlite.exec("create unique index if not exists delay_claims_token on delay_claims (share_token)");
+  holder.sqlite.exec("create index if not exists delay_claims_org on delay_claims (org_id, project_id)");
+  holder.sqlite.exec("create index if not exists delay_labor_claim on delay_labor (org_id, claim_id)");
+  holder.sqlite.exec("create unique index if not exists delay_items_item on delay_items (org_id, claim_id, schedule_item_id)");
+  holder.sqlite.exec("create unique index if not exists delay_files_doc on delay_files (org_id, claim_id, document_id)");
 }
 
 function ensureTesterFeedback(holder: Holder) {

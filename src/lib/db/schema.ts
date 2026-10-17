@@ -4319,3 +4319,72 @@ export const changeEventCommitments = sqliteTable(
   },
   (t) => [index("change_event_commitments_event").on(t.orgId, t.eventId)],
 );
+
+export const delayClaims = sqliteTable(
+  "delay_claims",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    projectId: text("project_id").notNull(),
+    number: integer("number").notNull(),
+    title: text("title").notNull(),
+    cause: text("cause").notNull(),
+    impact: text("impact").notNull(),
+    startedAt: text("started_at").notNull(),
+    endedAt: text("ended_at").notNull(),
+    weatherNote: text("weather_note").notNull().default(""),
+    idleHoursMilli: integer("idle_hours_milli").notNull().default(0),
+    scheduleDays: integer("schedule_days").notNull().default(0),
+    status: text("status").notNull(),
+    changeEventId: text("change_event_id"),
+    shareToken: text("share_token").notNull(),
+    sharedAt: text("shared_at"),
+    sharedBy: text("shared_by"),
+    copiedAt: text("copied_at"),
+    copiedBy: text("copied_by"),
+    voidReason: text("void_reason"),
+    voidedAt: text("voided_at"),
+    voidedBy: text("voided_by"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    createdBy: text("created_by"),
+  },
+  (t) => [uniqueIndex("delay_claims_number").on(t.orgId, t.projectId, t.number), uniqueIndex("delay_claims_token").on(t.shareToken), index("delay_claims_org").on(t.orgId, t.projectId)],
+);
+
+export const delayLabor = sqliteTable(
+  "delay_labor",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    claimId: text("claim_id").notNull(),
+    costCode: text("cost_code").notNull().default(""),
+    trade: text("trade").notNull().default(""),
+    hoursMilli: integer("hours_milli").notNull().default(0),
+    sortOrder: integer("sort_order").notNull().default(0),
+  },
+  (t) => [index("delay_labor_claim").on(t.orgId, t.claimId)],
+);
+
+export const delayItems = sqliteTable(
+  "delay_items",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    claimId: text("claim_id").notNull(),
+    scheduleItemId: text("schedule_item_id").notNull(),
+    daysClaimed: integer("days_claimed").notNull().default(0),
+  },
+  (t) => [uniqueIndex("delay_items_item").on(t.orgId, t.claimId, t.scheduleItemId)],
+);
+
+export const delayFiles = sqliteTable(
+  "delay_files",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    claimId: text("claim_id").notNull(),
+    documentId: text("document_id").notNull(),
+  },
+  (t) => [uniqueIndex("delay_files_doc").on(t.orgId, t.claimId, t.documentId)],
+);

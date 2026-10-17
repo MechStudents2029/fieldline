@@ -2,6 +2,15 @@
 
 ## 2026-10-15
 
+### Weather delays
+
+- A job can log a delay claim with a number, title, cause, impact, start and end, a typed weather note, lost labor hours, idle equipment hours, linked schedule items, and photos. Causes match the schedule delay list: Weather, Client decision, Change order, Material, Sub, Inspection, Other. Impact is Full day, Partial, or No work impact.
+- Field logs one from the job and from My day. Office edits, links schedule items, and marks Documented. Copy link and Mark shared store who and when. No message is sent. The public page shows the cause, dates, impact, weather note, lost hours, and photos.
+- Convert from Documented opens a draft change event. Schedule days come from the claim. Cost codes come from the lost-labor rows. A second convert is refused. Apply days writes the claimed days on the linked schedule items and does not move those dates.
+- Void needs a reason and an owner or admin. Waive closes the claim without a change event.
+- Work, Delays lists the claims, with CSV at `/api/export/delays`. The job tab is Delays. Reports, Delays filters cause, impact, status, and job, and prints. Today counts an open delay older than 3 days under Delay age, and a documented weather delay this week under Weather delays.
+- Seed: Okonkwo has an open partial rain delay with lost tile hours, linked to Tile shower, and a documented full-day rain delay that is ready to convert.
+
 ### Change events
 
 - A job can log a change event with a number, title, reason, optional source, cost codes, ROM cost and price, and schedule days. Status runs Open, Pricing, Ready, then Converted or Void. Field logs one from the job and from My day. Office prices and converts.
