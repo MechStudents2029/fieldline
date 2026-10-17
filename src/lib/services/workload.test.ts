@@ -5,7 +5,7 @@ import { scheduleItems } from "@/lib/db/schema";
 import { assignDispatch } from "@/lib/services/dispatch";
 import { authenticate } from "@/lib/services/read";
 import { saveScheduleItem } from "@/lib/services/schedule";
-import { localDay } from "@/lib/time/calendar";
+import { addCalendarDays, localDay } from "@/lib/time/calendar";
 import { capacityForm, capacityWarning, overbookedThisWeek, saveCapacity, workloadBoard, workloadCsv } from "@/lib/services/workload";
 
 function clearSupabaseEnv() {
@@ -18,6 +18,16 @@ function actor(email: string) {
   const user = authenticate(email, "demo");
   if (!user) throw new Error(`missing ${email}`);
   return user;
+}
+
+/** A workday in the current Monday week. Weekend clock time is not crew capacity. */
+function weekWorkday(): string {
+  const day = localDay(Date.now(), "America/New_York");
+  const [year, month, date] = day.split("-").map(Number);
+  const weekday = new Date(Date.UTC(year, month - 1, date)).getUTCDay();
+  if (weekday === 6) return addCalendarDays(day, -1);
+  if (weekday === 0) return addCalendarDays(day, -2);
+  return day;
 }
 
 describe("workload", () => {
@@ -75,8 +85,9 @@ describe("workload", () => {
 
   it("warns when a dispatch slot pushes the week over and still assigns it", () => {
     const maya = actor("maya@rivera.demo");
-    const day = localDay(Date.now(), "America/New_York");
-    const result = assignDispatch(maya, { cardId: "item:sch_disp_coil", assigneeId: "user_dana", start: "16:00", end: "17:00", day });
+    const day = weekWorkday();
+    getDb().update(scheduleItems).set({ startDate: day, endDate: day }).where(eq(scheduleItems.id, "sch_disp_coil")).run();
+    const result = assignDispatch(maya, { cardId: "item:sch_disp_coil", assigneeId: "user_dana", start: "20:00", end: "21:00", day });
     expect(result.warning).toMatch(/Dana Cho/);
     expect(result.warning).toMatch(/\d+h \/ \d+h/);
     const board = workloadBoard(maya, {});
@@ -86,7 +97,7 @@ describe("workload", () => {
 
   it("warns on a schedule assignment past capacity and stays quiet under it", () => {
     const maya = actor("maya@rivera.demo");
-    const day = localDay(Date.now(), "America/New_York");
+    const day = weekWorkday();
     const saved = saveScheduleItem(maya, {
       projectId: "proj_chen",
       title: "Capacity spike",
