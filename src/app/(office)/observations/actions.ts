@@ -199,6 +199,7 @@ export async function markPortalObservationAction(token: string, observationId: 
   } catch (error) {
     return fail(error);
   }
+  revalidatePath(`/v/${token}`);
   return { ok: "Ready for review" };
 }
 

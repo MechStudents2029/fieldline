@@ -18,7 +18,7 @@ test("office assigns an observation, the vendor marks it ready, and the office c
   await page.getByLabel("Title").fill("E2E valve gap");
   await page.getByLabel("New type").selectOption({ label: "Quality" });
   await page.getByLabel("New priority").selectOption({ label: "High" });
-  await page.getByLabel("Vendor").selectOption({ label: "Harbor Plumbing" });
+  await page.getByLabel("Vendor", { exact: true }).selectOption({ label: "Harbor Plumbing" });
   await page.getByLabel("Due").fill("2026-11-20");
   await page.getByLabel("Description").fill("Gap at the wall.");
   await page.getByRole("button", { name: "Add observation" }).click();
