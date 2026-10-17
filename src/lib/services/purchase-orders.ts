@@ -67,6 +67,7 @@ export type PurchaseOrderRow = {
   issuedAt: string | null;
   retainageBps: number;
   kind: string;
+  billingMethod: string;
 };
 
 type PoRecord = typeof purchaseOrders.$inferSelect;
@@ -532,6 +533,7 @@ function toRow(
     issuedAt: po.issuedAt,
     retainageBps: po.retainageBps,
     kind: po.kind === "work" ? "work" : "purchase",
+    billingMethod: po.billingMethod === "progress" ? "progress" : "flat",
   };
 }
 

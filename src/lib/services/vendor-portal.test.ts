@@ -60,11 +60,11 @@ describe("vendor portal", () => {
     expect(row?.tokenHash).not.toContain(DEMO_HARBOR_PORTAL_TOKEN);
     const home = vendorPortal(DEMO_HARBOR_PORTAL_TOKEN);
     expect(home?.vendorName).toBe("Harbor Plumbing");
-    expect(home?.openPos).toBe(2);
-    expect(home?.commitmentCents).toBe(450_000);
+    expect(home?.openPos).toBe(3);
+    expect(home?.commitmentCents).toBe(550_000);
     expect(home?.billedCents).toBe(896_000);
     expect(home?.paidCents).toBe(300_000);
-    expect(home?.orders.map((order) => order.number)).toEqual(["PO-1044", "PO-1055"]);
+    expect(home?.orders.map((order) => order.number)).toEqual(["PO-1044", "PO-1055", "SC-1049"]);
     expect(home?.orders[0]?.response).toBe("issued");
     expect(home?.schedule.map((row) => row.title).sort()).toEqual(["Drywall", "Rough-in", "Set the valve", "Trim out"]);
     expect(JSON.stringify(home?.schedule)).not.toContain("Homeowner home after 3");
@@ -119,7 +119,7 @@ describe("vendor portal", () => {
     expect(vendorPortal(DEMO_HARBOR_PORTAL_TOKEN)?.orders.map((order) => order.number)).not.toContain(draft.number);
     issuePurchaseOrder(maya, draft.id);
     voidPurchaseOrder(maya, draft.id, "Wrong scope");
-    expect(vendorPortal(DEMO_HARBOR_PORTAL_TOKEN)?.orders.map((order) => order.number)).toEqual(["PO-1044", "PO-1055"]);
+    expect(vendorPortal(DEMO_HARBOR_PORTAL_TOKEN)?.orders.map((order) => order.number)).toEqual(["PO-1044", "PO-1055", "SC-1049"]);
     expect(() => submitVendorBill({ token: DEMO_HARBOR_PORTAL_TOKEN, ip, purchaseOrderId: "po_ok_harbor", billNumber: "HP-900", billDate: "2026-10-07", dueDate: "2026-10-07", lines: [{ costCode: "PLB-SHOWER", amountCents: 10_000 }] })).toThrow(/Accept/);
     acceptVendorPo({ token: DEMO_HARBOR_PORTAL_TOKEN, purchaseOrderId: "po_ok_harbor", name: "Pete Alvarez", ip });
     expect(vendorPortal(DEMO_HARBOR_PORTAL_TOKEN)?.orders[0]?.response).toBe("accepted");

@@ -9,6 +9,7 @@ import {
   submitVendorBillAction,
   uploadVendorJobFileAction,
 } from "@/app/actions";
+import { submitPortalPayAppAction } from "@/app/(office)/pay-applications/actions";
 import { ActionForm } from "@/components/action-form";
 import { FileButton } from "@/components/file-button";
 import { formatCalendarDay } from "@/lib/format";
@@ -367,7 +368,7 @@ export function VendorPortalView({
                     </ActionForm>
                   </div>
                 ) : null}
-                {order.response === "accepted" ? (
+                {order.response === "accepted" && !order.progress ? (
                   <ActionForm action={submitVendorBillAction.bind(null, token, order.id)} className="home-form">
                     <label className="text-sm">
                       Bill number
@@ -391,6 +392,68 @@ export function VendorPortalView({
                     <FileButton name="file" label={`File ${order.number}`} accept="image/jpeg,image/png,image/webp" empty="File" />
                     <button type="submit" className="home-btn">
                       Send bill
+                    </button>
+                  </ActionForm>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </section>
+        <section aria-label="Pay applications">
+          <h2>Pay applications</h2>
+          {home.payApps.length === 0 ? <p className="home-sub">0</p> : null}
+          <ul className="home-stack">
+            {home.payApps.map((app) => (
+              <li key={app.id} className="home-card" data-pay-app={app.poNumber}>
+                <div className="home-row">
+                  <p className="home-copy">
+                    {app.poNumber} {app.number}
+                  </p>
+                  <span className="home-pill">{app.statusLabel}</span>
+                </div>
+                <p className="home-sub num">{app.periodEnd}</p>
+                {app.lines.map((line) => (
+                  <p key={line.id} className="home-sub">
+                    {line.costCode} · {formatMoney(line.thisPeriodCents)}
+                    {line.rejectNote ? ` · ${line.rejectNote}` : ""}
+                  </p>
+                ))}
+                {app.editable ? (
+                  <ActionForm action={submitPortalPayAppAction.bind(null, token, app.id)} className="home-form">
+                    {app.lines.map((line) => (
+                      <div key={line.purchaseOrderLineId}>
+                        <input type="hidden" name="lineId" value={line.purchaseOrderLineId} />
+                        <label className="text-sm">
+                          This period {line.costCode}
+                          <input
+                            name={`this_${line.purchaseOrderLineId}`}
+                            aria-label={`This period ${line.costCode}`}
+                            defaultValue={(line.thisPeriodCents / 100).toFixed(2)}
+                            className="home-input"
+                          />
+                        </label>
+                        <label className="text-sm">
+                          Stored {line.costCode}
+                          <input
+                            name={`stored_${line.purchaseOrderLineId}`}
+                            aria-label={`Stored ${line.costCode}`}
+                            defaultValue={(line.storedCents / 100).toFixed(2)}
+                            className="home-input"
+                          />
+                        </label>
+                        <label className="text-sm">
+                          Released {line.costCode}
+                          <input
+                            name={`released_${line.purchaseOrderLineId}`}
+                            aria-label={`Released ${line.costCode}`}
+                            defaultValue={(line.releasedCents / 100).toFixed(2)}
+                            className="home-input"
+                          />
+                        </label>
+                      </div>
+                    ))}
+                    <button type="submit" className="home-btn">
+                      Submit pay app
                     </button>
                   </ActionForm>
                 ) : null}

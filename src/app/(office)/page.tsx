@@ -31,6 +31,7 @@ import { handoverAttention } from "@/lib/services/handover";
 import { changeEventAttention } from "@/lib/services/change-events";
 import { delayAttention } from "@/lib/services/delays";
 import { budgetChangeAttention } from "@/lib/services/budget-changes";
+import { payApplicationAttention } from "@/lib/services/pay-applications";
 import { transmittalAttention } from "@/lib/services/transmittals";
 import { meetingAttention } from "@/lib/services/meetings";
 import { timeOffAttention } from "@/lib/services/time-off";
@@ -359,6 +360,8 @@ export default async function TodayPage() {
   const budgetDue = budgetChangeAttention(session);
   push("budget-age", budgetDue.age.count, budgetDue.age.href, "Budget age", String(budgetDue.age.count));
   push("low-contingency", budgetDue.low.count, budgetDue.low.href, "Low contingency", String(budgetDue.low.count));
+  const payAge = payApplicationAttention(session);
+  push("pay-app-age", payAge.count, payAge.href, "Pay app age", String(payAge.count));
   const careRow = attention.find((row) => row.key === "care-due");
   if (careRow && careDue.note) careRow.copy = careDue.note;
   push("bids-due", bids.due.count, bids.due.href, "Bids due", String(bids.due.count));

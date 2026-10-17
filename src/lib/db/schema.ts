@@ -763,6 +763,8 @@ export const purchaseOrders = sqliteTable(
     createdBy: text("created_by"),
     retainageBps: integer("retainage_bps").notNull().default(0),
     kind: text("kind").notNull().default("purchase"),
+    /** flat | progress. A purchase order keeps one method once it has a bill or a pay application. */
+    billingMethod: text("billing_method").notNull().default("flat"),
   },
   (t) => [uniqueIndex("purchase_orders_number").on(t.orgId, t.number), index("purchase_orders_org").on(t.orgId)],
 );
@@ -4429,4 +4431,67 @@ export const budgetChangeLines = sqliteTable(
     amountCents: integer("amount_cents").notNull(),
   },
   (t) => [index("budget_change_lines_change").on(t.orgId, t.changeId)],
+);
+
+export const payApplications = sqliteTable(
+  "pay_applications",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    purchaseOrderId: text("purchase_order_id").notNull(),
+    projectId: text("project_id").notNull(),
+    vendorContactId: text("vendor_contact_id").notNull(),
+    number: integer("number").notNull(),
+    periodStart: text("period_start").notNull(),
+    periodEnd: text("period_end").notNull(),
+    status: text("status").notNull(),
+    billId: text("bill_id"),
+    note: text("note").notNull().default(""),
+    voidReason: text("void_reason"),
+    voidedAt: text("voided_at"),
+    submittedAt: text("submitted_at"),
+    reviewedAt: text("reviewed_at"),
+    approvedAt: text("approved_at"),
+    approvedBy: text("approved_by"),
+    version: integer("version").notNull().default(1),
+    requestedAt: text("requested_at"),
+    requestedBy: text("requested_by"),
+    copiedAt: text("copied_at"),
+    copiedBy: text("copied_by"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    createdBy: text("created_by"),
+  },
+  (t) => [uniqueIndex("pay_applications_number").on(t.orgId, t.purchaseOrderId, t.number), index("pay_applications_org").on(t.orgId, t.projectId)],
+);
+
+export const payApplicationLines = sqliteTable(
+  "pay_application_lines",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    applicationId: text("application_id").notNull(),
+    purchaseOrderLineId: text("purchase_order_line_id").notNull(),
+    thisPeriodCents: integer("this_period_cents").notNull().default(0),
+    storedCents: integer("stored_cents").notNull().default(0),
+    releasedCents: integer("released_cents").notNull().default(0),
+    retainageBps: integer("retainage_bps").notNull().default(0),
+    rejectNote: text("reject_note").notNull().default(""),
+    sortOrder: integer("sort_order").notNull().default(0),
+  },
+  (t) => [index("pay_application_lines_app").on(t.orgId, t.applicationId)],
+);
+
+export const payApplicationVersions = sqliteTable(
+  "pay_application_versions",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    applicationId: text("application_id").notNull(),
+    version: integer("version").notNull(),
+    linesJson: text("lines_json").notNull(),
+    createdAt: text("created_at").notNull(),
+    createdBy: text("created_by"),
+  },
+  (t) => [uniqueIndex("pay_application_versions_ver").on(t.orgId, t.applicationId, t.version)],
 );
