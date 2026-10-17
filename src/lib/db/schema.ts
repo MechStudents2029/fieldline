@@ -2689,6 +2689,7 @@ export const inspections = sqliteTable(
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
     createdBy: text("created_by"),
+    observationId: text("observation_id"),
   },
   (t) => [index("inspections_permit").on(t.orgId, t.permitId), index("inspections_project").on(t.orgId, t.projectId)],
 );
@@ -3081,6 +3082,7 @@ export const safetyCheckItems = sqliteTable(
     documentId: text("document_id"),
     todoId: text("todo_id"),
     punchId: text("punch_id"),
+    observationId: text("observation_id"),
   },
   (t) => [index("safety_check_items_check").on(t.orgId, t.checkId)],
 );
@@ -4494,4 +4496,72 @@ export const payApplicationVersions = sqliteTable(
     createdBy: text("created_by"),
   },
   (t) => [uniqueIndex("pay_application_versions_ver").on(t.orgId, t.applicationId, t.version)],
+);
+
+export const observations = sqliteTable(
+  "observations",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    projectId: text("project_id").notNull(),
+    number: integer("number").notNull(),
+    title: text("title").notNull(),
+    type: text("type").notNull(),
+    priority: text("priority").notNull(),
+    hazard: text("hazard").notNull().default(""),
+    location: text("location").notNull().default(""),
+    costCode: text("cost_code"),
+    trade: text("trade").notNull().default(""),
+    assigneeUserId: text("assignee_user_id"),
+    assigneeContactId: text("assignee_contact_id"),
+    dueDate: text("due_date"),
+    description: text("description").notNull().default(""),
+    planPinId: text("plan_pin_id"),
+    scheduleItemId: text("schedule_item_id"),
+    inspectionId: text("inspection_id"),
+    safetyCheckItemId: text("safety_check_item_id"),
+    status: text("status").notNull(),
+    rejectNote: text("reject_note").notNull().default(""),
+    voidReason: text("void_reason"),
+    openedAt: text("opened_at"),
+    readyAt: text("ready_at"),
+    closedAt: text("closed_at"),
+    voidedAt: text("voided_at"),
+    sharedAt: text("shared_at"),
+    sharedBy: text("shared_by"),
+    copiedAt: text("copied_at"),
+    copiedBy: text("copied_by"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    createdBy: text("created_by"),
+  },
+  (t) => [uniqueIndex("observations_number").on(t.orgId, t.projectId, t.number), index("observations_org").on(t.orgId, t.projectId)],
+);
+
+export const observationPhotos = sqliteTable(
+  "observation_photos",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    observationId: text("observation_id").notNull(),
+    documentId: text("document_id").notNull(),
+    createdAt: text("created_at").notNull(),
+    createdBy: text("created_by"),
+  },
+  (t) => [index("observation_photos_obs").on(t.orgId, t.observationId)],
+);
+
+export const observationEvents = sqliteTable(
+  "observation_events",
+  {
+    id: text("id").primaryKey(),
+    orgId: text("org_id").notNull(),
+    observationId: text("observation_id").notNull(),
+    action: text("action").notNull(),
+    note: text("note").notNull().default(""),
+    actorId: text("actor_id"),
+    actorName: text("actor_name").notNull().default(""),
+    createdAt: text("created_at").notNull(),
+  },
+  (t) => [index("observation_events_obs").on(t.orgId, t.observationId)],
 );

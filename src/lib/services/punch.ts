@@ -13,6 +13,7 @@ import {
   documents,
   invoices,
   memberships,
+  observations,
   organizations,
   priceBookItems,
   projects,
@@ -340,6 +341,11 @@ function factsFor(db: AppDatabase, orgId: string, projectId: string) {
         .where(and(eq(handoverPackages.orgId, orgId), eq(handoverPackages.projectId, projectId)))
         .get()?.status,
     ),
+    observationsOpen: db
+      .select({ id: observations.id })
+      .from(observations)
+      .where(and(eq(observations.orgId, orgId), eq(observations.projectId, projectId), eq(observations.status, "open")))
+      .all().length,
   };
 }
 

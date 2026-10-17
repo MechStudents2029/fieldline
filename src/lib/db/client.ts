@@ -119,6 +119,7 @@ export function ensureReady(holder: Holder) {
   ensureDelayClaims(holder);
   ensureBudgetChanges(holder);
   ensurePayApplications(holder);
+  ensureObservations(holder);
   ensureDraws(holder);
   ensureRfis(holder);
   ensureComments(holder);
@@ -2705,6 +2706,75 @@ function ensurePayApplications(holder: Holder) {
   holder.sqlite.exec("create unique index if not exists pay_application_versions_ver on pay_application_versions (org_id, application_id, version)");
 }
 
+function ensureObservations(holder: Holder) {
+  const pk = holder.dialect === "postgres" ? "text primary key" : "text primary key not null";
+  ensureColumn(holder, "safety_check_items", "observation_id", "text");
+  ensureColumn(holder, "inspections", "observation_id", "text");
+  if (!tableExists(holder.sqlite, "observations", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists observations (
+      id ${pk},
+      org_id text not null,
+      project_id text not null,
+      number integer not null,
+      title text not null,
+      type text not null,
+      priority text not null,
+      hazard text not null default '',
+      location text not null default '',
+      cost_code text,
+      trade text not null default '',
+      assignee_user_id text,
+      assignee_contact_id text,
+      due_date text,
+      description text not null default '',
+      plan_pin_id text,
+      schedule_item_id text,
+      inspection_id text,
+      safety_check_item_id text,
+      status text not null,
+      reject_note text not null default '',
+      void_reason text,
+      opened_at text,
+      ready_at text,
+      closed_at text,
+      voided_at text,
+      shared_at text,
+      shared_by text,
+      copied_at text,
+      copied_by text,
+      created_at text not null,
+      updated_at text not null,
+      created_by text
+    )`);
+  }
+  if (!tableExists(holder.sqlite, "observation_photos", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists observation_photos (
+      id ${pk},
+      org_id text not null,
+      observation_id text not null,
+      document_id text not null,
+      created_at text not null,
+      created_by text
+    )`);
+  }
+  if (!tableExists(holder.sqlite, "observation_events", holder.dialect)) {
+    holder.sqlite.exec(`create table if not exists observation_events (
+      id ${pk},
+      org_id text not null,
+      observation_id text not null,
+      action text not null,
+      note text not null default '',
+      actor_id text,
+      actor_name text not null default '',
+      created_at text not null
+    )`);
+  }
+  holder.sqlite.exec("create unique index if not exists observations_number on observations (org_id, project_id, number)");
+  holder.sqlite.exec("create index if not exists observations_org on observations (org_id, project_id)");
+  holder.sqlite.exec("create index if not exists observation_photos_obs on observation_photos (org_id, observation_id)");
+  holder.sqlite.exec("create index if not exists observation_events_obs on observation_events (org_id, observation_id)");
+}
+
 function ensureTesterFeedback(holder: Holder) {
   if (tableExists(holder.sqlite, "tester_feedback", holder.dialect)) return;
   const ddl =
@@ -3206,9 +3276,11 @@ function ensurePermits(holder: Holder) {
       notes text not null default '',
       created_at text not null,
       updated_at text not null,
-      created_by text
+      created_by text,
+      observation_id text
     )`);
   }
+  ensureColumn(holder, "inspections", "observation_id", "text");
   holder.sqlite.exec("create index if not exists inspections_permit on inspections (org_id, permit_id)");
   holder.sqlite.exec("create index if not exists inspections_project on inspections (org_id, project_id)");
   if (!tableExists(holder.sqlite, "inspection_gates", holder.dialect)) {
@@ -3517,9 +3589,11 @@ function ensureSafety(holder: Holder) {
       result text not null,
       document_id text,
       todo_id text,
-      punch_id text
+      punch_id text,
+      observation_id text
     )`);
   }
+  ensureColumn(holder, "safety_check_items", "observation_id", "text");
   holder.sqlite.exec("create index if not exists safety_check_items_check on safety_check_items (org_id, check_id)");
   if (!tableExists(holder.sqlite, "incidents", holder.dialect)) {
     holder.sqlite.exec(`create table if not exists incidents (

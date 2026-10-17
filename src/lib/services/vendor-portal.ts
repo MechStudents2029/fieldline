@@ -13,6 +13,8 @@ import {
   bills,
   contacts,
   documents,
+  observationPhotos,
+  observations,
   organizations,
   projects,
   punchItems,
@@ -42,6 +44,7 @@ import { scheduleGateLabels } from "@/lib/services/permits";
 import { vendorMayReadVisual } from "@/lib/services/markup";
 import { ServiceError } from "@/lib/services/errors";
 import { portalPayApplications, portalSavePayApplication, portalSubmitPayApplication } from "@/lib/services/pay-applications";
+import { portalObservationRows, portalReadyObservation } from "@/lib/services/observations";
 import { portalCredits, respondVendorCredit } from "@/lib/services/vendor-credits";
 import type { Actor } from "@/lib/services/read";
 import { localDay } from "@/lib/time/calendar";
@@ -130,6 +133,20 @@ export type VendorPortalHome = {
   }[];
   certificates: { type: string; label: string; statusLabel: string; state: string; expiresOn: string; documentId: string | null }[];
   fields: { label: string; value: string }[];
+  observations: {
+    id: string;
+    number: number;
+    job: string;
+    title: string;
+    typeLabel: string;
+    priorityLabel: string;
+    dueDate: string | null;
+    location: string;
+    hazard: string;
+    description: string;
+    rejectNote: string;
+    statusLabel: string;
+  }[];
   payApps: {
     id: string;
     number: number;
@@ -650,6 +667,7 @@ export function vendorPortal(token: string): VendorPortalHome | null {
       })),
     certificates: presentCerts(certs, today, ctx.required),
     payApps: portalPayApplications(orgId, contactId),
+    observations: portalObservationRows(orgId, contactId),
   };
 }
 
@@ -843,6 +861,11 @@ export function submitPortalPayApp(input: {
   return portalSubmitPayApplication(ctx.orgId, ctx.contactId, input.applicationId);
 }
 
+export function markPortalObservation(input: { token: string; ip: string; observationId: string; note: string; photo?: VendorUpload | null }) {
+  const ctx = requirePortal(input.token, input.ip);
+  return portalReadyObservation(ctx.orgId, ctx.contactId, ctx.vendorName, input.observationId, { note: input.note, photo: input.photo });
+}
+
 export function markVendorPunch(input: { token: string; ip: string; itemId: string; photo?: VendorUpload | null }) {
   const ctx = requirePortal(input.token, input.ip);
   const item = ctx.db
@@ -965,6 +988,13 @@ export function vendorFileAllowed(token: string, documentId: string): boolean {
     .where(and(eq(bidFiles.orgId, ctx.orgId), eq(bidFiles.documentId, document.id)))
     .get();
   if (attachment && bidIds.has(attachment.bidId)) return true;
+  const observationPhoto = ctx.db
+    .select({ id: observationPhotos.id })
+    .from(observationPhotos)
+    .innerJoin(observations, and(eq(observations.id, observationPhotos.observationId), eq(observations.orgId, ctx.orgId)))
+    .where(and(eq(observationPhotos.orgId, ctx.orgId), eq(observationPhotos.documentId, document.id), eq(observations.assigneeContactId, ctx.contactId)))
+    .get();
+  if (observationPhoto) return true;
   if (document.type === "markup" || document.type === "plan_crop") return vendorMayReadVisual(ctx.db, ctx.orgId, ctx.contactId, document.id);
   return vendorMayReadJobFile(ctx.db, ctx.orgId, ctx.contactId, document.id);
 }

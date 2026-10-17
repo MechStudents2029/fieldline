@@ -82,6 +82,7 @@ export type InspectionRow = {
   gates: { id: string; title: string }[];
   files: PermitFile[];
   todos: { id: string; title: string }[];
+  observationId: string | null;
 };
 
 export type PermitRow = {
@@ -181,6 +182,7 @@ export function permitBoard(actor: Actor, projectId: string): { projectName: str
           .map((gate) => ({ id: gate.scheduleItemId, title: titles.get(gate.scheduleItemId) ?? "Item" })),
         files: filesFor(actor.orgId, "inspection", row.id),
         todos: todoRows.filter((task) => task.tags.split(",").includes(`inspection:${row.id}`)).map((task) => ({ id: task.id, title: task.title })),
+        observationId: row.observationId,
       })),
   }));
   return {

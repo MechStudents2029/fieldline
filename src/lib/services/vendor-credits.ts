@@ -301,6 +301,35 @@ export function createCreditFromReceipt(actor: Actor, receiptId: string, input: 
   };
 }
 
+export function draftObservationBackcharge(
+  actor: Actor,
+  input: { projectId: string; vendorContactId: string; reason: string; costCode: string | null; sourceKey: string; documentId: string | null },
+) {
+  office(actor);
+  const db = dbFor(actor);
+  const prior = existingSource(db, actor.orgId, input.sourceKey);
+  if (prior) return { id: prior.id, number: prior.number, status: prior.status, amountCents: prior.amountCents, existing: true as const };
+  return {
+    ...insertCredit(db, actor, {
+      projectId: input.projectId,
+      vendorContactId: input.vendorContactId,
+      kind: "backcharge",
+      reason: input.reason,
+      amountCents: 0,
+      costCode: input.costCode,
+      purchaseOrderId: null,
+      purchaseOrderLineId: null,
+      receiptId: null,
+      punchItemId: null,
+      billId: null,
+      sourceKey: input.sourceKey,
+      documentId: input.documentId,
+      issue: false,
+    }),
+    existing: false as const,
+  };
+}
+
 export function createCreditFromPunch(actor: Actor, punchItemId: string, input: { another?: boolean; reason?: string; amountCents?: number } = {}) {
   propose(actor);
   const db = dbFor(actor);
