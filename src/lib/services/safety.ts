@@ -11,6 +11,7 @@ import {
   incidentPhotos,
   incidents,
   memberships,
+  observations,
   projects,
   punchItems,
   safetyCheckItems,
@@ -213,10 +214,17 @@ function punchOpen(orgId: string, punchId: string | null) {
   return Boolean(punch && punch.status === "open");
 }
 
-function failedItemOpen(orgId: string, item: { result: string; todoId: string | null; punchId: string | null }) {
+function observationStillOpen(orgId: string, observationId: string | null | undefined) {
+  if (!observationId) return false;
+  const row = getDb().select().from(observations).where(and(eq(observations.orgId, orgId), eq(observations.id, observationId))).get();
+  return Boolean(row && row.status !== "closed" && row.status !== "void");
+}
+
+function failedItemOpen(orgId: string, item: { result: string; todoId: string | null; punchId: string | null; observationId?: string | null }) {
   if (item.result !== "fail") return false;
-  if (!item.todoId && !item.punchId) return true;
-  return taskOpen(orgId, item.todoId) || punchOpen(orgId, item.punchId);
+  const observationId = item.observationId ?? null;
+  if (!item.todoId && !item.punchId && !observationId) return true;
+  return taskOpen(orgId, item.todoId) || punchOpen(orgId, item.punchId) || observationStillOpen(orgId, observationId);
 }
 
 export function canReadIncident(actor: Actor, createdBy: string) {
@@ -892,6 +900,7 @@ export function jobSafety(actor: Actor, projectId: string) {
           result: item.result,
           todoId: item.todoId,
           punchId: item.punchId,
+          observationId: item.observationId,
           open: failedItemOpen(actor.orgId, item),
         })),
       };

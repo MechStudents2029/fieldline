@@ -15,10 +15,11 @@ export type CloseoutFacts = {
   checksOpen: number;
   incidentsOpen: number;
   handoverOpen: number;
+  observationsOpen: number;
 };
 
 export type CloseoutBlocker = {
-  key: "punch" | "invoice" | "changes" | "bills" | "orders" | "time" | "permits" | "inspections" | "equipment" | "talks" | "checks" | "incidents" | "handover";
+  key: "punch" | "invoice" | "changes" | "bills" | "orders" | "time" | "permits" | "inspections" | "equipment" | "talks" | "checks" | "incidents" | "handover" | "observations";
   label: string;
   count: number;
 };
@@ -66,6 +67,7 @@ export function closeoutChecklist(facts: CloseoutFacts): CloseoutBlocker[] {
     { key: "checks", label: "Checks", count: facts.checksOpen },
     { key: "incidents", label: "Incidents", count: facts.incidentsOpen },
     { key: "handover", label: "Handover", count: facts.handoverOpen },
+    { key: "observations", label: "Observations", count: facts.observationsOpen },
   ];
 }
 

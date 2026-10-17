@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { inspectionTodosAction, reinspectAction, saveInspectionAction, savePermitAction } from "@/app/actions";
+import { linkInspectionObservationAction } from "@/app/(office)/observations/actions";
 import { ActionForm } from "@/components/action-form";
 import { jobSectionTabs } from "@/components/job-section-tabs";
 import { Toolbar } from "@/components/mac/toolbar";
@@ -156,6 +157,19 @@ export default async function PermitsPage({
                     Request re-inspection
                   </button>
                 </ActionForm>
+                {selected.result === "failed" && !selected.observationId ? (
+                  <ActionForm action={linkInspectionObservationAction.bind(null, selected.id)}>
+                    <input type="hidden" name="projectId" value={id} />
+                    <button type="submit" className="ctl">
+                      Observation
+                    </button>
+                  </ActionForm>
+                ) : null}
+                {selected.observationId ? (
+                  <Link href={`/observations/${selected.observationId}`} className="ctl">
+                    Observation
+                  </Link>
+                ) : null}
               </div>
             ) : null}
           </aside>

@@ -18,6 +18,7 @@ const links = [
   ["/delays", "Delays"],
   ["/budget-changes", "Budget changes"],
   ["/pay-applications", "Pay applications"],
+  ["/observations", "Observations"],
   ["/receipts", "Receipts"],
   ["/reimbursements", "Reimbursements"],
   ["/mileage", "Mileage"],

@@ -18,6 +18,7 @@ import {
   memberships,
   notificationSettings,
   notifications,
+  observations,
   projects,
   punchItems,
   purchaseOrders,
@@ -199,6 +200,12 @@ function timeNotice(db: AppDatabase, orgId: string, entityId: string): { record:
   if (!row) return null;
   const job = row.projectId ? jobName(db, orgId, row.projectId) : "General";
   return { record: job || "Time", href: "/time" };
+}
+
+function observationNotice(db: AppDatabase, orgId: string, entityId: string): { record: string } | null {
+  const row = db.select().from(observations).where(and(eq(observations.orgId, orgId), eq(observations.id, entityId))).get();
+  if (!row) return null;
+  return { record: row.title };
 }
 
 function taskNotice(db: AppDatabase, orgId: string, entityId: string): { record: string; href: string } | null {
@@ -757,6 +764,7 @@ export function listInbox(actor: Actor, filter: "unread" | "mentions" | "all"): 
         return Boolean(lateFeeNotice(actor.orgId, row.entityId));
       }
       if (row.entityType === "form_submission") return Boolean(formNotice(actor, row.entityId));
+      if (row.entityType === "observation") return Boolean(observationNotice(db, actor.orgId, row.entityId));
       const entity = resolveEntity(db, actor.orgId, row.entityType, row.entityId);
       if (!entity) return false;
       if (financial(entity.type) && !canSeeMoney(roleOf(actor))) return false;
@@ -777,12 +785,13 @@ export function listInbox(actor: Actor, filter: "unread" | "mentions" | "all"): 
     const material = row.entityType === "material_request" ? materialInbox(actor.orgId, row.entityId) : null;
     const lateFee = row.entityType === "late_fee" ? lateFeeNotice(actor.orgId, row.entityId) : null;
     const form = row.entityType === "form_submission" ? formNotice(actor, row.entityId) : null;
-    const entity = task || punch || agreement || dispatch || booking || review || follow || selectionFollow || credit || nec || material || lateFee || form ? null : resolveEntity(db, actor.orgId, row.entityType, row.entityId);
+    const observation = row.entityType === "observation" ? observationNotice(db, actor.orgId, row.entityId) : null;
+    const entity = task || punch || agreement || dispatch || booking || review || follow || selectionFollow || credit || nec || material || lateFee || form || observation ? null : resolveEntity(db, actor.orgId, row.entityType, row.entityId);
     return {
       id: row.id,
       kind: row.kind,
       who: (row.actorId && names.get(row.actorId)) || row.actorName,
-      record: task?.record ?? punch?.record ?? agreement?.record ?? dispatch?.record ?? booking?.record ?? review?.record ?? follow?.record ?? selectionFollow?.record ?? credit?.record ?? nec?.record ?? material?.record ?? lateFee?.record ?? form?.record ?? (entity ? recordLine(entity) : row.entityType),
+      record: task?.record ?? punch?.record ?? agreement?.record ?? dispatch?.record ?? booking?.record ?? review?.record ?? follow?.record ?? selectionFollow?.record ?? credit?.record ?? nec?.record ?? material?.record ?? lateFee?.record ?? form?.record ?? observation?.record ?? (entity ? recordLine(entity) : row.entityType),
       snippet: row.snippet,
       age: shortAge(row.createdAt),
       unread: !row.readAt,

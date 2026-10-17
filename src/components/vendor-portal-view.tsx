@@ -10,6 +10,7 @@ import {
   uploadVendorJobFileAction,
 } from "@/app/actions";
 import { submitPortalPayAppAction } from "@/app/(office)/pay-applications/actions";
+import { markPortalObservationAction } from "@/app/(office)/observations/actions";
 import { ActionForm } from "@/components/action-form";
 import { FileButton } from "@/components/file-button";
 import { formatCalendarDay } from "@/lib/format";
@@ -457,6 +458,39 @@ export function VendorPortalView({
                     </button>
                   </ActionForm>
                 ) : null}
+              </li>
+            ))}
+          </ul>
+        </section>
+        <section aria-label="Observations">
+          <h2>Observations</h2>
+          {home.observations.length === 0 ? <p className="home-sub">0</p> : null}
+          <ul className="home-stack">
+            {home.observations.map((item) => (
+              <li key={item.id} className="home-card" data-observation={item.title}>
+                <div className="home-row">
+                  <p className="home-copy">
+                    {item.number} {item.title}
+                  </p>
+                  <span className="home-pill">{item.statusLabel}</span>
+                </div>
+                <p className="home-sub">
+                  {item.job} · {item.typeLabel} · {item.priorityLabel}
+                  {item.dueDate ? ` · ${item.dueDate}` : ""}
+                </p>
+                {item.hazard ? <p className="home-sub">{item.hazard}</p> : null}
+                {item.description ? <p className="home-sub">{item.description}</p> : null}
+                {item.rejectNote ? <p className="home-sub">{item.rejectNote}</p> : null}
+                <ActionForm action={markPortalObservationAction.bind(null, token, item.id)} className="home-form">
+                  <label className="text-sm">
+                    Note
+                    <textarea name="note" aria-label={`Note ${item.title}`} className="home-input" />
+                  </label>
+                  <FileButton name="photo" label={`Photo ${item.title}`} accept="image/jpeg,image/png,image/webp" empty="Photo" />
+                  <button type="submit" className="home-btn">
+                    Ready for review
+                  </button>
+                </ActionForm>
               </li>
             ))}
           </ul>

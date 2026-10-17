@@ -43,6 +43,7 @@ const TRIGGERS = [
   ["commission_marked_paid", "Commission marked paid"],
   ["pay_application_submitted", "Pay application submitted"],
   ["pay_application_approved", "Pay application approved"],
+  ["observation_overdue", "Observation overdue"],
 ] as const;
 
 const ACTION_KINDS = [

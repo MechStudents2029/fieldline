@@ -2,6 +2,15 @@
 
 ## 2026-10-15
 
+### Observations
+
+- A job can log an observation with a number, title, type, priority, hazard, room, cost code, trade, vendor or crew, due date, description, and photos. Types are Quality, Safety, Commissioning, Environmental, and Work to complete. Priorities are Low, Medium, High, and Urgent.
+- Status runs Draft, Open, Ready for review, then Closed. Not accepted sends it back to Open and needs a note. Void needs a reason. Closed and Void stay locked. History records who and when.
+- The assigned vendor sees only their open observations, adds a note and a photo, and marks Ready for review. Field creates one and marks their own ready from My day. Copy link and Mark shared store who and when. No message is sent. The client portal, client updates, and handover do not show observations.
+- Office opens one observation from a failed safety checklist item or a failed inspection. A second open keeps that link. Create backcharge, on an open or closed Quality observation with a vendor, writes one draft vendor backcharge.
+- Work, Observations lists the rows, with filters and CSV at `/api/export/observations`. The job tab is Observations. Today counts an open observation past due under Obs due, and a review older than 2 workdays under Obs review. A vendor response lands in Inbox. Closeout counts open observations. Observation overdue can run an automation. Print covers one row and the filtered list.
+- Seed: Okonkwo has a high Quality observation for Harbor Plumbing that is ready for review, with a photo, a Safety observation that is open and overdue, and one closed. Brooks has a draft.
+
 ### Subcontractor pay applications
 
 - An issued purchase order can bill by progress. The schedule of values is the purchase order lines, plus lines copied from an approved change order on that order. A purchase order that already has a flat bill stays on flat bills. A purchase order set to progress refuses a flat bill.

@@ -5,8 +5,10 @@ import { ChecklistForm } from "@/components/checklist-form";
 import { FileButton } from "@/components/file-button";
 import { jobSectionTabs } from "@/components/job-section-tabs";
 import { Toolbar } from "@/components/mac/toolbar";
+import { linkCheckObservationAction } from "@/app/(office)/observations/actions";
 import { createIncidentAction, linkCheckPunchAction, linkCheckTodoAction, scheduleTalkAction } from "@/app/(office)/safety/actions";
 import { requireSession } from "@/lib/auth/session";
+import { canEditCrm } from "@/lib/permissions";
 import { formatCalendarDay } from "@/lib/format";
 import { jobSafety, safetyTabCount } from "@/lib/services/safety";
 import { calendarForOrg } from "@/lib/services/time";
@@ -147,6 +149,19 @@ export default async function JobSafetyPage({
                             {item.punchId ? (
                               <Link href={`/projects/${id}#punch`} className="ctl">
                                 Punch
+                              </Link>
+                            ) : null}
+                            {item.result === "fail" && canEditCrm(session.role) && !item.observationId ? (
+                              <ActionForm action={linkCheckObservationAction.bind(null, item.id)}>
+                                <input type="hidden" name="projectId" value={id} />
+                                <button type="submit" className="ctl">
+                                  Observation
+                                </button>
+                              </ActionForm>
+                            ) : null}
+                            {item.observationId ? (
+                              <Link href={`/observations/${item.observationId}`} className="ctl">
+                                Observation
                               </Link>
                             ) : null}
                           </span>

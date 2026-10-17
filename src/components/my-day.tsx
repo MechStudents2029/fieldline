@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { addFieldPunchAction, markPunchDoneAction, startLogAction } from "@/app/actions";
+import { createFieldObservationAction, readyObservationAction } from "@/app/(office)/observations/actions";
 import { ActionForm } from "@/components/action-form";
 import { LargeTitle } from "@/components/ios";
 import { Toolbar } from "@/components/mac/toolbar";
@@ -14,6 +15,7 @@ import { noticesFor } from "@/lib/services/automations";
 import { leaderTalks } from "@/lib/services/safety";
 import { myDay } from "@/lib/services/logs";
 import { fieldPunch } from "@/lib/services/punch";
+import { fieldObservations } from "@/lib/services/observations";
 import { mentionUnread } from "@/lib/services/comments";
 import { rfiQueue } from "@/lib/services/rfis";
 import { submittalQueue } from "@/lib/services/submittals";
@@ -59,6 +61,7 @@ export function MyDay({ actor }: { actor: Actor }) {
   const board = timeBoard(actor);
   const plan = memberAssignments(actor);
   const punch = fieldPunch(actor);
+  const observations = fieldObservations(actor);
   const rfis = rfiQueue(actor);
   const submittals = submittalQueue(actor);
   const mentions = mentionUnread(actor);
@@ -304,6 +307,55 @@ export function MyDay({ actor }: { actor: Actor }) {
           </label>
           <button type="submit" className="h-11 rounded-lg bg-[var(--fl-accent)] text-sm font-semibold text-white">
             Add punch
+          </button>
+        </ActionForm>
+      </section>
+      <section aria-label="Observations" className="flex flex-col gap-2">
+        <h2 className="fl-section">Observations</h2>
+        <ul className="flex flex-col gap-3">
+          {observations.items.map((item) => (
+            <li key={item.id} className="fl-group px-4 py-3">
+              <p className="fl-body">{item.title}</p>
+              <p className="fl-footnote text-[var(--fl-secondary)]">
+                {[item.job, item.location, item.statusLabel].filter(Boolean).join(" · ")}
+              </p>
+              {item.status === "open" ? (
+                <ActionForm action={readyObservationAction.bind(null, item.id)} className="mt-2">
+                  <button type="submit" className="h-11 rounded-lg bg-[var(--fl-accent)] text-sm font-semibold text-white">
+                    Ready {item.title}
+                  </button>
+                </ActionForm>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+        <ActionForm action={createFieldObservationAction} className="fl-group flex flex-col gap-2 px-4 py-3">
+          <label className="text-sm">
+            Job
+            <select name="projectId" aria-label="Observation job" className="field mt-1" defaultValue={observations.jobs[0]?.id ?? ""}>
+              {observations.jobs.map((job) => (
+                <option key={job.id} value={job.id}>
+                  {job.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="text-sm">
+            Title
+            <input name="title" aria-label="Observation title" className="field mt-1" />
+          </label>
+          <label className="text-sm">
+            Type
+            <select name="type" aria-label="Observation type" className="field mt-1" defaultValue="quality">
+              {observations.types.map((row) => (
+                <option key={row.value} value={row.value}>
+                  {row.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button type="submit" className="h-11 rounded-lg bg-[var(--fl-accent)] text-sm font-semibold text-white">
+            Add observation
           </button>
         </ActionForm>
       </section>

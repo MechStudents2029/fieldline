@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ArrowLeftRight, BarChart3, BookOpen, Boxes, Briefcase, Calendar, CalendarOff, CircleDollarSign, ClipboardList, Clock, CloudRain, Columns2, Copy, FileMinus, FileOutput, FileSpreadsheet, FileText, GitPullRequest, HardHat, IdCard, Inbox, ListChecks, ListTodo, MessageSquare, Package, PackagePlus, PenLine, Percent, Presentation, Receipt, Repeat, Route, Scale, ScrollText, Star, Sun, Ticket, Undo2, Users, Wallet, Wrench } from "lucide-react";
+import { ArrowLeftRight, BarChart3, BookOpen, Boxes, Briefcase, Calendar, CalendarOff, CircleDollarSign, ClipboardCheck, ClipboardList, Clock, CloudRain, Columns2, Copy, FileMinus, FileOutput, FileSpreadsheet, FileText, GitPullRequest, HardHat, IdCard, Inbox, ListChecks, ListTodo, MessageSquare, Package, PackagePlus, PenLine, Percent, Presentation, Receipt, Repeat, Route, Scale, ScrollText, Star, Sun, Ticket, Undo2, Users, Wallet, Wrench } from "lucide-react";
 import { SignOutButton } from "@/components/sign-out-button";
 import type { OfficeChrome } from "@/lib/services/read";
 
@@ -119,6 +119,7 @@ export function Sidebar({
           {item("/mileage", "Mileage", <Route size={16} strokeWidth={1.6} />)}
           {item("/material-requests", "Materials", <PackagePlus size={16} strokeWidth={1.6} />)}
           {item("/equipment", "Equipment", <Wrench size={16} strokeWidth={1.6} />)}
+          {item("/observations", "Observations", <ClipboardCheck size={16} strokeWidth={1.6} />)}
           {item("/safety", "Safety", <HardHat size={16} strokeWidth={1.6} />)}
           {item("/certifications", "Certifications", <IdCard size={16} strokeWidth={1.6} />)}
           {field ? null : item("/liens", "Lien deadlines", <Scale size={16} strokeWidth={1.6} />)}
