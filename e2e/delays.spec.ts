@@ -25,7 +25,7 @@ test("logs a delay, documents it, and converts once", async ({ page }) => {
   await page.getByRole("button", { name: "Document" }).click();
   await expect(page.locator(".fl-pill[data-status=documented]")).toBeVisible();
   await page.getByLabel("Schedule item").selectOption({ label: "Tile shower" });
-  await page.getByRole("button", { name: "Link" }).click();
+  await page.getByRole("button", { name: "Link", exact: true }).click();
   await expect(page.locator("[data-item='sch_ok_tile']")).toBeVisible();
   await page.getByRole("button", { name: "Mark shared" }).click();
   const share = await page.locator("[data-share]").getAttribute("href");
