@@ -5,6 +5,7 @@ import { requireSession } from "@/lib/auth/session";
 import { formatCalendarDay } from "@/lib/format";
 import { formatPercent, formatWhole } from "@/lib/money";
 import { canEditCrm } from "@/lib/permissions";
+import { contingencyFor } from "@/lib/services/budget-changes";
 import { wipJob } from "@/lib/services/wip";
 
 function dollars(cents: number) {
@@ -27,6 +28,7 @@ export default async function WipJobPage({
   const asof = Array.isArray(query.asof) ? query.asof[0] : query.asof;
   const row = wipJob(session, projectId, asof);
   if (!row) notFound();
+  const hold = contingencyFor(session.orgId, projectId);
   const back = asof ? `/reports/wip?asof=${asof}` : "/reports/wip";
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 px-4 py-4 md:px-6">
@@ -37,6 +39,7 @@ export default async function WipJobPage({
         <h1 className="mac-t15">{row.name}</h1>
         {row.override ? <span className="inline-flex h-4 items-center rounded bg-[var(--mac-fill)] px-1.5 text-[11px] font-medium text-[var(--mac-secondary)]">Override</span> : null}
         {asof && /^\d{4}-\d{2}-\d{2}$/.test(asof) ? <span className="text-[13px] text-[var(--mac-secondary)]">{formatCalendarDay(asof)}</span> : null}
+        {hold.originalCents > 0 ? <span className="num text-[13px]" data-contingency={hold.revisedCents}>{formatWhole(hold.revisedCents)}</span> : null}
       </div>
       {row.override ? <p className="text-[13px] text-[var(--mac-secondary)]">{row.override.note}</p> : null}
       <div className="overflow-auto">

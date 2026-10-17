@@ -34,6 +34,8 @@ import {
   bookingHours,
   bookings,
   budgetLines,
+  budgetChangeLines,
+  budgetChanges,
   changeOrderLines,
   changeOrders,
   changeEventCodes,
@@ -255,7 +257,7 @@ import {
   WEBSITE_FORM_SOURCE,
 } from "@/lib/lead-form/rules";
 
-export const SEED_VERSION = "80";
+export const SEED_VERSION = "81";
 
 const ORG = "org_rivera";
 const NORTH = "org_northline";
@@ -8327,6 +8329,110 @@ function seedTemplates(db: AppDatabase, now: string) {
     .values([
       { id: "aud_dc_ok_rain", orgId: ORG, actorId: "user_dana", action: "delay.create", entityType: "delay_claim", entityId: "dc_ok_rain", payloadJson: "{}", ip: null, createdAt: `${rainDay}T07:00` },
       { id: "aud_dc_ok_full", orgId: ORG, actorId: "user_maya", action: "delay.document", entityType: "delay_claim", entityId: "dc_ok_full", payloadJson: "{}", ip: null, createdAt: `${fullDay}T07:00` },
+    ])
+    .run();
+
+  db.update(budgetLines).set({ kind: "allowance" }).where(eq(budgetLines.id, "bud_ok_floor")).run();
+  const budgetStamp = `${today}T09:00`;
+  const draftDay = addCalendarDays(today, -5);
+  db.insert(budgetLines)
+    .values({
+      id: "bud_chen_cont",
+      orgId: ORG,
+      projectId: "proj_chen",
+      changeOrderId: null,
+      name: "Contingency",
+      costCode: "GC-CONT",
+      budgetCostCents: 100_000,
+      budgetPriceCents: 0,
+      sourceLineId: null,
+      kind: "contingency",
+      createdAt: budgetStamp,
+    })
+    .run();
+  db.insert(changeEvents)
+    .values({
+      id: "ce_chen_fund",
+      orgId: ORG,
+      projectId: "proj_chen",
+      number: 2,
+      title: "Supervision cover",
+      reason: "unforeseen",
+      sourceKind: "",
+      sourceId: null,
+      scheduleDays: 0,
+      status: "converted",
+      changeOrderId: null,
+      budgetChangeId: "bc_chen_draw",
+      voidReason: null,
+      voidedAt: null,
+      voidedBy: null,
+      createdAt: budgetStamp,
+      updatedAt: budgetStamp,
+      createdBy: "user_maya",
+    })
+    .run();
+  db.insert(changeEventCodes)
+    .values({ id: "cec_chen_fund", orgId: ORG, eventId: "ce_chen_fund", costCode: "GC-SUPER", romCostCents: 80_000, romPriceCents: 0, sortOrder: 0 })
+    .run();
+  db.insert(budgetChanges)
+    .values([
+      {
+        id: "bc_chen_draw",
+        orgId: ORG,
+        projectId: "proj_chen",
+        number: 1,
+        title: "Supervision cover",
+        type: "contingency",
+        status: "approved",
+        fromBudgetLineId: "bud_chen_cont",
+        fromCents: 80_000,
+        changeEventId: "ce_chen_fund",
+        note: "",
+        overrideNote: null,
+        voidReason: null,
+        voidedAt: null,
+        voidedBy: null,
+        approvedAt: budgetStamp,
+        approvedBy: "user_maya",
+        createdAt: budgetStamp,
+        updatedAt: budgetStamp,
+        createdBy: "user_maya",
+      },
+      {
+        id: "bc_chen_xfer",
+        orgId: ORG,
+        projectId: "proj_chen",
+        number: 2,
+        title: "Tile shift",
+        type: "transfer",
+        status: "draft",
+        fromBudgetLineId: "bud_proj_chen_0",
+        fromCents: 10_000,
+        changeEventId: null,
+        note: "",
+        overrideNote: null,
+        voidReason: null,
+        voidedAt: null,
+        voidedBy: null,
+        approvedAt: null,
+        approvedBy: null,
+        createdAt: `${draftDay}T08:00`,
+        updatedAt: `${draftDay}T08:00`,
+        createdBy: "user_luis",
+      },
+    ])
+    .run();
+  db.insert(budgetChangeLines)
+    .values([
+      { id: "bcl_chen_draw", orgId: ORG, changeId: "bc_chen_draw", budgetLineId: "bud_proj_chen_4", amountCents: 80_000 },
+      { id: "bcl_chen_xfer", orgId: ORG, changeId: "bc_chen_xfer", budgetLineId: "bud_proj_chen_1", amountCents: 10_000 },
+    ])
+    .run();
+  db.insert(auditLogs)
+    .values([
+      { id: "aud_bc_chen_draw", orgId: ORG, actorId: "user_maya", action: "budget_change.approve", entityType: "budget_change", entityId: "bc_chen_draw", payloadJson: "{}", ip: null, createdAt: budgetStamp },
+      { id: "aud_bc_chen_xfer", orgId: ORG, actorId: "user_luis", action: "budget_change.create", entityType: "budget_change", entityId: "bc_chen_xfer", payloadJson: "{}", ip: null, createdAt: `${draftDay}T08:00` },
     ])
     .run();
 }

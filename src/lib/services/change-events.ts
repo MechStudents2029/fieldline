@@ -4,6 +4,7 @@ import { dataDir, getDb } from "@/lib/db/client";
 import {
   auditLogs,
   bills,
+  budgetChanges,
   changeEventCodes,
   changeEventCommitments,
   changeEventFiles,
@@ -110,6 +111,9 @@ export type ChangeEventDetail = ChangeEventListRow & {
   changeOrderId: string | null;
   changeOrderNumber: number | null;
   changeOrderHref: string | null;
+  budgetChangeId: string | null;
+  budgetChangeNumber: number | null;
+  budgetChangeHref: string | null;
   commitments: { id: string; number: string; href: string }[];
   codes: ChangeEventCodeView[];
   quotes: ChangeEventQuoteView[];
@@ -119,6 +123,7 @@ export type ChangeEventDetail = ChangeEventListRow & {
   canEdit: boolean;
   canReady: boolean;
   canConvert: boolean;
+  canFund: boolean;
   canVoid: boolean;
   showMoney: boolean;
 };
@@ -218,6 +223,16 @@ function projectOf(orgId: string, projectId: string) {
   const project = getDb().select().from(projects).where(and(eq(projects.id, projectId), eq(projects.orgId, orgId))).get();
   if (!project) throw new ServiceError("That job is not here.");
   return project;
+}
+
+function liveBudgetFund(orgId: string, eventId: string, budgetChangeId: string | null): boolean {
+  if (budgetChangeId) return true;
+  return getDb()
+    .select()
+    .from(budgetChanges)
+    .where(and(eq(budgetChanges.orgId, orgId), eq(budgetChanges.changeEventId, eventId)))
+    .all()
+    .some((row) => row.status !== "voided");
 }
 
 function loadEvent(orgId: string, eventId: string): EventRow {
@@ -461,6 +476,14 @@ export function changeEventDetail(actor: Actor, eventId: string): ChangeEventDet
   const order = row.changeOrderId
     ? db.select().from(changeOrders).where(and(eq(changeOrders.id, row.changeOrderId), eq(changeOrders.orgId, actor.orgId))).get()
     : undefined;
+  const funded = db
+    .select()
+    .from(budgetChanges)
+    .where(eq(budgetChanges.orgId, actor.orgId))
+    .all()
+    .filter((change) => change.id === row.budgetChangeId || (change.changeEventId === row.id && change.status !== "voided"));
+  const budgetChange = funded.find((change) => change.id === row.budgetChangeId) ?? funded[0];
+  const fundedLive = liveBudgetFund(actor.orgId, row.id, row.budgetChangeId);
   const taken = new Set(quotes.map((quote) => quote.contactId));
   const vendors = [...vendorIds(actor.orgId, row.projectId)]
     .filter((contactId) => !taken.has(contactId))
@@ -476,6 +499,9 @@ export function changeEventDetail(actor: Actor, eventId: string): ChangeEventDet
     changeOrderId: row.changeOrderId,
     changeOrderNumber: order?.number ?? null,
     changeOrderHref: order ? `/projects/${row.projectId}/orders/${order.id}` : null,
+    budgetChangeId: budgetChange && canSeeMoney(actor.role) ? budgetChange.id : null,
+    budgetChangeNumber: budgetChange && canSeeMoney(actor.role) ? budgetChange.number : null,
+    budgetChangeHref: budgetChange && canSeeMoney(actor.role) ? `/budget-changes/${budgetChange.id}` : null,
     commitments: commitments.map((link) => {
       const po = orders.find((item) => item.id === link.purchaseOrderId);
       return { id: link.purchaseOrderId, number: po?.number || "", href: `/purchase-orders/${link.purchaseOrderId}` };
@@ -505,7 +531,8 @@ export function changeEventDetail(actor: Actor, eventId: string): ChangeEventDet
       .sort((a, b) => a.name.localeCompare(b.name)),
     canEdit: editable,
     canReady: editable && (row.status === "open" || row.status === "pricing"),
-    canConvert: canEditCrm(actor.role) && row.status === "ready",
+    canConvert: canEditCrm(actor.role) && row.status === "ready" && !fundedLive && !row.changeOrderId,
+    canFund: canEditCrm(actor.role) && row.status === "ready" && !fundedLive && !row.changeOrderId,
     canVoid: canEditCrm(actor.role) && !LOCKED.has(row.status),
     showMoney: canSeeMoney(actor.role),
   };
@@ -739,7 +766,7 @@ export function voidChangeEvent(actor: Actor, eventId: string, reason: string) {
 export function convertChangeEvent(actor: Actor, eventId: string): { changeOrderId: string; purchaseOrderIds: string[] } {
   office(actor);
   const row = loadEvent(actor.orgId, eventId);
-  if (row.status === "converted" || row.changeOrderId) throw new ServiceError("Already converted.");
+  if (row.status === "converted" || row.changeOrderId || liveBudgetFund(actor.orgId, row.id, row.budgetChangeId)) throw new ServiceError("Already converted.");
   if (row.status !== "ready") throw new ServiceError("Mark it ready first.");
   const project = projectOf(actor.orgId, row.projectId);
   const codes = codesFor(actor.orgId, row.id);
@@ -792,7 +819,9 @@ export function convertChangeEvent(actor: Actor, eventId: string): { changeOrder
   }
   getDb().transaction((tx) => {
     const current = tx.select().from(changeEventRows).where(and(eq(changeEventRows.id, row.id), eq(changeEventRows.orgId, actor.orgId))).get();
-    if (!current || current.status !== "ready" || current.changeOrderId) throw new ServiceError("Already converted.");
+    if (!current || current.status !== "ready" || current.changeOrderId || liveBudgetFund(actor.orgId, current.id, current.budgetChangeId)) {
+      throw new ServiceError("Already converted.");
+    }
     const number = orderNumber;
     tx.insert(changeOrders)
       .values({

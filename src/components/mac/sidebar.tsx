@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, BookOpen, Boxes, Briefcase, Calendar, CalendarOff, CircleDollarSign, ClipboardList, Clock, CloudRain, Columns2, Copy, FileMinus, FileOutput, FileText, GitPullRequest, HardHat, IdCard, Inbox, ListChecks, ListTodo, MessageSquare, Package, PackagePlus, PenLine, Percent, Presentation, Receipt, Repeat, Route, Scale, ScrollText, Star, Sun, Ticket, Undo2, Users, Wallet, Wrench } from "lucide-react";
+import { ArrowLeftRight, BarChart3, BookOpen, Boxes, Briefcase, Calendar, CalendarOff, CircleDollarSign, ClipboardList, Clock, CloudRain, Columns2, Copy, FileMinus, FileOutput, FileText, GitPullRequest, HardHat, IdCard, Inbox, ListChecks, ListTodo, MessageSquare, Package, PackagePlus, PenLine, Percent, Presentation, Receipt, Repeat, Route, Scale, ScrollText, Star, Sun, Ticket, Undo2, Users, Wallet, Wrench } from "lucide-react";
 import { SignOutButton } from "@/components/sign-out-button";
 import type { OfficeChrome } from "@/lib/services/read";
 
@@ -112,6 +112,7 @@ export function Sidebar({
           {item("/transmittals", "Transmittals", <FileOutput size={16} strokeWidth={1.6} />)}
           {item("/change-events", "Change events", <GitPullRequest size={16} strokeWidth={1.6} />)}
           {item("/delays", "Delays", <CloudRain size={16} strokeWidth={1.6} />)}
+          {field ? null : item("/budget-changes", "Budget changes", <ArrowLeftRight size={16} strokeWidth={1.6} />)}
           {item("/receipts", "Receipts", <Receipt size={16} strokeWidth={1.6} />)}
           {item("/reimbursements", "Reimbursements", <CircleDollarSign size={16} strokeWidth={1.6} />)}
           {item("/mileage", "Mileage", <Route size={16} strokeWidth={1.6} />)}

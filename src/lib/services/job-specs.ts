@@ -162,7 +162,7 @@ function budgetsFor(db: Database, orgId: string, projectId?: string) {
     .from(budgetLines)
     .where(eq(budgetLines.orgId, orgId))
     .all()
-    .filter((row) => !projectId || row.projectId === projectId);
+    .filter((row) => (!projectId || row.projectId === projectId) && row.kind !== "contingency");
 }
 
 function liveOf(db: Database, orgId: string, projectId: string, budgetLineId: string | null) {
