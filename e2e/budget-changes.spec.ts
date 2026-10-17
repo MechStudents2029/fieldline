@@ -70,6 +70,9 @@ test("moves budget dollars and funds a change from contingency", async ({ page }
   await expect(page.getByText("E2E contingency fix")).toHaveCount(0);
 
   await signInAs(page, "dana@rivera.demo");
-  const hidden = await page.goto("/budget-changes");
-  expect(hidden?.status()).toBe(404);
+  await page.goto("/budget-changes");
+  await expect(page.getByRole("heading", { name: "Not in this company" })).toBeVisible();
+  await expect(page.getByRole("table", { name: "Budget changes" })).toHaveCount(0);
+  const denied = await page.evaluate(async () => (await fetch("/api/export/budget-changes")).status);
+  expect(denied).toBe(404);
 });
